@@ -25,6 +25,7 @@ export type Animal = {
   sex: string;
   avatar: string;
   avatarBackground: string;
+  photo?: string;
   history: string;
   conditions: string;
   treatments: string;

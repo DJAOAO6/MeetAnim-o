@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AnimalRecord } from "@/components/clients/animal-record";
 import { AnimalSideCards } from "@/components/clients/animal-side-cards";
@@ -14,14 +15,58 @@ type ClientProfileProps = {
   client: Client;
 };
 
+const animalPhotosStorageKey = "animeo-animal-photos-v1";
+
+function animalPhotoKey(clientId: string, animalId: string) {
+  return `${clientId}:${animalId}`;
+}
+
 export function ClientProfile({ client }: ClientProfileProps) {
   const { openNewAppointment } = useAppointments();
   const [selectedAnimalId, setSelectedAnimalId] = useState(client.animals[0]?.id ?? "");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [animalPhotos, setAnimalPhotos] = useState<Record<string, string>>({});
   const selectedAnimal = client.animals.find((animal) => animal.id === selectedAnimalId) ?? client.animals[0];
+
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const savedPhotos = window.localStorage.getItem(animalPhotosStorageKey);
+      if (savedPhotos) {
+        const parsedPhotos = JSON.parse(savedPhotos) as Record<string, string>;
+        queueMicrotask(() => {
+          if (!cancelled) setAnimalPhotos(parsedPhotos);
+        });
+      }
+    } catch {
+      // Les pictogrammes par défaut restent affichés si le stockage est indisponible.
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function showFeedback(message: string) {
     setFeedback(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
+  }
+
+  function updateAnimalPhoto(animalId: string, photo: string | null) {
+    setAnimalPhotos((current) => {
+      const next = { ...current };
+      const key = animalPhotoKey(client.id, animalId);
+      if (photo) next[key] = photo;
+      else delete next[key];
+
+      try {
+        window.localStorage.setItem(animalPhotosStorageKey, JSON.stringify(next));
+        setFeedback(photo ? "Photo de l’animal enregistrée dans ce navigateur." : "Photo supprimée. Le pictogramme par défaut est de nouveau utilisé.");
+        return next;
+      } catch {
+        setFeedback("La photo est trop volumineuse pour être enregistrée dans ce navigateur.");
+        return current;
+      }
+    });
   }
 
   return (
@@ -84,10 +129,16 @@ export function ClientProfile({ client }: ClientProfileProps) {
         <div className="grid items-start gap-6 2xl:grid-cols-[260px_minmax(0,1fr)_300px]">
           <AnimalSelector
             animals={client.animals}
+            clientId={client.id}
+            animalPhotos={animalPhotos}
             selectedAnimalId={selectedAnimal.id}
             onSelect={setSelectedAnimalId}
           />
-          <AnimalRecord animal={selectedAnimal} />
+          <AnimalRecord
+            animal={selectedAnimal}
+            photo={animalPhotos[animalPhotoKey(client.id, selectedAnimal.id)] ?? selectedAnimal.photo}
+            onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
+          />
           <AnimalSideCards animal={selectedAnimal} onAction={showFeedback} />
         </div>
       ) : (
@@ -99,8 +150,10 @@ export function ClientProfile({ client }: ClientProfileProps) {
   );
 }
 
-function AnimalSelector({ animals, selectedAnimalId, onSelect }: {
+function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onSelect }: {
   animals: Animal[];
+  clientId: string;
+  animalPhotos: Record<string, string>;
   selectedAnimalId: string;
   onSelect: (id: string) => void;
 }) {
@@ -118,6 +171,7 @@ function AnimalSelector({ animals, selectedAnimalId, onSelect }: {
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
         {animals.map((animal) => {
           const selected = animal.id === selectedAnimalId;
+          const photo = animalPhotos[animalPhotoKey(clientId, animal.id)] ?? animal.photo;
 
           return (
             <button
@@ -131,8 +185,8 @@ function AnimalSelector({ animals, selectedAnimalId, onSelect }: {
                   : "border-[#e3ece9] bg-white hover:border-[#a9d5cd]"
               }`}
             >
-              <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-2xl ${animal.avatarBackground}`} role="img" aria-label={`Portrait fictif de ${animal.name}`}>
-                {animal.avatar}
+              <span className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br text-2xl ${animal.avatarBackground}`} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
+                {photo ? <Image src={photo} alt="" fill unoptimized sizes="48px" className="object-cover" /> : animal.avatar}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-extrabold text-animeo-dark">{animal.name}</span>

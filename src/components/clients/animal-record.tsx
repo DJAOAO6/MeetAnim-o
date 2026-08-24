@@ -1,18 +1,54 @@
+"use client";
+
+import Image from "next/image";
+import { useState, type ChangeEvent } from "react";
 import { Card } from "@/components/ui/card";
 import type { Animal } from "@/data/clients";
 
 type AnimalRecordProps = {
   animal: Animal;
+  photo?: string;
+  onPhotoChange: (photo: string | null) => void;
 };
 
-export function AnimalRecord({ animal }: AnimalRecordProps) {
+export function AnimalRecord({ animal, photo, onPhotoChange }: AnimalRecordProps) {
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (file.size > 5_000_000) {
+      setPhotoError("La photo doit peser moins de 5 Mo.");
+      return;
+    }
+
+    try {
+      const resizedPhoto = await resizeAnimalPhoto(file);
+      onPhotoChange(resizedPhoto);
+      setPhotoError(null);
+    } catch {
+      setPhotoError("Cette image n’a pas pu être utilisée. Essayez un fichier JPG, PNG ou WebP.");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden">
         <div className="bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-            <div className={`flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl border-4 border-white bg-gradient-to-br text-6xl shadow-[0_8px_24px_rgba(24,59,69,0.1)] ${animal.avatarBackground}`} role="img" aria-label={`Photo fictive de ${animal.name}`}>
-              {animal.avatar}
+            <div className="shrink-0" style={{ width: 128 }}>
+              <div className={`relative flex items-center justify-center overflow-hidden rounded-[24px] border-4 border-white bg-gradient-to-br text-6xl shadow-[0_8px_24px_rgba(24,59,69,0.1)] ${animal.avatarBackground}`} style={{ width: 128, height: 128 }} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
+                {photo ? <Image src={photo} alt="" fill unoptimized sizes="128px" className="object-cover" /> : animal.avatar}
+              </div>
+              <div className="mt-2 flex justify-center gap-2">
+                <label className="cursor-pointer text-xs font-extrabold text-animeo hover:underline">
+                  {photo ? "Remplacer" : "Ajouter une photo"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhoto} className="sr-only" />
+                </label>
+                {photo ? <button type="button" onClick={() => { onPhotoChange(null); setPhotoError(null); }} className="text-xs font-bold text-animeo-muted hover:text-animeo-error">Retirer</button> : null}
+              </div>
             </div>
             <div>
               <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-animeo">Fiche animal</p>
@@ -25,6 +61,7 @@ export function AnimalRecord({ animal }: AnimalRecordProps) {
               </div>
             </div>
           </div>
+          {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{photoError}</p> : null}
         </div>
 
         <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
@@ -38,6 +75,22 @@ export function AnimalRecord({ animal }: AnimalRecordProps) {
       <ConsultationHistory animal={animal} />
     </div>
   );
+}
+
+async function resizeAnimalPhoto(file: File) {
+  const bitmap = await createImageBitmap(file);
+  const maximumSize = 640;
+  const scale = Math.min(1, maximumSize / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas indisponible");
+  context.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+  return canvas.toDataURL("image/webp", 0.82);
 }
 
 function AnimalInfo({ label, value }: { label: string; value: string }) {
@@ -58,7 +111,7 @@ function HealthInfo({ title, value, accent = false }: { title: string; value: st
   );
 }
 
-function ConsultationHistory({ animal }: AnimalRecordProps) {
+function ConsultationHistory({ animal }: { animal: Animal }) {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
