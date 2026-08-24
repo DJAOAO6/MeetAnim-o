@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useAppointments } from "@/components/appointments/appointments-context";
 import { AnimalRecord } from "@/components/clients/animal-record";
 import { AnimalSideCards } from "@/components/clients/animal-side-cards";
 import { PageHeader } from "@/components/layout/page-header";
@@ -14,6 +15,7 @@ type ClientProfileProps = {
 };
 
 export function ClientProfile({ client }: ClientProfileProps) {
+  const { openNewAppointment } = useAppointments();
   const [selectedAnimalId, setSelectedAnimalId] = useState(client.animals[0]?.id ?? "");
   const [feedback, setFeedback] = useState<string | null>(null);
   const selectedAnimal = client.animals.find((animal) => animal.id === selectedAnimalId) ?? client.animals[0];
@@ -61,7 +63,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
             <ActionButton label="Ajouter un animal" onClick={() => showFeedback("Le formulaire Ajouter un animal sera ajouté ici")} />
             <button
               type="button"
-              onClick={() => showFeedback("La création d’un rendez-vous sera ajoutée ici")}
+              onClick={openNewAppointment}
               className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.18)] transition hover:bg-[#459e90]"
             >
               <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>

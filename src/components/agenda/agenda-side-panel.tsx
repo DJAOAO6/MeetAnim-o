@@ -1,3 +1,6 @@
+"use client";
+
+import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 
@@ -86,25 +89,37 @@ function MiniCalendar({ weekDates }: AgendaSidePanelProps) {
 }
 
 function NextAppointment() {
+  const { appointments, openManager } = useAppointments();
+  const appointment = appointments
+    .filter((item) => item.status === "confirmed" || item.status === "pending")
+    .sort((first, second) => `${first.date} ${first.start}`.localeCompare(`${second.date} ${second.start}`))[0];
+
+  if (!appointment) {
+    return <Card className="p-5"><p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Prochain rendez-vous</p><p className="mt-4 text-sm font-bold text-animeo-muted">Aucun rendez-vous à venir.</p></Card>;
+  }
+
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Prochain rendez-vous</p>
-          <p className="mt-2 text-2xl font-black text-animeo-dark">09:00</p>
+          <p className="mt-2 text-2xl font-black text-animeo-dark">{appointment.start}</p>
         </div>
-        <span className="rounded-full bg-[#E5F4F0] px-3 py-1 text-[10px] font-black text-animeo-dark">Cabinet</span>
+        <span className="rounded-full bg-[#E5F4F0] px-3 py-1 text-[10px] font-black text-animeo-dark">{appointment.mode === "cabinet" ? "Cabinet" : "Domicile"}</span>
       </div>
       <div className="mt-4 flex items-center gap-3 rounded-2xl bg-animeo-bg p-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">
           <Icon name="paw" className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="font-extrabold text-animeo-dark">Luna</p>
-          <p className="truncate text-xs text-animeo-muted">Marie Dupont · Ostéopathie</p>
+          <p className="font-extrabold text-animeo-dark">{appointment.animalName}</p>
+          <p className="truncate text-xs text-animeo-muted">{appointment.clientName} · {appointment.serviceName}</p>
         </div>
       </div>
-      <p className="mt-3 text-xs font-bold text-animeo-muted">Dans 45 minutes · Durée 1 h</p>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-xs font-bold text-animeo-muted">Durée {appointment.duration} min</p>
+        <button type="button" onClick={() => openManager(appointment.id)} className="text-xs font-extrabold text-animeo">Modifier</button>
+      </div>
     </Card>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
-import { WeekPlanner, pendingAppointmentRequests, type CalendarEvent } from "@/components/agenda/week-planner";
+import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -28,39 +29,53 @@ function formatWeekLabel(dates: Date[]) {
   return `${first.getDate()} ${monthFormatter.format(first)} – ${last.getDate()} ${monthFormatter.format(last)} ${last.getFullYear()}`;
 }
 
+function dateId(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export function AgendaView() {
+  const { appointments, openManager, openNewAppointment, updateAppointment } = useAppointments();
   const [weekOffset, setWeekOffset] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<CalendarEvent[]>(() => [...pendingAppointmentRequests]);
-  const [handledPendingIds, setHandledPendingIds] = useState<number[]>([]);
   const weekDates = getWeekDates(weekOffset);
+  const appointmentEvents: CalendarEvent[] = appointments
+    .filter((appointment) => appointment.status !== "cancelled")
+    .map((appointment) => ({ appointment, day: weekDates.findIndex((date) => dateId(date) === appointment.date) }))
+    .filter(({ day }) => day >= 0)
+    .map(({ appointment, day }) => ({
+      id: appointment.id,
+      appointmentId: appointment.id,
+      day,
+      start: appointment.start,
+      duration: appointment.duration,
+      kind: appointment.status === "pending" ? "pending" : appointment.mode === "cabinet" ? "cabinet" : "domicile",
+      animal: appointment.animalName,
+      client: appointment.clientName,
+      location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
+    }));
+  const pendingRequests = appointmentEvents.filter((event) => event.kind === "pending");
 
   function showFeedback(message: string) {
-    setFeedback(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
-  }
-
-  function simulateAppointment() {
-    const request: CalendarEvent = { id: 1001, day: 2, start: "17:00", duration: 60, kind: "pending", animal: "Nouvel animal", client: "Demande locale", location: "Cabinet" };
-    setLocalEvents((current) => current.some((event) => event.id === 1001) ? current : [
-      ...current,
-      request,
-    ]);
-    setPendingRequests((current) => current.some((event) => event.id === request.id) ? current : [...current, request]);
-    setFeedback("Un rendez-vous fictif en attente a été ajouté mercredi à 17:00.");
+    setFeedback(`${message} — modification enregistrée localement.`);
   }
 
   function simulateBlockedSlot() {
-    setLocalEvents((current) => current.some((event) => event.id === 1002) ? current : [
+    setLocalEvents((current) => current.some((event) => event.id === "blocked-local") ? current : [
       ...current,
-      { id: 1002, day: 4, start: "16:00", duration: 60, kind: "unavailable", title: "Indisponible", location: "Créneau bloqué localement" },
+      { id: "blocked-local", day: 4, start: "16:00", duration: 60, kind: "unavailable", title: "Indisponible", location: "Créneau bloqué localement" },
     ]);
     setFeedback("Le créneau du vendredi à 16:00 a été bloqué localement dans l’agenda unique.");
   }
 
   function handlePendingAction(action: string, event: CalendarEvent) {
-    setPendingRequests((current) => current.filter((request) => request.id !== event.id));
-    setHandledPendingIds((current) => current.includes(event.id) ? current : [...current, event.id]);
+    if (!event.appointmentId) return;
+    if (action === "Décalage demandé") {
+      openManager(event.appointmentId);
+      setFeedback(`Modifiez la date ou l’heure du rendez-vous de ${event.animal ?? "l’animal"}.`);
+      return;
+    }
+    updateAppointment(event.appointmentId, { status: action === "Accepté" ? "confirmed" : "cancelled" });
     showFeedback(`${action} pour le rendez-vous de ${event.animal ?? "l’animal"}`);
   }
 
@@ -136,7 +151,7 @@ export function AgendaView() {
             </button>
             <button
               type="button"
-              onClick={simulateAppointment}
+              onClick={openNewAppointment}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
             >
               <span aria-hidden="true" className="text-xl leading-none">+</span>
@@ -168,7 +183,7 @@ export function AgendaView() {
           dates={weekDates}
           showEvents={weekOffset === 0}
           localEvents={localEvents}
-          handledPendingIds={handledPendingIds}
+          appointmentEvents={appointmentEvents}
           onPendingAction={handlePendingAction}
         />
         <AgendaSidePanel weekDates={weekDates} />

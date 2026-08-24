@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppointmentStatCards, DashboardAgendaOverview, NewAppointmentButton } from "@/components/appointments/dashboard-agenda-overview";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -10,27 +11,8 @@ const stats: Array<{
   icon: IconName;
   warning?: boolean;
 }> = [
-  { title: "Rendez-vous aujourd’hui", value: "4", detail: "2 au cabinet · 2 à domicile", icon: "calendar" },
-  { title: "Demandes en attente", value: "2", detail: "À valider avant ce soir", icon: "agenda", warning: true },
   { title: "Clients à relancer", value: "8", detail: "3 rappels ce mois-ci", icon: "clients" },
   { title: "Chiffre d’affaires du mois", value: "2 520 €", detail: "+12 % par rapport au mois dernier", icon: "euro" },
-];
-
-const appointments = [
-  { time: "09:00", animal: "Luna", client: "Marie Dupont", location: "Cabinet" },
-  { time: "11:00", animal: "Spirit", client: "Julie Robert", location: "Domicile · Mont-Saint-Aignan" },
-  { time: "14:30", animal: "Oslo", client: "Thomas Martin", location: "Domicile · Le Havre" },
-  { time: "17:00", animal: "Oscar", client: "Marie Dupont", location: "Cabinet" },
-];
-
-const agendaDays = [
-  { label: "Lun", date: "24", count: 4, active: true },
-  { label: "Mar", date: "25", count: 3 },
-  { label: "Mer", date: "26", count: 2 },
-  { label: "Jeu", date: "27", count: 4 },
-  { label: "Ven", date: "28", count: 3 },
-  { label: "Sam", date: "29", count: 1 },
-  { label: "Dim", date: "30", count: 0 },
 ];
 
 export default function DashboardPage() {
@@ -39,15 +21,7 @@ export default function DashboardPage() {
       <PageHeader
         title="Tableau de bord"
         description="Bonjour Pauline, voici l’essentiel de votre activité aujourd’hui."
-        action={
-          <Link
-            href="/dashboard/agenda"
-            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
-          >
-            <span className="mr-2 text-xl leading-none" aria-hidden="true">+</span>
-            Nouveau rendez-vous
-          </Link>
-        }
+        action={<NewAppointmentButton />}
       />
 
       <section aria-label="Disponibilités" className="mb-6 flex flex-wrap gap-3">
@@ -62,6 +36,7 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-animeo-muted">Tous vos indicateurs importants sont regroupés ici.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <AppointmentStatCards />
           {stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -71,38 +46,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <Card className="mb-6 overflow-hidden p-5 sm:p-7">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-animeo">Semaine du 24 au 30 août</p>
-              <h2 className="mt-1 text-xl font-extrabold text-animeo-dark sm:text-2xl">Agenda</h2>
-            </div>
-            <Link href="/dashboard/agenda" className="flex items-center gap-1 text-sm font-extrabold text-animeo transition hover:text-animeo-dark">
-              Ouvrir l’agenda complet
-              <Icon name="arrow" className="h-4 w-4" />
-            </Link>
-          </div>
-
-          <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-7" aria-label="Jours de la semaine">
-            {agendaDays.map((day) => (
-              <div key={day.date} className={`rounded-2xl border px-2 py-3 text-center ${day.active ? "border-animeo bg-animeo-soft" : "border-[#e1eae8] bg-animeo-bg"}`}>
-                <p className="text-[10px] font-black uppercase tracking-[0.1em] text-animeo-muted">{day.label}</p>
-                <p className={`mt-1 text-lg font-black ${day.active ? "text-animeo" : "text-animeo-dark"}`}>{day.date}</p>
-                <p className="mt-1 text-[10px] font-bold text-animeo-muted">{day.count} RDV</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <h3 className="font-black text-animeo-dark">Lundi 24 août · 4 rendez-vous</h3>
-            <span className="rounded-full bg-animeo-soft px-3 py-1 text-xs font-extrabold text-animeo-dark">Aujourd’hui</span>
-          </div>
-          <div className="divide-y divide-[#edf2f0]">
-            {appointments.map((appointment) => (
-              <Appointment key={`${appointment.time}-${appointment.animal}`} {...appointment} />
-            ))}
-          </div>
-      </Card>
+      <DashboardAgendaOverview />
 
       <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           <Card className="p-6">
@@ -183,31 +127,6 @@ function StatCard({ title, value, detail, icon, warning = false }: {
       <p className={`mt-2 text-3xl font-black ${warning ? "text-animeo-accent" : "text-animeo"}`}>{value}</p>
       <p className="mt-2 text-xs text-animeo-muted">{detail}</p>
     </Card>
-  );
-}
-
-function Appointment({ time, animal, client, location }: {
-  time: string;
-  animal: string;
-  client: string;
-  location: string;
-}) {
-  const isHomeVisit = location.startsWith("Domicile");
-
-  return (
-    <div className="grid grid-cols-[55px_42px_minmax(0,1fr)] items-center gap-3 py-4 sm:grid-cols-[65px_42px_minmax(0,1fr)_auto]">
-      <p className="font-extrabold text-animeo">{time}</p>
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">
-        <Icon name="paw" className="h-5 w-5" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate font-extrabold text-animeo-dark">{animal}</p>
-        <p className="truncate text-sm text-animeo-muted">{client}</p>
-      </div>
-      <span className={`col-start-3 w-fit rounded-full px-3 py-1.5 text-xs font-extrabold sm:col-start-auto ${isHomeVisit ? "bg-[#fff4dd] text-[#946116]" : "bg-animeo-soft text-animeo-dark"}`}>
-        {location}
-      </span>
-    </div>
   );
 }
 

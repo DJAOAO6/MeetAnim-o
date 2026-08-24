@@ -4,7 +4,8 @@ import { Icon } from "@/components/ui/icon";
 type EventKind = "cabinet" | "domicile" | "pending" | "unavailable" | "tournee";
 
 export type CalendarEvent = {
-  id: number;
+  id: string;
+  appointmentId?: string;
   day: number;
   start: string;
   duration: number;
@@ -20,7 +21,7 @@ type WeekPlannerProps = {
   showEvents: boolean;
   onPendingAction: (action: string, event: CalendarEvent) => void;
   localEvents?: CalendarEvent[];
-  handledPendingIds?: number[];
+  appointmentEvents?: CalendarEvent[];
 };
 
 const START_HOUR = 7;
@@ -28,26 +29,11 @@ const END_HOUR = 19;
 const HOUR_HEIGHT = 72;
 const PLANNER_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
 
-export const pendingAppointmentRequests: CalendarEvent[] = [
-  { id: 4, day: 1, start: "08:00", duration: 120, kind: "pending", animal: "Nala", client: "Julie Robert", location: "Domicile · Mont-Saint-Aignan" },
-  { id: 15, day: 3, start: "18:00", duration: 60, kind: "pending", animal: "Oslo", client: "Thomas Martin", location: "Domicile · Le Havre" },
-];
-
 const events: CalendarEvent[] = [
-  { id: 1, day: 0, start: "09:00", duration: 60, kind: "cabinet", animal: "Luna", client: "Marie Dupont", location: "Cabinet" },
-  { id: 2, day: 0, start: "11:00", duration: 90, kind: "domicile", animal: "Spirit", client: "Julie Robert", location: "Mont-Saint-Aignan" },
-  { id: 3, day: 0, start: "15:30", duration: 60, kind: "cabinet", animal: "Oscar", client: "Marie Dupont", location: "Cabinet" },
-  ...pendingAppointmentRequests,
-  { id: 5, day: 1, start: "13:00", duration: 150, kind: "tournee", title: "Tournée Rouen Ouest", location: "4 rendez-vous" },
-  { id: 6, day: 2, start: "10:00", duration: 90, kind: "domicile", animal: "Milo", client: "Julie Robert", location: "Mont-Saint-Aignan" },
-  { id: 7, day: 2, start: "14:00", duration: 120, kind: "unavailable", title: "Indisponible", location: "Temps personnel" },
-  { id: 8, day: 3, start: "09:30", duration: 60, kind: "cabinet", animal: "Ruby", client: "Camille Leroy", location: "Cabinet" },
-  { id: 9, day: 3, start: "12:00", duration: 90, kind: "domicile", animal: "Simba", client: "Thomas Roy", location: "Isneauville" },
-  { id: 10, day: 3, start: "16:00", duration: 60, kind: "cabinet", animal: "Tao", client: "Julie Masson", location: "Cabinet" },
-  { id: 11, day: 4, start: "07:30", duration: 180, kind: "tournee", title: "Tournée Le Havre", location: "5 rendez-vous" },
-  { id: 12, day: 4, start: "13:30", duration: 60, kind: "cabinet", animal: "Jasper", client: "Anne Lefèvre", location: "Cabinet" },
-  { id: 13, day: 5, start: "10:00", duration: 60, kind: "domicile", animal: "Nova", client: "Luc Bernard", location: "Sotteville-lès-Rouen" },
-  { id: 14, day: 6, start: "09:00", duration: 180, kind: "unavailable", title: "Indisponible", location: "Cabinet fermé" },
+  { id: "tour-rouen", day: 1, start: "13:00", duration: 150, kind: "tournee", title: "Tournée Rouen Ouest", location: "4 rendez-vous" },
+  { id: "unavailable-personal", day: 2, start: "14:00", duration: 120, kind: "unavailable", title: "Indisponible", location: "Temps personnel" },
+  { id: "tour-le-havre", day: 4, start: "07:30", duration: 180, kind: "tournee", title: "Tournée Le Havre", location: "5 rendez-vous" },
+  { id: "unavailable-sunday", day: 6, start: "09:00", duration: 180, kind: "unavailable", title: "Indisponible", location: "Cabinet fermé" },
 ];
 
 const eventStyles: Record<EventKind, string> = {
@@ -82,7 +68,7 @@ function isReferenceDay(date: Date) {
   return date.getFullYear() === 2026 && date.getMonth() === 7 && date.getDate() === 24;
 }
 
-export function WeekPlanner({ dates, showEvents, onPendingAction, localEvents = [], handledPendingIds = [] }: WeekPlannerProps) {
+export function WeekPlanner({ dates, showEvents, onPendingAction, localEvents = [], appointmentEvents = [] }: WeekPlannerProps) {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -125,7 +111,7 @@ export function WeekPlanner({ dates, showEvents, onPendingAction, localEvents = 
             {dates.map((date, dayIndex) => (
               <DayColumn
                 key={date.toISOString()}
-                events={showEvents ? [...events, ...localEvents].filter((event) => event.day === dayIndex && !(event.kind === "pending" && handledPendingIds.includes(event.id))) : []}
+                events={[...(showEvents ? [...events, ...localEvents] : []), ...appointmentEvents].filter((event) => event.day === dayIndex)}
                 onPendingAction={onPendingAction}
               />
             ))}
