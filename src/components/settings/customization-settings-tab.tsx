@@ -55,7 +55,7 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
             <p className="text-sm font-bold" style={{ color: draftColor }}>{profile.profession}</p>
             <p className="mt-3 text-sm leading-6 text-animeo-muted">{profile.bio}</p>
             <div className="mt-5 rounded-2xl bg-animeo-bg p-4 text-left"><p className="text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Prochaine étape</p><p className="mt-1 font-black text-animeo-dark">Choisissez votre prestation</p></div>
-            <button type="button" className="mt-4 w-full rounded-2xl px-5 py-3 text-sm font-extrabold text-white" style={{ backgroundColor: draftColor }}>Prendre rendez-vous</button>
+            <span className="mt-4 block w-full rounded-2xl px-5 py-3 text-center text-sm font-extrabold text-white" style={{ backgroundColor: draftColor }}>Prendre rendez-vous</span>
           </div>
         </div>
       </div>

@@ -1,3 +1,5 @@
+import { clients } from "@/data/clients";
+
 export type ReminderStatus = "À relancer" | "Rappel envoyé" | "RDV repris" | "Ignoré" | "À venir";
 
 export type Reminder = {
@@ -83,9 +85,9 @@ export const initialReminders: Reminder[] = [
   },
   {
     id: "rappel-ruby-aout",
-    clientId: "sophie-bernard",
-    clientName: "Sophie Bernard",
-    clientFirstName: "Sophie",
+    clientId: "camille-leroy",
+    clientName: "Camille Leroy",
+    clientFirstName: "Camille",
     animalId: "ruby",
     animalName: "Ruby",
     animalSpecies: "Chien",
@@ -96,9 +98,9 @@ export const initialReminders: Reminder[] = [
   },
   {
     id: "rappel-milo-aout",
-    clientId: "claire-petit",
-    clientName: "Claire Petit",
-    clientFirstName: "Claire",
+    clientId: "julie-robert",
+    clientName: "Julie Robert",
+    clientFirstName: "Julie",
     animalId: "milo",
     animalName: "Milo",
     animalSpecies: "Chat",
@@ -122,12 +124,12 @@ export const initialReminders: Reminder[] = [
   },
   {
     id: "rappel-jazz-septembre",
-    clientId: "paul-laurent",
-    clientName: "Paul Laurent",
-    clientFirstName: "Paul",
-    animalId: "jazz",
-    animalName: "Jazz",
-    animalSpecies: "Cheval",
+    clientId: "julie-robert",
+    clientName: "Julie Robert",
+    clientFirstName: "Julie",
+    animalId: "nala",
+    animalName: "Nala",
+    animalSpecies: "Chien",
     lastConsultation: "18 mars 2026",
     delay: "6 mois",
     dueDate: "2026-09-18",
@@ -135,33 +137,8 @@ export const initialReminders: Reminder[] = [
   },
 ];
 
-export const reminderClientOptions: ReminderClientOption[] = [
-  {
-    id: "marie-dupont",
-    name: "Marie Dupont",
-    animals: [
-      { id: "luna", name: "Luna", species: "Chien" },
-      { id: "oscar", name: "Oscar", species: "Chat" },
-    ],
-  },
-  {
-    id: "thomas-martin",
-    name: "Thomas Martin",
-    animals: [{ id: "oslo", name: "Oslo", species: "Chien" }],
-  },
-  {
-    id: "julie-robert",
-    name: "Julie Robert",
-    animals: [{ id: "spirit", name: "Spirit", species: "Cheval" }],
-  },
-  {
-    id: "camille-leroy",
-    name: "Camille Leroy",
-    animals: [{ id: "neo", name: "Néo", species: "Chat" }],
-  },
-  {
-    id: "sophie-bernard",
-    name: "Sophie Bernard",
-    animals: [{ id: "ruby", name: "Ruby", species: "Chien" }],
-  },
-];
+export const reminderClientOptions: ReminderClientOption[] = clients.map((client) => ({
+  id: client.id,
+  name: `${client.firstName} ${client.lastName}`,
+  animals: client.animals.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species })),
+}));

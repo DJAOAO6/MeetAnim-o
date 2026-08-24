@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
-import { WeekPlanner } from "@/components/agenda/week-planner";
+import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -31,10 +31,27 @@ function formatWeekLabel(dates: Date[]) {
 export function AgendaView() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
   const weekDates = getWeekDates(weekOffset);
 
   function showFeedback(message: string) {
     setFeedback(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
+  }
+
+  function simulateAppointment() {
+    setLocalEvents((current) => current.some((event) => event.id === 1001) ? current : [
+      ...current,
+      { id: 1001, day: 2, start: "17:00", duration: 60, kind: "pending", animal: "Nouvel animal", client: "Demande locale", location: "Cabinet" },
+    ]);
+    setFeedback("Un rendez-vous fictif en attente a été ajouté mercredi à 17:00.");
+  }
+
+  function simulateBlockedSlot() {
+    setLocalEvents((current) => current.some((event) => event.id === 1002) ? current : [
+      ...current,
+      { id: 1002, day: 4, start: "16:00", duration: 60, kind: "unavailable", title: "Indisponible", location: "Créneau bloqué localement" },
+    ]);
+    setFeedback("Le créneau du vendredi à 16:00 a été bloqué localement dans l’agenda unique.");
   }
 
   return (
@@ -101,7 +118,7 @@ export function AgendaView() {
 
             <button
               type="button"
-              onClick={() => showFeedback("Le blocage d’un créneau sera ajouté ici")}
+              onClick={simulateBlockedSlot}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
             >
               <LockIcon />
@@ -109,7 +126,7 @@ export function AgendaView() {
             </button>
             <button
               type="button"
-              onClick={() => showFeedback("La création d’un rendez-vous sera ajoutée ici")}
+              onClick={simulateAppointment}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
             >
               <span aria-hidden="true" className="text-xl leading-none">+</span>
@@ -138,6 +155,7 @@ export function AgendaView() {
         <WeekPlanner
           dates={weekDates}
           showEvents={weekOffset === 0}
+          localEvents={localEvents}
           onPendingAction={(action, animal) => showFeedback(`${action} pour le rendez-vous de ${animal}`)}
         />
         <AgendaSidePanel weekDates={weekDates} />

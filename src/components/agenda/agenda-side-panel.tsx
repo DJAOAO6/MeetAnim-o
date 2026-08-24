@@ -101,7 +101,7 @@ function NextAppointment() {
         </div>
         <div className="min-w-0">
           <p className="font-extrabold text-animeo-dark">Luna</p>
-          <p className="truncate text-xs text-animeo-muted">Claire Martin · Ostéopathie</p>
+          <p className="truncate text-xs text-animeo-muted">Marie Dupont · Ostéopathie</p>
         </div>
       </div>
       <p className="mt-3 text-xs font-bold text-animeo-muted">Dans 45 minutes · Durée 1 h</p>

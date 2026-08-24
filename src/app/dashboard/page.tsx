@@ -17,10 +17,10 @@ const stats: Array<{
 ];
 
 const appointments = [
-  { time: "09:00", animal: "Luna", client: "Claire Martin", location: "Cabinet" },
-  { time: "11:00", animal: "Spirit", client: "Julien Robert", location: "Domicile · Rouen" },
-  { time: "14:30", animal: "Oslo", client: "Emma Leroy", location: "Domicile · Mont-Saint-Aignan" },
-  { time: "17:00", animal: "Oscar", client: "Sophie Dubois", location: "Cabinet" },
+  { time: "09:00", animal: "Luna", client: "Marie Dupont", location: "Cabinet" },
+  { time: "11:00", animal: "Spirit", client: "Julie Robert", location: "Domicile · Mont-Saint-Aignan" },
+  { time: "14:30", animal: "Oslo", client: "Thomas Martin", location: "Domicile · Le Havre" },
+  { time: "17:00", animal: "Oscar", client: "Marie Dupont", location: "Cabinet" },
 ];
 
 export default function DashboardPage() {
