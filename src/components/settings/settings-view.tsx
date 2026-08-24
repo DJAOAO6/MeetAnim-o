@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
-import { ServicesSettingsTab } from "@/components/settings/services-settings-tab";
+import { ServicesSettingsShortcut } from "@/components/settings/services-settings-tab";
 import { AvailabilitySettingsTab } from "@/components/settings/availability-settings-tab";
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
@@ -71,7 +71,7 @@ export function SettingsView() {
       ) : null}
 
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} onSave={(value) => updateSettings("profile", value)} /> : null}
-      {activeTab === "services" ? <ServicesSettingsTab services={settings.services} onChange={(value, message) => updateSettings("services", value, message)} /> : null}
+      {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={(value, message) => updateSettings("availability", value, message)} /> : null}
       {activeTab === "tours" ? <ToursSettingsTab onNotify={setFeedback} /> : null}
       {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={(value) => updateSettings("reminders", value)} /> : null}

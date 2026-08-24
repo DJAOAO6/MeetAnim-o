@@ -18,8 +18,9 @@ export type CalendarEvent = {
 type WeekPlannerProps = {
   dates: Date[];
   showEvents: boolean;
-  onPendingAction: (action: string, animal: string) => void;
+  onPendingAction: (action: string, event: CalendarEvent) => void;
   localEvents?: CalendarEvent[];
+  handledPendingIds?: number[];
 };
 
 const START_HOUR = 7;
@@ -27,11 +28,16 @@ const END_HOUR = 19;
 const HOUR_HEIGHT = 72;
 const PLANNER_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
 
+export const pendingAppointmentRequests: CalendarEvent[] = [
+  { id: 4, day: 1, start: "08:00", duration: 120, kind: "pending", animal: "Nala", client: "Julie Robert", location: "Domicile · Mont-Saint-Aignan" },
+  { id: 15, day: 3, start: "18:00", duration: 60, kind: "pending", animal: "Oslo", client: "Thomas Martin", location: "Domicile · Le Havre" },
+];
+
 const events: CalendarEvent[] = [
   { id: 1, day: 0, start: "09:00", duration: 60, kind: "cabinet", animal: "Luna", client: "Marie Dupont", location: "Cabinet" },
   { id: 2, day: 0, start: "11:00", duration: 90, kind: "domicile", animal: "Spirit", client: "Julie Robert", location: "Mont-Saint-Aignan" },
   { id: 3, day: 0, start: "15:30", duration: 60, kind: "cabinet", animal: "Oscar", client: "Marie Dupont", location: "Cabinet" },
-  { id: 4, day: 1, start: "08:00", duration: 120, kind: "pending", animal: "Nala", client: "Julie Robert", location: "Domicile · Mont-Saint-Aignan" },
+  ...pendingAppointmentRequests,
   { id: 5, day: 1, start: "13:00", duration: 150, kind: "tournee", title: "Tournée Rouen Ouest", location: "4 rendez-vous" },
   { id: 6, day: 2, start: "10:00", duration: 90, kind: "domicile", animal: "Milo", client: "Julie Robert", location: "Mont-Saint-Aignan" },
   { id: 7, day: 2, start: "14:00", duration: 120, kind: "unavailable", title: "Indisponible", location: "Temps personnel" },
@@ -76,7 +82,7 @@ function isReferenceDay(date: Date) {
   return date.getFullYear() === 2026 && date.getMonth() === 7 && date.getDate() === 24;
 }
 
-export function WeekPlanner({ dates, showEvents, onPendingAction, localEvents = [] }: WeekPlannerProps) {
+export function WeekPlanner({ dates, showEvents, onPendingAction, localEvents = [], handledPendingIds = [] }: WeekPlannerProps) {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -119,7 +125,7 @@ export function WeekPlanner({ dates, showEvents, onPendingAction, localEvents = 
             {dates.map((date, dayIndex) => (
               <DayColumn
                 key={date.toISOString()}
-                events={showEvents ? [...events, ...localEvents].filter((event) => event.day === dayIndex) : []}
+                events={showEvents ? [...events, ...localEvents].filter((event) => event.day === dayIndex && !(event.kind === "pending" && handledPendingIds.includes(event.id))) : []}
                 onPendingAction={onPendingAction}
               />
             ))}
@@ -201,7 +207,7 @@ function CalendarEventCard({ event, onPendingAction }: {
             <button
               key={button.label}
               type="button"
-              onClick={() => onPendingAction(button.action, event.animal ?? "l’animal")}
+              onClick={() => onPendingAction(button.action, event)}
               className="rounded-md bg-white/80 px-1 py-1 text-[9px] font-black leading-none transition hover:bg-white"
             >
               {button.label}

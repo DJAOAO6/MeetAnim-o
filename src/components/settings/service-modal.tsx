@@ -27,6 +27,7 @@ const emptyService: ServiceSettings = {
   travelFeeMode: "fixed",
   fixedTravelFee: 10,
   zoneFees: { Rouen: 0, "Le Havre": 10, Dieppe: 15 },
+  kilometricRate: 0.6,
   suggestedReminder: "6 mois",
   active: true,
 };
@@ -34,8 +35,16 @@ const emptyService: ServiceSettings = {
 export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
   const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
+  const [exampleDistance, setExampleDistance] = useState(20);
   const zoneFee = draft.zoneFees["Le Havre"] ?? 0;
-  const travelFee = draft.travelFeesEnabled ? (draft.travelFeeMode === "fixed" ? draft.fixedTravelFee : zoneFee) : 0;
+  const feeSelection = draft.travelFeesEnabled ? draft.travelFeeMode : "none";
+  const travelFee = !draft.travelFeesEnabled
+    ? 0
+    : draft.travelFeeMode === "fixed"
+      ? draft.fixedTravelFee
+      : draft.travelFeeMode === "zone"
+        ? zoneFee
+        : draft.kilometricRate * exampleDistance;
   const homeTotal = draft.homePrice + travelFee;
 
   function update<K extends keyof ServiceSettings>(key: K, value: ServiceSettings[K]) {
@@ -44,8 +53,16 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.cabinetEnabled && !draft.homeEnabled) return;
+    if ((!draft.cabinetEnabled && !draft.homeEnabled) || draft.animals.length === 0) return;
     onSave({ ...draft, id: draft.id || `service-${Date.now()}` });
+  }
+
+  function updateFeeMode(value: "none" | ServiceSettings["travelFeeMode"]) {
+    if (value === "none") {
+      update("travelFeesEnabled", false);
+      return;
+    }
+    setDraft((current) => ({ ...current, travelFeesEnabled: true, travelFeeMode: value }));
   }
 
   function toggleAnimal(animal: AnimalType) {
@@ -96,34 +113,62 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
 
               {draft.homeEnabled ? (
                 <div className="rounded-2xl bg-animeo-bg p-4 sm:p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-animeo-dark">Frais de déplacement</h3><p className="text-xs text-animeo-muted">Aucun calcul kilométrique en V1.</p></div><Toggle checked={draft.travelFeesEnabled} onChange={(value) => update("travelFeesEnabled", value)} label={draft.travelFeesEnabled ? "Activés" : "Désactivés"} /></div>
-                  {draft.travelFeesEnabled ? (
-                    <div className="mt-5 space-y-4">
-                      <Field label="Mode de calcul"><select value={draft.travelFeeMode} onChange={(event) => update("travelFeeMode", event.target.value as ServiceSettings["travelFeeMode"])} className={inputClassName}><option value="fixed">Montant fixe</option><option value="zone">Selon la zone</option></select></Field>
-                      {draft.travelFeeMode === "fixed" ? <Field label="Montant fixe"><PriceInput value={draft.fixedTravelFee} onChange={(value) => update("fixedTravelFee", value)} /></Field> : (
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          {serviceZoneNames.map((zone) => <Field key={zone} label={zone}><PriceInput value={draft.zoneFees[zone] ?? 0} onChange={(value) => update("zoneFees", { ...draft.zoneFees, [zone]: value })} prefix="+" /></Field>)}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
+                  <div>
+                    <h3 className="font-black uppercase tracking-[0.08em] text-animeo-dark">Frais de déplacement</h3>
+                    <p className="mt-1 text-xs text-animeo-muted">Choisissez le calcul appliqué à cette prestation à domicile.</p>
+                  </div>
+                  <div className="mt-5 space-y-4">
+                    <Field label="Mode de calcul">
+                      <select value={feeSelection} onChange={(event) => updateFeeMode(event.target.value as "none" | ServiceSettings["travelFeeMode"])} className={inputClassName}>
+                        <option value="none">Aucun frais</option>
+                        <option value="fixed">Montant fixe</option>
+                        <option value="zone">Selon la zone</option>
+                        <option value="kilometric">Frais kilométriques</option>
+                      </select>
+                    </Field>
+
+                    {feeSelection === "fixed" ? (
+                      <Field label="Montant en €"><PriceInput value={draft.fixedTravelFee} onChange={(value) => update("fixedTravelFee", value)} /></Field>
+                    ) : null}
+
+                    {feeSelection === "zone" ? (
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {serviceZoneNames.map((zone) => <Field key={zone} label={zone}><PriceInput value={draft.zoneFees[zone] ?? 0} onChange={(value) => update("zoneFees", { ...draft.zoneFees, [zone]: value })} prefix="+" /></Field>)}
+                      </div>
+                    ) : null}
+
+                    {feeSelection === "kilometric" ? (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Tarif par kilomètre">
+                          <PriceInput value={draft.kilometricRate} onChange={(value) => update("kilometricRate", value)} step="0.01" unit="€/km" />
+                        </Field>
+                        <Field label="Distance de l’exemple" hint="La distance sera saisie manuellement dans la V1.">
+                          <NumberInput value={exampleDistance} onChange={setExampleDistance} unit="km" />
+                        </Field>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
               <Field label="Rappel conseillé"><select value={draft.suggestedReminder} onChange={(event) => update("suggestedReminder", event.target.value as ServiceSettings["suggestedReminder"])} className={inputClassName}><option>3 mois</option><option>6 mois</option><option>12 mois</option><option>Aucun</option></select></Field>
               {!draft.cabinetEnabled && !draft.homeEnabled ? <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Activez au moins un mode de consultation.</p> : null}
+              {draft.animals.length === 0 ? <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Sélectionnez au moins une espèce.</p> : null}
             </div>
 
             <aside className="h-fit rounded-3xl bg-animeo-dark p-5 text-white lg:sticky lg:top-28">
               <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#83d2c5]">Aperçu du prix client</p>
               <div className="mt-5 space-y-3 text-sm">
-                <PriceLine label="Au cabinet" value={draft.cabinetEnabled ? `${draft.cabinetPrice} €` : "Non proposé"} />
-                <PriceLine label="À domicile" value={draft.homeEnabled ? `${draft.homePrice} €` : "Non proposé"} />
-                {draft.homeEnabled ? <PriceLine label="Frais de déplacement" value={`+${travelFee} €`} /> : null}
+                <PriceLine label="Au cabinet" value={draft.cabinetEnabled ? formatEuro(draft.cabinetPrice) : "Non proposé"} />
+                <PriceLine label="Consultation domicile" value={draft.homeEnabled ? formatEuro(draft.homePrice) : "Non proposé"} />
+                {draft.homeEnabled && feeSelection === "kilometric" ? <PriceLine label="Distance" value={`${exampleDistance} km`} /> : null}
+                {draft.homeEnabled && feeSelection === "kilometric" ? <PriceLine label="Tarif kilométrique" value={`${formatNumber(draft.kilometricRate, 2)} €/km`} /> : null}
+                {draft.homeEnabled ? <PriceLine label="Frais de déplacement" value={travelFee > 0 ? `+${formatEuro(travelFee)}` : "Aucun"} /> : null}
               </div>
               <div className="my-4 h-px bg-white/15" />
-              <PriceLine label="Total estimé à domicile" value={draft.homeEnabled ? `${homeTotal} €` : "—"} strong />
+              <PriceLine label="Total estimé" value={draft.homeEnabled ? formatEuro(homeTotal) : "—"} strong />
               {draft.travelFeeMode === "zone" && draft.travelFeesEnabled ? <p className="mt-3 text-xs text-white/60">Exemple calculé avec la zone Le Havre.</p> : null}
+              {draft.travelFeeMode === "kilometric" && draft.travelFeesEnabled ? <p className="mt-3 text-xs leading-5 text-white/60">Simulation locale : aucune distance n’est calculée automatiquement.</p> : null}
             </aside>
           </div>
 
@@ -137,8 +182,20 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
   );
 }
 
-function PriceInput({ value, onChange, prefix }: { value: number; onChange: (value: number) => void; prefix?: string }) {
-  return <div className="relative"><input type="number" min="0" step="1" value={value} onChange={(event) => onChange(Number(event.target.value))} className={`${inputClassName} ${prefix ? "pl-8" : "pr-9"}`} />{prefix ? <span className="absolute left-3 top-3 text-sm font-black text-animeo-muted">{prefix}</span> : null}<span className="absolute right-3 top-3 text-sm font-black text-animeo-muted">€</span></div>;
+function PriceInput({ value, onChange, prefix, step = "1", unit = "€" }: { value: number; onChange: (value: number) => void; prefix?: string; step?: string; unit?: string }) {
+  return <div className="relative"><input type="number" min="0" step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className={`${inputClassName} ${prefix ? "pl-8" : ""} ${unit.length > 1 ? "pr-16" : "pr-9"}`} />{prefix ? <span className="absolute left-3 top-3 text-sm font-black text-animeo-muted">{prefix}</span> : null}<span className="absolute right-3 top-3 text-sm font-black text-animeo-muted">{unit}</span></div>;
+}
+
+function NumberInput({ value, onChange, unit }: { value: number; onChange: (value: number) => void; unit: string }) {
+  return <div className="relative"><input type="number" min="0" step="1" value={value} onChange={(event) => onChange(Number(event.target.value))} className={`${inputClassName} pr-12`} /><span className="absolute right-3 top-3 text-sm font-black text-animeo-muted">{unit}</span></div>;
+}
+
+function formatNumber(value: number, maximumFractionDigits = 2) {
+  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: value % 1 === 0 ? 0 : maximumFractionDigits, maximumFractionDigits }).format(value);
+}
+
+function formatEuro(value: number) {
+  return `${formatNumber(value, 2)} €`;
 }
 
 function PriceLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {

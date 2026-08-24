@@ -16,7 +16,7 @@ export type ProfileSettings = {
   logo: string;
 };
 
-export type TravelFeeMode = "fixed" | "zone";
+export type TravelFeeMode = "fixed" | "zone" | "kilometric";
 
 export type ServiceSettings = {
   id: string;
@@ -32,6 +32,7 @@ export type ServiceSettings = {
   travelFeeMode: TravelFeeMode;
   fixedTravelFee: number;
   zoneFees: Record<string, number>;
+  kilometricRate: number;
   suggestedReminder: "3 mois" | "6 mois" | "12 mois" | "Aucun";
   active: boolean;
 };
@@ -121,6 +122,7 @@ export const initialSettings: SettingsState = {
       travelFeeMode: "zone",
       fixedTravelFee: 10,
       zoneFees: { ...defaultZoneFees },
+      kilometricRate: 0.6,
       suggestedReminder: "6 mois",
       active: true,
     },
@@ -138,6 +140,7 @@ export const initialSettings: SettingsState = {
       travelFeeMode: "fixed",
       fixedTravelFee: 15,
       zoneFees: { ...defaultZoneFees },
+      kilometricRate: 0.6,
       suggestedReminder: "6 mois",
       active: true,
     },
@@ -155,6 +158,7 @@ export const initialSettings: SettingsState = {
       travelFeeMode: "fixed",
       fixedTravelFee: 0,
       zoneFees: { ...defaultZoneFees },
+      kilometricRate: 0.6,
       suggestedReminder: "3 mois",
       active: true,
     },

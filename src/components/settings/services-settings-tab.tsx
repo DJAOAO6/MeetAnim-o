@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/settings/settings-fields";
@@ -58,6 +59,13 @@ export function ServicesSettingsTab({ services, onChange }: ServicesSettingsTabP
                 <PriceBlock label="Domicile" enabled={service.homeEnabled} price={service.homePrice} />
               </div>
 
+              {service.homeEnabled ? (
+                <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-[#e0ebe8] px-4 py-3 text-sm">
+                  <span className="font-bold text-animeo-muted">Frais de déplacement</span>
+                  <span className="text-right font-black text-animeo-dark">{travelFeeLabel(service)}</span>
+                </div>
+              ) : null}
+
               <div className="mt-4 flex items-center justify-between rounded-2xl bg-animeo-bg px-4 py-3 text-sm">
                 <span className="font-bold text-animeo-muted">Rappel conseillé</span>
                 <span className="font-black text-animeo-dark">{service.suggestedReminder}</span>
@@ -80,6 +88,23 @@ export function ServicesSettingsTab({ services, onChange }: ServicesSettingsTabP
   );
 }
 
+export function ServicesSettingsShortcut() {
+  return (
+    <>
+      <SectionTitle title="Prestations" description="La gestion des prestations et des frais de déplacement dispose maintenant de sa propre page." />
+      <Card className="p-5 sm:p-7">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-lg font-black text-animeo-dark">Gérez vos prestations au même endroit</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-animeo-muted">Durées, espèces, tarifs Cabinet et Domicile, rappels conseillés et frais de déplacement sont regroupés sur la page Prestations.</p>
+          </div>
+          <Link href="/dashboard/prestations" className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#459e90]">Gérer mes prestations</Link>
+        </div>
+      </Card>
+    </>
+  );
+}
+
 function PriceBlock({ label, enabled, price }: { label: string; enabled: boolean; price: number }) {
   return (
     <div className={`rounded-2xl p-4 ${enabled ? "bg-animeo-soft" : "bg-[#f2f4f4]"}`}>
@@ -90,4 +115,15 @@ function PriceBlock({ label, enabled, price }: { label: string; enabled: boolean
       </div>
     </div>
   );
+}
+
+function travelFeeLabel(service: ServiceSettings) {
+  if (!service.travelFeesEnabled) return "Aucun frais";
+  if (service.travelFeeMode === "fixed") return `${formatNumber(service.fixedTravelFee)} € fixes`;
+  if (service.travelFeeMode === "zone") return "Selon la zone";
+  return `${formatNumber(service.kilometricRate, 2)} €/km`;
+}
+
+function formatNumber(value: number, digits = 0) {
+  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: value % 1 === 0 ? 0 : digits, maximumFractionDigits: digits }).format(value);
 }

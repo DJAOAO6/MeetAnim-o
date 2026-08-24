@@ -101,6 +101,22 @@ export default function DashboardPage() {
               Voir la tournée
             </Link>
           </Card>
+
+          <Card className="p-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-bold text-animeo-muted">Prestations</p>
+                <h2 className="mt-2 text-xl font-extrabold text-animeo-dark">3 prestations actives</h2>
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">
+                <Icon name="services" className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="mt-1 text-sm text-animeo-muted">Tarifs Cabinet, Domicile et déplacements</p>
+            <Link href="/dashboard/prestations" className="mt-5 flex w-full items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">
+              Gérer les prestations
+            </Link>
+          </Card>
         </div>
       </div>
 
