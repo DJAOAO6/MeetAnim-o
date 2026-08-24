@@ -38,7 +38,7 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
     <form onSubmit={submit}>
       <StepHeading eyebrow="Étape 5 · Confirmation" title="Vérifiez votre demande" description="Le rendez-vous devra encore être accepté par Pauline avant d’être confirmé." />
 
-      <div className="overflow-hidden rounded-3xl border border-[#dfe9e6]">
+      <div className="overflow-hidden rounded-[18px] border border-[#dfe9e6]">
         <div className="bg-animeo-dark p-5 text-white sm:p-6">
           <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#85d4c7]">Votre rendez-vous</p>
           <h3 className="mt-2 text-2xl font-black">{animal.name}</h3>
@@ -94,7 +94,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
       <span className="mt-5 inline-flex rounded-full bg-[#fff2dc] px-3 py-1.5 text-xs font-black text-[#a66a12]">En attente de validation</span>
       <h2 className="mx-auto mt-4 max-w-xl text-2xl font-black text-animeo-dark sm:text-3xl">Votre demande a bien été envoyée</h2>
       <p className="mt-3 text-base text-animeo-muted">{professional.firstName} doit maintenant confirmer votre rendez-vous.</p>
-      <div className="mx-auto mt-6 max-w-md rounded-3xl bg-animeo-soft p-5 text-left">
+      <div className="mx-auto mt-6 max-w-md rounded-[18px] bg-animeo-soft p-5 text-left">
         <p className="font-black text-animeo-dark">{date?.fullLabel ?? request.date} à {request.time}</p>
         <p className="mt-1 text-sm text-animeo-muted">{service.name}</p>
         <p className="mt-1 text-sm font-extrabold text-animeo-dark">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"} · {request.totalPrice} €</p>

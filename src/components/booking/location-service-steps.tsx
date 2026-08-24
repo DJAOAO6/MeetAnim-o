@@ -54,7 +54,7 @@ export function LocationStep({ professional, value, onChange, onNext }: Location
 
 function ModeCard({ icon, title, description, detail, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; description: string; detail: React.ReactNode; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} className={`min-h-56 rounded-3xl border-2 p-5 text-left transition ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} className={`min-h-56 rounded-[18px] border-2 p-5 text-left transition ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
       <span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-2xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
       <span className="mt-4 block text-lg font-black text-animeo-dark">{title}</span>
       <span className="mt-1 block text-sm leading-6 text-animeo-muted">{description}</span>

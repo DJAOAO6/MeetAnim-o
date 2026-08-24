@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export const bookingInputClassName = "h-12 w-full rounded-2xl border border-[#d7e4e1] bg-[#f8fbfa] px-4 text-base font-semibold text-animeo-dark outline-none transition placeholder:text-[#9ba7ab] focus:border-animeo focus:bg-white";
+export const bookingInputClassName = "h-12 w-full rounded-xl border border-[#d7e4e1] bg-white px-4 text-base font-semibold text-animeo-text outline-none transition placeholder:text-animeo-muted focus:border-animeo focus:ring-3 focus:ring-animeo/15";
 export const bookingTextareaClassName = `${bookingInputClassName} h-auto min-h-28 resize-y py-3`;
 
 export function BookingField({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: ReactNode }) {
@@ -16,8 +16,8 @@ export function BookingField({ label, required, hint, children }: { label: strin
 export function BookingActions({ onBack, nextLabel = "Continuer", nextDisabled = false }: { onBack?: () => void; nextLabel?: string; nextDisabled?: boolean }) {
   return (
     <div className="sticky bottom-0 -mx-4 mt-7 flex gap-3 border-t border-[#e2ebe8] bg-white/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:justify-between sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
-      {onBack ? <button type="button" onClick={onBack} className="min-h-12 flex-1 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark sm:flex-none">Retour</button> : <span className="hidden sm:block" />}
-      <button type="submit" disabled={nextDisabled} className="min-h-12 flex-[2] rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none">{nextLabel}</button>
+      {onBack ? <button type="button" onClick={onBack} className="min-h-12 flex-1 rounded-[14px] border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark sm:flex-none">Retour</button> : <span className="hidden sm:block" />}
+      <button type="submit" disabled={nextDisabled} className="min-h-12 flex-[2] rounded-[14px] bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none">{nextLabel}</button>
     </div>
   );
 }

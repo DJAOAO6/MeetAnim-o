@@ -42,7 +42,7 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
 
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Aperçu de la page de réservation</p>
-        <div className="overflow-hidden rounded-3xl border border-[#dfe9e6] bg-white shadow-[0_18px_50px_rgba(24,59,69,0.12)]">
+        <div className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white shadow-[0_18px_50px_rgba(24,59,69,0.12)]">
           <div className="h-3" style={{ backgroundColor: draftColor }} />
           <div className="p-6 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-animeo-soft text-lg font-black text-animeo-dark">

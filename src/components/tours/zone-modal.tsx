@@ -42,7 +42,7 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm" role="presentation">
-      <section role="dialog" aria-modal="true" aria-labelledby="zone-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section role="dialog" aria-modal="true" aria-labelledby="zone-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
         <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="map" className="h-6 w-6" /></div>

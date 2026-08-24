@@ -2,7 +2,7 @@
 
 :root {
   --background: #f7faf9;
-  --foreground: #183b45;
+  --foreground: #1f2933;
 }
 
 @theme inline {
@@ -14,7 +14,44 @@
   --color-animeo-soft: #eaf4f1;
   --color-animeo-accent: #f4b860;
   --color-animeo-muted: #6b7780;
+  --color-animeo-text: #1f2933;
+  --color-animeo-success: #36a26b;
+  --color-animeo-error: #d95c5c;
+  --color-animeo-info: #5b8def;
   --font-sans: var(--font-nunito-sans);
+}
+
+html {
+  background: var(--background);
+}
+
+.dashboard-sidebar {
+  transform: translateX(-100%);
+}
+
+.dashboard-mobile-header {
+  width: 100%;
+}
+
+.dashboard-mobile-menu-button {
+  margin-left: auto;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.dashboard-sidebar[data-open="true"] {
+  transform: translateX(0);
+}
+
+@media (min-width: 48rem) {
+  .dashboard-mobile-header,
+  .dashboard-sidebar-close {
+    display: none !important;
+  }
+
+  .dashboard-sidebar {
+    transform: translateX(0);
+  }
 }
 
 body {
@@ -26,6 +63,11 @@ body {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: color-mix(in srgb, #4faf9f 28%, white);
+  color: #183b45;
 }
 
 button:focus-visible,

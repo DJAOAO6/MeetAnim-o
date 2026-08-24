@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingProgress } from "@/components/booking/booking-progress";
 import { LocationStep, ServiceStep, AddressStep } from "@/components/booking/location-service-steps";
@@ -101,7 +102,7 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
       <BookingHeader professional={professional} />
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         {screen !== "success" ? <BookingProgress current={progressFor(screen)} /> : null}
-        <section className="rounded-3xl border border-[#dfe9e6] bg-white p-4 shadow-[0_14px_45px_rgba(24,59,69,0.08)] sm:p-8">
+        <section className="rounded-[18px] border border-[#dfe9e6] bg-white p-4 shadow-[0_14px_45px_rgba(24,59,69,0.08)] sm:p-8">
           {screen === "location" ? <LocationStep professional={professional} value={mode} onChange={(value) => { setMode(value); setServiceId(null); setAddress(emptyAddress); setZoneId(null); setDateId(null); setTime(null); }} onNext={() => setScreen("service")} /> : null}
           {screen === "service" && mode ? <ServiceStep professional={professional} mode={mode} value={serviceId} onChange={(value) => { const selectedService = professional.services.find((item) => item.id === value); setServiceId(value); setAnimal((current) => ({ ...current, species: selectedService?.animalTypes[0] ?? "Chien" })); setDateId(null); setTime(null); }} onBack={() => setScreen("location")} onNext={() => setScreen("owner")} /> : null}
           {screen === "owner" && mode ? <OwnerStep mode={mode} value={owner} onChange={setOwner} onBack={() => setScreen("service")} onNext={() => setScreen(mode === "HOME" ? "address" : "animal")} /> : null}
@@ -111,7 +112,9 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
           {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} onBack={() => setScreen("schedule")} onSubmit={submitRequest} /> : null}
           {screen === "success" && request && service ? <BookingSuccess professional={professional} request={request} service={service} onReset={resetBooking} /> : null}
         </section>
-        <footer className="py-6 text-center text-xs font-bold text-animeo-muted">Propulsé par <span className="font-black text-animeo-dark">Anim<span className="text-animeo">éo</span></span> · Aucune donnée n’est envoyée pour cette démonstration</footer>
+        <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 py-6 text-center text-xs font-bold text-animeo-muted">
+          <span>Propulsé par</span><AnimeoLogo size="footer" /><span>· Aucune donnée n’est envoyée pour cette démonstration</span>
+        </footer>
       </div>
     </main>
   );

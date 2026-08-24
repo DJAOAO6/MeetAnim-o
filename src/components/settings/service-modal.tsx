@@ -71,7 +71,7 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Configuration locale</p><h2 id="service-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{service ? "Modifier la prestation" : "Nouvelle prestation"}</h2></div>
           <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
@@ -156,7 +156,7 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
               {draft.animals.length === 0 ? <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Sélectionnez au moins une espèce.</p> : null}
             </div>
 
-            <aside className="h-fit rounded-3xl bg-animeo-dark p-5 text-white lg:sticky lg:top-28">
+            <aside className="h-fit rounded-[18px] bg-animeo-dark p-5 text-white lg:sticky lg:top-28">
               <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#83d2c5]">Aperçu du prix client</p>
               <div className="mt-5 space-y-3 text-sm">
                 <PriceLine label="Au cabinet" value={draft.cabinetEnabled ? formatEuro(draft.cabinetPrice) : "Non proposé"} />

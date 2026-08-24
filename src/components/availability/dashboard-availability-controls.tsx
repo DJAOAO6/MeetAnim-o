@@ -62,7 +62,7 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="availability-title" className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section role="dialog" aria-modal="true" aria-labelledby="availability-title" className="w-full max-w-lg overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
         <div className="flex items-start justify-between border-b border-[#e1eae8] bg-animeo-soft p-5 sm:p-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Ouverture manuelle</p>
