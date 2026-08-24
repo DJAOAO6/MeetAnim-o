@@ -117,18 +117,26 @@ function normalizeCity(value: string) {
   return value.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, "'");
 }
 
+function findMatchingZone(professional: PublicProfessional, address: BookingAddress) {
+  const normalizedCity = normalizeCity(address.city);
+  const normalizedPostalCode = address.postalCode.replace(/\s/g, "");
+
+  return professional.zones.find((item) =>
+    item.cities.some((city) => normalizeCity(city) === normalizedCity)
+    || (normalizedPostalCode.length === 5 && item.postalCodes.includes(normalizedPostalCode)),
+  );
+}
+
 export function AddressStep({ professional, service, value, zoneId, onChange, onZoneChange, onBack, onNext, onSwitchToCabinet }: AddressStepProps) {
   const zone = professional.zones.find((item) => item.id === zoneId);
-  const hasCity = value.city.trim().length >= 2;
+  const hasLocation = value.city.trim().length >= 2 || value.postalCode.replace(/\s/g, "").length === 5;
   const travelFee = service.travelFeeMode === "fixed" ? service.fixedTravelFee : service.travelFeeMode === "zone" ? zone?.travelFee ?? 0 : 0;
 
   function update(key: keyof BookingAddress, next: string) {
     const address = { ...value, [key]: next };
     onChange(address);
-    if (key === "city") {
-      const matchingZone = professional.zones.find((item) => item.cities.some((city) => normalizeCity(city) === normalizeCity(next)));
-      onZoneChange(matchingZone?.id ?? null);
-    }
+    const matchingZone = findMatchingZone(professional, address);
+    onZoneChange(matchingZone?.id ?? null);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -138,7 +146,7 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 2 · Adresse" title="Où doit se dérouler la consultation ?" description="Votre ville permet de vérifier localement les zones et les jours de tournée disponibles." />
+      <StepHeading eyebrow="Étape 3 · Informations" title="Où doit se dérouler la consultation ?" description="Votre adresse permet d’identifier votre secteur, les tournées actives et les rendez-vous proches à regrouper." />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><BookingField label="Adresse" required><input value={value.address} onChange={(event) => update("address", event.target.value)} className={bookingInputClassName} placeholder="12 rue Exemple" required /></BookingField></div>
         <div className="sm:col-span-2"><BookingField label="Complément d’adresse" hint="Facultatif"><input value={value.addressExtra} onChange={(event) => update("addressExtra", event.target.value)} className={bookingInputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></BookingField></div>
@@ -152,7 +160,7 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
           <p className="mt-1 text-sm text-animeo-dark">{zone.name} · consultations principalement le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}.</p>
           <p className="mt-3 text-sm font-extrabold text-animeo-dark">{travelFee > 0 ? `Frais de déplacement : +${travelFee} €` : "Aucun frais de déplacement"}</p>
         </div>
-      ) : hasCity ? (
+      ) : hasLocation ? (
         <div className="mt-5 rounded-2xl border border-[#f0d8c8] bg-[#fff7f0] p-4">
           <p className="font-black text-[#a85d32]">Cette adresse ne fait pas encore partie des zones de déplacement disponibles.</p>
           <button type="button" onClick={onSwitchToCabinet} className="mt-3 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark shadow-sm">Choisir un rendez-vous au cabinet</button>

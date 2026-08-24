@@ -1,4 +1,4 @@
-const steps = ["Lieu", "Prestation", "Créneau", "Informations", "Confirmation"];
+const steps = ["Lieu", "Prestation", "Informations", "Créneaux", "Confirmation"];
 
 export function BookingProgress({ current }: { current: number }) {
   return (

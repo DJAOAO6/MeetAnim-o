@@ -2,18 +2,17 @@
 
 import type { FormEvent } from "react";
 import { BookingActions, BookingField, StepHeading, bookingInputClassName, bookingTextareaClassName } from "@/components/booking/booking-ui";
-import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicAnimalType, PublicService } from "@/data/public-booking";
+import type { AnimalInformation, BookingMode, OwnerInformation, PublicAnimalType, PublicService } from "@/data/public-booking";
 
 type OwnerStepProps = {
   mode: BookingMode;
   value: OwnerInformation;
-  homeAddress: BookingAddress;
   onChange: (value: OwnerInformation) => void;
   onBack: () => void;
   onNext: () => void;
 };
 
-export function OwnerStep({ mode, value, homeAddress, onChange, onBack, onNext }: OwnerStepProps) {
+export function OwnerStep({ mode, value, onChange, onBack, onNext }: OwnerStepProps) {
   function update(key: keyof OwnerInformation, next: string) {
     onChange({ ...value, [key]: next });
   }
@@ -25,7 +24,7 @@ export function OwnerStep({ mode, value, homeAddress, onChange, onBack, onNext }
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 4 · Informations" title="Vos informations" description="Ces coordonnées permettront à Pauline de confirmer votre demande de rendez-vous." />
+      <StepHeading eyebrow="Étape 3 · Informations" title="Commençons par vos informations" description="Votre adresse et vos coordonnées nous permettent de vous proposer les créneaux les plus cohérents avec votre secteur." />
       <div className="grid gap-4 sm:grid-cols-2">
         <BookingField label="Prénom" required><input value={value.firstName} onChange={(event) => update("firstName", event.target.value)} className={bookingInputClassName} autoComplete="given-name" required /></BookingField>
         <BookingField label="Nom" required><input value={value.lastName} onChange={(event) => update("lastName", event.target.value)} className={bookingInputClassName} autoComplete="family-name" required /></BookingField>
@@ -38,7 +37,7 @@ export function OwnerStep({ mode, value, homeAddress, onChange, onBack, onNext }
             <BookingField label="Ville" required><input value={value.city} onChange={(event) => update("city", event.target.value)} className={bookingInputClassName} autoComplete="address-level2" required /></BookingField>
           </>
         ) : (
-          <div className="sm:col-span-2 rounded-2xl bg-animeo-soft p-4 text-sm text-animeo-dark"><strong>Adresse de consultation :</strong><br />{homeAddress.address}{homeAddress.addressExtra ? ` · ${homeAddress.addressExtra}` : ""}<br />{homeAddress.postalCode} {homeAddress.city}</div>
+          <div className="sm:col-span-2 rounded-2xl bg-animeo-soft p-4 text-sm leading-6 text-animeo-dark"><strong>Consultation à domicile</strong><br /><span className="text-animeo-muted">Votre adresse sera vérifiée à l’étape suivante pour identifier votre zone et les tournées qui passent près de chez vous.</span></div>
         )}
       </div>
       <p className="mt-4 text-xs text-animeo-muted"><span className="text-[#b65f43]">*</span> Champs obligatoires</p>
@@ -69,7 +68,7 @@ export function AnimalStep({ service, value, onChange, onBack, onNext }: AnimalS
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 4 · Informations" title="Votre animal" description={`Quelques informations utiles pour préparer la prestation « ${service.name} ».`} />
+      <StepHeading eyebrow="Étape 3 · Informations" title="Votre animal" description={`Quelques informations utiles pour préparer la prestation « ${service.name} » avant de chercher le meilleur créneau.`} />
       <div className="grid gap-4 sm:grid-cols-2">
         <BookingField label="Nom de l’animal" required><input value={value.name} onChange={(event) => update("name", event.target.value)} className={bookingInputClassName} placeholder="Luna" required /></BookingField>
         <BookingField label="Espèce" required><select value={value.species} onChange={(event) => update("species", event.target.value as PublicAnimalType)} className={bookingInputClassName}>{species.map((item) => <option key={item}>{item}</option>)}</select></BookingField>

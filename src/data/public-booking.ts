@@ -20,6 +20,7 @@ export type PublicZone = {
   id: string;
   name: string;
   cities: string[];
+  postalCodes: string[];
   travelFee: number;
   tourDays: string[];
 };
@@ -165,9 +166,9 @@ export const bookingProfessionals: PublicProfessional[] = [
       },
     ],
     zones: [
-      { id: "zone-rouen", name: "Zone Rouen", cities: ["Rouen", "Bois-Guillaume", "Mont-Saint-Aignan", "Bihorel"], travelFee: 0, tourDays: ["Mardi", "Jeudi"] },
-      { id: "zone-le-havre", name: "Zone Le Havre", cities: ["Le Havre", "Montivilliers", "Harfleur", "Gonfreville-l’Orcher"], travelFee: 10, tourDays: ["Lundi"] },
-      { id: "zone-dieppe", name: "Zone Dieppe", cities: ["Dieppe"], travelFee: 15, tourDays: ["Vendredi"] },
+      { id: "zone-rouen-nord", name: "Zone Rouen Nord", cities: ["Rouen", "Bois-Guillaume", "Mont-Saint-Aignan", "Bihorel"], postalCodes: ["76000", "76130", "76230", "76420"], travelFee: 0, tourDays: ["Mardi"] },
+      { id: "zone-le-havre", name: "Zone Le Havre", cities: ["Le Havre", "Montivilliers", "Harfleur", "Gonfreville-l’Orcher"], postalCodes: ["76290", "76600", "76700"], travelFee: 10, tourDays: ["Lundi"] },
+      { id: "zone-dieppe", name: "Zone Dieppe", cities: ["Dieppe", "Offranville", "Rouxmesnil-Bouteilles"], postalCodes: ["76200", "76370", "76550"], travelFee: 15, tourDays: ["Vendredi"] },
     ],
   },
 ];
@@ -185,8 +186,7 @@ const slotsByWeekday: Record<number, string[]> = {
 
 const zoneByWeekday: Partial<Record<number, string>> = {
   1: "zone-le-havre",
-  2: "zone-rouen",
-  4: "zone-rouen",
+  2: "zone-rouen-nord",
   5: "zone-dieppe",
 };
 

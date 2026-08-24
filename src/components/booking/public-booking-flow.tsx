@@ -17,9 +17,9 @@ const emptyAnimal: AnimalInformation = { name: "", species: "Chien", breed: "", 
 
 function progressFor(screen: BookingScreen) {
   if (screen === "location") return 1;
-  if (screen === "service" || screen === "address") return 2;
-  if (screen === "schedule") return 3;
-  if (screen === "owner" || screen === "animal") return 4;
+  if (screen === "service") return 2;
+  if (screen === "owner" || screen === "address" || screen === "animal") return 3;
+  if (screen === "schedule") return 4;
   return 5;
 }
 
@@ -102,13 +102,13 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         {screen !== "success" ? <BookingProgress current={progressFor(screen)} /> : null}
         <section className="rounded-3xl border border-[#dfe9e6] bg-white p-4 shadow-[0_14px_45px_rgba(24,59,69,0.08)] sm:p-8">
-          {screen === "location" ? <LocationStep professional={professional} value={mode} onChange={(value) => { setMode(value); setServiceId(null); setDateId(null); setTime(null); }} onNext={() => setScreen("service")} /> : null}
-          {screen === "service" && mode ? <ServiceStep professional={professional} mode={mode} value={serviceId} onChange={(value) => { const selectedService = professional.services.find((item) => item.id === value); setServiceId(value); setAnimal((current) => ({ ...current, species: selectedService?.animalTypes[0] ?? "Chien" })); setDateId(null); setTime(null); }} onBack={() => setScreen("location")} onNext={() => setScreen(mode === "HOME" ? "address" : "schedule")} /> : null}
-          {screen === "address" && service ? <AddressStep professional={professional} service={service} value={address} zoneId={zoneId} onChange={setAddress} onZoneChange={setZoneId} onBack={() => setScreen("service")} onNext={() => setScreen("schedule")} onSwitchToCabinet={switchToCabinet} /> : null}
-          {screen === "schedule" && mode && service ? <ScheduleStep professional={professional} mode={mode} service={service} zoneId={zoneId} dateId={dateId} time={time} onDateChange={(value) => { setDateId(value); setTime(null); }} onTimeChange={setTime} onBack={() => setScreen(mode === "HOME" ? "address" : "service")} onNext={() => setScreen("owner")} /> : null}
-          {screen === "owner" && mode ? <OwnerStep mode={mode} value={owner} homeAddress={address} onChange={setOwner} onBack={() => setScreen("schedule")} onNext={() => setScreen("animal")} /> : null}
-          {screen === "animal" && service ? <AnimalStep service={service} value={animal} onChange={setAnimal} onBack={() => setScreen("owner")} onNext={() => setScreen("summary")} /> : null}
-          {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} onBack={() => setScreen("animal")} onSubmit={submitRequest} /> : null}
+          {screen === "location" ? <LocationStep professional={professional} value={mode} onChange={(value) => { setMode(value); setServiceId(null); setAddress(emptyAddress); setZoneId(null); setDateId(null); setTime(null); }} onNext={() => setScreen("service")} /> : null}
+          {screen === "service" && mode ? <ServiceStep professional={professional} mode={mode} value={serviceId} onChange={(value) => { const selectedService = professional.services.find((item) => item.id === value); setServiceId(value); setAnimal((current) => ({ ...current, species: selectedService?.animalTypes[0] ?? "Chien" })); setDateId(null); setTime(null); }} onBack={() => setScreen("location")} onNext={() => setScreen("owner")} /> : null}
+          {screen === "owner" && mode ? <OwnerStep mode={mode} value={owner} onChange={setOwner} onBack={() => setScreen("service")} onNext={() => setScreen(mode === "HOME" ? "address" : "animal")} /> : null}
+          {screen === "address" && service ? <AddressStep professional={professional} service={service} value={address} zoneId={zoneId} onChange={(value) => { setAddress(value); setOwner((current) => ({ ...current, ...value })); setDateId(null); setTime(null); }} onZoneChange={(value) => { setZoneId(value); setDateId(null); setTime(null); }} onBack={() => setScreen("owner")} onNext={() => setScreen("animal")} onSwitchToCabinet={switchToCabinet} /> : null}
+          {screen === "animal" && mode && service ? <AnimalStep service={service} value={animal} onChange={setAnimal} onBack={() => setScreen(mode === "HOME" ? "address" : "owner")} onNext={() => setScreen("schedule")} /> : null}
+          {screen === "schedule" && mode && service ? <ScheduleStep professional={professional} mode={mode} service={service} clientAddress={mode === "HOME" ? address : owner} zoneId={zoneId} dateId={dateId} time={time} onDateChange={(value) => { setDateId(value); setTime(null); }} onTimeChange={setTime} onBack={() => setScreen("animal")} onNext={() => setScreen("summary")} /> : null}
+          {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} onBack={() => setScreen("schedule")} onSubmit={submitRequest} /> : null}
           {screen === "success" && request && service ? <BookingSuccess professional={professional} request={request} service={service} onReset={resetBooking} /> : null}
         </section>
         <footer className="py-6 text-center text-xs font-bold text-animeo-muted">Propulsé par <span className="font-black text-animeo-dark">Anim<span className="text-animeo">éo</span></span> · Aucune donnée n’est envoyée pour cette démonstration</footer>
