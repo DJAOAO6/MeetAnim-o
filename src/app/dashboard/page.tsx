@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppointmentStatCards, DashboardAgendaOverview, NewAppointmentButton } from "@/components/appointments/dashboard-agenda-overview";
+import { DashboardAvailabilityControls } from "@/components/availability/dashboard-availability-controls";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -24,11 +25,7 @@ export default function DashboardPage() {
         action={<NewAppointmentButton />}
       />
 
-      <section aria-label="Disponibilités" className="mb-6 flex flex-wrap gap-3">
-        <AvailabilityBadge label="Cabinet" />
-        <AvailabilityBadge label="Domicile" />
-        <p className="self-center text-sm text-animeo-muted">Les deux modes de réservation sont ouverts.</p>
-      </section>
+      <DashboardAvailabilityControls />
 
       <section aria-label="Vue d’ensemble" className="mb-6">
         <div className="mb-4">
@@ -99,15 +96,6 @@ export default function DashboardPage() {
       </div>
 
     </>
-  );
-}
-
-function AvailabilityBadge({ label }: { label: string }) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-[#cfe7e1] bg-white px-3.5 py-2 text-sm font-extrabold text-animeo-dark">
-      <span className="h-2.5 w-2.5 rounded-full bg-animeo shadow-[0_0_0_4px_rgba(79,175,159,0.14)]" />
-      {label} ouvert
-    </div>
   );
 }
 

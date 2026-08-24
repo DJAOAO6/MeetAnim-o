@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
+import { useManualAvailability } from "@/components/availability/manual-availability";
 import { BookingActions, BookingField, StepHeading, bookingInputClassName } from "@/components/booking/booking-ui";
 import type { BookingAddress, BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
 
@@ -12,6 +13,10 @@ type LocationStepProps = {
 };
 
 export function LocationStep({ professional, value, onChange, onNext }: LocationStepProps) {
+  const { availability } = useManualAvailability();
+  const cabinetOpen = professional.cabinetAvailable && availability.cabinet.open;
+  const homeOpen = professional.homeAvailable && availability.home.open;
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (value) onNext();
@@ -27,8 +32,8 @@ export function LocationStep({ professional, value, onChange, onNext }: Location
           description="Je me rends au cabinet du professionnel."
           detail={<>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>}
           selected={value === "CABINET"}
-          disabled={!professional.cabinetAvailable}
-          disabledLabel="Cabinet temporairement indisponible"
+          disabled={!cabinetOpen}
+          disabledLabel="Cabinet fermé manuellement par le professionnel"
           onClick={() => onChange("CABINET")}
         />
         <ModeCard
@@ -37,8 +42,8 @@ export function LocationStep({ professional, value, onChange, onNext }: Location
           description="Le professionnel se déplace directement chez moi."
           detail="Disponibilité selon votre ville et les tournées organisées."
           selected={value === "HOME"}
-          disabled={!professional.homeAvailable}
-          disabledLabel="Domicile temporairement indisponible"
+          disabled={!homeOpen}
+          disabledLabel="Domicile fermé manuellement par le professionnel"
           onClick={() => onChange("HOME")}
         />
       </div>
