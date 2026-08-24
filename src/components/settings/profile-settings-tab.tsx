@@ -1,0 +1,82 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { Card } from "@/components/ui/card";
+import { Field, ImagePicker, SectionTitle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import type { ProfileSettings } from "@/data/settings";
+
+type ProfileSettingsTabProps = {
+  value: ProfileSettings;
+  onSave: (value: ProfileSettings) => void;
+};
+
+function cleanSlug(value: string) {
+  return value.toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export function ProfileSettingsTab({ value, onSave }: ProfileSettingsTabProps) {
+  const [draft, setDraft] = useState(value);
+  const [copied, setCopied] = useState(false);
+  const publicLink = `animeo.fr/${draft.slug || "votre-nom"}`;
+
+  function update<K extends keyof ProfileSettings>(key: K, next: ProfileSettings[K]) {
+    setDraft((current) => ({ ...current, [key]: next }));
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSave(draft);
+  }
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(`https://${publicLink}`);
+    setCopied(true);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-6">
+      <Card className="p-5 sm:p-6">
+        <SectionTitle title="Mon profil" description="Ces informations seront utilisées sur votre espace professionnel et votre page publique." />
+        <div className="mb-6 grid gap-4 md:grid-cols-2">
+          <ImagePicker label="Photo du professionnel" value={draft.photo} onChange={(next) => update("photo", next)} />
+          <ImagePicker label="Logo de l’entreprise" value={draft.logo} onChange={(next) => update("logo", next)} shape="square" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Prénom"><input value={draft.firstName} onChange={(event) => update("firstName", event.target.value)} className={inputClassName} required /></Field>
+          <Field label="Nom"><input value={draft.lastName} onChange={(event) => update("lastName", event.target.value)} className={inputClassName} required /></Field>
+          <Field label="Profession"><input value={draft.profession} onChange={(event) => update("profession", event.target.value)} className={inputClassName} /></Field>
+          <Field label="Nom de l’entreprise"><input value={draft.company} onChange={(event) => update("company", event.target.value)} className={inputClassName} /></Field>
+          <Field label="Téléphone"><input type="tel" value={draft.phone} onChange={(event) => update("phone", event.target.value)} className={inputClassName} /></Field>
+          <Field label="Email"><input type="email" value={draft.email} onChange={(event) => update("email", event.target.value)} className={inputClassName} /></Field>
+          <div className="md:col-span-2"><Field label="Adresse du cabinet"><input value={draft.address} onChange={(event) => update("address", event.target.value)} className={inputClassName} /></Field></div>
+          <Field label="Code postal"><input value={draft.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={inputClassName} inputMode="numeric" /></Field>
+          <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
+          <div className="md:col-span-2"><Field label="Bio courte"><textarea value={draft.bio} onChange={(event) => update("bio", event.target.value)} className={textareaClassName} /></Field></div>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
+          <SectionTitle title="Votre lien de réservation" description="Partagez ce lien avec vos clients pour recevoir leurs demandes de rendez-vous." />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <Field label="Slug public" hint="Lettres minuscules, chiffres et tirets uniquement.">
+              <div className="flex overflow-hidden rounded-xl border border-[#d9e5e2] bg-white focus-within:border-animeo">
+                <span className="flex items-center border-r border-[#e2eae8] bg-animeo-bg px-3 text-sm font-bold text-animeo-muted">animeo.fr/</span>
+                <input value={draft.slug} onChange={(event) => update("slug", cleanSlug(event.target.value))} className="h-11 min-w-0 flex-1 px-3 text-sm font-bold text-animeo-dark outline-none" required />
+              </div>
+            </Field>
+            <button type="button" onClick={copyLink} className="self-end rounded-xl border border-animeo px-5 py-3 text-sm font-extrabold text-animeo transition hover:bg-white">{copied ? "Lien copié ✓" : "Copier le lien"}</button>
+          </div>
+          <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm">
+            <p className="text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Aperçu du lien public</p>
+            <p className="mt-2 break-all text-base font-black text-animeo">https://{publicLink}</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="flex justify-end">
+        <button type="submit" className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90]">Enregistrer les modifications</button>
+      </div>
+    </form>
+  );
+}
