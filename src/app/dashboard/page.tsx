@@ -23,6 +23,16 @@ const appointments = [
   { time: "17:00", animal: "Oscar", client: "Marie Dupont", location: "Cabinet" },
 ];
 
+const agendaDays = [
+  { label: "Lun", date: "24", count: 4, active: true },
+  { label: "Mar", date: "25", count: 3 },
+  { label: "Mer", date: "26", count: 2 },
+  { label: "Jeu", date: "27", count: 4 },
+  { label: "Ven", date: "28", count: 3 },
+  { label: "Sam", date: "29", count: 1 },
+  { label: "Dim", date: "30", count: 0 },
+];
+
 export default function DashboardPage() {
   return (
     <>
@@ -46,30 +56,55 @@ export default function DashboardPage() {
         <p className="self-center text-sm text-animeo-muted">Les deux modes de réservation sont ouverts.</p>
       </section>
 
-      <section aria-label="Indicateurs clés" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
+      <section aria-label="Vue d’ensemble" className="mb-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-black text-animeo-dark">Vue d’ensemble</h2>
+          <p className="mt-1 text-sm text-animeo-muted">Tous vos indicateurs importants sont regroupés ici.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.map((stat) => <StatCard key={stat.title} {...stat} />)}
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <SmallCard title="Consultations du mois" value="28" detail="+12 % vs mois dernier" />
+          <SmallCard title="Animaux vus" value="64 % chiens" detail="28 % chats · 8 % chevaux" />
+          <SmallCard title="Kilomètres du mois" value="386 km" detail="Déplacements professionnels" />
+        </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,0.8fr)]">
-        <Card className="overflow-hidden p-5 sm:p-7">
+      <Card className="mb-6 overflow-hidden p-5 sm:p-7">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-animeo">Lundi 24 août</p>
-              <h2 className="mt-1 text-xl font-extrabold text-animeo-dark sm:text-2xl">Rendez-vous du jour</h2>
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-animeo">Semaine du 24 au 30 août</p>
+              <h2 className="mt-1 text-xl font-extrabold text-animeo-dark sm:text-2xl">Agenda</h2>
             </div>
             <Link href="/dashboard/agenda" className="flex items-center gap-1 text-sm font-extrabold text-animeo transition hover:text-animeo-dark">
-              Voir l’agenda
+              Ouvrir l’agenda complet
               <Icon name="arrow" className="h-4 w-4" />
             </Link>
+          </div>
+
+          <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-7" aria-label="Jours de la semaine">
+            {agendaDays.map((day) => (
+              <div key={day.date} className={`rounded-2xl border px-2 py-3 text-center ${day.active ? "border-animeo bg-animeo-soft" : "border-[#e1eae8] bg-animeo-bg"}`}>
+                <p className="text-[10px] font-black uppercase tracking-[0.1em] text-animeo-muted">{day.label}</p>
+                <p className={`mt-1 text-lg font-black ${day.active ? "text-animeo" : "text-animeo-dark"}`}>{day.date}</p>
+                <p className="mt-1 text-[10px] font-bold text-animeo-muted">{day.count} RDV</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="font-black text-animeo-dark">Lundi 24 août · 4 rendez-vous</h3>
+            <span className="rounded-full bg-animeo-soft px-3 py-1 text-xs font-extrabold text-animeo-dark">Aujourd’hui</span>
           </div>
           <div className="divide-y divide-[#edf2f0]">
             {appointments.map((appointment) => (
               <Appointment key={`${appointment.time}-${appointment.animal}`} {...appointment} />
             ))}
           </div>
-        </Card>
+      </Card>
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-1">
+      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           <Card className="p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -117,14 +152,8 @@ export default function DashboardPage() {
               Gérer les prestations
             </Link>
           </Card>
-        </div>
       </div>
 
-      <section aria-label="Statistiques du mois" className="mt-6 grid gap-4 md:grid-cols-3">
-        <SmallCard title="Consultations du mois" value="28" detail="+12 % vs mois dernier" />
-        <SmallCard title="Animaux vus" value="64 % chiens" detail="28 % chats · 8 % chevaux" />
-        <SmallCard title="Kilomètres du mois" value="386 km" detail="Déplacements professionnels" />
-      </section>
     </>
   );
 }

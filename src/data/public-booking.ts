@@ -172,13 +172,61 @@ export const bookingProfessionals: PublicProfessional[] = [
   },
 ];
 
-export const bookingDates: BookingDate[] = [
-  { id: "2026-08-31", weekday: "Lundi", shortLabel: "31 août", fullLabel: "Lundi 31 août 2026", slots: ["09:00", "10:30", "14:00", "16:30"], zoneId: "zone-le-havre" },
-  { id: "2026-09-01", weekday: "Mardi", shortLabel: "1 sept.", fullLabel: "Mardi 1 septembre 2026", slots: ["09:30", "11:00", "15:00"], zoneId: "zone-rouen" },
-  { id: "2026-09-02", weekday: "Mercredi", shortLabel: "2 sept.", fullLabel: "Mercredi 2 septembre 2026", slots: ["09:00", "10:30", "14:00", "16:00"] },
-  { id: "2026-09-03", weekday: "Jeudi", shortLabel: "3 sept.", fullLabel: "Jeudi 3 septembre 2026", slots: ["09:30", "11:00", "14:30", "16:00"], zoneId: "zone-rouen" },
-  { id: "2026-09-04", weekday: "Vendredi", shortLabel: "4 sept.", fullLabel: "Vendredi 4 septembre 2026", slots: ["10:00", "13:30", "15:00"], zoneId: "zone-dieppe" },
-];
+export const bookingStartDate = new Date(2026, 7, 25, 12);
+export const bookingLimitDate = new Date(2026, 10, 24, 12);
+
+const slotsByWeekday: Record<number, string[]> = {
+  1: ["09:00", "10:30", "14:00", "16:30"],
+  2: ["09:30", "11:00", "15:00", "17:00"],
+  3: ["09:00", "10:30", "14:00", "16:00"],
+  4: ["09:30", "11:00", "14:30", "16:00"],
+  5: ["10:00", "13:30", "15:00"],
+};
+
+const zoneByWeekday: Partial<Record<number, string>> = {
+  1: "zone-le-havre",
+  2: "zone-rouen",
+  4: "zone-rouen",
+  5: "zone-dieppe",
+};
+
+function capitalize(value: string) {
+  return value.charAt(0).toLocaleUpperCase("fr-FR") + value.slice(1);
+}
+
+function dateId(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function createBookingDates() {
+  const dates: BookingDate[] = [];
+  const current = new Date(bookingStartDate);
+  const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long" });
+  const shortFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
+  const fullFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  while (current <= bookingLimitDate) {
+    const weekday = current.getDay();
+    const slots = slotsByWeekday[weekday];
+
+    if (slots) {
+      dates.push({
+        id: dateId(current),
+        weekday: capitalize(weekdayFormatter.format(current)),
+        shortLabel: shortFormatter.format(current),
+        fullLabel: capitalize(fullFormatter.format(current)),
+        slots: [...slots],
+        zoneId: zoneByWeekday[weekday],
+      });
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+export const bookingDates: BookingDate[] = createBookingDates();
 
 export const occupiedAgendaSlots: Record<string, string[]> = {
   "2026-08-31": ["14:00"],
