@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { FeaturePlaceholder } from "@/components/pages/feature-placeholder";
+import { ClientsList } from "@/components/clients/clients-list";
+import { clients } from "@/data/clients";
 
 export const metadata: Metadata = { title: "Clients et animaux" };
 
 export default function ClientsPage() {
-  return (
-    <FeaturePlaceholder
-      title="Clients & animaux"
-      description="Retrouvez chaque client, ses animaux et le suivi complet de vos consultations."
-      icon="clients"
-      features={[
-        "Plusieurs animaux par client",
-        "Historique des consultations",
-        "Notes privées sur les fiches animaux",
-        "Documents associés à chaque animal",
-      ]}
-    />
-  );
+  return <ClientsList clients={clients} />;
 }
