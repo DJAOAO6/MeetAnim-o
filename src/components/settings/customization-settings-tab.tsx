@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { DashboardThemeSettings } from "@/components/settings/dashboard-theme-settings";
 import { Field, ImagePicker, SectionTitle, inputClassName } from "@/components/settings/settings-fields";
 import type { ProfileSettings } from "@/data/settings";
 
@@ -21,9 +22,12 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
   const logoIsImage = profile.logo.startsWith("data:image");
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <Card className="p-5 sm:p-6">
-        <SectionTitle title="Personnalisation de la page publique" description="Ces choix ne modifient pas les couleurs de votre interface professionnelle Animéo." />
+    <div className="space-y-6">
+      <DashboardThemeSettings />
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card className="p-5 sm:p-6">
+        <SectionTitle title="Personnalisation de la page publique" description="Ces choix concernent uniquement la page de réservation visible par vos clients." />
         <div className="space-y-4">
           <ImagePicker label="Logo public" value={profile.logo} onChange={(logo) => onProfileChange({ ...profile, logo })} shape="square" />
           <ImagePicker label="Photo professionnelle" value={profile.photo} onChange={(photo) => onProfileChange({ ...profile, photo })} />
@@ -42,7 +46,7 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
 
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Aperçu de la page de réservation</p>
-        <div className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white shadow-[0_18px_50px_rgba(24,59,69,0.12)]">
+        <div className="public-booking-preview overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white shadow-[0_18px_50px_rgba(24,59,69,0.12)]">
           <div className="h-3" style={{ backgroundColor: draftColor }} />
           <div className="p-6 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-animeo-soft text-lg font-black text-animeo-dark">
@@ -57,6 +61,7 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
             <div className="mt-5 rounded-2xl bg-animeo-bg p-4 text-left"><p className="text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Prochaine étape</p><p className="mt-1 font-black text-animeo-dark">Choisissez votre prestation</p></div>
             <span className="mt-4 block w-full rounded-2xl px-5 py-3 text-center text-sm font-extrabold text-white" style={{ backgroundColor: draftColor }}>Prendre rendez-vous</span>
           </div>
+        </div>
         </div>
       </div>
     </div>

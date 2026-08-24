@@ -3,18 +3,29 @@
 :root {
   --background: #f7faf9;
   --foreground: #1f2933;
+  --theme-primary: #4faf9f;
+  --theme-accent: #f4b860;
+  --theme-background: #f7faf9;
+  --theme-surface: #ffffff;
+  --theme-sidebar: #183b45;
+  --theme-action: #4faf9f;
+  --theme-text: #1f2933;
+  --theme-heading: #183b45;
+  --theme-muted: #6b7780;
+  --theme-soft: color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface));
+  --theme-border: color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface));
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-animeo: #4faf9f;
-  --color-animeo-dark: #183b45;
-  --color-animeo-bg: #f7faf9;
-  --color-animeo-soft: #eaf4f1;
-  --color-animeo-accent: #f4b860;
-  --color-animeo-muted: #6b7780;
-  --color-animeo-text: #1f2933;
+  --color-animeo: var(--theme-primary);
+  --color-animeo-dark: var(--theme-heading);
+  --color-animeo-bg: var(--theme-background);
+  --color-animeo-soft: var(--theme-soft);
+  --color-animeo-accent: var(--theme-accent);
+  --color-animeo-muted: var(--theme-muted);
+  --color-animeo-text: var(--theme-text);
   --color-animeo-success: #36a26b;
   --color-animeo-error: #d95c5c;
   --color-animeo-info: #5b8def;
@@ -41,6 +52,49 @@ html {
 
 .dashboard-sidebar[data-open="true"] {
   transform: translateX(0);
+}
+
+[data-dashboard-theme] .bg-white {
+  background-color: var(--theme-surface);
+}
+
+[data-dashboard-theme] button.bg-animeo,
+[data-dashboard-theme] a.bg-animeo {
+  background-color: var(--theme-action);
+}
+
+[data-dashboard-theme] button.bg-animeo:hover,
+[data-dashboard-theme] a.bg-animeo:hover {
+  background-color: color-mix(in srgb, var(--theme-action) 86%, black);
+}
+
+[data-dashboard-theme][data-theme="dark"] input,
+[data-dashboard-theme][data-theme="dark"] textarea,
+[data-dashboard-theme][data-theme="dark"] select {
+  color-scheme: dark;
+}
+
+[data-dashboard-theme][data-theme="dark"] .border {
+  border-color: var(--theme-border);
+}
+
+[data-dashboard-theme][data-theme="dark"] .bg-animeo-dark {
+  background-color: var(--theme-sidebar);
+}
+
+[data-dashboard-theme] .theme-selected-option {
+  border-color: var(--theme-primary);
+  background-color: color-mix(in srgb, var(--theme-primary) 14%, var(--theme-surface));
+}
+
+[data-dashboard-theme] .public-booking-preview {
+  --theme-primary: #4faf9f;
+  --theme-background: #f7faf9;
+  --theme-surface: #ffffff;
+  --theme-text: #1f2933;
+  --theme-heading: #183b45;
+  --theme-muted: #6b7780;
+  color-scheme: light;
 }
 
 @media (min-width: 48rem) {
@@ -72,6 +126,6 @@ a {
 
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid color-mix(in srgb, #4faf9f 45%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--theme-primary) 45%, transparent);
   outline-offset: 3px;
 }
