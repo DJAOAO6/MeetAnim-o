@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useManualAvailability, type AvailabilityMode, type ClosureDuration, type ModeAvailability } from "@/components/availability/manual-availability";
 
-const durations: ClosureDuration[] = ["1 heure", "2 heures", "Demi-journée", "Journée entière", "Horaire personnalisé", "Jusqu’à réouverture manuelle"];
+const durations: ClosureDuration[] = ["1 heure", "2 heures", "Demi-journée", "Journée entière", "Plusieurs jours", "Horaire personnalisé", "Jusqu’à réouverture manuelle"];
 
 export function DashboardAvailabilityControls() {
   const { availability, setModeAvailability } = useManualAvailability();
@@ -53,6 +53,10 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
       setError("L’heure de fin doit être postérieure à l’heure de début.");
       return;
     }
+    if (draft.duration === "Plusieurs jours" && draft.endDate < draft.date) {
+      setError("La date de fin doit être postérieure ou égale à la date de début.");
+      return;
+    }
     onSave(draft);
   }
 
@@ -78,8 +82,8 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
             </div>
 
             <label className="block">
-              <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Date concernée</span>
-              <input type="date" value={draft.date} min="2026-08-24" onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-bold text-animeo-dark outline-none focus:border-animeo" />
+              <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">{draft.duration === "Plusieurs jours" ? "Date de début" : "Date concernée"}</span>
+              <input type="date" value={draft.date} min="2026-08-24" onChange={(event) => { setDraft((current) => ({ ...current, date: event.target.value })); setError(null); }} className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-bold text-animeo-dark outline-none focus:border-animeo" />
             </label>
 
             <label className="block">
@@ -88,6 +92,13 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
                 {durations.map((duration) => <option key={duration}>{duration}</option>)}
               </select>
             </label>
+
+            {draft.duration === "Plusieurs jours" ? (
+              <label className="block">
+                <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Date de fin</span>
+                <input type="date" value={draft.endDate} min={draft.date} onChange={(event) => { setDraft((current) => ({ ...current, endDate: event.target.value })); setError(null); }} className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-bold text-animeo-dark outline-none focus:border-animeo" required />
+              </label>
+            ) : null}
 
             {draft.duration === "Horaire personnalisé" ? (
               <div className="grid grid-cols-2 gap-3">
@@ -120,6 +131,9 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
 }
 
 function modeSummary(label: string, value: ModeAvailability) {
+  if (!value.open && value.duration === "Plusieurs jours") {
+    return `${label} fermé du ${formatDate(value.date)} au ${formatDate(value.endDate)}`;
+  }
   const duration = value.duration === "Horaire personnalisé" ? `${value.startTime}–${value.endTime}` : value.duration;
   return value.open ? `${label} ouvert` : `${label} fermé le ${formatDate(value.date)} · ${duration}`;
 }

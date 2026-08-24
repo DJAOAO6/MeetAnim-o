@@ -7,12 +7,13 @@ export type ManualAvailability = {
   home: ModeAvailability;
 };
 
-export type ClosureDuration = "1 heure" | "2 heures" | "Demi-journée" | "Journée entière" | "Horaire personnalisé" | "Jusqu’à réouverture manuelle";
+export type ClosureDuration = "1 heure" | "2 heures" | "Demi-journée" | "Journée entière" | "Plusieurs jours" | "Horaire personnalisé" | "Jusqu’à réouverture manuelle";
 export type AvailabilityMode = "cabinet" | "home";
 
 export type ModeAvailability = {
   open: boolean;
   date: string;
+  endDate: string;
   duration: ClosureDuration;
   startTime: string;
   endTime: string;
@@ -20,8 +21,8 @@ export type ModeAvailability = {
 
 const STORAGE_KEY = "animeo-manual-availability";
 const defaultAvailability: ManualAvailability = {
-  cabinet: { open: true, date: "2026-08-24", duration: "Journée entière", startTime: "09:00", endTime: "18:00" },
-  home: { open: true, date: "2026-08-24", duration: "Journée entière", startTime: "09:00", endTime: "18:00" },
+  cabinet: { open: true, date: "2026-08-24", endDate: "2026-08-25", duration: "Journée entière", startTime: "09:00", endTime: "18:00" },
+  home: { open: true, date: "2026-08-24", endDate: "2026-08-25", duration: "Journée entière", startTime: "09:00", endTime: "18:00" },
 };
 
 export function useManualAvailability() {
@@ -69,20 +70,21 @@ function normalizeAvailability(stored: Record<string, unknown>): ManualAvailabil
 }
 
 function normalizeMode(value: unknown, date: string, duration: ClosureDuration): ModeAvailability {
-  if (typeof value === "boolean") return { open: value, date, duration, startTime: "09:00", endTime: "18:00" };
+  if (typeof value === "boolean") return { open: value, date, endDate: date, duration, startTime: "09:00", endTime: "18:00" };
   if (value && typeof value === "object") {
     const mode = value as Partial<ModeAvailability>;
     return {
       open: typeof mode.open === "boolean" ? mode.open : true,
       date: typeof mode.date === "string" ? mode.date : date,
+      endDate: typeof mode.endDate === "string" ? mode.endDate : typeof mode.date === "string" ? mode.date : date,
       duration: isClosureDuration(mode.duration) ? mode.duration : duration,
       startTime: typeof mode.startTime === "string" ? mode.startTime : "09:00",
       endTime: typeof mode.endTime === "string" ? mode.endTime : "18:00",
     };
   }
-  return { open: true, date, duration, startTime: "09:00", endTime: "18:00" };
+  return { open: true, date, endDate: date, duration, startTime: "09:00", endTime: "18:00" };
 }
 
 function isClosureDuration(value: unknown): value is ClosureDuration {
-  return ["1 heure", "2 heures", "Demi-journée", "Journée entière", "Horaire personnalisé", "Jusqu’à réouverture manuelle"].includes(String(value));
+  return ["1 heure", "2 heures", "Demi-journée", "Journée entière", "Plusieurs jours", "Horaire personnalisé", "Jusqu’à réouverture manuelle"].includes(String(value));
 }

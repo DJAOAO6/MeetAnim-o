@@ -149,7 +149,14 @@ function ClientTableRow({ client }: { client: Client }) {
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-animeo-soft text-animeo-dark">
             <Icon name="paw" className="h-4 w-4" />
           </span>
-          <span className="text-sm font-extrabold text-animeo-dark">{client.animals.length}</span>
+          <div>
+            <p className="text-sm font-extrabold text-animeo-dark">
+              {client.animals.length} animal{client.animals.length > 1 ? "aux" : ""}
+            </p>
+            <p className="mt-0.5 max-w-40 truncate text-xs font-semibold text-animeo-muted">
+              {animalNames(client)}
+            </p>
+          </div>
         </div>
       </td>
       <td className="px-4 py-4 text-sm font-semibold text-animeo-muted">{client.lastConsultation}</td>
@@ -174,7 +181,7 @@ function ClientMobileCard({ client }: { client: Client }) {
         <InfoLine label="Téléphone" value={client.phone} />
         <InfoLine label="Email" value={client.email} />
         <InfoLine label="Ville" value={client.city} />
-        <InfoLine label="Animaux" value={`${client.animals.length}`} />
+        <InfoLine label={`Animaux (${client.animals.length})`} value={animalNames(client)} />
         <InfoLine label="Dernière consultation" value={client.lastConsultation} />
       </dl>
       <ClientLink id={client.id} fullWidth />
@@ -209,6 +216,10 @@ function InfoLine({ label, value }: { label: string; value: string }) {
       <dd className="max-w-[60%] break-words text-right font-bold text-animeo-dark">{value}</dd>
     </div>
   );
+}
+
+function animalNames(client: Client) {
+  return client.animals.map((animal) => animal.name).join(", ") || "Aucun animal";
 }
 
 function SearchIcon() {
