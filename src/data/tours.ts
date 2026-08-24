@@ -17,6 +17,7 @@ export type Tour = {
   name: string;
   recurrence: "Toutes les semaines" | "Une seule fois";
   day: string;
+  dateId?: string;
   dateLabel: string;
   startTime: string;
   endTime: string;
@@ -100,6 +101,7 @@ export const initialTours: Tour[] = [
     name: "Tournée Le Havre",
     recurrence: "Toutes les semaines",
     day: "Lundi",
+    dateId: "2026-08-31",
     dateLabel: "Lundi 31 août 2026",
     startTime: "09:00",
     endTime: "18:00",
@@ -114,6 +116,7 @@ export const initialTours: Tour[] = [
     name: "Tournée Rouen Nord",
     recurrence: "Toutes les semaines",
     day: "Mardi",
+    dateId: "2026-09-01",
     dateLabel: "Mardi 1 septembre 2026",
     startTime: "09:00",
     endTime: "17:00",
@@ -128,6 +131,7 @@ export const initialTours: Tour[] = [
     name: "Tournée Dieppe",
     recurrence: "Une seule fois",
     day: "Vendredi",
+    dateId: "2026-09-04",
     dateLabel: "Vendredi 4 septembre 2026",
     startTime: "10:00",
     endTime: "16:00",

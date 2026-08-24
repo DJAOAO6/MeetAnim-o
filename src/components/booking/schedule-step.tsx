@@ -8,11 +8,12 @@ import {
   bookingStartDate,
   occupiedAgendaSlots,
   type BookingAddress,
+  type BookingDate,
   type BookingMode,
   type PublicProfessional,
   type PublicService,
 } from "@/data/public-booking";
-import { initialTours, mapClients, tourAppointments } from "@/data/tours";
+import { initialTours, mapClients, tourAppointments, type Tour } from "@/data/tours";
 
 type ScheduleStepProps = {
   professional: PublicProfessional;
@@ -32,14 +33,36 @@ function normalizeLocation(value: string) {
   return value.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, "'");
 }
 
+function tourRunsOnDate(tour: Tour, date: BookingDate) {
+  if (tour.day !== date.weekday) return false;
+  if (!tour.dateId) return true;
+  if (tour.recurrence === "Une seule fois") return tour.dateId === date.id;
+  return date.id >= tour.dateId;
+}
+
 export function ScheduleStep({ professional, mode, service, clientAddress, zoneId, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
   const zone = professional.zones.find((item) => item.id === zoneId);
+  const normalizedCity = normalizeLocation(clientAddress.city);
   const activeTours = mode === "HOME"
     ? initialTours.filter((tour) => tour.zoneId === zoneId && tour.status === "Active")
     : [];
   const activeTourDays = new Set(activeTours.map((tour) => tour.day));
+  const tourByDate = new Map<string, Tour>();
+  const sectorDates = bookingDates.filter((date) => date.zoneId === zoneId).filter((date) => {
+    const matchingTour = activeTours.find((tour) => tourRunsOnDate(tour, date));
+    if (matchingTour) tourByDate.set(date.id, matchingTour);
+    return Boolean(matchingTour);
+  });
+  const prioritizedSectorDates = [...sectorDates].sort((firstDate, secondDate) => {
+    const firstTour = tourByDate.get(firstDate.id);
+    const secondTour = tourByDate.get(secondDate.id);
+    const firstMatchesCity = firstTour ? (tourAppointments[firstTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
+    const secondMatchesCity = secondTour ? (tourAppointments[secondTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
+    if (firstMatchesCity !== secondMatchesCity) return firstMatchesCity ? -1 : 1;
+    return firstDate.id.localeCompare(secondDate.id);
+  });
   const dates = mode === "HOME"
-    ? bookingDates.filter((date) => date.zoneId === zoneId && activeTourDays.has(date.weekday))
+    ? prioritizedSectorDates
     : bookingDates;
   const monthIds = [...new Set(dates.map((date) => date.id.slice(0, 7)))];
   const [selectedMonth, setSelectedMonth] = useState(monthIds[0] ?? "");
@@ -47,7 +70,6 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const selectedDate = dates.find((date) => date.id === dateId);
   const availableSlots = selectedDate?.slots.filter((slot) => !(occupiedAgendaSlots[selectedDate.id] ?? []).includes(slot)) ?? [];
   const recommendedDates = mode === "HOME" ? dates.slice(0, 3) : [];
-  const normalizedCity = normalizeLocation(clientAddress.city);
   const scheduledInCity = activeTours.flatMap((tour) => tourAppointments[tour.id] ?? []).filter((appointment) => normalizeLocation(appointment.city) === normalizedCity).length;
   const mappedInCity = mapClients.filter((client) => normalizeLocation(client.city) === normalizedCity).length;
   const nearbyLocationCount = scheduledInCity + mappedInCity;
@@ -102,10 +124,11 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {recommendedDates.map((date) => (
-              <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={dateId === date.id} className={`rounded-2xl border-2 p-4 text-left transition ${dateId === date.id ? "border-animeo bg-animeo-soft" : "border-[#bfe1d8] bg-[#f7fcfa] hover:border-animeo"}`}>
-                <span className="block text-xs font-extrabold uppercase tracking-wide text-animeo">Tournée · {date.weekday}</span>
-                <span className="mt-1 block text-lg font-black capitalize text-animeo-dark">{date.shortLabel}</span>
-                <span className="mt-2 block text-xs font-bold text-animeo-muted">{nearbyLocationCount > 0 ? `Regroupement à ${clientAddress.city}` : zone?.name}</span>
+              <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={dateId === date.id} className={`rounded-2xl border-2 p-4 text-left text-white shadow-[0_8px_22px_rgba(79,175,159,0.2)] transition ${dateId === date.id ? "border-animeo-dark bg-animeo-dark" : "border-animeo bg-animeo hover:border-animeo-dark hover:bg-animeo-dark"}`}>
+                <span className="block text-xs font-extrabold uppercase tracking-wide text-white/75">Tournée correspondante</span>
+                <span className="mt-1 block text-lg font-black capitalize">{date.weekday} {date.shortLabel}</span>
+                <span className="mt-2 block text-xs font-bold text-white/80">{tourByDate.get(date.id)?.name} · {nearbyLocationCount > 0 ? `regroupement à ${clientAddress.city}` : zone?.name}</span>
+                <span className="mt-3 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-black">Réserver ce jour</span>
               </button>
             ))}
           </div>
@@ -119,7 +142,10 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
 
       {dates.length > 0 ? (
         <div className="mt-6">
-          <p className="mb-3 text-sm font-black text-animeo-dark">1. Choisissez une date</p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-black text-animeo-dark">1. Choisissez une date</p>
+            {mode === "HOME" ? <span className="inline-flex items-center gap-2 text-xs font-extrabold text-animeo-muted"><span className="h-3 w-3 rounded-full bg-animeo" /> Tournée correspondant à votre secteur</span> : null}
+          </div>
           <div className="mb-4 overflow-x-auto pb-1">
             <div className="flex min-w-max gap-2" aria-label="Choisir le mois">
               {monthIds.map((monthId) => (
@@ -136,13 +162,17 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-            {visibleDates.map((date) => (
-              <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={dateId === date.id} className={`min-h-24 rounded-2xl border-2 px-3 py-3 text-center transition ${dateId === date.id ? "border-animeo bg-animeo-soft" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
-                {mode === "HOME" ? <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-animeo">Tournée</span> : null}
-                <span className="block text-xs font-extrabold uppercase text-animeo-muted">{date.weekday}</span>
-                <span className="mt-1 block font-black text-animeo-dark">{date.shortLabel}</span>
-              </button>
-            ))}
+            {visibleDates.map((date) => {
+              const matchingTour = tourByDate.get(date.id);
+              const isSelected = dateId === date.id;
+              return (
+                <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={isSelected} className={`min-h-24 rounded-2xl border-2 px-3 py-3 text-center transition ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : matchingTour ? "border-animeo bg-animeo-soft hover:bg-[#d8f1ea]" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
+                  {matchingTour ? <span className={`mb-1 block text-[10px] font-black uppercase tracking-wide ${isSelected ? "text-white/75" : "text-animeo"}`}>Tournée secteur</span> : null}
+                  <span className={`block text-xs font-extrabold uppercase ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>{date.weekday}</span>
+                  <span className={`mt-1 block font-black ${isSelected ? "text-white" : "text-animeo-dark"}`}>{date.shortLabel}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}
