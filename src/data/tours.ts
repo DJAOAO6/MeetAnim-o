@@ -1,3 +1,7 @@
+import type { AnimalSpecies } from "@/data/species";
+
+export type { AnimalSpecies };
+
 export type City = {
   id: string;
   name: string;
@@ -28,6 +32,8 @@ export type Tour = {
   consultationHours: string;
 };
 
+export type Coordinates = { lat: number; lng: number };
+
 export type TourAppointment = {
   id: string;
   time: string;
@@ -36,9 +42,9 @@ export type TourAppointment = {
   city: string;
   clientName: string;
   position: { x: number; y: number };
+  coordinates: Coordinates;
 };
 
-export type AnimalSpecies = "Chien" | "Chat" | "Cheval" | "NAC";
 
 export type MapClient = {
   id: string;
@@ -53,6 +59,7 @@ export type MapClient = {
   dueForReminder: boolean;
   avatar: string;
   position: { x: number; y: number };
+  coordinates: Coordinates;
 };
 
 export const initialZones: Zone[] = [
@@ -145,18 +152,18 @@ export const initialTours: Tour[] = [
 
 export const tourAppointments: Record<string, TourAppointment[]> = {
   "tour-le-havre": [
-    { id: "lh-1", time: "09:00", animalName: "Bella", service: "Ostéopathie canine", city: "Le Havre", clientName: "Émilie Morel", position: { x: 27, y: 67 } },
-    { id: "lh-2", time: "11:00", animalName: "Rio", service: "Ostéopathie canine", city: "Montivilliers", clientName: "Antoine Dubois", position: { x: 55, y: 32 } },
-    { id: "lh-3", time: "14:00", animalName: "Néo", service: "Massage canin", city: "Harfleur", clientName: "Camille Leroy", position: { x: 70, y: 57 } },
-    { id: "lh-4", time: "16:00", animalName: "Oslo", service: "Ostéopathie canine", city: "Le Havre", clientName: "Thomas Martin", position: { x: 38, y: 76 } },
+    { id: "lh-1", time: "09:00", animalName: "Bella", service: "Ostéopathie canine", city: "Le Havre", clientName: "Émilie Morel", position: { x: 27, y: 67 }, coordinates: { lat: 49.4938, lng: 0.1077 } },
+    { id: "lh-2", time: "11:00", animalName: "Rio", service: "Ostéopathie canine", city: "Montivilliers", clientName: "Antoine Dubois", position: { x: 55, y: 32 }, coordinates: { lat: 49.5459, lng: 0.1875 } },
+    { id: "lh-3", time: "14:00", animalName: "Néo", service: "Massage canin", city: "Harfleur", clientName: "Camille Leroy", position: { x: 70, y: 57 }, coordinates: { lat: 49.5, lng: 0.2 } },
+    { id: "lh-4", time: "16:00", animalName: "Oslo", service: "Ostéopathie canine", city: "Le Havre", clientName: "Thomas Martin", position: { x: 38, y: 76 }, coordinates: { lat: 49.4874, lng: 0.1234 } },
   ],
   "tour-rouen-nord": [
-    { id: "rn-1", time: "09:00", animalName: "Luna", service: "Ostéopathie canine", city: "Rouen", clientName: "Marie Dupont", position: { x: 40, y: 70 } },
-    { id: "rn-2", time: "12:00", animalName: "Spirit", service: "Ostéopathie équine", city: "Mont-Saint-Aignan", clientName: "Julie Robert", position: { x: 52, y: 42 } },
-    { id: "rn-3", time: "15:00", animalName: "Milo", service: "Ostéopathie féline", city: "Mont-Saint-Aignan", clientName: "Julie Robert", position: { x: 70, y: 35 } },
+    { id: "rn-1", time: "09:00", animalName: "Luna", service: "Ostéopathie canine", city: "Rouen", clientName: "Marie Dupont", position: { x: 40, y: 70 }, coordinates: { lat: 49.4432, lng: 1.0999 } },
+    { id: "rn-2", time: "12:00", animalName: "Spirit", service: "Ostéopathie équine", city: "Mont-Saint-Aignan", clientName: "Julie Robert", position: { x: 52, y: 42 }, coordinates: { lat: 49.4644, lng: 1.0772 } },
+    { id: "rn-3", time: "15:00", animalName: "Milo", service: "Ostéopathie féline", city: "Mont-Saint-Aignan", clientName: "Julie Robert", position: { x: 70, y: 35 }, coordinates: { lat: 49.4661, lng: 1.0813 } },
   ],
   "tour-dieppe": [
-    { id: "dp-1", time: "11:00", animalName: "Jazz", service: "Ostéopathie équine", city: "Dieppe", clientName: "Paul Laurent", position: { x: 48, y: 48 } },
+    { id: "dp-1", time: "11:00", animalName: "Jazz", service: "Ostéopathie équine", city: "Dieppe", clientName: "Paul Laurent", position: { x: 48, y: 48 }, coordinates: { lat: 49.9219, lng: 1.0771 } },
   ],
 };
 
@@ -174,6 +181,7 @@ export const mapClients: MapClient[] = [
     dueForReminder: false,
     avatar: "🐕",
     position: { x: 66, y: 66 },
+    coordinates: { lat: 49.4432, lng: 1.0999 },
   },
   {
     id: "map-oslo",
@@ -188,6 +196,7 @@ export const mapClients: MapClient[] = [
     dueForReminder: true,
     avatar: "🐕‍🦺",
     position: { x: 21, y: 50 },
+    coordinates: { lat: 49.4938, lng: 0.1077 },
   },
   {
     id: "map-spirit",
@@ -202,6 +211,7 @@ export const mapClients: MapClient[] = [
     dueForReminder: false,
     avatar: "🐎",
     position: { x: 61, y: 55 },
+    coordinates: { lat: 49.4644, lng: 1.0772 },
   },
   {
     id: "map-neo",
@@ -216,6 +226,7 @@ export const mapClients: MapClient[] = [
     dueForReminder: true,
     avatar: "🐈",
     position: { x: 29, y: 56 },
+    coordinates: { lat: 49.5, lng: 0.2 },
   },
   {
     id: "map-ruby",
@@ -230,6 +241,7 @@ export const mapClients: MapClient[] = [
     dueForReminder: false,
     avatar: "🐶",
     position: { x: 17, y: 43 },
+    coordinates: { lat: 49.5023, lng: 0.2045 },
   },
   {
     id: "map-milo",
@@ -244,5 +256,6 @@ export const mapClients: MapClient[] = [
     dueForReminder: false,
     avatar: "🐈‍⬛",
     position: { x: 73, y: 58 },
+    coordinates: { lat: 49.4661, lng: 1.0813 },
   },
 ];

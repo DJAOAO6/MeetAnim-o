@@ -8,16 +8,19 @@ import {
   type DashboardThemeSettings,
   type NavigationAssetKey,
 } from "@/data/dashboard-theme";
+import type { AnimalSpecies } from "@/data/species";
 
 const storageKey = "animeo-dashboard-theme-v1";
 
 type DashboardThemeContextValue = {
   theme: DashboardThemeSettings;
-  updateTheme: (patch: Partial<Omit<DashboardThemeSettings, "navigationAssets">>) => void;
+  updateTheme: (patch: Partial<Omit<DashboardThemeSettings, "navigationAssets" | "speciesColors">>) => void;
   applyPreset: (mode: DashboardThemeMode) => void;
   resetTheme: () => void;
   setNavigationAsset: (key: NavigationAssetKey, value: string | null) => void;
   resetNavigationAssets: () => void;
+  setSpeciesColor: (species: AnimalSpecies, value: string | null) => void;
+  resetSpeciesColors: () => void;
 };
 
 const DashboardThemeContext = createContext<DashboardThemeContextValue | null>(null);
@@ -29,6 +32,7 @@ function normalizeTheme(value: Partial<DashboardThemeSettings>): DashboardThemeS
     ...preset,
     ...value,
     navigationAssets: value.navigationAssets ?? {},
+    speciesColors: value.speciesColors ?? {},
   };
 }
 
@@ -73,14 +77,14 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
     },
     applyPreset: (mode) => {
       setTheme((current) => {
-        const next = { ...presetForMode(mode), navigationAssets: current.navigationAssets };
+        const next = { ...presetForMode(mode), navigationAssets: current.navigationAssets, speciesColors: current.speciesColors };
         persistTheme(next);
         return next;
       });
     },
     resetTheme: () => {
       setTheme((current) => {
-        const next = { ...defaultDashboardTheme, navigationAssets: current.navigationAssets };
+        const next = { ...defaultDashboardTheme, navigationAssets: current.navigationAssets, speciesColors: current.speciesColors };
         persistTheme(next);
         return next;
       });
@@ -98,6 +102,23 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
     resetNavigationAssets: () => {
       setTheme((current) => {
         const next = { ...current, navigationAssets: {} };
+        persistTheme(next);
+        return next;
+      });
+    },
+    setSpeciesColor: (species, color) => {
+      setTheme((current) => {
+        const speciesColors = { ...current.speciesColors };
+        if (color) speciesColors[species] = color;
+        else delete speciesColors[species];
+        const next = { ...current, speciesColors };
+        persistTheme(next);
+        return next;
+      });
+    },
+    resetSpeciesColors: () => {
+      setTheme((current) => {
+        const next = { ...current, speciesColors: {} };
         persistTheme(next);
         return next;
       });

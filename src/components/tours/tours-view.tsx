@@ -98,7 +98,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
         title={activeTab === "tours" ? "Tournées" : "Carte clients"}
         description={activeTab === "tours"
           ? "Organisez simplement vos journées de consultations à domicile."
-          : "Visualisez vos clients et leurs animaux sur une carte locale simulée."}
+          : "Visualisez vos clients et leurs animaux sur une carte."}
         action={activeTab === "tours" ? (
           <button type="button" onClick={() => setTourModal("new")} className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]">
             <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>

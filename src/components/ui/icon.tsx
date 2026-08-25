@@ -12,6 +12,7 @@ export type IconName =
   | "paw"
   | "services"
   | "settings"
+  | "stats"
   | "tournees";
 
 type IconProps = SVGProps<SVGSVGElement> & {
@@ -89,6 +90,14 @@ const paths: Record<IconName, React.ReactNode> = {
   euro: (
     <>
       <path d="M19 7.5A7 7 0 1 0 19 16.5M5 10h10M5 14h9" />
+    </>
+  ),
+  stats: (
+    <>
+      <path d="M3 3v18h18" />
+      <rect x="7" y="13" width="3" height="5" rx="1" />
+      <rect x="12" y="9" width="3" height="9" rx="1" />
+      <rect x="17" y="5" width="3" height="13" rx="1" />
     </>
   ),
   arrow: <path d="m9 18 6-6-6-6" />,

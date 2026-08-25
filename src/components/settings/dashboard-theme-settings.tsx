@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { SectionTitle } from "@/components/settings/settings-fields";
 import type { DashboardThemeSettings, NavigationAssetKey } from "@/data/dashboard-theme";
+import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 
 const colorFields: Array<{
   key: keyof Pick<DashboardThemeSettings, "primaryColor" | "accentColor" | "backgroundColor" | "surfaceColor" | "sidebarColor" | "actionColor">;
@@ -29,11 +30,12 @@ const navigationItems: Array<{ key: NavigationAssetKey; label: string; icon: Ico
   { key: "map", label: "Carte clients", icon: "map" },
   { key: "reminders", label: "Rappels clients", icon: "bell" },
   { key: "services", label: "Prestations", icon: "services" },
+  { key: "stats", label: "Statistiques", icon: "stats" },
   { key: "settings", label: "Paramètres", icon: "settings" },
 ];
 
 export function DashboardThemeSettings() {
-  const { theme, updateTheme, applyPreset, resetTheme, setNavigationAsset, resetNavigationAssets } = useDashboardTheme();
+  const { theme, updateTheme, applyPreset, resetTheme, setNavigationAsset, resetNavigationAssets, setSpeciesColor, resetSpeciesColors } = useDashboardTheme();
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   function handleAsset(key: NavigationAssetKey, event: ChangeEvent<HTMLInputElement>) {
@@ -146,6 +148,36 @@ export function DashboardThemeSettings() {
               </div>
             );
           })}
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <SectionTitle
+          title="Couleurs des animaux"
+          description="Un code couleur par espèce pour repérer vos clients en un coup d’œil sur la carte."
+          action={<button type="button" onClick={resetSpeciesColors} className="rounded-[14px] border border-animeo px-4 py-2.5 text-xs font-extrabold text-animeo transition hover:bg-animeo-soft">Réinitialiser les couleurs</button>}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {animalSpeciesList.map((species) => (
+            <ThemeColorControl
+              key={species}
+              label={species}
+              description={`Marqueurs "${species}" sur la carte`}
+              value={resolveSpeciesColor(theme.speciesColors, species)}
+              onChange={(value) => setSpeciesColor(species, value)}
+            />
+          ))}
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-[16px] border border-[var(--theme-border)] bg-animeo-bg p-4">
+          {animalSpeciesList.map((species) => (
+            <span key={species} className="flex items-center gap-2 text-xs font-extrabold text-animeo-dark">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, species) }} />
+              {species}
+              {theme.speciesColors[species] === undefined ? null : <span className="font-mono text-[10px] font-bold text-animeo-muted">{theme.speciesColors[species]?.toUpperCase()}</span>}
+            </span>
+          ))}
         </div>
       </Card>
     </div>

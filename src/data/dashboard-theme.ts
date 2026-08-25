@@ -1,3 +1,5 @@
+import type { AnimalSpecies } from "@/data/species";
+
 export type DashboardThemeMode = "light" | "dark";
 
 export type NavigationAssetKey =
@@ -8,6 +10,7 @@ export type NavigationAssetKey =
   | "map"
   | "reminders"
   | "services"
+  | "stats"
   | "settings";
 
 export type DashboardThemeSettings = {
@@ -19,6 +22,7 @@ export type DashboardThemeSettings = {
   sidebarColor: string;
   actionColor: string;
   navigationAssets: Partial<Record<NavigationAssetKey, string>>;
+  speciesColors: Partial<Record<AnimalSpecies, string>>;
 };
 
 export const lightThemePreset: DashboardThemeSettings = {
@@ -30,6 +34,7 @@ export const lightThemePreset: DashboardThemeSettings = {
   sidebarColor: "#183B45",
   actionColor: "#4FAF9F",
   navigationAssets: {},
+  speciesColors: {},
 };
 
 export const darkThemePreset: DashboardThemeSettings = {
@@ -41,6 +46,7 @@ export const darkThemePreset: DashboardThemeSettings = {
   sidebarColor: "#0B171B",
   actionColor: "#4FAF9F",
   navigationAssets: {},
+  speciesColors: {},
 };
 
 export const defaultDashboardTheme = lightThemePreset;

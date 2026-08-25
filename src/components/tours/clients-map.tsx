@@ -1,11 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
-import { SimulatedMap } from "@/components/tours/simulated-map";
+import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import type { AnimalSpecies, MapClient } from "@/data/tours";
+
+const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
+  ssr: false,
+  loading: () => <div className="flex h-[610px] items-center justify-center rounded-2xl border border-[#dbe7e3] bg-[#edf4ef] text-sm font-bold text-animeo-muted">Chargement de la carte…</div>,
+});
 
 type SpeciesFilter = "Tous les clients" | AnimalSpecies;
 
@@ -16,6 +23,7 @@ type ClientsMapProps = {
 const speciesFilters: SpeciesFilter[] = ["Tous les clients", "Chien", "Chat", "Cheval", "NAC"];
 
 export function ClientsMap({ clients }: ClientsMapProps) {
+  const { theme } = useDashboardTheme();
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("Tous les clients");
   const [dueOnly, setDueOnly] = useState(false);
   const [cityFilter, setCityFilter] = useState("Toutes les villes");
@@ -37,11 +45,12 @@ export function ClientsMap({ clients }: ClientsMapProps) {
   const selectedClient = filteredClients.find((client) => client.id === selectedId) ?? filteredClients[0];
   const points = filteredClients.map((client) => ({
     id: client.id,
-    x: client.position.x,
-    y: client.position.y,
+    lat: client.coordinates.lat,
+    lng: client.coordinates.lng,
     label: client.avatar,
-    title: `${client.ownerName} · ${client.animalName} · ${client.city}`,
-    accent: client.dueForReminder ? "orange" as const : "green" as const,
+    title: `${client.ownerName} · ${client.animalName} · ${client.city} · ${client.species}${client.dueForReminder ? " · À relancer" : ""}`,
+    color: resolveSpeciesColor(theme.speciesColors, client.species),
+    badge: client.dueForReminder,
   }));
 
   return (
@@ -59,7 +68,10 @@ export function ClientsMap({ clients }: ClientsMapProps) {
               <span className="w-14 shrink-0 text-xs font-extrabold text-animeo-muted">Espèce</span>
               <div className="flex flex-wrap gap-1.5">
                 {speciesFilters.map((filter) => (
-                  <button key={filter} type="button" onClick={() => setSpeciesFilter(filter)} aria-pressed={speciesFilter === filter} className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${speciesFilter === filter ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}>{filter}</button>
+                  <button key={filter} type="button" onClick={() => setSpeciesFilter(filter)} aria-pressed={speciesFilter === filter} className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${speciesFilter === filter ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}>
+                    {filter !== "Tous les clients" ? <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, filter) }} /> : null}
+                    {filter}
+                  </button>
                 ))}
                 <button type="button" onClick={() => setDueOnly((current) => !current)} aria-pressed={dueOnly} className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${dueOnly ? "bg-animeo-accent text-animeo-dark" : "bg-[#fff9ec] text-[#a66d16]"}`}>À relancer</button>
               </div>
@@ -83,12 +95,14 @@ export function ClientsMap({ clients }: ClientsMapProps) {
               <h2 className="font-extrabold text-animeo-dark">Répartition des clients</h2>
               <p className="mt-0.5 text-xs text-animeo-muted">Cliquez sur un point pour afficher sa fiche</p>
             </div>
-            <div className="flex gap-3 text-[10px] font-bold text-animeo-muted">
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-animeo" />Client</span>
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-animeo-accent" />À relancer</span>
+            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-animeo-muted">
+              {animalSpeciesList.map((item) => (
+                <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item}</span>
+              ))}
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span>
             </div>
           </div>
-          <SimulatedMap
+          <RealMap
             points={points}
             selectedId={selectedClient?.id}
             onSelect={setSelectedId}
@@ -106,7 +120,7 @@ export function ClientsMap({ clients }: ClientsMapProps) {
             <div className="max-h-[650px] divide-y divide-[#edf2f0] overflow-y-auto">
               {filteredClients.map((client) => (
                 <button key={client.id} type="button" onClick={() => setSelectedId(client.id)} className={`flex w-full items-center gap-3 p-4 text-left transition ${selectedClient?.id === client.id ? "bg-animeo-soft" : "hover:bg-animeo-bg"}`}>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-2xl shadow-sm">{client.avatar}</span>
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 18%, white)` }}>{client.avatar}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
                     <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{client.animalName} · {client.species}</span>
@@ -123,17 +137,18 @@ export function ClientsMap({ clients }: ClientsMapProps) {
       </div>
 
       <div className="rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-dark">
-        Simulation V1 : aucun géocodage, rayon kilométrique ou itinéraire réel. Les petits ruminants seront ajoutés seulement en V2.
+        Carte OpenStreetMap avec positions réelles. Itinéraires optimisés et petits ruminants prévus en V2.
       </div>
     </div>
   );
 }
 
 function MapClientPopup({ client }: { client: MapClient }) {
+  const { theme } = useDashboardTheme();
   return (
     <div className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-[0_12px_30px_rgba(24,59,69,0.18)] backdrop-blur-sm">
       <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-animeo-soft text-2xl">{client.avatar}</span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 22%, white)` }}>{client.avatar}</span>
         <div className="min-w-0">
           <h3 className="truncate font-black text-animeo-dark">{client.ownerName}</h3>
           <p className="mt-0.5 text-xs font-extrabold text-animeo">{client.animalName}</p>
