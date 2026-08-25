@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { initialAppointments, type Appointment } from "@/data/appointments";
+import type { Appointment } from "@/data/appointments";
 import { bookingProfessionals, type PublicBookingRequest } from "@/data/public-booking";
 
 type AppointmentsContextValue = {
@@ -19,7 +19,7 @@ type AppointmentsContextValue = {
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(null);
 const STORAGE_KEY = "animeo-appointments";
 
-export function AppointmentsProvider({ children }: { children: ReactNode }) {
+export function AppointmentsProvider({ children, initialAppointments }: { children: ReactNode; initialAppointments: Appointment[] }) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [storageReady, setStorageReady] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
@@ -40,6 +40,8 @@ export function AppointmentsProvider({ children }: { children: ReactNode }) {
       }
       setStorageReady(true);
     });
+    // Ne doit s’exécuter qu’au montage : initialAppointments est la valeur initiale du serveur, pas une dépendance réactive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -13,7 +13,8 @@ import {
   type PublicProfessional,
   type PublicService,
 } from "@/data/public-booking";
-import { initialTours, mapClients, tourAppointments, type Tour } from "@/data/tours";
+import { publicBookingMapClients, publicBookingTourAppointments, publicBookingTours } from "@/data/public-booking-tours";
+import type { Tour } from "@/data/tours";
 
 type ScheduleStepProps = {
   professional: PublicProfessional;
@@ -44,7 +45,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const zone = professional.zones.find((item) => item.id === zoneId);
   const normalizedCity = normalizeLocation(clientAddress.city);
   const activeTours = mode === "HOME"
-    ? initialTours.filter((tour) => tour.zoneId === zoneId && tour.status === "Active")
+    ? publicBookingTours.filter((tour) => tour.zoneId === zoneId && tour.status === "Active")
     : [];
   const activeTourDays = new Set(activeTours.map((tour) => tour.day));
   const tourByDate = new Map<string, Tour>();
@@ -56,8 +57,8 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const prioritizedSectorDates = [...sectorDates].sort((firstDate, secondDate) => {
     const firstTour = tourByDate.get(firstDate.id);
     const secondTour = tourByDate.get(secondDate.id);
-    const firstMatchesCity = firstTour ? (tourAppointments[firstTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
-    const secondMatchesCity = secondTour ? (tourAppointments[secondTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
+    const firstMatchesCity = firstTour ? (publicBookingTourAppointments[firstTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
+    const secondMatchesCity = secondTour ? (publicBookingTourAppointments[secondTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
     if (firstMatchesCity !== secondMatchesCity) return firstMatchesCity ? -1 : 1;
     return firstDate.id.localeCompare(secondDate.id);
   });
@@ -70,8 +71,8 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const selectedDate = dates.find((date) => date.id === dateId);
   const availableSlots = selectedDate?.slots.filter((slot) => !(occupiedAgendaSlots[selectedDate.id] ?? []).includes(slot)) ?? [];
   const recommendedDates = mode === "HOME" ? dates.slice(0, 3) : [];
-  const scheduledInCity = activeTours.flatMap((tour) => tourAppointments[tour.id] ?? []).filter((appointment) => normalizeLocation(appointment.city) === normalizedCity).length;
-  const mappedInCity = mapClients.filter((client) => normalizeLocation(client.city) === normalizedCity).length;
+  const scheduledInCity = activeTours.flatMap((tour) => publicBookingTourAppointments[tour.id] ?? []).filter((appointment) => normalizeLocation(appointment.city) === normalizedCity).length;
+  const mappedInCity = publicBookingMapClients.filter((client) => normalizeLocation(client.city) === normalizedCity).length;
   const nearbyLocationCount = scheduledInCity + mappedInCity;
 
   function selectDate(nextDateId: string) {

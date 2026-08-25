@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ClientStatus {
+  ACTIF
+  INACTIF
+}
+
+enum VisitMode {
+  CABINET
+  DOMICILE
+}
+
+enum ConsultationStatus {
+  TERMINE
+  ANNULE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReminderStatus {
+  DUE
+  SENT
+  BOOKED
+  IGNORED
+  UPCOMING
+}
+
+enum ReminderDelay {
+  THREE_MONTHS
+  SIX_MONTHS
+  TWELVE_MONTHS
+  CUSTOM
+}
+
+enum DocumentType {
+  PDF
+  IMAGE
+}
+
+enum TourStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TravelFeeMode {
+  FIXED
+  ZONE
+  KILOMETRIC
+}
+
+model Client {
+  id        String       @id
+  firstName String
+  lastName  String
+  phone     String
+  email     String
+  city      String
+  address   String
+  status    ClientStatus @default(ACTIF)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  animals      Animal[]
+  appointments Appointment[]
+  reminders    Reminder[]
+
+  @@index([lastName, firstName])
+}
+
+model Animal {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name             String
+  species          String
+  breed            String
+  age              String
+  weight           String
+  sex              String
+  avatar           String
+  avatarBackground String
+  photo            String?
+
+  history    String @db.Text
+  conditions String @db.Text
+  treatments String @db.Text
+  notes      String @db.Text
+
+  reminderLabel String?
+  reminderDate  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  consultations Consultation[]
+  documents     AnimalDocument[]
+  appointments  Appointment[]
+  reminders     Reminder[]
+
+  @@index([clientId])
+}
+
+model Consultation {
+  id       String @id @default(cuid())
+  animalId String
+  animal   Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  date    DateTime
+  service String
+  mode    VisitMode
+  price   Float
+  summary String              @db.Text
+  status  ConsultationStatus  @default(TERMINE)
+
+  createdAt DateTime @default(now())
+
+  @@index([animalId])
+}
+
+model AnimalDocument {
+  id       String       @id @default(cuid())
+  animalId String
+  animal   Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  name     String
+  type     DocumentType
+  linkedTo String
+
+  createdAt DateTime @default(now())
+
+  @@index([animalId])
+}
+
+model Appointment {
+  id       String  @id @default(cuid())
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  animalId String?
+  animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+
+  clientName  String
+  animalName  String
+  serviceName String
+  date        DateTime
+  start       String
+  duration    Int
+  mode        VisitMode
+  location    String
+  price       Float
+  status      AppointmentStatus @default(PENDING)
+  notes       String            @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([animalId])
+  @@index([date])
+}
+
+model Reminder {
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  animalId String
+  animal   Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  lastConsultation DateTime
+  delay            ReminderDelay
+  dueDate          DateTime
+  status           ReminderStatus @default(DUE)
+  note             String?        @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([animalId])
+}
+
+model Zone {
+  id     String @id @default(cuid())
+  name   String
+  cities City[]
+  tours  Tour[]
+}
+
+model City {
+  id         String @id @default(cuid())
+  name       String
+  postalCode String
+  zoneId     String
+  zone       Zone   @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([zoneId])
+}
+
+model Tour {
+  id                String     @id @default(cuid())
+  name              String
+  recurrence        String
+  day               String
+  dateId            String?
+  dateLabel         String
+  startTime         String
+  endTime           String
+  zoneId            String
+  zone              Zone       @relation(fields: [zoneId], references: [id])
+  status            TourStatus @default(ACTIVE)
+  appointmentCount  Int        @default(0)
+  estimatedKm       Float      @default(0)
+  consultationHours String
+
+  tourAppointments TourAppointment[]
+
+  @@index([zoneId])
+}
+
+model TourAppointment {
+  id         String @id @default(cuid())
+  tourId     String
+  tour       Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  time       String
+  animalName String
+  service    String
+  city       String
+  clientName String
+  lat        Float
+  lng        Float
+
+  @@index([tourId])
+}
+
+model Service {
+  id                String        @id @default(cuid())
+  name              String
+  description       String        @db.Text
+  duration          Int
+  animals           String[]
+  cabinetEnabled    Boolean       @default(true)
+  cabinetPrice      Float
+  homeEnabled       Boolean       @default(true)
+  homePrice         Float
+  travelFeesEnabled Boolean       @default(false)
+  travelFeeMode     TravelFeeMode @default(FIXED)
+  fixedTravelFee    Float         @default(0)
+  zoneFees          Json?
+  kilometricRate    Float         @default(0)
+  suggestedReminder String
+  active            Boolean       @default(true)
+}

@@ -4,16 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, inputClassName } from "@/components/settings/settings-fields";
-import { initialTours, initialZones, type Tour } from "@/data/tours";
+import type { Tour, Zone } from "@/data/tours";
 
-let sessionTours = initialTours;
+type ToursSettingsTabProps = {
+  initialTours: Tour[];
+  zones: Zone[];
+  onNotify: (message: string) => void;
+};
 
-export function ToursSettingsTab({ onNotify }: { onNotify: (message: string) => void }) {
-  const [tours, setTours] = useState(() => sessionTours);
+export function ToursSettingsTab({ initialTours, zones, onNotify }: ToursSettingsTabProps) {
+  const [tours, setTours] = useState(initialTours);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   function updateTours(next: Tour[], message: string) {
-    sessionTours = next;
     setTours(next);
     onNotify(message);
   }
@@ -27,7 +30,7 @@ export function ToursSettingsTab({ onNotify }: { onNotify: (message: string) => 
       <SectionTitle title="Réglages des tournées" description="Retrouvez ici les paramètres essentiels sans remplacer la page complète des tournées." action={<Link href="/dashboard/tournees" className="inline-flex rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white">Gérer toutes les tournées →</Link>} />
       <div className="space-y-4">
         {tours.map((tour) => {
-          const zone = initialZones.find((item) => item.id === tour.zoneId);
+          const zone = zones.find((item) => item.id === tour.zoneId);
           const editing = editingId === tour.id;
           return (
             <Card key={tour.id} className="p-5 sm:p-6">
@@ -37,7 +40,7 @@ export function ToursSettingsTab({ onNotify }: { onNotify: (message: string) => 
                   {!editing ? <><h3 className="text-lg font-black text-animeo-dark">{tour.name}</h3><p className="mt-1 text-sm text-animeo-muted">{zone?.name} · {tour.day} · {tour.startTime} – {tour.endTime}</p></> : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <Field label="Nom"><input value={tour.name} onChange={(event) => updateTour(tour.id, "name", event.target.value)} className={inputClassName} /></Field>
-                      <Field label="Zone"><select value={tour.zoneId} onChange={(event) => updateTour(tour.id, "zoneId", event.target.value)} className={inputClassName}>{initialZones.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+                      <Field label="Zone"><select value={tour.zoneId} onChange={(event) => updateTour(tour.id, "zoneId", event.target.value)} className={inputClassName}>{zones.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
                       <Field label="Jour"><select value={tour.day} onChange={(event) => updateTour(tour.id, "day", event.target.value)} className={inputClassName}>{["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].map((day) => <option key={day}>{day}</option>)}</select></Field>
                       <Field label="Début"><input type="time" value={tour.startTime} onChange={(event) => updateTour(tour.id, "startTime", event.target.value)} className={inputClassName} /></Field>
                       <Field label="Fin"><input type="time" value={tour.endTime} onChange={(event) => updateTour(tour.id, "endTime", event.target.value)} className={inputClassName} /></Field>
@@ -45,7 +48,7 @@ export function ToursSettingsTab({ onNotify }: { onNotify: (message: string) => 
                   )}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <button type="button" onClick={() => { if (editing) { sessionTours = tours; onNotify("Tournée modifiée localement"); } setEditingId(editing ? null : tour.id); }} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">{editing ? "Enregistrer" : "Modifier"}</button>
+                  <button type="button" onClick={() => { if (editing) { onNotify("Tournée modifiée localement"); } setEditingId(editing ? null : tour.id); }} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">{editing ? "Enregistrer" : "Modifier"}</button>
                   <button type="button" onClick={() => updateTours(tours.map((item) => item.id === tour.id ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" } : item), tour.status === "Active" ? "Tournée désactivée" : "Tournée activée")} className="rounded-xl bg-animeo-bg px-4 py-2.5 text-xs font-extrabold text-animeo-muted">{tour.status === "Active" ? "Désactiver" : "Activer"}</button>
                 </div>
               </div>

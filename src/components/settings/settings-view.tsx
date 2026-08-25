@@ -11,8 +11,14 @@ import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
 import { CustomizationSettingsTab } from "@/components/settings/customization-settings-tab";
 import { initialSettings, type SettingsState } from "@/data/settings";
+import type { Tour, Zone } from "@/data/tours";
 
 type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization";
+
+type SettingsViewProps = {
+  tours: Tour[];
+  zones: Zone[];
+};
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
   { id: "profile", label: "Mon profil", icon: "clients" },
@@ -25,7 +31,7 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
 
 let sessionSettings = initialSettings;
 
-export function SettingsView() {
+export function SettingsView({ tours, zones }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [settings, setSettings] = useState<SettingsState>(() => sessionSettings);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -73,7 +79,7 @@ export function SettingsView() {
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} onSave={(value) => updateSettings("profile", value)} /> : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={(value, message) => updateSettings("availability", value, message)} /> : null}
-      {activeTab === "tours" ? <ToursSettingsTab onNotify={setFeedback} /> : null}
+      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} onNotify={setFeedback} /> : null}
       {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={(value) => updateSettings("reminders", value)} /> : null}
       {activeTab === "customization" ? (
         <CustomizationSettingsTab

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { ToursView } from "@/components/tours/tours-view";
-import { initialTours, initialZones, mapClients, tourAppointments } from "@/data/tours";
+import { getToursPageData } from "@/lib/tours";
 
 export const metadata: Metadata = { title: "Carte clients" };
 
-export default function CartePage() {
-  return <ToursView initialTab="map" initialTours={initialTours} initialZones={initialZones} appointments={tourAppointments} mapClients={mapClients} />;
+export default async function CartePage() {
+  const { zones, tours, appointments, mapClients } = await getToursPageData();
+  return <ToursView initialTab="map" initialTours={tours} initialZones={zones} appointments={appointments} mapClients={mapClients} />;
 }

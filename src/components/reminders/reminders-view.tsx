@@ -7,7 +7,7 @@ import { RemindersTable } from "@/components/reminders/reminders-table";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { reminderClientOptions, type Reminder, type ReminderStatus } from "@/data/reminders";
+import type { Reminder, ReminderClientOption, ReminderStatus } from "@/data/reminders";
 
 type PeriodFilter = "current" | "next" | "all";
 type StatusFilter = "all" | Exclude<ReminderStatus, "À venir">;
@@ -20,6 +20,7 @@ type RemindersViewProps = {
     booked: number;
     upcoming: number;
   };
+  clientOptions: ReminderClientOption[];
 };
 
 const referenceDate = new Date(2026, 7, 24, 12);
@@ -51,7 +52,7 @@ const statusFilters: Array<{ value: StatusFilter; label: string }> = [
   { value: "Ignoré", label: "Ignoré" },
 ];
 
-export function RemindersView({ initialReminders, initialStats }: RemindersViewProps) {
+export function RemindersView({ initialReminders, initialStats, clientOptions }: RemindersViewProps) {
   const [reminders, setReminders] = useState(initialReminders);
   const [stats, setStats] = useState(initialStats);
   const [query, setQuery] = useState("");
@@ -150,7 +151,7 @@ export function RemindersView({ initialReminders, initialStats }: RemindersViewP
   }
 
   function saveScheduledReminder(value: ReminderFormValue) {
-    const client = reminderClientOptions.find((option) => option.id === value.clientId);
+    const client = clientOptions.find((option) => option.id === value.clientId);
     const animal = client?.animals.find((option) => option.id === value.animalId);
 
     if (!client || !animal) return;
@@ -315,7 +316,7 @@ export function RemindersView({ initialReminders, initialStats }: RemindersViewP
       {scheduleReminder ? (
         <ReminderScheduleModal
           reminder={scheduleReminder === "new" ? undefined : scheduleReminder}
-          clients={reminderClientOptions}
+          clients={clientOptions}
           onClose={() => setScheduleReminder(null)}
           onSave={saveScheduledReminder}
         />
