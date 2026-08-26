@@ -66,28 +66,38 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
     : [];
   const activeTourDays = new Set(activeTours.map((tour) => tour.day));
   const tourByDate = new Map<string, Tour>();
-  const sectorDates = bookingDates.filter((date) => date.zoneId === zoneId).filter((date) => {
-    const matchingTour = activeTours.find((tour) => tourRunsOnDate(tour, date));
-    if (matchingTour) tourByDate.set(date.id, matchingTour);
-    return Boolean(matchingTour);
-  });
-  const prioritizedSectorDates = [...sectorDates].sort((firstDate, secondDate) => {
-    const firstTour = tourByDate.get(firstDate.id);
-    const secondTour = tourByDate.get(secondDate.id);
-    const firstMatchesCity = firstTour ? (publicBookingTourAppointments[firstTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
-    const secondMatchesCity = secondTour ? (publicBookingTourAppointments[secondTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity) : false;
-    if (firstMatchesCity !== secondMatchesCity) return firstMatchesCity ? -1 : 1;
-    return firstDate.id.localeCompare(secondDate.id);
-  });
+  if (mode === "HOME") {
+    for (const date of bookingDates) {
+      const matchingTour = activeTours.find((tour) => tourRunsOnDate(tour, date));
+      if (matchingTour) tourByDate.set(date.id, matchingTour);
+    }
+  }
+  /**
+   * Les tournées ne sont qu'une suggestion : tous les créneaux libres de
+   * l'agenda restent proposés, même hors zone de tournée. Seules les dates
+   * qui correspondent à une tournée active sont mises en avant en tête de
+   * liste (avec, en cas d'égalité, celles où un passage est déjà prévu dans
+   * la même ville).
+   */
   const dates = mode === "HOME"
-    ? prioritizedSectorDates
+    ? [...bookingDates].sort((firstDate, secondDate) => {
+        const firstTour = tourByDate.get(firstDate.id);
+        const secondTour = tourByDate.get(secondDate.id);
+        if (Boolean(firstTour) !== Boolean(secondTour)) return firstTour ? -1 : 1;
+        if (firstTour && secondTour) {
+          const firstMatchesCity = (publicBookingTourAppointments[firstTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity);
+          const secondMatchesCity = (publicBookingTourAppointments[secondTour.id] ?? []).some((appointment) => normalizeLocation(appointment.city) === normalizedCity);
+          if (firstMatchesCity !== secondMatchesCity) return firstMatchesCity ? -1 : 1;
+        }
+        return firstDate.id.localeCompare(secondDate.id);
+      })
     : bookingDates;
   const monthIds = [...new Set(dates.map((date) => date.id.slice(0, 7)))];
   const [selectedMonth, setSelectedMonth] = useState(monthIds[0] ?? "");
   const visibleDates = dates.filter((date) => date.id.startsWith(selectedMonth));
   const selectedDate = dates.find((date) => date.id === dateId);
   const availableSlots = selectedDate?.slots.filter((slot) => !(occupiedSlots[selectedDate.id] ?? []).includes(slot)) ?? [];
-  const recommendedDates = mode === "HOME" ? dates.slice(0, 3) : [];
+  const recommendedDates = mode === "HOME" ? dates.filter((date) => tourByDate.has(date.id)).slice(0, 3) : [];
   const scheduledInCity = activeTours.flatMap((tour) => publicBookingTourAppointments[tour.id] ?? []).filter((appointment) => normalizeLocation(appointment.city) === normalizedCity).length;
   const mappedInCity = publicBookingMapClients.filter((client) => normalizeLocation(client.city) === normalizedCity).length;
   const nearbyLocationCount = scheduledInCity + mappedInCity;
@@ -122,10 +132,20 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
               <p className="font-black text-[#24755f]">{zone.name} détectée</p>
               <p className="mt-1 text-sm leading-6 text-animeo-dark">
                 {activeTours.length > 0
-                  ? `${activeTours.map((tour) => tour.name).join(", ")} · passage le${activeTourDays.size > 1 ? "s" : ""} ${[...activeTourDays].join(" et ").toLocaleLowerCase("fr-FR")}.`
-                  : "Aucune tournée n’est actuellement active dans cette zone."}
+                  ? `${activeTours.map((tour) => tour.name).join(", ")} · passage le${activeTourDays.size > 1 ? "s" : ""} ${[...activeTourDays].join(" et ").toLocaleLowerCase("fr-FR")}. Ces jours sont mis en avant ci-dessous, mais tous les autres créneaux libres restent disponibles.`
+                  : "Aucune tournée n’est actuellement active dans cette zone, mais tous les créneaux libres ci-dessous restent disponibles."}
               </p>
               {nearbyLocationCount > 0 ? <p className="mt-2 text-sm font-extrabold text-animeo-dark">{nearbyLocationCount} passage{nearbyLocationCount > 1 ? "s" : ""} ou lieu{nearbyLocationCount > 1 ? "x" : ""} déjà identifié{nearbyLocationCount > 1 ? "s" : ""} à {clientAddress.city} : ces dates facilitent le regroupement des visites.</p> : null}
+            </div>
+          </div>
+        </div>
+      ) : mode === "HOME" ? (
+        <div className="mt-4 rounded-2xl border border-[#dfe9e6] bg-white p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-soft text-lg font-black text-animeo-dark">⌖</span>
+            <div>
+              <p className="font-black text-animeo-dark">Aucune tournée régulière dans votre secteur</p>
+              <p className="mt-1 text-sm leading-6 text-animeo-muted">Tous les créneaux libres de l’agenda restent disponibles ci-dessous : choisissez simplement celui qui vous convient.</p>
             </div>
           </div>
         </div>
@@ -205,7 +225,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
         </div>
       ) : null}
 
-      {dates.length === 0 ? <p className="mt-5 rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Aucune tournée active n’est disponible pour ce secteur. Revenez à l’étape précédente ou choisissez une consultation au cabinet.</p> : null}
+      {dates.length === 0 ? <p className="mt-5 rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Aucun créneau n’est disponible pour le moment. Revenez à l’étape précédente ou contactez directement le professionnel.</p> : null}
       <BookingActions onBack={onBack} nextDisabled={!dateId || !time} />
     </form>
   );

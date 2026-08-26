@@ -172,14 +172,16 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
     onZoneChange(matchingZone?.id ?? null);
   }
 
+  const hasCompleteAddress = value.address.trim().length > 0 && value.postalCode.trim().length > 0 && value.city.trim().length > 0;
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (zoneId) onNext();
+    if (hasCompleteAddress) onNext();
   }
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 3 · Informations" title="Où doit se dérouler la consultation ?" description="Votre adresse permet d’identifier votre secteur, les tournées actives et les rendez-vous proches à regrouper." />
+      <StepHeading eyebrow="Étape 3 · Informations" title="Où doit se dérouler la consultation ?" description="Les tournées existent pour optimiser les trajets du professionnel : elles ne limitent jamais les créneaux que vous pouvez choisir." />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><BookingField label="Adresse" required><input value={value.address} onChange={(event) => update("address", event.target.value)} className={bookingInputClassName} placeholder="12 rue Exemple" required /></BookingField></div>
         <div className="sm:col-span-2"><BookingField label="Complément d’adresse" hint="Facultatif"><input value={value.addressExtra} onChange={(event) => update("addressExtra", event.target.value)} className={bookingInputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></BookingField></div>
@@ -189,18 +191,20 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
 
       {zone ? (
         <div className="mt-5 rounded-2xl border border-[#bfe1d8] bg-[#edf9f5] p-4">
-          <p className="font-black text-[#24755f]">✓ Votre adresse est desservie.</p>
+          <p className="font-black text-[#24755f]">✓ Une tournée passe régulièrement par votre secteur.</p>
           <p className="mt-1 text-sm text-animeo-dark">{zone.name} · consultations principalement le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}.</p>
           <p className="mt-3 text-sm font-extrabold text-animeo-dark">{travelFee > 0 ? `Frais de déplacement : +${travelFee} €` : "Aucun frais de déplacement"}</p>
+          <p className="mt-2 text-xs text-animeo-muted">Ces jours seront mis en avant à l’étape suivante, mais vous pourrez tout de même choisir n’importe quel autre créneau libre.</p>
         </div>
       ) : hasLocation ? (
-        <div className="mt-5 rounded-2xl border border-[#f0d8c8] bg-[#fff7f0] p-4">
-          <p className="font-black text-[#a85d32]">Cette adresse ne fait pas encore partie des zones de déplacement disponibles.</p>
-          {service.cabinetEnabled ? <button type="button" onClick={onSwitchToCabinet} className="mt-3 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark shadow-sm">Choisir un rendez-vous au cabinet</button> : null}
+        <div className="mt-5 rounded-2xl border border-[#dfe9e6] bg-white p-4">
+          <p className="font-black text-animeo-dark">Aucune tournée régulière ne couvre encore ce secteur.</p>
+          <p className="mt-1 text-sm text-animeo-muted">Ce n’est pas un problème : à l’étape suivante, vous pouvez choisir n’importe quel créneau libre dans l’agenda du professionnel, il organisera son déplacement pour vous.</p>
+          {service.cabinetEnabled ? <button type="button" onClick={onSwitchToCabinet} className="mt-3 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark">Choisir un rendez-vous au cabinet à la place</button> : null}
         </div>
       ) : null}
 
-      <BookingActions onBack={onBack} nextDisabled={!zoneId} />
+      <BookingActions onBack={onBack} nextDisabled={!hasCompleteAddress} />
     </form>
   );
 }
