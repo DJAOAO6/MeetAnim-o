@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { login, type LoginState } from "@/lib/auth/actions";
 import { Card } from "@/components/ui/card";
@@ -22,7 +23,10 @@ export function LoginForm() {
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Mot de passe</span>
+          <span className="mb-1.5 flex items-center justify-between text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
+            Mot de passe
+            <Link href="/mot-de-passe-oublie" className="normal-case tracking-normal text-animeo hover:underline">Mot de passe oublié ?</Link>
+          </span>
           <div className="relative">
             <input type={showPassword ? "text" : "password"} name="password" required autoComplete="current-password" placeholder="••••••••" className={`${inputClassName} pr-16`} />
             <button

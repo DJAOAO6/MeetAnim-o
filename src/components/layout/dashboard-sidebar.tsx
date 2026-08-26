@@ -36,10 +36,13 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DashboardSidebar() {
+export function DashboardSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme } = useDashboardTheme();
+  const items = showAdmin
+    ? [...navigation, { label: "Administration", href: "/dashboard/admin", icon: "shield" as const, assetKey: "admin" as const }]
+    : navigation;
 
   return (
     <>
@@ -82,7 +85,7 @@ export function DashboardSidebar() {
         </div>
 
         <nav aria-label="Navigation principale" className="flex-1 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
+          {items.map((item) => {
             const active = isActive(pathname, item.href);
             const customAsset = theme.navigationAssets[item.assetKey];
 

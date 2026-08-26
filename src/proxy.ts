@@ -26,3 +26,8 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: ["/dashboard/:path*", "/login"],
 };
+
+// /login/verification (étape 2FA) et les pages de réinitialisation de mot de
+// passe restent hors de ce matcher : elles gèrent elles-mêmes leur propre
+// redirection (session 2FA en attente, jeton de réinitialisation), un
+// contrôle optimiste ici n'apporterait rien.

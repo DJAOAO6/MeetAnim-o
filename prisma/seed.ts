@@ -1,8 +1,13 @@
 import { config } from "dotenv";
+import bcrypt from "bcryptjs";
 import { faker } from "@faker-js/faker/locale/fr";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient, type VisitMode, type ReminderDelay, type ReminderStatus } from "../src/generated/prisma/client";
 import { NORMANDY_CITIES as CITIES } from "../src/data/normandy-cities";
+
+function bcryptHash(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
+}
 
 config({ path: ".env.local" });
 
@@ -132,6 +137,43 @@ const CURATED_CLIENTS = [
     ],
   },
 ];
+
+async function seedUsers() {
+  const adminEmail = process.env.AUTH_EMAIL;
+  const adminHashBase64 = process.env.AUTH_PASSWORD_HASH_BASE64;
+
+  if (adminEmail && adminHashBase64) {
+    const passwordHash = Buffer.from(adminHashBase64, "base64").toString("utf8");
+    await prisma.user.upsert({
+      where: { email: adminEmail.toLowerCase() },
+      update: {},
+      create: {
+        email: adminEmail.toLowerCase(),
+        passwordHash,
+        firstName: "Pauline",
+        lastName: "Faucillon",
+        role: "ADMIN",
+      },
+    });
+  }
+
+  const testAccounts: Array<{ email: string; firstName: string; lastName: string; role: "PRACTITIONER" | "SECRETARY"; password: string }> = [
+    { email: "praticien-test@pf-osteo-animale.fr", firstName: "Camille", lastName: "Test", role: "PRACTITIONER", password: "Praticien-Test-2026!" },
+    { email: "secretariat-test@pf-osteo-animale.fr", firstName: "Nadia", lastName: "Test", role: "SECRETARY", password: "Secretariat-Test-2026!" },
+  ];
+
+  for (const account of testAccounts) {
+    const passwordHash = await bcryptHash(account.password);
+    await prisma.user.upsert({
+      where: { email: account.email },
+      update: {},
+      create: { email: account.email, firstName: account.firstName, lastName: account.lastName, role: account.role, passwordHash },
+    });
+  }
+
+  console.log("Comptes de test — praticien : praticien-test@pf-osteo-animale.fr / Praticien-Test-2026!");
+  console.log("Comptes de test — secrétariat : secretariat-test@pf-osteo-animale.fr / Secretariat-Test-2026!");
+}
 
 async function resetDatabase() {
   await prisma.$transaction([
@@ -412,6 +454,9 @@ async function seedAgendaAppointments() {
 }
 
 async function main() {
+  console.log("Comptes utilisateurs…");
+  await seedUsers();
+
   console.log("Réinitialisation de la base…");
   await resetDatabase();
 

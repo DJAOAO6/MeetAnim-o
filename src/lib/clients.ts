@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
+import { getCurrentUser } from "@/lib/auth/dal";
+import { logAudit } from "@/lib/audit";
 import type { Animal, AnimalDocument, Client, Consultation } from "@/data/clients";
 import type {
   Animal as DbAnimal,
@@ -101,6 +103,11 @@ export async function getClientById(id: string): Promise<Client | undefined> {
     where: { id },
     include: clientInclude,
   });
+
+  if (client) {
+    const user = await getCurrentUser();
+    await logAudit({ userId: user?.id, action: "CLIENT_VIEWED", entityType: "Client", entityId: client.id });
+  }
 
   return client ? mapClient(client) : undefined;
 }

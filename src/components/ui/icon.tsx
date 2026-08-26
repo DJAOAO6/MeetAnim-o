@@ -12,6 +12,7 @@ export type IconName =
   | "paw"
   | "services"
   | "settings"
+  | "shield"
   | "stats"
   | "tournees";
 
@@ -90,6 +91,12 @@ const paths: Record<IconName, React.ReactNode> = {
   euro: (
     <>
       <path d="M19 7.5A7 7 0 1 0 19 16.5M5 10h10M5 14h9" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3 4 6.5V11c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6.5Z" />
+      <path d="m9 12 2 2 4-4" />
     </>
   ),
   stats: (

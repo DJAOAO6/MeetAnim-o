@@ -1,5 +1,9 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { logout } from "@/lib/auth/actions";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { initialsFor } from "@/lib/format";
 
 type PageHeaderProps = {
   title: string;
@@ -7,7 +11,15 @@ type PageHeaderProps = {
   action?: ReactNode;
 };
 
+const roleLabels: Record<string, string> = {
+  ADMIN: "Administrateur",
+  PRACTITIONER: "Praticien",
+  SECRETARY: "Secrétariat",
+};
+
 export function PageHeader({ title, description, action }: PageHeaderProps) {
+  const user = useCurrentUser();
+
   return (
     <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -23,18 +35,20 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3">
         {action}
-        <div className="hidden items-center gap-3 rounded-[18px] border border-[#dfe9e6] bg-white px-3 py-2 shadow-[0_6px_20px_rgba(24,59,69,0.04)] lg:flex">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-animeo-soft text-sm font-extrabold text-animeo-dark">PF</div>
-          <div className="min-w-0 pr-2">
-            <p className="truncate text-sm font-bold text-animeo-dark">Pauline Faucillon</p>
-            <p className="truncate text-xs text-animeo-muted">PF Ostéo Animale</p>
+        {user ? (
+          <div className="hidden items-center gap-3 rounded-[18px] border border-[#dfe9e6] bg-white px-3 py-2 shadow-[0_6px_20px_rgba(24,59,69,0.04)] lg:flex">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-animeo-soft text-sm font-extrabold text-animeo-dark">{initialsFor(user.firstName, user.lastName)}</div>
+            <div className="min-w-0 pr-2">
+              <p className="truncate text-sm font-bold text-animeo-dark">{user.firstName} {user.lastName}</p>
+              <p className="truncate text-xs text-animeo-muted">{roleLabels[user.role] ?? user.role}</p>
+            </div>
+            <form action={logout} className="border-l border-[#e5eeeb] pl-3">
+              <button type="submit" title="Se déconnecter" aria-label="Se déconnecter" className="flex h-8 w-8 items-center justify-center rounded-[10px] text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-error">
+                <LogoutIcon />
+              </button>
+            </form>
           </div>
-          <form action={logout} className="border-l border-[#e5eeeb] pl-3">
-            <button type="submit" title="Se déconnecter" aria-label="Se déconnecter" className="flex h-8 w-8 items-center justify-center rounded-[10px] text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-error">
-              <LogoutIcon />
-            </button>
-          </form>
-        </div>
+        ) : null}
       </div>
     </header>
   );

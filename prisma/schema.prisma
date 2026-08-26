@@ -60,6 +60,107 @@ enum TravelFeeMode {
   KILOMETRIC
 }
 
+enum UserRole {
+  ADMIN
+  PRACTITIONER
+  SECRETARY
+}
+
+enum TwoFactorMethod {
+  EMAIL
+  // TOTP prévu pour une évolution future (Google Authenticator, etc.)
+}
+
+enum AuditAction {
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGOUT
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  TWO_FACTOR_CODE_SENT
+  TWO_FACTOR_VERIFIED
+  TWO_FACTOR_FAILED
+  CLIENT_VIEWED
+  CLIENT_CREATED
+  CLIENT_UPDATED
+  CLIENT_DELETED
+  CLIENT_DATA_EXPORTED
+  USER_CREATED
+  USER_UPDATED
+  USER_DEACTIVATED
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  role              UserRole  @default(PRACTITIONER)
+  active            Boolean   @default(true)
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorMethod   TwoFactorMethod @default(EMAIL)
+  passwordChangedAt DateTime  @default(now())
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  auditLogs           AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+  twoFactorCodes      TwoFactorCode[]
+
+  @@index([email])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     AuditAction
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model TwoFactorCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model RateLimitEvent {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
 model Client {
   id        String       @id
   firstName String

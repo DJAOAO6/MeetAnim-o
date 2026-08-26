@@ -11,7 +11,8 @@ export type NavigationAssetKey =
   | "reminders"
   | "services"
   | "stats"
-  | "settings";
+  | "settings"
+  | "admin";
 
 export type DashboardThemeSettings = {
   mode: DashboardThemeMode;
