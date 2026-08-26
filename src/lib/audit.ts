@@ -18,7 +18,10 @@ type AuditAction =
   | "CLIENT_DATA_EXPORTED"
   | "USER_CREATED"
   | "USER_UPDATED"
-  | "USER_DEACTIVATED";
+  | "USER_DEACTIVATED"
+  | "APPOINTMENT_CREATED"
+  | "APPOINTMENT_UPDATED"
+  | "APPOINTMENT_STATUS_CHANGED";
 
 export async function logAudit(entry: {
   userId?: string | null;

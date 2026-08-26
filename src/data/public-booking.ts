@@ -1,5 +1,5 @@
 export type BookingMode = "CABINET" | "HOME";
-export type PublicAnimalType = "Chien" | "Chat" | "Cheval" | "NAC";
+export type PublicAnimalType = "Chien" | "Chat" | "Cheval" | "NAC" | "Petit ruminant";
 export type TravelFeeMode = "none" | "fixed" | "zone";
 
 export type PublicService = {
@@ -101,7 +101,7 @@ export const bookingProfessionals: PublicProfessional[] = [
     lastName: "Faucillon",
     profession: "Ostéopathe animalier",
     company: "PF Ostéo Animale",
-    bio: "J’accompagne chiens, chats, chevaux et NAC grâce à une prise en charge adaptée à chaque animal.",
+    bio: "J’accompagne chiens, chats, chevaux, NAC et petits ruminants grâce à une prise en charge adaptée à chaque animal.",
     location: "Rouen et Normandie",
     cabinetAddress: "12 rue Exemple",
     cabinetPostalCode: "76000",
@@ -162,6 +162,19 @@ export const bookingProfessionals: PublicProfessional[] = [
         homeEnabled: true,
         homePrice: 60,
         travelFeeMode: "none",
+        fixedTravelFee: 0,
+      },
+      {
+        id: "consultation-petit-ruminant",
+        name: "Consultation petit ruminant",
+        description: "Bilan et séance adaptés aux chèvres, moutons et autres petits ruminants.",
+        duration: 60,
+        animalTypes: ["Petit ruminant"],
+        cabinetEnabled: false,
+        cabinetPrice: 0,
+        homeEnabled: true,
+        homePrice: 75,
+        travelFeeMode: "zone",
         fixedTravelFee: 0,
       },
     ],
@@ -227,10 +240,3 @@ function createBookingDates() {
 }
 
 export const bookingDates: BookingDate[] = createBookingDates();
-
-export const occupiedAgendaSlots: Record<string, string[]> = {
-  "2026-08-31": ["14:00"],
-  "2026-09-01": ["11:00"],
-  "2026-09-02": ["10:30"],
-  "2026-09-03": ["16:00"],
-};

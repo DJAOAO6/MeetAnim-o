@@ -5,6 +5,7 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { Icon } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
+import type { SaveAppointmentInput } from "@/lib/appointments-actions";
 
 type StatusFilter = "all" | AppointmentStatus;
 
@@ -25,10 +26,17 @@ export function GlobalAppointmentsManager() {
     openNewAppointment,
     closeManager,
     saveAppointment,
-    updateAppointment,
+    updateAppointmentStatus,
   } = useAppointments();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function handleStatusChange(appointmentId: string, status: AppointmentStatus) {
+    setActionError(null);
+    const result = await updateAppointmentStatus(appointmentId, status);
+    if (!result.ok) setActionError(result.error ?? "Une erreur est survenue.");
+  }
 
   const pendingCount = appointments.filter((appointment) => appointment.status === "pending").length;
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedAppointmentId);
@@ -86,6 +94,13 @@ export function GlobalAppointmentsManager() {
                   </div>
                 </div>
 
+                {actionError ? (
+                  <div role="alert" className="mx-4 mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error sm:mx-5">
+                    <span>{actionError}</span>
+                    <button type="button" onClick={() => setActionError(null)} aria-label="Fermer" className="text-lg leading-none">×</button>
+                  </div>
+                ) : null}
+
                 <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
                   {filteredAppointments.map((appointment) => (
                     <article key={appointment.id} className={`rounded-2xl border border-[#dce8e5] bg-white p-4 ${appointment.status === "cancelled" ? "opacity-65" : ""}`}>
@@ -104,8 +119,8 @@ export function GlobalAppointmentsManager() {
 
                       {appointment.status === "pending" ? (
                         <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[#e7eeec] pt-3">
-                          <button type="button" onClick={() => updateAppointment(appointment.id, { status: "confirmed" })} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white">Accepter</button>
-                          <button type="button" onClick={() => updateAppointment(appointment.id, { status: "cancelled" })} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b]">Refuser</button>
+                          <button type="button" onClick={() => handleStatusChange(appointment.id, "confirmed")} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white">Accepter</button>
+                          <button type="button" onClick={() => handleStatusChange(appointment.id, "cancelled")} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b]">Refuser</button>
                         </div>
                       ) : null}
                     </article>
@@ -121,9 +136,8 @@ export function GlobalAppointmentsManager() {
   );
 }
 
-function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appointment; onSave: (appointment: Appointment) => void; onBack: () => void }) {
-  const [draft, setDraft] = useState<Appointment>(() => appointment ?? {
-    id: `rdv-${Date.now()}`,
+function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appointment; onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string }>; onBack: () => void }) {
+  const [draft, setDraft] = useState<Omit<Appointment, "id">>(() => appointment ?? {
     date: "2026-08-25",
     start: "09:00",
     duration: 60,
@@ -137,15 +151,25 @@ function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appoin
     notes: "",
   });
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  function update<K extends keyof Appointment>(key: K, value: Appointment[K]) {
+  function update<K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave({ ...draft, location: draft.mode === "cabinet" ? "Cabinet" : draft.location });
-    setFeedback("Rendez-vous enregistré localement");
+    setError(null);
+    setFeedback(null);
+    setPending(true);
+    const result = await onSave({ id: appointment?.id, ...draft, location: draft.mode === "cabinet" ? "Cabinet" : draft.location });
+    setPending(false);
+    if (!result.ok) {
+      setError(result.error ?? "Une erreur est survenue.");
+      return;
+    }
+    setFeedback("Rendez-vous enregistré");
   }
 
   return (
@@ -153,9 +177,10 @@ function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appoin
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-1 text-sm font-extrabold text-animeo"><span aria-hidden="true">←</span> Tous les rendez-vous</button>
         <h3 className="text-xl font-black text-animeo-dark">{appointment ? `Modifier le rendez-vous de ${appointment.animalName}` : "Nouveau rendez-vous"}</h3>
-        <p className="mt-1 text-sm text-animeo-muted">Tous les champs restent modifiables dans cette version locale.</p>
+        <p className="mt-1 text-sm text-animeo-muted">Le cabinet et le domicile partagent un seul agenda : un créneau déjà pris ne peut pas être réutilisé.</p>
 
         {feedback ? <div role="status" className="mt-4 rounded-xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark">✓ {feedback}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</div> : null}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field label="Client"><input value={draft.clientName} onChange={(event) => update("clientName", event.target.value)} className={inputClassName} required /></Field>
@@ -174,7 +199,7 @@ function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appoin
 
       <div className="flex flex-col-reverse gap-2 border-t border-[#dce8e5] bg-white p-4 sm:flex-row sm:justify-between sm:p-5">
         {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); setFeedback("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-[#fff0eb] px-4 py-2.5 text-sm font-extrabold text-[#a9573b]">Annuler le rendez-vous</button> : <span />}
-        <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white">Enregistrer les modifications</button>
+        <button type="submit" disabled={pending} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{pending ? "Enregistrement…" : "Enregistrer les modifications"}</button>
       </div>
     </form>
   );

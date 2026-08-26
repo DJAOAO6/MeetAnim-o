@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Appointment } from "@/data/appointments";
-import { bookingProfessionals, type PublicBookingRequest } from "@/data/public-booking";
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { saveAppointmentAction, updateAppointmentStatusAction, type SaveAppointmentInput } from "@/lib/appointments-actions";
+import type { Appointment, AppointmentStatus } from "@/data/appointments";
+
+type ActionOutcome = { ok: boolean; error?: string };
 
 type AppointmentsContextValue = {
   appointments: Appointment[];
@@ -12,46 +14,17 @@ type AppointmentsContextValue = {
   openManager: (appointmentId?: string) => void;
   openNewAppointment: () => void;
   closeManager: () => void;
-  saveAppointment: (appointment: Appointment) => void;
-  updateAppointment: (appointmentId: string, changes: Partial<Appointment>) => void;
+  saveAppointment: (input: SaveAppointmentInput) => Promise<ActionOutcome>;
+  updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => Promise<ActionOutcome>;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(null);
-const STORAGE_KEY = "animeo-appointments";
 
 export function AppointmentsProvider({ children, initialAppointments }: { children: ReactNode; initialAppointments: Appointment[] }) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
-  const [storageReady, setStorageReady] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
-
-  useEffect(() => {
-    queueMicrotask(() => {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        const current = stored ? JSON.parse(stored) as Appointment[] : initialAppointments;
-        const publicRequests = JSON.parse(localStorage.getItem("animeo-pending-bookings") ?? "[]") as PublicBookingRequest[];
-        const knownIds = new Set(current.map((appointment) => appointment.id));
-        const importedRequests = publicRequests.filter((request) => !knownIds.has(request.id)).map(publicRequestToAppointment);
-        setAppointments([...current, ...importedRequests]);
-      } catch {
-        // Les données fictives restent disponibles si le stockage local est bloqué.
-      }
-      setStorageReady(true);
-    });
-    // Ne doit s’exécuter qu’au montage : initialAppointments est la valeur initiale du serveur, pas une dépendance réactive.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!storageReady) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appointments));
-    } catch {
-      // La gestion reste utilisable pendant la session sans stockage persistant.
-    }
-  }, [appointments, storageReady]);
 
   function openManager(appointmentId?: string) {
     setSelectedAppointmentId(appointmentId ?? null);
@@ -71,17 +44,24 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     setCreatingAppointment(false);
   }
 
-  function saveAppointment(appointment: Appointment) {
-    setAppointments((current) => current.some((item) => item.id === appointment.id)
-      ? current.map((item) => item.id === appointment.id ? appointment : item)
-      : [...current, appointment]);
-    setSelectedAppointmentId(appointment.id);
+  async function saveAppointment(input: SaveAppointmentInput): Promise<ActionOutcome> {
+    const result = await saveAppointmentAction(input);
+    if (!result.ok) return { ok: false, error: result.error };
+
+    setAppointments((current) => current.some((item) => item.id === result.appointment.id)
+      ? current.map((item) => item.id === result.appointment.id ? result.appointment : item)
+      : [...current, result.appointment]);
+    setSelectedAppointmentId(result.appointment.id);
     setCreatingAppointment(false);
+    return { ok: true };
   }
 
-  function updateAppointment(appointmentId: string, changes: Partial<Appointment>) {
-    setAppointments((current) => current.map((appointment) => appointment.id === appointmentId ? { ...appointment, ...changes } : appointment));
-    setSelectedAppointmentId(null);
+  async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus): Promise<ActionOutcome> {
+    const result = await updateAppointmentStatusAction(appointmentId, status);
+    if (!result.ok) return { ok: false, error: result.error };
+
+    setAppointments((current) => current.map((item) => item.id === appointmentId ? result.appointment : item));
+    return { ok: true };
   }
 
   const value: AppointmentsContextValue = {
@@ -93,29 +73,10 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     openNewAppointment,
     closeManager,
     saveAppointment,
-    updateAppointment,
+    updateAppointmentStatus,
   };
 
   return <AppointmentsContext.Provider value={value}>{children}</AppointmentsContext.Provider>;
-}
-
-function publicRequestToAppointment(request: PublicBookingRequest): Appointment {
-  const professional = bookingProfessionals.find((item) => item.slug === request.professionalSlug);
-  const service = professional?.services.find((item) => item.id === request.serviceId);
-  return {
-    id: request.id,
-    date: request.date,
-    start: request.time,
-    duration: service?.duration ?? 60,
-    clientName: `${request.owner.firstName} ${request.owner.lastName}`.trim(),
-    animalName: request.animal.name,
-    serviceName: service?.name ?? request.serviceId,
-    mode: request.mode === "CABINET" ? "cabinet" : "home",
-    location: request.mode === "CABINET" ? "Cabinet" : request.address?.city ?? "Domicile",
-    price: request.totalPrice,
-    status: "pending",
-    notes: "Demande reçue depuis la page publique de réservation.",
-  };
 }
 
 export function useAppointments() {

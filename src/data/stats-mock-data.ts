@@ -1,5 +1,5 @@
 export type StatsPeriod = "current" | "previous" | "3months" | "6months" | "year" | "previousYear" | "custom";
-export type StatsSpecies = "all" | "dog" | "cat" | "horse" | "nac";
+export type StatsSpecies = "all" | "dog" | "cat" | "horse" | "nac" | "ruminant";
 export type StatsService = "all" | "canine" | "equine" | "massage" | "nac";
 export type BreedSpecies = Exclude<StatsSpecies, "all">;
 
@@ -23,10 +23,11 @@ export const serviceOptions: Array<{ value: StatsService; label: string; factor:
 
 export const speciesOptions: Array<{ value: StatsSpecies; label: string; factor: number }> = [
   { value: "all", label: "Toutes les espèces", factor: 1 },
-  { value: "dog", label: "Chien", factor: 0.54 },
-  { value: "cat", label: "Chat", factor: 0.22 },
-  { value: "horse", label: "Cheval", factor: 0.18 },
+  { value: "dog", label: "Chien", factor: 0.5 },
+  { value: "cat", label: "Chat", factor: 0.21 },
+  { value: "horse", label: "Cheval", factor: 0.17 },
   { value: "nac", label: "NAC", factor: 0.06 },
+  { value: "ruminant", label: "Petit ruminant", factor: 0.06 },
 ];
 
 export const statsMockData = {
@@ -59,10 +60,11 @@ export const statsMockData = {
     { label: "Consultation NAC", consultations: 4, revenue: 200 },
   ],
   species: [
-    { label: "Chien", value: 54, color: "#4FAF9F" },
-    { label: "Chat", value: 22, color: "#5B8DEF" },
-    { label: "Cheval", value: 18, color: "#F4B860" },
+    { label: "Chien", value: 50, color: "#4FAF9F" },
+    { label: "Chat", value: 21, color: "#5B8DEF" },
+    { label: "Cheval", value: 17, color: "#F4B860" },
     { label: "NAC", value: 6, color: "#8067B0" },
+    { label: "Petit ruminant", value: 6, color: "#C97B4A" },
   ],
   sex: [
     { label: "Mâles", value: 48 },
@@ -127,6 +129,16 @@ export const statsMockData = {
         { label: "Cochon d’Inde", value: 2 },
         { label: "Furet", value: 1 },
         { label: "Perroquet", value: 1 },
+      ],
+    },
+    ruminant: {
+      total: 6,
+      distinct: 3,
+      unit: "petits ruminants",
+      items: [
+        { label: "Chèvre naine", value: 3 },
+        { label: "Mouton d’Ouessant", value: 2 },
+        { label: "Brebis", value: 1 },
       ],
     },
   },

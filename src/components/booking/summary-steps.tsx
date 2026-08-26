@@ -15,6 +15,8 @@ type BookingSummaryProps = {
   animal: AnimalInformation;
   consultationPrice: number;
   travelFee: number;
+  submitting?: boolean;
+  submitError?: string | null;
   onBack: () => void;
   onSubmit: () => void;
 };
@@ -25,13 +27,13 @@ function addMinutes(time: string, minutes: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-export function BookingSummary({ professional, mode, service, address, dateId, time, owner, animal, consultationPrice, travelFee, onBack, onSubmit }: BookingSummaryProps) {
+export function BookingSummary({ professional, mode, service, address, dateId, time, owner, animal, consultationPrice, travelFee, submitting = false, submitError, onBack, onSubmit }: BookingSummaryProps) {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const date = bookingDates.find((item) => item.id === dateId);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (privacyAccepted) onSubmit();
+    if (privacyAccepted && !submitting) onSubmit();
   }
 
   return (
@@ -73,7 +75,8 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
         <span className="text-sm leading-6 text-animeo-dark">J’accepte que mes informations soient utilisées pour traiter ma demande de rendez-vous. <span className="font-extrabold text-animeo underline">Politique de confidentialité</span></span>
       </label>
       <p className="mt-3 rounded-2xl bg-[#fff7e7] p-3 text-sm font-bold text-[#8d651d]">Cette demande sera envoyée avec le statut « En attente de validation ».</p>
-      <BookingActions onBack={onBack} nextLabel="Demander le rendez-vous" nextDisabled={!privacyAccepted} />
+      {submitError ? <p role="alert" className="mt-3 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
+      <BookingActions onBack={onBack} nextLabel={submitting ? "Envoi…" : "Demander le rendez-vous"} nextDisabled={!privacyAccepted || submitting} />
     </form>
   );
 }

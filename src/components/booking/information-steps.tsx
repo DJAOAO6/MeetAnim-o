@@ -54,7 +54,7 @@ type AnimalStepProps = {
   onNext: () => void;
 };
 
-const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC"];
+const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
 
 export function AnimalStep({ service, value, onChange, onBack, onNext }: AnimalStepProps) {
   function update<K extends keyof AnimalInformation>(key: K, next: AnimalInformation[K]) {
@@ -76,7 +76,6 @@ export function AnimalStep({ service, value, onChange, onBack, onNext }: AnimalS
         <BookingField label="Âge ou date de naissance" hint="Facultatif"><input value={value.ageOrBirthDate} onChange={(event) => update("ageOrBirthDate", event.target.value)} className={bookingInputClassName} placeholder="5 ans ou 12/04/2021" /></BookingField>
         <div className="sm:col-span-2"><BookingField label="Informations utiles pour le professionnel" hint="Facultatif"><textarea value={value.notes} onChange={(event) => update("notes", event.target.value)} className={bookingTextareaClassName} placeholder="Ex. Boiterie depuis quelques jours." /></BookingField></div>
       </div>
-      <p className="mt-4 text-xs text-animeo-muted">Les petits ruminants seront ajoutés dans une version ultérieure.</p>
       <BookingActions onBack={onBack} nextLabel="Voir le récapitulatif" />
     </form>
   );

@@ -42,4 +42,7 @@ export const auditActionLabels: Record<string, string> = {
   USER_CREATED: "Compte créé",
   USER_UPDATED: "Compte modifié",
   USER_DEACTIVATED: "Compte désactivé",
+  APPOINTMENT_CREATED: "Rendez-vous créé",
+  APPOINTMENT_UPDATED: "Rendez-vous modifié",
+  APPOINTMENT_STATUS_CHANGED: "Statut du rendez-vous modifié",
 };

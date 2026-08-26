@@ -20,7 +20,7 @@ type ClientsMapProps = {
   clients: MapClient[];
 };
 
-const speciesFilters: SpeciesFilter[] = ["Tous les clients", "Chien", "Chat", "Cheval", "NAC"];
+const speciesFilters: SpeciesFilter[] = ["Tous les clients", "Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
 
 export function ClientsMap({ clients }: ClientsMapProps) {
   const { theme } = useDashboardTheme();

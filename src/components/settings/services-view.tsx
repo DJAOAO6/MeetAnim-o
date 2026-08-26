@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ServicesSettingsTab } from "@/components/settings/services-settings-tab";
+import { Toggle } from "@/components/settings/settings-fields";
 import { Card } from "@/components/ui/card";
 import { initialSettings, type ServiceSettings } from "@/data/settings";
 
@@ -15,15 +16,23 @@ function cloneServices(services: ServiceSettings[]) {
 }
 
 let sessionServices = cloneServices(initialSettings.services);
+let sessionKilometricFeesEnabled = initialSettings.kilometricFeesEnabled;
 
 export function ServicesView() {
   const [services, setServices] = useState<ServiceSettings[]>(() => sessionServices);
+  const [kilometricFeesEnabled, setKilometricFeesEnabled] = useState(() => sessionKilometricFeesEnabled);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   function updateServices(nextServices: ServiceSettings[], message: string) {
     sessionServices = nextServices;
     setServices(nextServices);
     setFeedback(message);
+  }
+
+  function updateKilometricFeesEnabled(value: boolean) {
+    sessionKilometricFeesEnabled = value;
+    setKilometricFeesEnabled(value);
+    setFeedback(value ? "Frais kilométriques activés" : "Frais kilométriques désactivés");
   }
 
   const activeServices = services.filter((service) => service.active).length;
@@ -51,7 +60,15 @@ export function ServicesView() {
         </div>
       ) : null}
 
-      <ServicesSettingsTab services={services} onChange={updateServices} />
+      <Card className="mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <h3 className="text-base font-black text-animeo-dark">Frais kilométriques</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-animeo-muted">Option avancée : facturer le déplacement au kilomètre plutôt qu’un montant fixe ou par zone. Désactivée par défaut ; une fois activée, elle devient disponible comme mode de calcul dans chaque prestation.</p>
+        </div>
+        <Toggle checked={kilometricFeesEnabled} onChange={updateKilometricFeesEnabled} label={kilometricFeesEnabled ? "Activés" : "Désactivés"} />
+      </Card>
+
+      <ServicesSettingsTab services={services} kilometricFeesEnabled={kilometricFeesEnabled} onChange={updateServices} />
 
       <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-white p-4 text-sm leading-6 text-animeo-muted">
         Données locales uniquement : aucune prestation, distance ou modification n’est envoyée à un service externe.

@@ -34,7 +34,7 @@ function dateId(date: Date) {
 }
 
 export function AgendaView() {
-  const { appointments, openManager, openNewAppointment, updateAppointment } = useAppointments();
+  const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [weekOffset, setWeekOffset] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
@@ -57,7 +57,7 @@ export function AgendaView() {
   const pendingRequests = appointmentEvents.filter((event) => event.kind === "pending");
 
   function showFeedback(message: string) {
-    setFeedback(`${message} — modification enregistrée localement.`);
+    setFeedback(`${message}.`);
   }
 
   function simulateBlockedSlot() {
@@ -68,14 +68,18 @@ export function AgendaView() {
     setFeedback("Le créneau du vendredi à 16:00 a été bloqué localement dans l’agenda unique.");
   }
 
-  function handlePendingAction(action: string, event: CalendarEvent) {
+  async function handlePendingAction(action: string, event: CalendarEvent) {
     if (!event.appointmentId) return;
     if (action === "Décalage demandé") {
       openManager(event.appointmentId);
       setFeedback(`Modifiez la date ou l’heure du rendez-vous de ${event.animal ?? "l’animal"}.`);
       return;
     }
-    updateAppointment(event.appointmentId, { status: action === "Accepté" ? "confirmed" : "cancelled" });
+    const result = await updateAppointmentStatus(event.appointmentId, action === "Accepté" ? "confirmed" : "cancelled");
+    if (!result.ok) {
+      setFeedback(result.error ?? "Une erreur est survenue.");
+      return;
+    }
     showFeedback(`${action} pour le rendez-vous de ${event.animal ?? "l’animal"}`);
   }
 

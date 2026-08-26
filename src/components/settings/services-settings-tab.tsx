@@ -9,10 +9,11 @@ import type { ServiceSettings } from "@/data/settings";
 
 type ServicesSettingsTabProps = {
   services: ServiceSettings[];
+  kilometricFeesEnabled: boolean;
   onChange: (services: ServiceSettings[], message: string) => void;
 };
 
-export function ServicesSettingsTab({ services, onChange }: ServicesSettingsTabProps) {
+export function ServicesSettingsTab({ services, kilometricFeesEnabled, onChange }: ServicesSettingsTabProps) {
   const [modal, setModal] = useState<ServiceSettings | "new" | null>(null);
 
   function saveService(service: ServiceSettings) {
@@ -83,7 +84,7 @@ export function ServicesSettingsTab({ services, onChange }: ServicesSettingsTabP
 
       <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-animeo-soft p-4 text-sm text-animeo-dark">Les changements de tarif concernent les futures réservations. Les prix des rendez-vous historiques restent inchangés.</p>
 
-      {modal ? <ServiceModal service={modal === "new" ? undefined : modal} onClose={() => setModal(null)} onSave={saveService} /> : null}
+      {modal ? <ServiceModal service={modal === "new" ? undefined : modal} kilometricFeesEnabled={kilometricFeesEnabled} onClose={() => setModal(null)} onSave={saveService} /> : null}
     </>
   );
 }

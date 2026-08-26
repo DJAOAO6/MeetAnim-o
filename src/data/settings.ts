@@ -1,4 +1,4 @@
-export type AnimalType = "Chien" | "Chat" | "Cheval" | "NAC";
+export type AnimalType = "Chien" | "Chat" | "Cheval" | "NAC" | "Petit ruminant";
 
 export type ProfileSettings = {
   firstName: string;
@@ -87,6 +87,7 @@ export type SettingsState = {
   availability: AvailabilitySettings;
   reminders: ReminderSettings;
   publicColor: string;
+  kilometricFeesEnabled: boolean;
 };
 
 const defaultZoneFees = { Rouen: 0, "Le Havre": 10, Dieppe: 15 };
@@ -189,6 +190,7 @@ export const initialSettings: SettingsState = {
     appointmentReminderDelay: "24 heures avant",
   },
   publicColor: "#4FAF9F",
+  kilometricFeesEnabled: false,
 };
 
 export const serviceZoneNames = ["Rouen", "Le Havre", "Dieppe"];

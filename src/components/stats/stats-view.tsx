@@ -31,6 +31,7 @@ const breedTabs: Array<{ value: BreedSpecies; label: string }> = [
   { value: "cat", label: "Chat" },
   { value: "horse", label: "Cheval" },
   { value: "nac", label: "NAC" },
+  { value: "ruminant", label: "Petit ruminant" },
 ];
 
 export function StatsView() {

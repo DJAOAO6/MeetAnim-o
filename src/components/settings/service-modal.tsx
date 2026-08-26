@@ -6,11 +6,12 @@ import { serviceZoneNames, type AnimalType, type ServiceSettings } from "@/data/
 
 type ServiceModalProps = {
   service?: ServiceSettings;
+  kilometricFeesEnabled: boolean;
   onClose: () => void;
   onSave: (service: ServiceSettings) => void;
 };
 
-const animals: AnimalType[] = ["Chien", "Chat", "Cheval", "NAC"];
+const animals: AnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
 const standardDurations = [30, 45, 60, 90];
 
 const emptyService: ServiceSettings = {
@@ -32,12 +33,16 @@ const emptyService: ServiceSettings = {
   active: true,
 };
 
-export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
+export function ServiceModal({ service, kilometricFeesEnabled, onClose, onSave }: ServiceModalProps) {
   const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
   const zoneFee = draft.zoneFees["Le Havre"] ?? 0;
   const feeSelection = draft.travelFeesEnabled ? draft.travelFeeMode : "none";
+  // On garde l'option visible si une prestation existante l'utilise déjà,
+  // même si le réglage global a été désactivé depuis — pour ne pas afficher
+  // un mode sélectionné qui n'existe plus dans la liste.
+  const showKilometricOption = kilometricFeesEnabled || draft.travelFeeMode === "kilometric";
   const travelFee = !draft.travelFeesEnabled
     ? 0
     : draft.travelFeeMode === "fixed"
@@ -97,7 +102,6 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
                 <div className="flex flex-wrap gap-2">
                   {animals.map((animal) => <button key={animal} type="button" aria-pressed={draft.animals.includes(animal)} onClick={() => toggleAnimal(animal)} className={`rounded-xl px-4 py-2 text-sm font-extrabold ${draft.animals.includes(animal) ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark"}`}>{animal}</button>)}
                 </div>
-                <p className="mt-2 text-xs text-animeo-muted">Les petits ruminants seront ajoutés en V2.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -123,7 +127,7 @@ export function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
                         <option value="none">Aucun frais</option>
                         <option value="fixed">Montant fixe</option>
                         <option value="zone">Selon la zone</option>
-                        <option value="kilometric">Frais kilométriques</option>
+                        {showKilometricOption ? <option value="kilometric">Frais kilométriques</option> : null}
                       </select>
                     </Field>
 

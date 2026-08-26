@@ -5,17 +5,81 @@ import { useManualAvailability } from "@/components/availability/manual-availabi
 import { BookingActions, BookingField, StepHeading, bookingInputClassName } from "@/components/booking/booking-ui";
 import type { BookingAddress, BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
 
-type LocationStepProps = {
+type ServiceStepProps = {
   professional: PublicProfessional;
-  value: BookingMode | null;
-  onChange: (mode: BookingMode) => void;
+  value: string | null;
+  onChange: (serviceId: string) => void;
   onNext: () => void;
 };
 
-export function LocationStep({ professional, value, onChange, onNext }: LocationStepProps) {
+function minPriceFor(service: PublicService) {
+  const prices = [
+    service.cabinetEnabled ? service.cabinetPrice : null,
+    service.homeEnabled ? service.homePrice : null,
+  ].filter((price): price is number => price !== null);
+  return prices.length > 0 ? Math.min(...prices) : null;
+}
+
+function availabilityLabel(service: PublicService) {
+  if (service.cabinetEnabled && service.homeEnabled) return "Cabinet ou domicile";
+  if (service.homeEnabled) return "À domicile uniquement";
+  return "Au cabinet uniquement";
+}
+
+export function ServiceStep({ professional, value, onChange, onNext }: ServiceStepProps) {
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (value) onNext();
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <StepHeading eyebrow="Étape 1 · Prestation" title="Choisissez une prestation" description="Le lieu de consultation et le tarif exact seront précisés à l’étape suivante." />
+      <div className="space-y-3">
+        {professional.services.map((service) => {
+          const minPrice = minPriceFor(service);
+          const selected = value === service.id;
+          return (
+            <button key={service.id} type="button" onClick={() => onChange(service.id)} aria-pressed={selected} className={`flex w-full items-center justify-between gap-4 rounded-2xl border-2 p-4 text-left transition sm:p-5 ${selected ? "border-animeo bg-animeo-soft" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
+              <span className="min-w-0"><span className="block text-base font-black text-animeo-dark sm:text-lg">{service.name}</span><span className="mt-1 block text-sm text-animeo-muted">{service.description}</span><span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-animeo-muted">{service.duration} min · {service.animalTypes.join(", ")}</span></span>
+              <span className="shrink-0 text-right">
+                <span className="block text-xl font-black text-animeo-dark">{minPrice !== null ? `Dès ${minPrice} €` : "—"}</span>
+                <span className="mt-0.5 block text-[11px] font-bold text-animeo-muted">{availabilityLabel(service)}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <BookingActions nextDisabled={!value} />
+    </form>
+  );
+}
+
+type LocationStepProps = {
+  professional: PublicProfessional;
+  service: PublicService;
+  value: BookingMode | null;
+  onChange: (mode: BookingMode) => void;
+  onBack: () => void;
+  onNext: () => void;
+};
+
+export function LocationStep({ professional, service, value, onChange, onBack, onNext }: LocationStepProps) {
   const { availability } = useManualAvailability();
-  const cabinetOpen = professional.cabinetAvailable && availability.cabinet.open;
-  const homeOpen = professional.homeAvailable && availability.home.open;
+  const cabinetOpen = professional.cabinetAvailable && availability.cabinet.open && service.cabinetEnabled;
+  const homeOpen = professional.homeAvailable && availability.home.open && service.homeEnabled;
+
+  const cabinetDisabledLabel = !service.cabinetEnabled
+    ? `« ${service.name} » n’est pas proposée au cabinet.`
+    : "Cabinet fermé manuellement par le professionnel";
+  const homeDisabledLabel = !service.homeEnabled
+    ? `« ${service.name} » n’est proposée qu’au cabinet.`
+    : "Domicile fermé manuellement par le professionnel";
+  const homeFeeNote = service.travelFeeMode === "fixed"
+    ? `+ ${service.fixedTravelFee} € de frais de déplacement`
+    : service.travelFeeMode === "zone"
+      ? "+ frais de déplacement selon votre zone"
+      : null;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,16 +88,17 @@ export function LocationStep({ professional, value, onChange, onNext }: Location
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 1 · Lieu" title="Où souhaitez-vous réaliser votre consultation ?" description="Choisissez le mode qui vous convient. Les créneaux proposés seront adaptés à votre choix." />
+      <StepHeading eyebrow="Étape 2 · Lieu" title="Où souhaitez-vous réaliser votre consultation ?" description={`Comparez les tarifs pour « ${service.name} » et choisissez le mode qui vous convient.`} />
       <div className="grid gap-4 sm:grid-cols-2">
         <ModeCard
           icon="⌂"
           title="Au cabinet"
           description="Je me rends au cabinet du professionnel."
           detail={<>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>}
+          price={service.cabinetEnabled ? service.cabinetPrice : null}
           selected={value === "CABINET"}
           disabled={!cabinetOpen}
-          disabledLabel="Cabinet fermé manuellement par le professionnel"
+          disabledLabel={cabinetDisabledLabel}
           onClick={() => onChange("CABINET")}
         />
         <ModeCard
@@ -41,63 +106,31 @@ export function LocationStep({ professional, value, onChange, onNext }: Location
           title="À domicile"
           description="Le professionnel se déplace directement chez moi."
           detail="Disponibilité selon votre ville et les tournées organisées."
+          price={service.homeEnabled ? service.homePrice : null}
+          priceNote={service.homeEnabled ? homeFeeNote : null}
           selected={value === "HOME"}
           disabled={!homeOpen}
-          disabledLabel="Domicile fermé manuellement par le professionnel"
+          disabledLabel={homeDisabledLabel}
           onClick={() => onChange("HOME")}
         />
       </div>
-      <BookingActions nextDisabled={!value} />
-    </form>
-  );
-}
-
-function ModeCard({ icon, title, description, detail, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; description: string; detail: React.ReactNode; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} className={`min-h-56 rounded-[18px] border-2 p-5 text-left transition ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
-      <span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-2xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
-      <span className="mt-4 block text-lg font-black text-animeo-dark">{title}</span>
-      <span className="mt-1 block text-sm leading-6 text-animeo-muted">{description}</span>
-      <span className="mt-4 block rounded-2xl bg-white/80 p-3 text-sm font-bold leading-5 text-animeo-dark">{disabled ? disabledLabel : detail}</span>
-    </button>
-  );
-}
-
-type ServiceStepProps = {
-  professional: PublicProfessional;
-  mode: BookingMode;
-  value: string | null;
-  onChange: (serviceId: string) => void;
-  onBack: () => void;
-  onNext: () => void;
-};
-
-export function ServiceStep({ professional, mode, value, onChange, onBack, onNext }: ServiceStepProps) {
-  const compatibleServices = professional.services.filter((service) => mode === "CABINET" ? service.cabinetEnabled : service.homeEnabled);
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (value) onNext();
-  }
-
-  return (
-    <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 2 · Prestation" title="Choisissez une prestation" description={`Seules les prestations disponibles ${mode === "CABINET" ? "au cabinet" : "à domicile"} sont affichées. Le bon tarif est appliqué automatiquement.`} />
-      <div className="space-y-3">
-        {compatibleServices.map((service) => {
-          const price = mode === "CABINET" ? service.cabinetPrice : service.homePrice;
-          const selected = value === service.id;
-          return (
-            <button key={service.id} type="button" onClick={() => onChange(service.id)} aria-pressed={selected} className={`flex w-full items-center justify-between gap-4 rounded-2xl border-2 p-4 text-left transition sm:p-5 ${selected ? "border-animeo bg-animeo-soft" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
-              <span className="min-w-0"><span className="block text-base font-black text-animeo-dark sm:text-lg">{service.name}</span><span className="mt-1 block text-sm text-animeo-muted">{service.description}</span><span className="mt-2 inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-extrabold text-animeo-muted">{service.duration} min · {service.animalTypes.join(", ")}</span></span>
-              <span className="shrink-0 text-xl font-black text-animeo-dark">{price} €</span>
-            </button>
-          );
-        })}
-      </div>
-      <p className="mt-4 text-xs text-animeo-muted">Les petits ruminants ne sont pas proposés dans la V1.</p>
       <BookingActions onBack={onBack} nextDisabled={!value} />
     </form>
+  );
+}
+
+function ModeCard({ icon, title, description, detail, price, priceNote, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; description: string; detail: React.ReactNode; price: number | null; priceNote?: string | null; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} className={`min-h-56 rounded-[18px] border-2 p-5 text-left transition ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
+      <span className="flex items-start justify-between gap-3">
+        <span className={`flex h-12 w-12 items-center justify-center rounded-2xl text-2xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
+        {price !== null && !disabled ? <span className="rounded-full bg-white px-3 py-1.5 text-sm font-black text-animeo-dark shadow-sm">{price} €</span> : null}
+      </span>
+      <span className="mt-4 block text-lg font-black text-animeo-dark">{title}</span>
+      <span className="mt-1 block text-sm leading-6 text-animeo-muted">{description}</span>
+      {priceNote && !disabled ? <span className="mt-2 block text-xs font-extrabold text-animeo">{priceNote}</span> : null}
+      <span className="mt-4 block rounded-2xl bg-white/80 p-3 text-sm font-bold leading-5 text-animeo-dark">{disabled ? disabledLabel : detail}</span>
+    </button>
   );
 }
 
@@ -163,7 +196,7 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
       ) : hasLocation ? (
         <div className="mt-5 rounded-2xl border border-[#f0d8c8] bg-[#fff7f0] p-4">
           <p className="font-black text-[#a85d32]">Cette adresse ne fait pas encore partie des zones de déplacement disponibles.</p>
-          <button type="button" onClick={onSwitchToCabinet} className="mt-3 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark shadow-sm">Choisir un rendez-vous au cabinet</button>
+          {service.cabinetEnabled ? <button type="button" onClick={onSwitchToCabinet} className="mt-3 rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark shadow-sm">Choisir un rendez-vous au cabinet</button> : null}
         </div>
       ) : null}
 

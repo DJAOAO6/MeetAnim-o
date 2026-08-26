@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import {
   bookingDates,
   bookingLimitDate,
   bookingStartDate,
-  occupiedAgendaSlots,
   type BookingAddress,
   type BookingDate,
   type BookingMode,
@@ -14,7 +13,12 @@ import {
   type PublicService,
 } from "@/data/public-booking";
 import { publicBookingMapClients, publicBookingTourAppointments, publicBookingTours } from "@/data/public-booking-tours";
+import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
 import type { Tour } from "@/data/tours";
+
+function toDateId(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 type ScheduleStepProps = {
   professional: PublicProfessional;
@@ -42,6 +46,19 @@ function tourRunsOnDate(tour: Tour, date: BookingDate) {
 }
 
 export function ScheduleStep({ professional, mode, service, clientAddress, zoneId, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
+  const [occupiedSlots, setOccupiedSlots] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getOccupiedSlotsAction(toDateId(bookingStartDate), toDateId(bookingLimitDate))
+      .then((slots) => { if (!cancelled) setOccupiedSlots(slots); })
+      .catch(() => {
+        // En cas d'échec réseau, aucun créneau n'est masqué : la vérification
+        // définitive reste faite côté serveur au moment de la soumission.
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const zone = professional.zones.find((item) => item.id === zoneId);
   const normalizedCity = normalizeLocation(clientAddress.city);
   const activeTours = mode === "HOME"
@@ -69,7 +86,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const [selectedMonth, setSelectedMonth] = useState(monthIds[0] ?? "");
   const visibleDates = dates.filter((date) => date.id.startsWith(selectedMonth));
   const selectedDate = dates.find((date) => date.id === dateId);
-  const availableSlots = selectedDate?.slots.filter((slot) => !(occupiedAgendaSlots[selectedDate.id] ?? []).includes(slot)) ?? [];
+  const availableSlots = selectedDate?.slots.filter((slot) => !(occupiedSlots[selectedDate.id] ?? []).includes(slot)) ?? [];
   const recommendedDates = mode === "HOME" ? dates.slice(0, 3) : [];
   const scheduledInCity = activeTours.flatMap((tour) => publicBookingTourAppointments[tour.id] ?? []).filter((appointment) => normalizeLocation(appointment.city) === normalizedCity).length;
   const mappedInCity = publicBookingMapClients.filter((client) => normalizeLocation(client.city) === normalizedCity).length;
