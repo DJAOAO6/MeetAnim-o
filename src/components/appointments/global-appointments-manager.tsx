@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
+import type { ClientPickerOption } from "@/data/clients";
+import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
 
 type StatusFilter = "all" | AppointmentStatus;
@@ -15,7 +17,7 @@ const statusStyles: Record<AppointmentStatus, string> = {
   cancelled: "bg-[#eef1f1] text-animeo-muted",
 };
 
-export function GlobalAppointmentsManager() {
+export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOption[] }) {
   const {
     appointments,
     managerOpen,
@@ -61,6 +63,7 @@ export function GlobalAppointmentsManager() {
               <AppointmentForm
                 key={selectedAppointment?.id ?? "new-appointment"}
                 appointment={selectedAppointment}
+                clients={clients}
                 onSave={saveAppointment}
                 onBack={() => openManager()}
               />
@@ -122,13 +125,21 @@ export function GlobalAppointmentsManager() {
   );
 }
 
-function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appointment; onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string }>; onBack: () => void }) {
+function AppointmentForm({ appointment, clients, onSave, onBack }: {
+  appointment?: Appointment;
+  clients: ClientPickerOption[];
+  onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string }>;
+  onBack: () => void;
+}) {
   const [draft, setDraft] = useState<Omit<Appointment, "id">>(() => appointment ?? {
     date: "2026-08-25",
     start: "09:00",
     duration: 60,
+    clientId: undefined,
     clientName: "",
+    animalId: undefined,
     animalName: "",
+    animalSpecies: undefined,
     serviceName: "Ostéopathie canine",
     mode: "cabinet",
     location: "Cabinet",
@@ -136,6 +147,12 @@ function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appoin
     status: "confirmed",
     notes: "",
   });
+  const [addressLine, setAddressLine] = useState(() => (appointment?.mode === "home" ? appointment.location : ""));
+  const [addressExtra, setAddressExtra] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+  const [animalMode, setAnimalMode] = useState<"existing" | "freeform">(appointment?.animalId ? "existing" : "freeform");
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -144,12 +161,84 @@ function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appoin
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
+  const selectedClient = clients.find((client) => client.id === draft.clientId);
+  const selectedClientAnimals = selectedClient?.animals ?? [];
+  const clientMatches = (draft.clientName.trim().length > 0
+    ? clients.filter((client) => `${client.firstName} ${client.lastName}`.toLocaleLowerCase("fr-FR").includes(draft.clientName.trim().toLocaleLowerCase("fr-FR")))
+    : clients
+  ).slice(0, 6);
+
+  function selectClient(client: ClientPickerOption) {
+    const fullName = `${client.firstName} ${client.lastName}`;
+    const firstAnimal = client.animals[0];
+    setDraft((current) => ({
+      ...current,
+      clientId: client.id,
+      clientName: fullName,
+      animalId: firstAnimal?.id,
+      animalName: firstAnimal?.name ?? "",
+      animalSpecies: (firstAnimal?.species as AnimalSpecies) ?? undefined,
+    }));
+    setAnimalMode(firstAnimal ? "existing" : "freeform");
+    setClientPickerOpen(false);
+    if (draft.mode === "home") {
+      setAddressLine((current) => current || client.address);
+    }
+  }
+
+  function clearClient() {
+    setDraft((current) => ({ ...current, clientId: undefined, animalId: undefined, animalName: "", animalSpecies: undefined }));
+    setAnimalMode("freeform");
+  }
+
+  function chooseAnimal(animalId: string) {
+    const animal = selectedClientAnimals.find((item) => item.id === animalId);
+    if (!animal) return;
+    setAnimalMode("existing");
+    setDraft((current) => ({ ...current, animalId: animal.id, animalName: animal.name, animalSpecies: animal.species as AnimalSpecies }));
+  }
+
+  function switchToNewAnimal() {
+    setAnimalMode("freeform");
+    setDraft((current) => ({ ...current, animalId: undefined, animalName: "", animalSpecies: undefined }));
+  }
+
+  function handleModeChange(nextMode: Appointment["mode"]) {
+    update("mode", nextMode);
+    if (nextMode === "home" && selectedClient) {
+      setAddressLine((current) => current || selectedClient.address);
+    }
+  }
+
+  function composeLocation(): string {
+    if (draft.mode === "cabinet") return "Cabinet";
+    const line1 = [addressLine.trim(), addressExtra.trim() ? `(${addressExtra.trim()})` : ""].filter(Boolean).join(" ");
+    const line2 = [postalCode.trim(), city.trim()].filter(Boolean).join(" ");
+    return [line1, line2].filter(Boolean).join(", ");
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setFeedback(null);
     setPending(true);
-    const result = await onSave({ id: appointment?.id, ...draft, location: draft.mode === "cabinet" ? "Cabinet" : draft.location });
+    const result = await onSave({
+      id: appointment?.id,
+      date: draft.date,
+      start: draft.start,
+      duration: draft.duration,
+      clientId: draft.clientId ?? null,
+      clientName: draft.clientName.trim(),
+      animalId: draft.animalId ?? null,
+      animalName: draft.animalName.trim(),
+      animalSpecies: draft.animalSpecies ?? null,
+      serviceName: draft.serviceName,
+      mode: draft.mode,
+      location: composeLocation(),
+      price: draft.price,
+      status: draft.status,
+      notes: draft.notes,
+    });
     setPending(false);
     if (!result.ok) {
       setError(result.error ?? "Une erreur est survenue.");
@@ -169,16 +258,89 @@ function AppointmentForm({ appointment, onSave, onBack }: { appointment?: Appoin
         {error ? <div role="alert" className="mt-4 rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</div> : null}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Field label="Client"><input value={draft.clientName} onChange={(event) => update("clientName", event.target.value)} className={inputClassName} required /></Field>
-          <Field label="Animal"><input value={draft.animalName} onChange={(event) => update("animalName", event.target.value)} className={inputClassName} required /></Field>
+          <div className="sm:col-span-2">
+            <Field label="Client">
+              {draft.clientId ? (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-[#d9e5e2] bg-animeo-soft px-3.5 py-2.5">
+                  <span className="min-w-0 truncate text-sm font-extrabold text-animeo-dark">{draft.clientName}</span>
+                  <button type="button" onClick={clearClient} className="shrink-0 text-xs font-extrabold text-animeo">Changer</button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    value={draft.clientName}
+                    onChange={(event) => { update("clientName", event.target.value); setClientPickerOpen(true); }}
+                    onFocus={() => setClientPickerOpen(true)}
+                    onKeyDown={(event) => { if (event.key === "Escape") setClientPickerOpen(false); }}
+                    className={inputClassName}
+                    placeholder="Nom du client, ou recherchez une fiche existante"
+                    autoComplete="off"
+                    required
+                  />
+                  {clientPickerOpen && clientMatches.length > 0 ? (
+                    <div className="absolute inset-x-0 top-[calc(100%+4px)] z-10 max-h-56 overflow-y-auto rounded-xl border border-[#d9e5e2] bg-white p-1.5 shadow-[0_16px_35px_rgba(21,63,71,0.14)]">
+                      {clientMatches.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          onMouseDown={(event) => { event.preventDefault(); selectClient(client); }}
+                          className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-animeo-bg"
+                        >
+                          <span className="font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</span>
+                          <span className="text-xs text-animeo-muted">{client.animals.length} animal{client.animals.length > 1 ? "s" : ""}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </Field>
+          </div>
+
+          <div className="sm:col-span-2">
+            <Field label="Animal">
+              {selectedClientAnimals.length > 0 && animalMode === "existing" ? (
+                <select
+                  value={draft.animalId ?? "__new__"}
+                  onChange={(event) => (event.target.value === "__new__" ? switchToNewAnimal() : chooseAnimal(event.target.value))}
+                  className={inputClassName}
+                >
+                  {selectedClientAnimals.map((animal) => <option key={animal.id} value={animal.id}>{animal.name} · {animal.species}</option>)}
+                  <option value="__new__">+ Nouvel animal (non enregistré chez ce client)</option>
+                </select>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input value={draft.animalName} onChange={(event) => update("animalName", event.target.value)} className={inputClassName} placeholder="Nom de l’animal" required />
+                  <select value={draft.animalSpecies ?? "Chien"} onChange={(event) => update("animalSpecies", event.target.value as AnimalSpecies)} className={inputClassName}>
+                    {animalSpeciesList.map((species) => <option key={species} value={species}>{species}</option>)}
+                  </select>
+                  {selectedClientAnimals.length > 0 ? (
+                    <button type="button" onClick={() => chooseAnimal(selectedClientAnimals[0].id)} className="text-left text-xs font-extrabold text-animeo sm:col-span-2">
+                      ← Choisir parmi les animaux de {selectedClient?.firstName}
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </Field>
+          </div>
+
           <div className="sm:col-span-2"><Field label="Prestation"><input value={draft.serviceName} onChange={(event) => update("serviceName", event.target.value)} className={inputClassName} required /></Field></div>
           <Field label="Date"><input type="date" value={draft.date} onChange={(event) => update("date", event.target.value)} className={inputClassName} required /></Field>
           <Field label="Heure"><input type="time" value={draft.start} onChange={(event) => update("start", event.target.value)} className={inputClassName} required /></Field>
           <Field label="Durée"><select value={draft.duration} onChange={(event) => update("duration", Number(event.target.value))} className={inputClassName}>{[30, 45, 60, 90, 120].map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}</select></Field>
           <Field label="Statut"><select value={draft.status} onChange={(event) => update("status", event.target.value as AppointmentStatus)} className={inputClassName}>{Object.entries(appointmentStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
-          <Field label="Mode"><select value={draft.mode} onChange={(event) => update("mode", event.target.value as Appointment["mode"])} className={inputClassName}><option value="cabinet">Cabinet</option><option value="home">Domicile</option></select></Field>
+          <Field label="Mode"><select value={draft.mode} onChange={(event) => handleModeChange(event.target.value as Appointment["mode"])} className={inputClassName}><option value="cabinet">Cabinet</option><option value="home">Domicile</option></select></Field>
           <Field label="Prix"><div className="relative"><input type="number" min="0" value={draft.price} onChange={(event) => update("price", Number(event.target.value))} className={`${inputClassName} pr-9`} /><span className="absolute right-3 top-3 text-sm font-black text-animeo-muted">€</span></div></Field>
-          {draft.mode === "home" ? <div className="sm:col-span-2"><Field label="Adresse ou ville"><input value={draft.location} onChange={(event) => update("location", event.target.value)} className={inputClassName} required /></Field></div> : null}
+
+          {draft.mode === "home" ? (
+            <>
+              <div className="sm:col-span-2"><Field label="Adresse"><input value={addressLine} onChange={(event) => setAddressLine(event.target.value)} className={inputClassName} placeholder="12 rue Exemple" required /></Field></div>
+              <div className="sm:col-span-2"><Field label="Complément d’adresse" hint="Facultatif"><input value={addressExtra} onChange={(event) => setAddressExtra(event.target.value)} className={inputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></Field></div>
+              <Field label="Code postal" hint="Facultatif"><input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} className={inputClassName} inputMode="numeric" placeholder="76000" /></Field>
+              <Field label="Ville" hint="Facultatif"><input value={city} onChange={(event) => setCity(event.target.value)} className={inputClassName} placeholder="Rouen" /></Field>
+            </>
+          ) : null}
+
           <div className="sm:col-span-2"><Field label="Notes"><textarea value={draft.notes} onChange={(event) => update("notes", event.target.value)} className={textareaClassName} /></Field></div>
         </div>
       </div>

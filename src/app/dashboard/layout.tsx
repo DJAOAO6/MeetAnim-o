@@ -8,6 +8,7 @@ import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provi
 import { getAppointments } from "@/lib/appointments";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
+import { getClientPickerOptions } from "@/lib/clients";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
@@ -18,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // l'utilisateur en base et invalide la session si le mot de passe a
   // changé ou si le compte a été désactivé depuis l'émission du cookie.
   const user = await requireUser();
-  const appointments = await getAppointments();
+  const [appointments, clientOptions] = await Promise.all([getAppointments(), getClientPickerOptions()]);
 
   return (
     <CurrentUserProvider user={user}>
@@ -29,7 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <main className="mx-auto min-h-screen max-w-[1600px] p-4 sm:p-7 lg:p-10">
               {children}
             </main>
-            <GlobalAppointmentsManager />
+            <GlobalAppointmentsManager clients={clientOptions} />
             <DashboardFloatingActions />
           </div>
         </AppointmentsProvider>

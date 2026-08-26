@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
+import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
 
@@ -17,7 +18,8 @@ function toDate(dateId: string): Date {
 }
 
 function toAppointment(row: {
-  id: string; date: Date; start: string; duration: number; clientName: string; animalName: string;
+  id: string; date: Date; start: string; duration: number; clientId: string | null; clientName: string;
+  animalId: string | null; animalName: string; animalSpecies: string | null; animal: { species: string } | null;
   serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
 }): Appointment {
   return {
@@ -25,8 +27,11 @@ function toAppointment(row: {
     date: row.date.toISOString().slice(0, 10),
     start: row.start,
     duration: row.duration,
+    clientId: row.clientId ?? undefined,
     clientName: row.clientName,
+    animalId: row.animalId ?? undefined,
     animalName: row.animalName,
+    animalSpecies: (row.animal?.species ?? row.animalSpecies ?? undefined) as AnimalSpecies | undefined,
     serviceName: row.serviceName,
     mode: modeLabel[row.mode],
     location: row.location,
@@ -61,8 +66,11 @@ export type SaveAppointmentInput = {
   date: string;
   start: string;
   duration: number;
+  clientId?: string | null;
   clientName: string;
+  animalId?: string | null;
   animalName: string;
+  animalSpecies?: string | null;
   serviceName: string;
   mode: AppointmentMode;
   location: string;
@@ -87,8 +95,11 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     date: toDate(input.date),
     start: input.start,
     duration: input.duration,
+    clientId: input.clientId ?? null,
     clientName: input.clientName,
+    animalId: input.animalId ?? null,
     animalName: input.animalName,
+    animalSpecies: input.animalSpecies ?? null,
     serviceName: input.serviceName,
     mode: dbMode[input.mode],
     location: input.location,
@@ -98,8 +109,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   };
 
   const row = input.id
-    ? await prisma.appointment.update({ where: { id: input.id }, data })
-    : await prisma.appointment.create({ data });
+    ? await prisma.appointment.update({ where: { id: input.id }, data, include: { animal: { select: { species: true } } } })
+    : await prisma.appointment.create({ data, include: { animal: { select: { species: true } } } });
 
   await logAudit({
     userId: user.id,
@@ -123,7 +134,7 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
     }
   }
 
-  const row = await prisma.appointment.update({ where: { id }, data: { status: dbStatus[status] } });
+  const row = await prisma.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status } });
   revalidatePath("/dashboard");
 

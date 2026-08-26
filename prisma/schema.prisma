@@ -256,9 +256,10 @@ model Appointment {
   animalId String?
   animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
 
-  clientName  String
-  animalName  String
-  serviceName String
+  clientName    String
+  animalName    String
+  animalSpecies String?
+  serviceName   String
   date        DateTime
   start       String
   duration    Int

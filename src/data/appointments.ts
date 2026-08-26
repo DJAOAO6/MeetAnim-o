@@ -8,7 +8,9 @@ export type Appointment = {
   date: string;
   start: string;
   duration: number;
+  clientId?: string;
   clientName: string;
+  animalId?: string;
   animalName: string;
   animalSpecies?: AnimalSpecies;
   serviceName: string;

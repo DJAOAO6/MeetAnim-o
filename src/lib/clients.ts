@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
-import type { Animal, AnimalDocument, Client, Consultation } from "@/data/clients";
+import type { Animal, AnimalDocument, Client, ClientPickerOption, Consultation } from "@/data/clients";
 import type {
   Animal as DbAnimal,
   AnimalDocument as DbAnimalDocument,
@@ -97,6 +97,27 @@ export async function getClients(): Promise<Client[]> {
   });
 
   return clients.map(mapClient);
+}
+
+/**
+ * Version allégée de getClients(), sans consultations ni documents : sert
+ * uniquement à alimenter le sélecteur de client/animal du formulaire de
+ * rendez-vous, chargé sur chaque page du dashboard via le layout.
+ */
+export async function getClientPickerOptions(): Promise<ClientPickerOption[]> {
+  const clients = await prisma.client.findMany({
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      address: true,
+      city: true,
+      animals: { select: { id: true, name: true, species: true }, orderBy: { name: "asc" } },
+    },
+  });
+
+  return clients;
 }
 
 export async function getClientById(id: string): Promise<Client | undefined> {

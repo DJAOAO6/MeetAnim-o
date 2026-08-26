@@ -52,3 +52,18 @@ export type Client = {
   createdAt: string;
   animals: Animal[];
 };
+
+export type ClientPickerAnimal = {
+  id: string;
+  name: string;
+  species: string;
+};
+
+export type ClientPickerOption = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  city: string;
+  animals: ClientPickerAnimal[];
+};
