@@ -13,16 +13,6 @@ function dateId(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function NewAppointmentButton() {
-  const { openNewAppointment } = useAppointments();
-  return (
-    <button type="button" onClick={openNewAppointment} className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]">
-      <span className="mr-2 text-xl leading-none" aria-hidden="true">+</span>
-      Nouveau rendez-vous
-    </button>
-  );
-}
-
 export function AppointmentStatCards() {
   const { appointments, openManager } = useAppointments();
   const todayCount = appointments.filter((appointment) => appointment.date === "2026-08-24" && appointment.status !== "cancelled").length;

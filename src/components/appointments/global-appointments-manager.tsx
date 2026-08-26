@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
-import { Icon } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
 
@@ -38,7 +37,6 @@ export function GlobalAppointmentsManager() {
     if (!result.ok) setActionError(result.error ?? "Une erreur est survenue.");
   }
 
-  const pendingCount = appointments.filter((appointment) => appointment.status === "pending").length;
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedAppointmentId);
   const filteredAppointments = appointments
     .filter((appointment) => statusFilter === "all" || appointment.status === statusFilter)
@@ -47,18 +45,6 @@ export function GlobalAppointmentsManager() {
 
   return (
     <>
-      {!managerOpen ? (
-        <button
-          type="button"
-          onClick={() => openManager()}
-          className="fixed bottom-5 right-4 z-40 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-animeo-dark px-4 py-3 text-sm font-extrabold text-white shadow-[0_14px_35px_rgba(24,59,69,0.3)] transition hover:-translate-y-0.5 sm:bottom-7 sm:right-7"
-        >
-          <Icon name="agenda" className="h-5 w-5 text-animeo" />
-          <span className="hidden sm:inline">Gérer les rendez-vous</span>
-          {pendingCount > 0 ? <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-animeo-accent px-1.5 text-xs font-black text-[#5f420f]">{pendingCount}</span> : null}
-        </button>
-      ) : null}
-
       {managerOpen ? (
         <div className="fixed inset-0 z-50 bg-[#102f37]/55 backdrop-blur-sm" role="presentation">
           <section role="dialog" aria-modal="true" aria-labelledby="appointments-manager-title" className="absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-animeo-bg shadow-[-20px_0_60px_rgba(12,39,47,0.25)]">

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AppointmentsProvider } from "@/components/appointments/appointments-context";
 import { GlobalAppointmentsManager } from "@/components/appointments/global-appointments-manager";
 import { CurrentUserProvider } from "@/components/auth/current-user-provider";
+import { DashboardFloatingActions } from "@/components/dashboard/dashboard-floating-actions";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provider";
 import { getAppointments } from "@/lib/appointments";
@@ -29,6 +30,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               {children}
             </main>
             <GlobalAppointmentsManager />
+            <DashboardFloatingActions />
           </div>
         </AppointmentsProvider>
       </DashboardThemeProvider>

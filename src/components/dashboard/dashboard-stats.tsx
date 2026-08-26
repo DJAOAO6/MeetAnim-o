@@ -20,11 +20,13 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
     const weekIds = new Set(weekDatesFrom(referenceDate).map(dateId));
     const active = appointments.filter((appointment) => appointment.status !== "cancelled");
 
+    const monthPrefix = todayId.slice(0, 7);
+
     const todayCount = active.filter((appointment) => appointment.date === todayId).length;
     const weekCount = active.filter((appointment) => weekIds.has(appointment.date)).length;
     const pendingCount = appointments.filter((appointment) => appointment.status === "pending").length;
     const revenue = active
-      .filter((appointment) => weekIds.has(appointment.date) && (appointment.status === "confirmed" || appointment.status === "completed"))
+      .filter((appointment) => appointment.date.startsWith(monthPrefix) && (appointment.status === "confirmed" || appointment.status === "completed"))
       .reduce((sum, appointment) => sum + appointment.price, 0);
 
     const newClients = clients.filter((client) => {
@@ -40,7 +42,7 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
     { label: "Cette semaine", value: String(stats.weekCount), detail: "Du lundi au dimanche", icon: "agenda" },
     { label: "Nouveaux clients", value: String(stats.newClients), detail: "Ce mois-ci", icon: "clients" },
     canViewFinances
-      ? { label: "Chiffre d’affaires", value: formatEuros(stats.revenue), detail: "Cette semaine", icon: "euro" }
+      ? { label: "Chiffre d’affaires", value: formatEuros(stats.revenue), detail: "Ce mois-ci", icon: "euro" }
       : { label: "Rappels à envoyer", value: String(dueReminders), detail: "Clients à relancer", icon: "bell" },
     { label: "Demandes en attente", value: String(stats.pendingCount), detail: "À accepter ou refuser", icon: "shield" },
   ];
