@@ -143,7 +143,6 @@ type AddressStepProps = {
   onZoneChange: (zoneId: string | null) => void;
   onBack: () => void;
   onNext: () => void;
-  onSwitchToCabinet: () => void;
 };
 
 function normalizeCity(value: string) {
@@ -160,9 +159,8 @@ function findMatchingZone(professional: PublicProfessional, address: BookingAddr
   );
 }
 
-export function AddressStep({ professional, service, value, zoneId, onChange, onZoneChange, onBack, onNext, onSwitchToCabinet }: AddressStepProps) {
+export function AddressStep({ professional, service, value, zoneId, onChange, onZoneChange, onBack, onNext }: AddressStepProps) {
   const zone = professional.zones.find((item) => item.id === zoneId);
-  const hasLocation = value.city.trim().length >= 2 || value.postalCode.replace(/\s/g, "").length === 5;
   const travelFee = service.travelFeeMode === "fixed" ? service.fixedTravelFee : service.travelFeeMode === "zone" ? zone?.travelFee ?? 0 : 0;
 
   function update(key: keyof BookingAddress, next: string) {
@@ -195,12 +193,6 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
           <p className="mt-1 text-sm text-animeo-dark">{zone.name} · consultations principalement le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}.</p>
           <p className="mt-3 text-sm font-extrabold text-animeo-dark">{travelFee > 0 ? `Frais de déplacement : +${travelFee} €` : "Aucun frais de déplacement"}</p>
           <p className="mt-2 text-xs text-animeo-muted">Ces jours seront mis en avant à l’étape suivante, mais vous pourrez tout de même choisir n’importe quel autre créneau libre.</p>
-        </div>
-      ) : hasLocation ? (
-        <div className="mt-5 rounded-2xl border border-[#dfe9e6] bg-white p-4">
-          <p className="font-black text-animeo-dark">Aucune tournée régulière ne couvre encore ce secteur.</p>
-          <p className="mt-1 text-sm text-animeo-muted">Ce n’est pas un problème : à l’étape suivante, vous pouvez choisir n’importe quel créneau libre dans l’agenda du professionnel, il organisera son déplacement pour vous.</p>
-          {service.cabinetEnabled ? <button type="button" onClick={onSwitchToCabinet} className="mt-3 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark">Choisir un rendez-vous au cabinet à la place</button> : null}
         </div>
       ) : null}
 
