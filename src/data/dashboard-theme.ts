@@ -28,12 +28,12 @@ export type DashboardThemeSettings = {
 
 export const lightThemePreset: DashboardThemeSettings = {
   mode: "light",
-  primaryColor: "#4FAF9F",
+  primaryColor: "#59B9AA",
   accentColor: "#F4B860",
-  backgroundColor: "#F7FAF9",
+  backgroundColor: "#F6F8F7",
   surfaceColor: "#FFFFFF",
-  sidebarColor: "#183B45",
-  actionColor: "#4FAF9F",
+  sidebarColor: "#153F47",
+  actionColor: "#59B9AA",
   navigationAssets: {},
   speciesColors: {},
 };

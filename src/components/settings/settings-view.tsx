@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -10,7 +11,9 @@ import { AvailabilitySettingsTab } from "@/components/settings/availability-sett
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
 import { CustomizationSettingsTab } from "@/components/settings/customization-settings-tab";
-import { initialSettings, type SettingsState } from "@/data/settings";
+import { initialSettings, type ProfileSettings, type SettingsState } from "@/data/settings";
+import { updateBusinessProfileAction, type BusinessProfileData } from "@/lib/business-profile-actions";
+import { hasPermission } from "@/lib/auth/permissions";
 import type { Tour, Zone } from "@/data/tours";
 
 type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization";
@@ -18,6 +21,7 @@ type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminder
 type SettingsViewProps = {
   tours: Tour[];
   zones: Zone[];
+  businessProfile: BusinessProfileData;
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
@@ -31,14 +35,40 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones }: SettingsViewProps) {
+export function SettingsView({ tours, zones, businessProfile }: SettingsViewProps) {
+  const currentUser = useCurrentUser();
+  const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
-  const [settings, setSettings] = useState<SettingsState>(() => sessionSettings);
+  const [settings, setSettings] = useState<SettingsState>(() => ({
+    ...sessionSettings,
+    profile: businessProfile,
+    publicColor: businessProfile.publicColor,
+  }));
+  const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable"> = { cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable };
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   function updateSettings<K extends keyof SettingsState>(key: K, value: SettingsState[K], message = "Modifications enregistrées") {
     setSettings((current) => {
       const next = { ...current, [key]: value };
+      sessionSettings = next;
+      return next;
+    });
+    setFeedback(message);
+  }
+
+  async function saveProfile(profile: ProfileSettings, publicColor: string, message: string) {
+    setSaving(true);
+    const result = await updateBusinessProfileAction({ ...profile, publicColor, ...profileMeta });
+    setSaving(false);
+
+    if (!result.ok) {
+      setFeedback(result.error);
+      return;
+    }
+
+    setSettings((current) => {
+      const next = { ...current, profile, publicColor };
       sessionSettings = next;
       return next;
     });
@@ -71,12 +101,12 @@ export function SettingsView({ tours, zones }: SettingsViewProps) {
 
       {feedback ? (
         <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark">
-          <span>✓ {feedback}</span>
+          <span>{feedback.startsWith("Le lien") || feedback.startsWith("Ce lien") ? feedback : `✓ ${feedback}`}</span>
           <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer la notification" className="text-xl leading-none">×</button>
         </div>
       ) : null}
 
-      {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} onSave={(value) => updateSettings("profile", value)} /> : null}
+      {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={(value, message) => updateSettings("availability", value, message)} /> : null}
       {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} onNotify={setFeedback} /> : null}
@@ -85,8 +115,10 @@ export function SettingsView({ tours, zones }: SettingsViewProps) {
         <CustomizationSettingsTab
           profile={settings.profile}
           color={settings.publicColor}
-          onProfileChange={(value) => updateSettings("profile", value, "Image mise à jour localement")}
-          onColorChange={(value) => updateSettings("publicColor", value, "Personnalisation enregistrée")}
+          saving={saving}
+          canEdit={canManagePublicSettings}
+          onProfileChange={(value) => saveProfile(value, settings.publicColor, "Image mise à jour sur votre page publique")}
+          onColorChange={(value) => saveProfile(settings.profile, value, "Personnalisation enregistrée sur votre page publique")}
         />
       ) : null}
     </>

@@ -35,7 +35,6 @@ export const statsMockData = {
     revenue: 2520,
     revenueVariation: 8,
     consultations: 42,
-    averageBasket: 60,
     newClients: 12,
     kilometers: 386,
   },
@@ -50,8 +49,8 @@ export const statsMockData = {
     { label: "Août", value: 2520 },
   ],
   consultationModes: [
-    { label: "Domicile", consultations: 26, share: 62, revenue: 1820, averageBasket: 70, color: "var(--theme-primary)" },
-    { label: "Cabinet", consultations: 16, share: 38, revenue: 700, averageBasket: 44, color: "var(--theme-heading)" },
+    { label: "Domicile", consultations: 26, share: 62, revenue: 1820, color: "var(--theme-primary)" },
+    { label: "Cabinet", consultations: 16, share: 38, revenue: 700, color: "var(--theme-heading)" },
   ],
   services: [
     { label: "Ostéopathie canine", consultations: 18, revenue: 1150 },

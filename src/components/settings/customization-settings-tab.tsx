@@ -12,11 +12,13 @@ const colors = ["#4FAF9F", "#3D8E83", "#4E7BA6", "#8067B0", "#D58C55"];
 type CustomizationSettingsTabProps = {
   profile: ProfileSettings;
   color: string;
+  saving?: boolean;
+  canEdit?: boolean;
   onProfileChange: (profile: ProfileSettings) => void;
   onColorChange: (color: string) => void;
 };
 
-export function CustomizationSettingsTab({ profile, color, onProfileChange, onColorChange }: CustomizationSettingsTabProps) {
+export function CustomizationSettingsTab({ profile, color, saving = false, canEdit = true, onProfileChange, onColorChange }: CustomizationSettingsTabProps) {
   const [draftColor, setDraftColor] = useState(color);
   const photoIsImage = profile.photo.startsWith("data:image");
   const logoIsImage = profile.logo.startsWith("data:image");
@@ -25,8 +27,13 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
     <div className="space-y-6">
       <DashboardThemeSettings />
 
+      {!canEdit ? (
+        <div role="status" className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.</div>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card className="p-5 sm:p-6">
+        <fieldset disabled={!canEdit} className="disabled:opacity-60">
         <SectionTitle title="Personnalisation de la page publique" description="Ces choix concernent uniquement la page de réservation visible par vos clients." />
         <div className="space-y-4">
           <ImagePicker label="Logo public" value={profile.logo} onChange={(logo) => onProfileChange({ ...profile, logo })} shape="square" />
@@ -41,7 +48,8 @@ export function CustomizationSettingsTab({ profile, color, onProfileChange, onCo
             </div>
           </Field>
         </div>
-        <button type="button" onClick={() => onColorChange(draftColor)} className="mt-6 rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-sm">Enregistrer la personnalisation</button>
+        <button type="button" disabled={saving} onClick={() => onColorChange(draftColor)} className="mt-6 rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer la personnalisation"}</button>
+        </fieldset>
       </Card>
 
       <div>

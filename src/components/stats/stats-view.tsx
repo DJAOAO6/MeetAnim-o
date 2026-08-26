@@ -93,7 +93,6 @@ export function StatsView() {
       <MetricStrip>
         <StatMetric label="Chiffre d’affaires" value={currencyFormatter.format(scaledMoney(statsMockData.overview.revenue))} detail={`+${statsMockData.overview.revenueVariation} % vs période précédente`} icon="euro" positive />
         <StatMetric label="Consultations" value={numberFormatter.format(scaledCount(statsMockData.overview.consultations))} detail={activePeriodLabel} icon="calendar" />
-        <StatMetric label="Panier moyen" value={currencyFormatter.format(statsMockData.overview.averageBasket)} detail="Par consultation" icon="services" />
         <StatMetric label="Nouveaux clients" value={numberFormatter.format(scaledCount(statsMockData.overview.newClients))} detail="Sur la période" icon="clients" />
         <StatMetric label="Kilomètres parcourus" value={`${numberFormatter.format(scaledCount(statsMockData.overview.kilometers))} km`} detail="Déplacements professionnels" icon="map" />
       </MetricStrip>
@@ -120,7 +119,6 @@ export function StatsView() {
                 <p className="text-xs text-animeo-muted">consultations</p>
                 <dl className="mt-4 space-y-2 border-t border-[var(--theme-border)] pt-3 text-sm">
                   <DataLine label={`CA ${mode.label.toLowerCase()}`} value={currencyFormatter.format(scaledMoney(mode.revenue))} />
-                  <DataLine label="Panier moyen" value={currencyFormatter.format(mode.averageBasket)} />
                 </dl>
               </div>
             ))}

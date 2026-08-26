@@ -91,6 +91,7 @@ enum AuditAction {
   APPOINTMENT_CREATED
   APPOINTMENT_UPDATED
   APPOINTMENT_STATUS_CHANGED
+  ANIMAL_DELETED
 }
 
 model User {
@@ -100,6 +101,7 @@ model User {
   firstName         String
   lastName          String
   role              UserRole  @default(PRACTITIONER)
+  permissions       String[]  @default([])
   active            Boolean   @default(true)
   twoFactorEnabled  Boolean   @default(false)
   twoFactorMethod   TwoFactorMethod @default(EMAIL)
@@ -345,6 +347,28 @@ model TourAppointment {
   lng        Float
 
   @@index([tourId])
+}
+
+model BusinessProfile {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  firstName        String
+  lastName         String
+  profession       String
+  company          String
+  phone            String
+  email            String
+  address          String
+  postalCode       String
+  city             String
+  location         String
+  bio              String   @db.Text
+  photo            String   @db.Text
+  logo             String   @db.Text
+  publicColor      String
+  cabinetAvailable Boolean  @default(true)
+  homeAvailable    Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
 }
 
 model Service {

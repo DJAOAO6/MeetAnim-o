@@ -5,9 +5,18 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { logout } from "@/lib/auth/actions";
+import { initialsFor } from "@/lib/format";
 import type { NavigationAssetKey } from "@/data/dashboard-theme";
+
+const roleLabels: Record<string, string> = {
+  ADMIN: "Administrateur",
+  PRACTITIONER: "Praticien",
+  SECRETARY: "Secrétariat",
+};
 
 type NavigationItem = {
   label: string;
@@ -24,9 +33,10 @@ const navigation: NavigationItem[] = [
   { label: "Carte clients", href: "/dashboard/carte", icon: "map", assetKey: "map" },
   { label: "Rappels clients", href: "/dashboard/rappels", icon: "bell", assetKey: "reminders" },
   { label: "Prestations", href: "/dashboard/prestations", icon: "services", assetKey: "services" },
-  { label: "Statistiques", href: "/dashboard/statistiques", icon: "stats", assetKey: "stats" },
   { label: "Paramètres", href: "/dashboard/parametres", icon: "settings", assetKey: "settings" },
 ];
+
+const statisticsItem: NavigationItem = { label: "Statistiques", href: "/dashboard/statistiques", icon: "stats", assetKey: "stats" };
 
 function isActive(pathname: string, href: string) {
   if (href === "/dashboard") {
@@ -36,13 +46,18 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DashboardSidebar({ showAdmin = false }: { showAdmin?: boolean }) {
+export function DashboardSidebar({ showAdmin = false, showStatistics = true }: { showAdmin?: boolean; showStatistics?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { theme } = useDashboardTheme();
-  const items = showAdmin
-    ? [...navigation, { label: "Administration", href: "/dashboard/admin", icon: "shield" as const, assetKey: "admin" as const }]
+  const user = useCurrentUser();
+  const baseItems = showStatistics
+    ? [...navigation.slice(0, -1), statisticsItem, navigation[navigation.length - 1]]
     : navigation;
+  const items = showAdmin
+    ? [...baseItems, { label: "Administration", href: "/dashboard/admin", icon: "shield" as const, assetKey: "admin" as const }]
+    : baseItems;
 
   return (
     <>
@@ -112,7 +127,44 @@ export function DashboardSidebar({ showAdmin = false }: { showAdmin?: boolean })
             );
           })}
         </nav>
+
+        {user ? (
+          <div className="mt-3 shrink-0 border-t border-white/10 pt-3">
+            <button
+              type="button"
+              onClick={() => setProfileOpen((current) => !current)}
+              aria-expanded={profileOpen}
+              className="flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition hover:bg-white/10"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-sm font-black text-white">{initialsFor(user.firstName, user.lastName)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-extrabold text-white">{user.firstName}</span>
+                <span className="block truncate text-xs text-white/60">{roleLabels[user.role] ?? user.role}</span>
+              </span>
+              <Icon name="arrow" className={`h-4 w-4 shrink-0 text-white/50 transition-transform ${profileOpen ? "-rotate-90" : "rotate-90"}`} />
+            </button>
+
+            {profileOpen ? (
+              <form action={logout} className="mt-1">
+                <button type="submit" className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">
+                  <LogoutIcon />
+                  Se déconnecter
+                </button>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
       </aside>
     </>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
   );
 }

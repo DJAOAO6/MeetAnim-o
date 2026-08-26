@@ -10,6 +10,7 @@ export type ProfileSettings = {
   address: string;
   postalCode: string;
   city: string;
+  location: string;
   bio: string;
   slug: string;
   photo: string;
@@ -103,6 +104,7 @@ export const initialSettings: SettingsState = {
     address: "24 rue des Carmes",
     postalCode: "76000",
     city: "Rouen",
+    location: "Rouen et Normandie",
     bio: "J’accompagne chiens, chats et chevaux avec une approche douce et personnalisée.",
     slug: "pauline-faucillon",
     photo: "PF",

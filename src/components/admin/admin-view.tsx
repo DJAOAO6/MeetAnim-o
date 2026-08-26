@@ -15,7 +15,7 @@ const tabs: Array<{ id: AdminTab; label: string; icon: IconName }> = [
   { id: "audit", label: "Journal d'audit", icon: "shield" },
 ];
 
-export function AdminView({ users, auditLog }: { users: AdminUser[]; auditLog: AuditLogEntry[] }) {
+export function AdminView({ users, auditLog, currentUserId }: { users: AdminUser[]; auditLog: AuditLogEntry[]; currentUserId: string }) {
   const [activeTab, setActiveTab] = useState<AdminTab>("users");
 
   return (
@@ -37,7 +37,7 @@ export function AdminView({ users, auditLog }: { users: AdminUser[]; auditLog: A
         ))}
       </Card>
 
-      {activeTab === "users" ? <UsersTab users={users} /> : <AuditLogTab entries={auditLog} />}
+      {activeTab === "users" ? <UsersTab users={users} currentUserId={currentUserId} /> : <AuditLogTab entries={auditLog} />}
     </>
   );
 }

@@ -91,7 +91,7 @@ export function StatSection({ title, description, action, className = "", childr
   );
 }
 
-export function SimpleBarChart({ items, formatter = (value) => `${value} %`, maxValue }: { items: ReadonlyArray<{ label: string; value: number }>; formatter?: (value: number) => string; maxValue?: number }) {
+export function SimpleBarChart({ items, formatter = (value) => `${value} %`, maxValue }: { items: ReadonlyArray<{ label: string; value: number; color?: string }>; formatter?: (value: number) => string; maxValue?: number }) {
   const maximum = maxValue ?? Math.max(...items.map((item) => item.value), 1);
   return (
     <div className="space-y-4">
@@ -102,7 +102,7 @@ export function SimpleBarChart({ items, formatter = (value) => `${value} %`, max
             <span className="font-extrabold tabular-nums text-animeo-dark">{formatter(item.value)}</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-animeo-bg">
-            <div className="h-full rounded-full bg-animeo" style={{ width: `${Math.max(2, (item.value / maximum) * 100)}%` }} />
+            <div className="h-full rounded-full" style={{ width: `${Math.max(2, (item.value / maximum) * 100)}%`, backgroundColor: item.color ?? "var(--theme-primary)" }} />
           </div>
         </div>
       ))}
@@ -110,7 +110,7 @@ export function SimpleBarChart({ items, formatter = (value) => `${value} %`, max
   );
 }
 
-export function RevenueChart({ data }: { data: ReadonlyArray<{ label: string; value: number }> }) {
+export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d’affaires", ariaLabel = "Courbe mensuelle du chiffre d’affaires", valueSuffix = " €", roundStep = 500 }: { data: ReadonlyArray<{ label: string; value: number }>; title?: string; ariaLabel?: string; valueSuffix?: string; roundStep?: number }) {
   const width = 720;
   const height = 250;
   const left = 54;
@@ -119,7 +119,7 @@ export function RevenueChart({ data }: { data: ReadonlyArray<{ label: string; va
   const bottom = 38;
   const chartWidth = width - left - right;
   const chartHeight = height - top - bottom;
-  const maxValue = Math.max(500, Math.ceil(Math.max(...data.map((item) => item.value)) / 500) * 500);
+  const maxValue = Math.max(roundStep, Math.ceil(Math.max(...data.map((item) => item.value)) / roundStep) * roundStep);
   const points = data.map((item, index) => ({
     ...item,
     x: left + (index / Math.max(data.length - 1, 1)) * chartWidth,
@@ -131,14 +131,14 @@ export function RevenueChart({ data }: { data: ReadonlyArray<{ label: string; va
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Courbe mensuelle du chiffre d’affaires" className="min-w-[620px]">
-        <title>Évolution mensuelle du chiffre d’affaires</title>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel} className="min-w-[620px]">
+        <title>{title}</title>
         {gridValues.map((ratio) => {
           const y = top + chartHeight - ratio * chartHeight;
           return (
             <g key={ratio}>
               <line x1={left} x2={width - right} y1={y} y2={y} stroke="var(--theme-border)" strokeWidth="1" />
-              <text x={left - 8} y={y + 4} textAnchor="end" fill="var(--theme-muted)" fontSize="10">{Math.round(maxValue * ratio).toLocaleString("fr-FR")} €</text>
+              <text x={left - 8} y={y + 4} textAnchor="end" fill="var(--theme-muted)" fontSize="10">{Math.round(maxValue * ratio).toLocaleString("fr-FR")}{valueSuffix}</text>
             </g>
           );
         })}
@@ -146,7 +146,7 @@ export function RevenueChart({ data }: { data: ReadonlyArray<{ label: string; va
         <polyline points={line} fill="none" stroke="var(--theme-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((point) => (
           <g key={point.label}>
-            <circle cx={point.x} cy={point.y} r="4.5" fill="var(--theme-surface)" stroke="var(--theme-primary)" strokeWidth="3"><title>{point.label} : {point.value.toLocaleString("fr-FR")} €</title></circle>
+            <circle cx={point.x} cy={point.y} r="4.5" fill="var(--theme-surface)" stroke="var(--theme-primary)" strokeWidth="3"><title>{point.label} : {point.value.toLocaleString("fr-FR")}{valueSuffix}</title></circle>
             <text x={point.x} y={height - 12} textAnchor="middle" fill="var(--theme-muted)" fontSize="10" fontWeight="700">{point.label}</text>
           </g>
         ))}

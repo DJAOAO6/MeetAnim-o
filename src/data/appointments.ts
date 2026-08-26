@@ -1,3 +1,5 @@
+import type { AnimalSpecies } from "@/data/species";
+
 export type AppointmentMode = "cabinet" | "home";
 export type AppointmentStatus = "pending" | "confirmed" | "completed" | "cancelled";
 
@@ -8,6 +10,7 @@ export type Appointment = {
   duration: number;
   clientName: string;
   animalName: string;
+  animalSpecies?: AnimalSpecies;
   serviceName: string;
   mode: AppointmentMode;
   location: string;

@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 
 export type RealMapPoint = {
   id: string;
@@ -16,12 +16,29 @@ export type RealMapPoint = {
   badge?: boolean;
 };
 
+export type RealMapCircle = {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+};
+
+export type RealMapFocus = {
+  lat: number;
+  lng: number;
+  zoom: number;
+  token: string;
+};
+
 type RealMapProps = {
   points: RealMapPoint[];
   selectedId?: string;
   onSelect?: (id: string) => void;
   heightClassName?: string;
   overlay?: ReactNode;
+  circle?: RealMapCircle | null;
+  focus?: RealMapFocus | null;
+  onMapClick?: (lat: number, lng: number) => void;
+  crosshair?: boolean;
 };
 
 function markerIcon(point: RealMapPoint, selected: boolean) {
@@ -65,7 +82,26 @@ function FlyToSelected({ point }: { point?: RealMapPoint }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay }: RealMapProps) {
+function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!focus) return;
+    map.flyTo([focus.lat, focus.lng], focus.zoom, { duration: 0.6 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.token]);
+
+  return null;
+}
+
+function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (event) => onMapClick?.(event.latlng.lat, event.latlng.lng),
+  });
+  return null;
+}
+
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, onMapClick, crosshair = false }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length === 0) return [49.4432, 1.0999];
     return [points[0].lat, points[0].lng];
@@ -74,7 +110,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
   const mapRef = useRef<L.Map | null>(null);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName}`}>
+    <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName} ${crosshair ? "[&_.leaflet-container]:cursor-crosshair" : ""}`}>
       <MapContainer center={center} zoom={12} scrollWheelZoom className="h-full w-full" ref={mapRef}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -82,6 +118,15 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         />
         <FitToPoints points={points} />
         <FlyToSelected point={selectedPoint} />
+        <FlyToFocus focus={focus} />
+        <MapClickHandler onMapClick={onMapClick} />
+        {circle ? (
+          <Circle
+            center={[circle.lat, circle.lng]}
+            radius={circle.radiusKm * 1000}
+            pathOptions={{ color: "#4FAF9F", fillColor: "#4FAF9F", fillOpacity: 0.12, weight: 2 }}
+          />
+        ) : null}
         {points.map((point) => (
           <Marker
             key={point.id}

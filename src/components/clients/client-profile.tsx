@@ -2,13 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { AnimalRecord } from "@/components/clients/animal-record";
 import { AnimalSideCards } from "@/components/clients/animal-side-cards";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { hasPermission } from "@/lib/auth/permissions";
+import { deleteAnimalAction, deleteClientAction } from "@/lib/clients-actions";
 import type { Animal, Client } from "@/data/clients";
 
 type ClientProfileProps = {
@@ -23,10 +27,15 @@ function animalPhotoKey(clientId: string, animalId: string) {
 
 export function ClientProfile({ client }: ClientProfileProps) {
   const { openNewAppointment } = useAppointments();
+  const router = useRouter();
+  const currentUser = useCurrentUser();
+  const canDelete = hasPermission(currentUser, "DELETE_CLIENTS");
+  const [animals, setAnimals] = useState(client.animals);
   const [selectedAnimalId, setSelectedAnimalId] = useState(client.animals[0]?.id ?? "");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [animalPhotos, setAnimalPhotos] = useState<Record<string, string>>({});
-  const selectedAnimal = client.animals.find((animal) => animal.id === selectedAnimalId) ?? client.animals[0];
+  const [deletingClient, startDeletingClient] = useTransition();
+  const selectedAnimal = animals.find((animal) => animal.id === selectedAnimalId) ?? animals[0];
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +58,28 @@ export function ClientProfile({ client }: ClientProfileProps) {
 
   function showFeedback(message: string) {
     setFeedback(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
+  }
+
+  function deleteClient() {
+    if (!window.confirm(`Supprimer définitivement la fiche de ${client.firstName} ${client.lastName} et tous ses animaux ? Cette action est irréversible.`)) return;
+    startDeletingClient(async () => {
+      const result = await deleteClientAction(client.id);
+      if (!result.ok) {
+        setFeedback(result.error);
+        return;
+      }
+      router.push("/dashboard/clients");
+      router.refresh();
+    });
+  }
+
+  function handleAnimalDeleted(animalId: string) {
+    setAnimals((current) => {
+      const next = current.filter((animal) => animal.id !== animalId);
+      if (selectedAnimalId === animalId) setSelectedAnimalId(next[0]?.id ?? "");
+      return next;
+    });
+    router.refresh();
   }
 
   function updateAnimalPhoto(animalId: string, photo: string | null) {
@@ -78,7 +109,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
 
       <PageHeader
         title={`${client.firstName} ${client.lastName}`}
-        description={`${client.animals.length} animal${client.animals.length > 1 ? "aux" : ""} associé${client.animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
+        description={`${animals.length} animal${animals.length > 1 ? "aux" : ""} associé${animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
       />
 
       <Card className="mb-6 p-5 sm:p-6">
@@ -114,6 +145,16 @@ export function ClientProfile({ client }: ClientProfileProps) {
               <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>
               Nouveau rendez-vous
             </button>
+            {canDelete ? (
+              <button
+                type="button"
+                disabled={deletingClient}
+                onClick={deleteClient}
+                className="inline-flex items-center rounded-xl border border-[#f3c9c9] bg-[#fff1f1] px-4 py-2.5 text-sm font-extrabold text-animeo-error transition hover:bg-[#ffe0e0] disabled:opacity-60"
+              >
+                {deletingClient ? "Suppression…" : "Supprimer le client"}
+              </button>
+            ) : null}
           </div>
         </div>
       </Card>
@@ -128,11 +169,13 @@ export function ClientProfile({ client }: ClientProfileProps) {
       {selectedAnimal ? (
         <div className="grid items-start gap-6 2xl:grid-cols-[260px_minmax(0,1fr)_300px]">
           <AnimalSelector
-            animals={client.animals}
+            animals={animals}
             clientId={client.id}
             animalPhotos={animalPhotos}
             selectedAnimalId={selectedAnimal.id}
             onSelect={setSelectedAnimalId}
+            canDelete={canDelete}
+            onDeleted={handleAnimalDeleted}
           />
           <AnimalRecord
             animal={selectedAnimal}
@@ -150,13 +193,35 @@ export function ClientProfile({ client }: ClientProfileProps) {
   );
 }
 
-function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onSelect }: {
+function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onSelect, canDelete, onDeleted }: {
   animals: Animal[];
   clientId: string;
   animalPhotos: Record<string, string>;
   selectedAnimalId: string;
   onSelect: (id: string) => void;
+  canDelete: boolean;
+  onDeleted: (animalId: string) => void;
 }) {
+  const [deletingId, startDeleting] = useTransition();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function deleteAnimal(animal: Animal) {
+    if (!window.confirm(`Supprimer définitivement la fiche de ${animal.name} (historique de consultations et documents inclus) ? Cette action est irréversible.`)) return;
+    setPendingId(animal.id);
+    startDeleting(async () => {
+      setError(null);
+      const result = await deleteAnimalAction(animal.id);
+      if (!result.ok) {
+        setError(result.error);
+        setPendingId(null);
+        return;
+      }
+      onDeleted(animal.id);
+      setPendingId(null);
+    });
+  }
+
   return (
     <Card className="p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between">
@@ -168,36 +233,54 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
           {animals.length}
         </span>
       </div>
+      {error ? <p role="alert" className="mb-3 rounded-lg bg-[#fff1f1] px-3 py-2 text-xs font-bold text-animeo-error">{error}</p> : null}
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
         {animals.map((animal) => {
           const selected = animal.id === selectedAnimalId;
           const photo = animalPhotos[animalPhotoKey(clientId, animal.id)] ?? animal.photo;
+          const isDeleting = deletingId && pendingId === animal.id;
 
           return (
-            <button
+            <div
               key={animal.id}
-              type="button"
-              onClick={() => onSelect(animal.id)}
-              aria-pressed={selected}
-              className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition ${
+              className={`flex w-full items-center gap-2 rounded-2xl border p-3 transition ${
                 selected
                   ? "border-animeo bg-animeo-soft shadow-[0_6px_16px_rgba(79,175,159,0.12)]"
                   : "border-[#e3ece9] bg-white hover:border-[#a9d5cd]"
-              }`}
+              } ${isDeleting ? "opacity-50" : ""}`}
             >
-              <span className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br text-2xl ${animal.avatarBackground}`} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
-                {photo ? <Image src={photo} alt="" fill unoptimized sizes="48px" className="object-cover" /> : animal.avatar}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-extrabold text-animeo-dark">{animal.name}</span>
-                <span className="mt-0.5 block truncate text-xs font-semibold text-animeo-muted">{animal.species} · {animal.breed}</span>
-              </span>
-              <Icon name="arrow" className={`h-4 w-4 shrink-0 ${selected ? "text-animeo" : "text-[#a8b3b6]"}`} />
-            </button>
+              <button type="button" onClick={() => onSelect(animal.id)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <span className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br text-2xl ${animal.avatarBackground}`} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
+                  {photo ? <Image src={photo} alt="" fill unoptimized sizes="48px" className="object-cover" /> : animal.avatar}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-extrabold text-animeo-dark">{animal.name}</span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-animeo-muted">{animal.species} · {animal.breed}</span>
+                </span>
+              </button>
+              {canDelete ? (
+                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#fff1f1] text-animeo-error transition hover:bg-[#ffe0e0] disabled:opacity-50">
+                  <TrashIcon />
+                </button>
+              ) : (
+                <Icon name="arrow" className={`h-4 w-4 shrink-0 ${selected ? "text-animeo" : "text-[#a8b3b6]"}`} />
+              )}
+            </div>
           );
         })}
       </div>
     </Card>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   );
 }
 

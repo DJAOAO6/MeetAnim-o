@@ -4,6 +4,7 @@ export type AdminUser = {
   firstName: string;
   lastName: string;
   role: "ADMIN" | "PRACTITIONER" | "SECRETARY";
+  permissions: string[];
   active: boolean;
   twoFactorEnabled: boolean;
   lastLoginAt: string | null;
@@ -45,4 +46,5 @@ export const auditActionLabels: Record<string, string> = {
   APPOINTMENT_CREATED: "Rendez-vous créé",
   APPOINTMENT_UPDATED: "Rendez-vous modifié",
   APPOINTMENT_STATUS_CHANGED: "Statut du rendez-vous modifié",
+  ANIMAL_DELETED: "Fiche animal supprimée",
 };

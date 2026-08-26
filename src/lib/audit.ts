@@ -21,7 +21,8 @@ type AuditAction =
   | "USER_DEACTIVATED"
   | "APPOINTMENT_CREATED"
   | "APPOINTMENT_UPDATED"
-  | "APPOINTMENT_STATUS_CHANGED";
+  | "APPOINTMENT_STATUS_CHANGED"
+  | "ANIMAL_DELETED";
 
 export async function logAudit(entry: {
   userId?: string | null;

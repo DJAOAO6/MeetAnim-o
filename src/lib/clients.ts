@@ -85,6 +85,7 @@ function mapClient(client: DbClientWithAnimals): Client {
     address: client.address,
     status: client.status === "ACTIF" ? "Actif" : "Inactif",
     lastConsultation: lastConsultation ? formatFrenchDate(lastConsultation) : "Aucune consultation",
+    createdAt: client.createdAt.toISOString(),
     animals: client.animals.map(mapAnimal),
   };
 }

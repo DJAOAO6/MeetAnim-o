@@ -10,6 +10,7 @@ export type CurrentUser = {
   firstName: string;
   lastName: string;
   role: "ADMIN" | "PRACTITIONER" | "SECRETARY";
+  permissions: string[];
 };
 
 /**
@@ -34,6 +35,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
+    permissions: user.permissions,
   };
 });
 

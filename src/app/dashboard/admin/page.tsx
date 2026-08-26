@@ -6,7 +6,7 @@ import { getAuditLog, getUsers } from "@/lib/admin/users";
 export const metadata: Metadata = { title: "Administration" };
 
 export default async function AdminPage() {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const [users, auditLog] = await Promise.all([getUsers(), getAuditLog()]);
 
   const safeUsers = users.map((user) => ({
@@ -15,6 +15,7 @@ export default async function AdminPage() {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
+    permissions: user.permissions,
     active: user.active,
     twoFactorEnabled: user.twoFactorEnabled,
     lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
@@ -30,5 +31,5 @@ export default async function AdminPage() {
     createdAt: entry.createdAt.toISOString(),
   }));
 
-  return <AdminView users={safeUsers} auditLog={safeAuditLog} />;
+  return <AdminView users={safeUsers} auditLog={safeAuditLog} currentUserId={admin.id} />;
 }

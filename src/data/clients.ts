@@ -49,5 +49,6 @@ export type Client = {
   address: string;
   status: "Actif" | "Inactif";
   lastConsultation: string;
+  createdAt: string;
   animals: Animal[];
 };

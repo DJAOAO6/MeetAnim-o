@@ -4,7 +4,11 @@ import { getClients } from "@/lib/clients";
 
 export const metadata: Metadata = { title: "Clients et animaux" };
 
-export default async function ClientsPage() {
-  const clients = await getClients();
-  return <ClientsList clients={clients} />;
+type ClientsPageProps = {
+  searchParams: Promise<{ q?: string }>;
+};
+
+export default async function ClientsPage({ searchParams }: ClientsPageProps) {
+  const [clients, { q }] = await Promise.all([getClients(), searchParams]);
+  return <ClientsList clients={clients} initialQuery={q ?? ""} />;
 }

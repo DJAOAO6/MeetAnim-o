@@ -7,6 +7,8 @@ import type { ProfileSettings } from "@/data/settings";
 
 type ProfileSettingsTabProps = {
   value: ProfileSettings;
+  saving?: boolean;
+  canEdit?: boolean;
   onSave: (value: ProfileSettings) => void;
 };
 
@@ -14,7 +16,7 @@ function cleanSlug(value: string) {
   return value.toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-export function ProfileSettingsTab({ value, onSave }: ProfileSettingsTabProps) {
+export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
   const [draft, setDraft] = useState(value);
   const [copied, setCopied] = useState(false);
   const publicLink = `animeo.fr/${draft.slug || "votre-nom"}`;
@@ -35,6 +37,10 @@ export function ProfileSettingsTab({ value, onSave }: ProfileSettingsTabProps) {
 
   return (
     <form onSubmit={submit} className="space-y-6">
+      {!canEdit ? (
+        <div role="status" className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.</div>
+      ) : null}
+      <fieldset disabled={!canEdit} className="space-y-6 disabled:opacity-60">
       <Card className="p-5 sm:p-6">
         <SectionTitle title="Mon profil" description="Ces informations seront utilisées sur votre espace professionnel et votre page publique." />
         <div className="mb-6 grid gap-4 md:grid-cols-2">
@@ -51,6 +57,7 @@ export function ProfileSettingsTab({ value, onSave }: ProfileSettingsTabProps) {
           <div className="md:col-span-2"><Field label="Adresse du cabinet"><input value={draft.address} onChange={(event) => update("address", event.target.value)} className={inputClassName} /></Field></div>
           <Field label="Code postal"><input value={draft.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={inputClassName} inputMode="numeric" /></Field>
           <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
+          <div className="md:col-span-2"><Field label="Zone d’intervention" hint="Affichée sur votre page publique, ex. « Rouen et Normandie »."><input value={draft.location} onChange={(event) => update("location", event.target.value)} className={inputClassName} /></Field></div>
           <div className="md:col-span-2"><Field label="Bio courte"><textarea value={draft.bio} onChange={(event) => update("bio", event.target.value)} className={textareaClassName} /></Field></div>
         </div>
       </Card>
@@ -75,8 +82,9 @@ export function ProfileSettingsTab({ value, onSave }: ProfileSettingsTabProps) {
       </Card>
 
       <div className="flex justify-end">
-        <button type="submit" className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90]">Enregistrer les modifications</button>
+        <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
       </div>
+      </fieldset>
     </form>
   );
 }
