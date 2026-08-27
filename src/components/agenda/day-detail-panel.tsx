@@ -1,11 +1,15 @@
 "use client";
 
-import { getMockDayAgenda } from "@/data/agenda-mock";
+import { getDayAgenda } from "@/lib/agenda-aggregation";
 import { Icon } from "@/components/ui/icon";
+import type { Appointment } from "@/data/appointments";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { Tour } from "@/data/tours";
 
 type DayDetailPanelProps = {
   date: Date;
+  appointments: Appointment[];
+  tours: Tour[];
   availability: AvailabilitySettings;
   onClose: () => void;
   onViewDay: () => void;
@@ -32,13 +36,13 @@ const kindLabel: Record<string, string> = {
   pending: "En attente",
 };
 
-export function DayDetailPanel({ date, availability, onClose, onViewDay }: DayDetailPanelProps) {
-  const agenda = getMockDayAgenda(date, availability);
-  const appointments = agenda.items.filter((item) => item.kind !== "tournee");
+export function DayDetailPanel({ date, appointments: allAppointments, tours, availability, onClose, onViewDay }: DayDetailPanelProps) {
+  const agenda = getDayAgenda(date, allAppointments, tours, availability);
+  const dayAppointments = agenda.items.filter((item) => item.kind !== "tournee");
   const domicileCount = agenda.items.filter((item) => item.kind === "domicile").length;
   const tourCount = agenda.items.filter((item) => item.kind === "tournee").length;
   const estimatedKm = domicileCount * 8;
-  const totalMinutes = appointments.length * 60;
+  const totalMinutes = dayAppointments.reduce((sum, item) => sum + item.duration, 0);
 
   return (
     <div className="rounded-2xl border border-[#e5eae9] bg-white p-4">
@@ -76,7 +80,7 @@ export function DayDetailPanel({ date, availability, onClose, onViewDay }: DayDe
             <span>{domicileCount} à domicile</span>
             {tourCount > 0 ? <span>{tourCount} tournée{tourCount > 1 ? "s" : ""}</span> : <span />}
             {domicileCount > 0 ? <span>{estimatedKm} km estimés</span> : <span />}
-            {appointments.length > 0 ? <span className="col-span-2">{formatDuration(totalMinutes)} de consultations</span> : null}
+            {dayAppointments.length > 0 ? <span className="col-span-2">{formatDuration(totalMinutes)} de consultations</span> : null}
           </div>
         </>
       )}

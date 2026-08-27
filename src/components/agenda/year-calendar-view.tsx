@@ -1,10 +1,12 @@
 "use client";
 
 import { getMonthGridDays } from "@/components/agenda/month-calendar-view";
-import { getMockDayAgenda, TOP_SPECIES, TOP_ZONES, YEAR_STATS } from "@/data/agenda-mock";
+import { getDayAgenda, getTopSpecies, getTopZones, getYearStats } from "@/lib/agenda-aggregation";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
+import type { Appointment } from "@/data/appointments";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { Tour } from "@/data/tours";
 
 const weekDayLetters = ["L", "M", "M", "J", "V", "S", "D"];
 const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "long" });
@@ -23,15 +25,17 @@ function densityClass(count: number, isClosed: boolean) {
 
 type YearCalendarViewProps = {
   year: number;
+  appointments: Appointment[];
+  tours: Tour[];
   availability: AvailabilitySettings;
   onSelectMonth: (monthIndex: number) => void;
 };
 
-export function YearCalendarView({ year, availability, onSelectMonth }: YearCalendarViewProps) {
+export function YearCalendarView({ year, appointments, tours, availability, onSelectMonth }: YearCalendarViewProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: 12 }, (_, monthIndex) => (
-        <YearMiniMonth key={monthIndex} year={year} monthIndex={monthIndex} availability={availability} onSelectMonth={onSelectMonth} />
+        <YearMiniMonth key={monthIndex} year={year} monthIndex={monthIndex} appointments={appointments} tours={tours} availability={availability} onSelectMonth={onSelectMonth} />
       ))}
     </div>
   );
@@ -40,11 +44,13 @@ export function YearCalendarView({ year, availability, onSelectMonth }: YearCale
 type YearMiniMonthProps = {
   year: number;
   monthIndex: number;
+  appointments: Appointment[];
+  tours: Tour[];
   availability: AvailabilitySettings;
   onSelectMonth: (monthIndex: number) => void;
 };
 
-function YearMiniMonth({ year, monthIndex, availability, onSelectMonth }: YearMiniMonthProps) {
+function YearMiniMonth({ year, monthIndex, appointments, tours, availability, onSelectMonth }: YearMiniMonthProps) {
   const monthDate = new Date(year, monthIndex, 1, 12);
   const days = getMonthGridDays(monthDate);
   const isCurrentMonth = new Date().getFullYear() === year && new Date().getMonth() === monthIndex;
@@ -66,7 +72,7 @@ function YearMiniMonth({ year, monthIndex, availability, onSelectMonth }: YearMi
           const inMonth = date.getMonth() === monthIndex;
           if (!inMonth) return <span key={date.toISOString()} className="h-4 w-4" />;
 
-          const agenda = getMockDayAgenda(date, availability);
+          const agenda = getDayAgenda(date, appointments, tours, availability);
           const hasTournee = agenda.items.some((item) => item.kind === "tournee");
           const isToday = sameDay(date, new Date());
 
@@ -85,12 +91,19 @@ function YearMiniMonth({ year, monthIndex, availability, onSelectMonth }: YearMi
   );
 }
 
-export function YearStatsRibbon() {
+type YearStatsRibbonProps = {
+  year: number;
+  appointments: Appointment[];
+  tours: Tour[];
+};
+
+export function YearStatsRibbon({ year, appointments, tours }: YearStatsRibbonProps) {
+  const stats = getYearStats(year, appointments, tours);
   const items: Array<{ icon: IconName; value: string; label: string }> = [
-    { icon: "document", value: String(YEAR_STATS.consultations), label: "consultations" },
-    { icon: "euro", value: YEAR_STATS.revenueLabel, label: "chiffre d’affaires" },
-    { icon: "tournees", value: String(YEAR_STATS.tours), label: "tournées" },
-    { icon: "map", value: `${YEAR_STATS.distanceKm} km`, label: "parcourus" },
+    { icon: "document", value: String(stats.consultations), label: "consultations" },
+    { icon: "euro", value: stats.revenueLabel, label: "chiffre d’affaires" },
+    { icon: "tournees", value: String(stats.tours), label: "tournées" },
+    { icon: "map", value: `${stats.distanceKm} km`, label: "parcourus" },
   ];
 
   return (
@@ -104,49 +117,67 @@ export function YearStatsRibbon() {
       ))}
       <div className="flex items-center gap-2 rounded-xl bg-animeo-soft px-3 py-1.5">
         <span className="text-xs font-bold text-animeo-dark">Mois le plus chargé :</span>
-        <span className="text-xs font-black text-animeo">{YEAR_STATS.busiestMonth}</span>
+        <span className="text-xs font-black text-animeo">{stats.busiestMonth}</span>
       </div>
     </div>
   );
 }
 
-export function YearSidePanel() {
+type YearSidePanelProps = {
+  year: number;
+  appointments: Appointment[];
+  tours: Tour[];
+};
+
+export function YearSidePanel({ year, appointments, tours }: YearSidePanelProps) {
+  const stats = getYearStats(year, appointments, tours);
+  const topZones = getTopZones(year, appointments);
+  const topSpecies = getTopSpecies(year, appointments);
+
   return (
     <div className="flex flex-col gap-4">
       <Card className="p-4">
         <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Résumé annuel</p>
         <dl className="mt-3 flex flex-col gap-2 text-sm">
-          <SummaryRow icon="document" label="Consultations" value={String(YEAR_STATS.consultations)} />
-          <SummaryRow icon="euro" label="Chiffre d’affaires" value={YEAR_STATS.revenueLabel} />
-          <SummaryRow icon="tournees" label="Tournées" value={String(YEAR_STATS.tours)} />
-          <SummaryRow icon="map" label="Distance parcourue" value={`${YEAR_STATS.distanceKm} km`} />
-          <SummaryRow icon="calendar" label="Durée moyenne / RDV" value={`${YEAR_STATS.avgDurationMinutes} min`} />
-          <SummaryRow icon="stats" label="Mois le plus chargé" value={YEAR_STATS.busiestMonth} />
+          <SummaryRow icon="document" label="Consultations" value={String(stats.consultations)} />
+          <SummaryRow icon="euro" label="Chiffre d’affaires" value={stats.revenueLabel} />
+          <SummaryRow icon="tournees" label="Tournées" value={String(stats.tours)} />
+          <SummaryRow icon="map" label="Distance parcourue" value={`${stats.distanceKm} km`} />
+          <SummaryRow icon="calendar" label="Durée moyenne / RDV" value={`${stats.avgDurationMinutes} min`} />
+          <SummaryRow icon="stats" label="Mois le plus chargé" value={stats.busiestMonth} />
         </dl>
       </Card>
 
       <Card className="p-4">
         <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Top zones</p>
-        <ul className="mt-3 flex flex-col gap-2.5">
-          {TOP_ZONES.map((zone) => (
-            <li key={zone.name} className="flex items-center justify-between gap-2">
-              <span className="text-sm font-extrabold text-animeo-dark">{zone.name}</span>
-              <span className="text-xs font-bold text-animeo-muted">{zone.count} consultations</span>
-            </li>
-          ))}
-        </ul>
+        {topZones.length > 0 ? (
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {topZones.map((zone) => (
+              <li key={zone.name} className="flex items-center justify-between gap-2">
+                <span className="text-sm font-extrabold text-animeo-dark">{zone.name}</span>
+                <span className="text-xs font-bold text-animeo-muted">{zone.count} consultation{zone.count > 1 ? "s" : ""}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-xs font-bold text-animeo-muted">Aucun rendez-vous à domicile cette année.</p>
+        )}
       </Card>
 
       <Card className="p-4">
         <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Top espèces</p>
-        <ul className="mt-3 flex flex-col gap-2.5">
-          {TOP_SPECIES.map((species) => (
-            <li key={species.name} className="flex items-center justify-between gap-2">
-              <span className="text-sm font-extrabold text-animeo-dark">{species.name}</span>
-              <span className="text-xs font-bold text-animeo-muted">{species.count}</span>
-            </li>
-          ))}
-        </ul>
+        {topSpecies.length > 0 ? (
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {topSpecies.map((species) => (
+              <li key={species.name} className="flex items-center justify-between gap-2">
+                <span className="text-sm font-extrabold text-animeo-dark">{species.name}</span>
+                <span className="text-xs font-bold text-animeo-muted">{species.count}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-xs font-bold text-animeo-muted">Aucun rendez-vous cette année.</p>
+        )}
       </Card>
     </div>
   );

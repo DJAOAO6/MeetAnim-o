@@ -1,9 +1,11 @@
 "use client";
 
-import { getMockDayAgenda, type MockDayItem, type MockEventKind } from "@/data/agenda-mock";
+import { getDayAgenda, type DayItem, type DayItemKind } from "@/lib/agenda-aggregation";
+import type { Appointment } from "@/data/appointments";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { Tour } from "@/data/tours";
 
-export type MonthFilter = "all" | MockEventKind;
+export type MonthFilter = "all" | DayItemKind;
 
 export const filterOptions: Array<{ id: MonthFilter; label: string }> = [
   { id: "all", label: "Tous" },
@@ -13,14 +15,14 @@ export const filterOptions: Array<{ id: MonthFilter; label: string }> = [
   { id: "tournee", label: "Tournées" },
 ];
 
-export const kindDotColor: Record<MockEventKind, string> = {
+export const kindDotColor: Record<DayItemKind, string> = {
   cabinet: "bg-[#4FAF9F]",
   domicile: "bg-[#4C8190]",
   pending: "bg-animeo-accent",
   tournee: "bg-[#8067B0]",
 };
 
-const compactEventStyles: Record<MockEventKind, string> = {
+const compactEventStyles: Record<DayItemKind, string> = {
   cabinet: "border-[#4FAF9F] bg-[#4FAF9F]/[0.06] text-animeo-dark",
   domicile: "border-[#4C8190] bg-[#4C8190]/[0.06] text-[#234E5A]",
   pending: "border-animeo-accent bg-[#F4B860]/[0.12] text-[#7E5718]",
@@ -45,7 +47,7 @@ function sameDay(first: Date, second: Date) {
   return first.getFullYear() === second.getFullYear() && first.getMonth() === second.getMonth() && first.getDate() === second.getDate();
 }
 
-export function CompactAppointment({ item }: { item: MockDayItem }) {
+export function CompactAppointment({ item }: { item: DayItem }) {
   return (
     <div className={`truncate rounded-[4px] border-l-2 px-1.5 py-0.5 text-[10px] font-bold leading-tight ${compactEventStyles[item.kind]}`}>
       <span className="font-black">{item.start}</span> {item.title}
@@ -56,16 +58,18 @@ export function CompactAppointment({ item }: { item: MockDayItem }) {
 type MonthDayCellProps = {
   date: Date;
   monthDate: Date;
+  appointments: Appointment[];
+  tours: Tour[];
   availability: AvailabilitySettings;
   filter: MonthFilter;
   isSelected: boolean;
   onSelect: (date: Date) => void;
 };
 
-export function MonthDayCell({ date, monthDate, availability, filter, isSelected, onSelect }: MonthDayCellProps) {
+export function MonthDayCell({ date, monthDate, appointments, tours, availability, filter, isSelected, onSelect }: MonthDayCellProps) {
   const inCurrentMonth = date.getMonth() === monthDate.getMonth();
   const isToday = sameDay(date, new Date());
-  const agenda = getMockDayAgenda(date, availability);
+  const agenda = getDayAgenda(date, appointments, tours, availability);
   const items = filter === "all" ? agenda.items : agenda.items.filter((item) => item.kind === filter);
   const visibleItems = items.slice(0, 3);
   const hiddenCount = items.length - visibleItems.length;
@@ -100,13 +104,15 @@ export function MonthDayCell({ date, monthDate, availability, filter, isSelected
 
 type MonthCalendarViewProps = {
   monthDate: Date;
+  appointments: Appointment[];
+  tours: Tour[];
   availability: AvailabilitySettings;
   filter: MonthFilter;
   selectedDay: Date | null;
   onSelectDay: (date: Date) => void;
 };
 
-export function MonthCalendarView({ monthDate, availability, filter, selectedDay, onSelectDay }: MonthCalendarViewProps) {
+export function MonthCalendarView({ monthDate, appointments, tours, availability, filter, selectedDay, onSelectDay }: MonthCalendarViewProps) {
   const days = getMonthGridDays(monthDate);
 
   return (
@@ -124,6 +130,8 @@ export function MonthCalendarView({ monthDate, availability, filter, selectedDay
             key={date.toISOString()}
             date={date}
             monthDate={monthDate}
+            appointments={appointments}
+            tours={tours}
             availability={availability}
             filter={filter}
             isSelected={Boolean(selectedDay && sameDay(date, selectedDay))}

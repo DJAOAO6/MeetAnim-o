@@ -4,15 +4,22 @@ import { useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
 import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/agenda-view-switcher";
+import { AgendaFilterBar } from "@/components/agenda/agenda-filter-bar";
+import { BlockedSlotModal } from "@/components/agenda/blocked-slot-modal";
+import { BlockedSlotPopover } from "@/components/agenda/blocked-slot-popover";
 import { DayDetailPanel } from "@/components/agenda/day-detail-panel";
-import { filterOptions, kindDotColor, MonthCalendarView, type MonthFilter } from "@/components/agenda/month-calendar-view";
+import { MonthCalendarView, type MonthFilter } from "@/components/agenda/month-calendar-view";
+import { TourDetailModal } from "@/components/agenda/tour-detail-modal";
 import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planner";
 import { YearCalendarView, YearSidePanel, YearStatsRibbon } from "@/components/agenda/year-calendar-view";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
+import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { Tour, TourAppointment, Zone } from "@/data/tours";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -79,22 +86,40 @@ function dateId(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function AgendaView({ clients, availability }: { clients: ClientPickerOption[]; availability: AvailabilitySettings }) {
+function minutesBetween(start: string, end: string) {
+  const [startHours, startMinutes] = start.split(":").map(Number);
+  const [endHours, endMinutes] = end.split(":").map(Number);
+  return (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+}
+
+type AgendaViewProps = {
+  clients: ClientPickerOption[];
+  availability: AvailabilitySettings;
+  tours: Tour[];
+  zones: Zone[];
+  tourAppointments: Record<string, TourAppointment[]>;
+  initialBlockedSlots: BlockedSlot[];
+};
+
+export function AgendaView({ clients, availability, tours, zones, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const [dayOffset, setDayOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset, setYearOffset] = useState(0);
-  const [monthFilter, setMonthFilter] = useState<MonthFilter>("all");
+  const [filter, setFilter] = useState<MonthFilter>("all");
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>(initialBlockedSlots);
+  const [blockedSlotModalDate, setBlockedSlotModalDate] = useState<string | null>(null);
+  const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
+  const [selectedBlockedSlot, setSelectedBlockedSlot] = useState<{ slot: BlockedSlot; anchorRect: DOMRect } | null>(null);
   const weekDates = getWeekDates(weekOffset);
   const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
-  const isCurrentPeriod = view === "day" ? dayOffset === 0 : weekOffset === 0;
   const monthDate = getMonthDate(monthOffset);
   const yearValue = getYearValue(yearOffset);
+
   const appointmentEvents: CalendarEvent[] = appointments
     .filter((appointment) => appointment.status !== "cancelled")
     .map((appointment) => ({ appointment, day: activeDates.findIndex((date) => dateId(date) === appointment.date) }))
@@ -112,16 +137,77 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
     }));
   const pendingRequests = appointmentEvents.filter((event) => event.kind === "pending");
 
+  function matchesFilter(kind: CalendarEvent["kind"]) {
+    return filter === "all" || filter === kind;
+  }
+  const filteredAppointmentEvents = appointmentEvents.filter((event) => matchesFilter(event.kind));
+
+  const activeTours = tours.filter((tour) => tour.status === "Active");
+  const tourEvents: CalendarEvent[] = activeDates.flatMap((date, day) => {
+    const id = dateId(date);
+    const weekday = weekdayLabelFor(date);
+    return activeTours
+      .filter((tour) => tourRunsOnDate(tour, id, weekday))
+      .map((tour) => ({
+        id: `tour-${tour.id}-${id}`,
+        tourId: tour.id,
+        day,
+        start: tour.startTime,
+        duration: Math.max(minutesBetween(tour.startTime, tour.endTime), 30),
+        kind: "tournee" as const,
+        title: tour.name,
+        location: `${tour.appointmentCount} rendez-vous`,
+      }));
+  });
+  const filteredTourEvents = tourEvents.filter((event) => matchesFilter(event.kind));
+
+  const blockedEvents: CalendarEvent[] = activeDates.flatMap((date, day) => {
+    const id = dateId(date);
+    return blockedSlots
+      .filter((slot) => slot.date === id)
+      .map((slot) => ({
+        id: `blocked-${slot.id}`,
+        blockedSlotId: slot.id,
+        day,
+        start: slot.startTime,
+        duration: Math.max(minutesBetween(slot.startTime, slot.endTime), 15),
+        kind: "unavailable" as const,
+        title: slot.reason || "Indisponible",
+        location: "Créneau bloqué",
+      }));
+  });
+
   function showFeedback(message: string) {
     setFeedback(`${message}.`);
   }
 
-  function simulateBlockedSlot() {
-    setLocalEvents((current) => current.some((event) => event.id === "blocked-local") ? current : [
-      ...current,
-      { id: "blocked-local", day: 4, start: "16:00", duration: 60, kind: "unavailable", title: "Indisponible", location: "Créneau bloqué localement" },
-    ]);
-    setFeedback("Le créneau du vendredi à 16:00 a été bloqué localement dans l’agenda unique.");
+  function openBlockSlotModal() {
+    setBlockedSlotModalDate(dateId(view === "day" ? activeDates[0] : weekDates[0]));
+  }
+
+  async function saveBlockedSlot(input: Parameters<typeof createBlockedSlotAction>[0]) {
+    const result = await createBlockedSlotAction(input);
+    if (!result.ok) return { ok: false, error: result.error };
+    setBlockedSlots((current) => [...current, result.slot]);
+    setFeedback(`Créneau bloqué le ${formatDayLabel(new Date(`${result.slot.date}T12:00:00`)).toLocaleLowerCase("fr-FR")} de ${result.slot.startTime} à ${result.slot.endTime}.`);
+    return { ok: true };
+  }
+
+  async function unblockSlot(id: string) {
+    const result = await deleteBlockedSlotAction(id);
+    if (!result.ok) return { ok: false, error: result.error };
+    setBlockedSlots((current) => current.filter((slot) => slot.id !== id));
+    showFeedback("Le créneau a été débloqué");
+    return { ok: true };
+  }
+
+  function handleSelectTour(tourId: string) {
+    setSelectedTourId(tourId);
+  }
+
+  function handleSelectBlockedSlot(id: string, anchorRect: DOMRect) {
+    const slot = blockedSlots.find((item) => item.id === id);
+    if (slot) setSelectedBlockedSlot({ slot, anchorRect });
   }
 
   function goToPrevious() {
@@ -225,7 +311,7 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
               <>
                 <button
                   type="button"
-                  onClick={simulateBlockedSlot}
+                  onClick={openBlockSlotModal}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
                 >
                   <LockIcon />
@@ -244,22 +330,9 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
           </div>
         </div>
 
-        {view === "month" ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Filtrer les rendez-vous affichés">
-            {filterOptions.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={monthFilter === option.id}
-                onClick={() => setMonthFilter(option.id)}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
-                  monthFilter === option.id ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"
-                }`}
-              >
-                {option.id !== "all" ? <span className={`h-1.5 w-1.5 rounded-full ${monthFilter === option.id ? "bg-white" : kindDotColor[option.id]}`} /> : null}
-                {option.label}
-              </button>
-            ))}
+        {view !== "year" ? (
+          <div className="mt-4">
+            <AgendaFilterBar value={filter} onChange={setFilter} />
           </div>
         ) : null}
 
@@ -288,14 +361,17 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
             <WeekPlanner
               dates={activeDates}
-              showEvents={view === "week" && isCurrentPeriod}
               clients={clients}
               availability={availability}
-              localEvents={localEvents}
-              appointmentEvents={appointmentEvents}
+              appointmentEvents={filteredAppointmentEvents}
+              tourEvents={filteredTourEvents}
+              blockedEvents={blockedEvents}
               onPendingAction={handlePendingAction}
+              onSelectTour={handleSelectTour}
+              onSelectBlockedSlot={handleSelectBlockedSlot}
+              onFeedback={setFeedback}
             />
-            <AgendaSidePanel weekDates={weekDates} />
+            <AgendaSidePanel weekDates={weekDates} tours={tours} tourAppointments={tourAppointments} />
           </div>
         </>
       ) : view === "month" ? (
@@ -309,8 +385,10 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
               <div className="min-w-[720px]">
                 <MonthCalendarView
                   monthDate={monthDate}
+                  appointments={appointments}
+                  tours={tours}
                   availability={availability}
-                  filter={monthFilter}
+                  filter={filter}
                   selectedDay={selectedDay}
                   onSelectDay={setSelectedDay}
                 />
@@ -320,7 +398,7 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
 
           {selectedDay ? (
             <div className="xl:sticky xl:top-6">
-              <DayDetailPanel date={selectedDay} availability={availability} onClose={() => setSelectedDay(null)} onViewDay={() => jumpToDay(selectedDay)} />
+              <DayDetailPanel date={selectedDay} appointments={appointments} tours={tours} availability={availability} onClose={() => setSelectedDay(null)} onViewDay={() => jumpToDay(selectedDay)} />
             </div>
           ) : (
             <Card className="p-5 text-sm font-bold text-animeo-muted xl:sticky xl:top-6">
@@ -331,16 +409,47 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
       ) : (
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
           <div className="flex flex-col gap-4">
-            <YearStatsRibbon />
+            <YearStatsRibbon year={yearValue} appointments={appointments} tours={tours} />
             <Card className="p-4 sm:p-5">
-              <YearCalendarView year={yearValue} availability={availability} onSelectMonth={jumpToMonth} />
+              <YearCalendarView year={yearValue} appointments={appointments} tours={tours} availability={availability} onSelectMonth={jumpToMonth} />
             </Card>
           </div>
           <div className="xl:sticky xl:top-6">
-            <YearSidePanel />
+            <YearSidePanel year={yearValue} appointments={appointments} tours={tours} />
           </div>
         </div>
       )}
+
+      {blockedSlotModalDate ? (
+        <BlockedSlotModal
+          initialDate={blockedSlotModalDate}
+          onClose={() => setBlockedSlotModalDate(null)}
+          onSave={saveBlockedSlot}
+        />
+      ) : null}
+
+      {selectedTourId ? (() => {
+        const tour = tours.find((item) => item.id === selectedTourId);
+        if (!tour) return null;
+        return (
+          <TourDetailModal
+            tour={tour}
+            zone={zones.find((zone) => zone.id === tour.zoneId)}
+            appointments={tourAppointments[tour.id] ?? []}
+            onClose={() => setSelectedTourId(null)}
+            onRoute={() => setFeedback("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
+          />
+        );
+      })() : null}
+
+      {selectedBlockedSlot ? (
+        <BlockedSlotPopover
+          slot={selectedBlockedSlot.slot}
+          anchorRect={selectedBlockedSlot.anchorRect}
+          onDelete={unblockSlot}
+          onClose={() => setSelectedBlockedSlot(null)}
+        />
+      ) : null}
     </>
   );
 }

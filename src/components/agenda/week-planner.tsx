@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AgendaEventPopover } from "@/components/agenda/agenda-event-popover";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
-import { computeClosedRanges, getDayAvailability } from "@/lib/availability";
+import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
+import { computeEventColumns } from "@/lib/event-layout";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
 
@@ -14,6 +15,8 @@ type EventKind = "cabinet" | "domicile" | "pending" | "unavailable" | "tournee";
 export type CalendarEvent = {
   id: string;
   appointmentId?: string;
+  tourId?: string;
+  blockedSlotId?: string;
   day: number;
   start: string;
   duration: number;
@@ -26,12 +29,15 @@ export type CalendarEvent = {
 
 type WeekPlannerProps = {
   dates: Date[];
-  showEvents: boolean;
   clients: ClientPickerOption[];
   availability: AvailabilitySettings;
   onPendingAction: (action: string, event: CalendarEvent) => void;
-  localEvents?: CalendarEvent[];
+  onSelectTour: (tourId: string, anchorRect: DOMRect) => void;
+  onSelectBlockedSlot: (blockedSlotId: string, anchorRect: DOMRect) => void;
+  onFeedback?: (message: string) => void;
   appointmentEvents?: CalendarEvent[];
+  tourEvents?: CalendarEvent[];
+  blockedEvents?: CalendarEvent[];
 };
 
 const START_HOUR = 7;
@@ -40,11 +46,9 @@ const HOUR_HEIGHT = 72;
 const PLANNER_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
 const MIN_EVENT_HEIGHT = 64;
 const MIN_PENDING_HEIGHT = 100;
-
-const events: CalendarEvent[] = [
-  { id: "tour-rouen", day: 1, start: "13:00", duration: 150, kind: "tournee", title: "Tournée Rouen Ouest", location: "4 rendez-vous" },
-  { id: "tour-le-havre", day: 4, start: "07:30", duration: 180, kind: "tournee", title: "Tournée Le Havre", location: "5 rendez-vous" },
-];
+const TIME_COLUMN_WIDTH = 70;
+const SNAP_MINUTES = 15;
+const DRAG_THRESHOLD_PX = 4;
 
 const eventStyles: Record<EventKind, string> = {
   cabinet: "border-[#4FAF9F] bg-[#E5F4F0] text-animeo-dark",
@@ -63,6 +67,7 @@ const legend = [
 ];
 
 const dayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
+const dragDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
 function getEventPosition(start: string, duration: number, minHeight: number) {
   const [hours, minutes] = start.split(":").map(Number);
@@ -74,19 +79,56 @@ function getEventPosition(start: string, duration: number, minHeight: number) {
   };
 }
 
+function toMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function dateIdOf(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 function isReferenceDay(date: Date) {
   const today = new Date();
   return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
 }
 
-export function WeekPlanner({ dates, showEvents, clients, availability, onPendingAction, localEvents = [], appointmentEvents = [] }: WeekPlannerProps) {
+function useCurrentTime() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+  return now;
+}
+
+type DragState =
+  | { kind: "move"; event: CalendarEvent; originDay: number; originStartMinutes: number; grabOffsetMinutes: number; currentDay: number; currentStartMinutes: number }
+  | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
+
+export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onFeedback, appointmentEvents = [], tourEvents = [], blockedEvents = [] }: WeekPlannerProps) {
   const { appointments, saveAppointment } = useAppointments();
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
   const isDayView = dates.length === 1;
-  const gridTemplateColumns = `70px repeat(${dates.length}, minmax(0,1fr))`;
+  const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px repeat(${dates.length}, minmax(0,1fr))`;
+  const allEvents = useMemo(() => [...appointmentEvents, ...tourEvents, ...blockedEvents], [appointmentEvents, tourEvents, blockedEvents]);
+  const now = useCurrentTime();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const justDraggedRef = useRef(false);
 
   function handleSelectEvent(event: CalendarEvent, anchorRect: DOMRect) {
-    setSelection({ event, anchorRect });
+    if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+    if (event.appointmentId) { setSelection({ event, anchorRect }); return; }
+    if (event.tourId) { onSelectTour(event.tourId, anchorRect); return; }
+    if (event.blockedSlotId) { onSelectBlockedSlot(event.blockedSlotId, anchorRect); return; }
   }
 
   function closeSelection() {
@@ -97,13 +139,123 @@ export function WeekPlanner({ dates, showEvents, clients, availability, onPendin
     ? appointments.find((item) => item.id === selection.event.appointmentId)
     : undefined;
 
+  function beginMove(event: CalendarEvent, pointerEvent: React.PointerEvent) {
+    if (!gridRef.current) return;
+    const startClientX = pointerEvent.clientX;
+    const startClientY = pointerEvent.clientY;
+    const gridTop = gridRef.current.getBoundingClientRect().top;
+    const pointerAbsoluteMinutesAtStart = START_HOUR * 60 + ((startClientY - gridTop) / HOUR_HEIGHT) * 60;
+    const grabOffsetMinutes = pointerAbsoluteMinutesAtStart - toMinutes(event.start);
+    let started = false;
+
+    function handleMove(moveEvent: PointerEvent) {
+      if (!gridRef.current) return;
+      if (!started) {
+        if (Math.abs(moveEvent.clientX - startClientX) < DRAG_THRESHOLD_PX && Math.abs(moveEvent.clientY - startClientY) < DRAG_THRESHOLD_PX) return;
+        started = true;
+        justDraggedRef.current = true;
+      }
+      const gridRect = gridRef.current.getBoundingClientRect();
+      const columnWidth = (gridRect.width - TIME_COLUMN_WIDTH) / dates.length;
+      const relativeX = moveEvent.clientX - gridRect.left - TIME_COLUMN_WIDTH;
+      const day = Math.min(dates.length - 1, Math.max(0, Math.floor(relativeX / columnWidth)));
+      const pointerAbsoluteMinutes = START_HOUR * 60 + ((moveEvent.clientY - gridRect.top) / HOUR_HEIGHT) * 60;
+      const rawMinutes = pointerAbsoluteMinutes - grabOffsetMinutes;
+      const snapped = Math.round(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES;
+      const clamped = Math.min(END_HOUR * 60 - event.duration, Math.max(START_HOUR * 60, snapped));
+      const next: DragState = { kind: "move", event, originDay: event.day, originStartMinutes: toMinutes(event.start), grabOffsetMinutes, currentDay: day, currentStartMinutes: clamped };
+      dragRef.current = next;
+      setDrag(next);
+    }
+
+    function handleUp() {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      void finishDrag();
+    }
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }
+
+  function beginResize(event: CalendarEvent, pointerEvent: React.PointerEvent) {
+    const startClientY = pointerEvent.clientY;
+    const originDuration = event.duration;
+    let started = false;
+
+    function handleMove(moveEvent: PointerEvent) {
+      if (!started) {
+        if (Math.abs(moveEvent.clientY - startClientY) < DRAG_THRESHOLD_PX) return;
+        started = true;
+        justDraggedRef.current = true;
+      }
+      const deltaMinutes = Math.round(((moveEvent.clientY - startClientY) / HOUR_HEIGHT) * 60 / SNAP_MINUTES) * SNAP_MINUTES;
+      const startMinutes = toMinutes(event.start);
+      const maxDuration = END_HOUR * 60 - startMinutes;
+      const nextDuration = Math.min(maxDuration, Math.max(SNAP_MINUTES, originDuration + deltaMinutes));
+      const next: DragState = { kind: "resize", event, originDuration, currentDuration: nextDuration };
+      dragRef.current = next;
+      setDrag(next);
+    }
+
+    function handleUp() {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      void finishDrag();
+    }
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }
+
+  async function finishDrag() {
+    const state = dragRef.current;
+    dragRef.current = null;
+    setDrag(null);
+    if (!state) return;
+
+    const original = appointments.find((item) => item.id === state.event.appointmentId);
+    if (!original) return;
+
+    if (state.kind === "move") {
+      if (state.currentDay === state.originDay && state.currentStartMinutes === state.originStartMinutes) return;
+      const targetDate = dates[state.currentDay];
+      const targetStart = minutesToTime(state.currentStartMinutes);
+      const { open, hourly } = getDayAvailability(targetDate, availability);
+      const closed = !open || isHourClosed(hourly, Math.floor(state.currentStartMinutes / 60));
+      const conflict = allEvents.some((event) => event.id !== state.event.id && event.day === state.currentDay && event.start === targetStart);
+      if (closed || conflict) {
+        onFeedback?.("Ce créneau n’est pas disponible : choisissez un autre horaire.");
+        return;
+      }
+      const result = await saveAppointment({ ...original, date: dateIdOf(targetDate), start: targetStart });
+      if (!result.ok) { onFeedback?.(result.error ?? "Une erreur est survenue."); return; }
+      const label = dragDateFormatter.format(targetDate);
+      onFeedback?.(`Rendez-vous de ${original.animalName} déplacé au ${label.charAt(0).toLowerCase()}${label.slice(1)} à ${targetStart}.`);
+    } else {
+      if (state.currentDuration === state.originDuration) return;
+      const result = await saveAppointment({ ...original, duration: state.currentDuration });
+      if (!result.ok) { onFeedback?.(result.error ?? "Une erreur est survenue."); return; }
+      onFeedback?.(`Durée du rendez-vous de ${original.animalName} mise à jour (${state.currentDuration} min).`);
+    }
+  }
+
+  const dragValid = useMemo(() => {
+    if (!drag || drag.kind !== "move") return true;
+    const targetDate = dates[drag.currentDay];
+    const targetStart = minutesToTime(drag.currentStartMinutes);
+    const { open, hourly } = getDayAvailability(targetDate, availability);
+    if (!open || isHourClosed(hourly, Math.floor(drag.currentStartMinutes / 60))) return false;
+    return !allEvents.some((event) => event.id !== drag.event.id && event.day === drag.currentDay && event.start === targetStart);
+  }, [drag, dates, availability, allEvents]);
+
   return (
     <>
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-extrabold text-animeo-dark">{isDayView ? "Planning du jour" : "Planning de la semaine"}</h2>
-            <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de 07h00 à 19h00</p>
+            <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de 07h00 à 19h00 · glissez un rendez-vous pour le replanifier</p>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2" aria-label="Légende du planning">
             {legend.map((item) => (
@@ -135,19 +287,45 @@ export function WeekPlanner({ dates, showEvents, clients, availability, onPendin
               })}
             </div>
 
-            <div className="grid" style={{ gridTemplateColumns }}>
+            <div ref={gridRef} className="relative grid" style={{ gridTemplateColumns }}>
               <TimeColumn />
               {dates.map((date, dayIndex) => (
                 <DayColumn
                   key={date.toISOString()}
                   date={date}
+                  now={now}
                   availability={availability}
-                  events={[...(showEvents ? [...events, ...localEvents] : []), ...appointmentEvents].filter((event) => event.day === dayIndex)}
+                  events={allEvents.filter((event) => event.day === dayIndex)}
+                  draggedEventId={drag?.event.id ?? null}
                   onPendingAction={onPendingAction}
                   onSelectEvent={handleSelectEvent}
+                  onBeginMove={beginMove}
+                  onBeginResize={beginResize}
                   selectedEventId={selection?.event.id ?? null}
                 />
               ))}
+
+              {drag ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute z-40"
+                  style={{
+                    top: (((drag.kind === "move" ? drag.currentStartMinutes : toMinutes(drag.event.start)) - START_HOUR * 60) / 60) * HOUR_HEIGHT,
+                    height: ((drag.kind === "resize" ? drag.currentDuration : drag.event.duration) / 60) * HOUR_HEIGHT,
+                    left: `calc(${TIME_COLUMN_WIDTH}px + ${drag.kind === "move" ? drag.currentDay : drag.event.day} * (100% - ${TIME_COLUMN_WIDTH}px) / ${dates.length})`,
+                    width: `calc((100% - ${TIME_COLUMN_WIDTH}px) / ${dates.length})`,
+                  }}
+                >
+                  <div className={`h-full overflow-hidden rounded-xl border-2 border-dashed p-1.5 text-[11px] font-bold leading-tight ${dragValid ? "border-animeo bg-animeo/10 text-animeo-dark" : "border-animeo-error bg-animeo-error/10 text-[#a9392f]"}`}>
+                    <p>{drag.event.animal ?? drag.event.title}</p>
+                    <p className="mt-0.5 font-black">
+                      {drag.kind === "move" ? minutesToTime(drag.currentStartMinutes) : drag.event.start}
+                      {" · "}
+                      {drag.kind === "resize" ? `${drag.currentDuration} min` : `${drag.event.duration} min`}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -183,12 +361,16 @@ function TimeColumn() {
   );
 }
 
-function DayColumn({ date, availability, events: dayEvents, onPendingAction, onSelectEvent, selectedEventId }: {
+function DayColumn({ date, now, availability, events: dayEvents, draggedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId }: {
   date: Date;
+  now: Date;
   availability: AvailabilitySettings;
   events: CalendarEvent[];
+  draggedEventId: string | null;
   onPendingAction: WeekPlannerProps["onPendingAction"];
   onSelectEvent: (event: CalendarEvent, anchorRect: DOMRect) => void;
+  onBeginMove: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
+  onBeginResize: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   selectedEventId: string | null;
 }) {
   const dayAvailability = useMemo(() => getDayAvailability(date, availability), [date, availability]);
@@ -196,6 +378,9 @@ function DayColumn({ date, availability, events: dayEvents, onPendingAction, onS
     () => (dayAvailability.open ? computeClosedRanges(dayAvailability.hourly, START_HOUR, END_HOUR) : [{ start: START_HOUR, end: END_HOUR }]),
     [dayAvailability],
   );
+  const layout = useMemo(() => computeEventColumns(dayEvents), [dayEvents]);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const showTimeLine = isReferenceDay(date) && nowMinutes >= START_HOUR * 60 && nowMinutes <= END_HOUR * 60;
 
   return (
     <div
@@ -206,6 +391,17 @@ function DayColumn({ date, availability, events: dayEvents, onPendingAction, onS
         backgroundSize: `100% ${HOUR_HEIGHT}px`,
       }}
     >
+      {showTimeLine ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 z-30 flex items-center"
+          style={{ top: ((nowMinutes - START_HOUR * 60) / 60) * HOUR_HEIGHT }}
+        >
+          <span className="-ml-[3px] h-2 w-2 shrink-0 rounded-full bg-animeo-error" />
+          <div className="h-[2px] flex-1 bg-animeo-error" />
+        </div>
+      ) : null}
+
       {closedRanges.map((range) => (
         <div
           key={`${range.start}-${range.end}`}
@@ -225,8 +421,12 @@ function DayColumn({ date, availability, events: dayEvents, onPendingAction, onS
         <CalendarEventCard
           key={event.id}
           event={event}
+          columnLayout={layout.get(event.id) ?? { column: 0, columns: 1 }}
+          isDragging={event.id === draggedEventId}
           onPendingAction={onPendingAction}
           onSelectEvent={onSelectEvent}
+          onBeginMove={onBeginMove}
+          onBeginResize={onBeginResize}
           isSelected={event.id === selectedEventId}
         />
       ))}
@@ -234,18 +434,25 @@ function DayColumn({ date, availability, events: dayEvents, onPendingAction, onS
   );
 }
 
-function CalendarEventCard({ event, onPendingAction, onSelectEvent, isSelected }: {
+function CalendarEventCard({ event, columnLayout, isDragging, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
   event: CalendarEvent;
+  columnLayout: { column: number; columns: number };
+  isDragging: boolean;
   onPendingAction: WeekPlannerProps["onPendingAction"];
   onSelectEvent: (event: CalendarEvent, anchorRect: DOMRect) => void;
+  onBeginMove: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
+  onBeginResize: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   isSelected: boolean;
 }) {
   const articleRef = useRef<HTMLElement>(null);
   const isUnavailable = event.kind === "unavailable";
   const isTournee = event.kind === "tournee";
   const isPending = event.kind === "pending";
-  const isSelectable = Boolean(event.appointmentId);
+  const isSelectable = Boolean(event.appointmentId || event.tourId || event.blockedSlotId);
+  const isDraggable = Boolean(event.appointmentId);
   const position = getEventPosition(event.start, event.duration, isPending ? MIN_PENDING_HEIGHT : MIN_EVENT_HEIGHT);
+  const { column, columns } = columnLayout;
+  const columnWidthPercent = 100 / columns;
 
   function handleSelect() {
     if (!isSelectable || !articleRef.current) return;
@@ -260,6 +467,17 @@ function CalendarEventCard({ event, onPendingAction, onSelectEvent, isSelected }
     }
   }
 
+  function handlePointerDown(pointerEvent: React.PointerEvent) {
+    if (!isDraggable || pointerEvent.button !== 0) return;
+    onBeginMove(event, pointerEvent);
+  }
+
+  function handleResizePointerDown(pointerEvent: React.PointerEvent) {
+    if (!isDraggable) return;
+    pointerEvent.stopPropagation();
+    onBeginResize(event, pointerEvent);
+  }
+
   return (
     <article
       ref={articleRef}
@@ -267,11 +485,17 @@ function CalendarEventCard({ event, onPendingAction, onSelectEvent, isSelected }
       tabIndex={isSelectable ? 0 : undefined}
       onClick={isSelectable ? handleSelect : undefined}
       onKeyDown={isSelectable ? handleKeyDown : undefined}
+      onPointerDown={isDraggable ? handlePointerDown : undefined}
       aria-label={isSelectable ? `Ouvrir le rendez-vous de ${event.animal ?? "l’animal"} à ${event.start}` : undefined}
-      className={`absolute left-1.5 right-1.5 z-10 overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgba(24,59,69,0.08)] transition ${eventStyles[event.kind]} ${
-        isSelectable ? "cursor-pointer outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(24,59,69,0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
-      } ${isSelected ? "z-20 -translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""}`}
-      style={{ top: position.top + 3, height: position.height - 6 }}
+      className={`group absolute z-10 overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgba(24,59,69,0.08)] transition ${eventStyles[event.kind]} ${
+        isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(24,59,69,0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
+      } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "z-20 -translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""}`}
+      style={{
+        top: position.top + 3,
+        height: position.height - 6,
+        left: `calc(${column * columnWidthPercent}% + 3px)`,
+        width: `calc(${columnWidthPercent}% - 6px)`,
+      }}
     >
       <p className="text-[10px] font-black">{event.start}</p>
       <p className="mt-0.5 truncate text-xs font-extrabold">
@@ -314,6 +538,16 @@ function CalendarEventCard({ event, onPendingAction, onSelectEvent, isSelected }
           >
             ✕
           </button>
+        </div>
+      ) : null}
+
+      {isDraggable ? (
+        <div
+          onPointerDown={handleResizePointerDown}
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 z-10 flex h-3 cursor-ns-resize items-end justify-center opacity-0 transition group-hover:opacity-100"
+        >
+          <div className="mb-0.5 h-[3px] w-6 rounded-full bg-current opacity-60" />
         </div>
       ) : null}
     </article>

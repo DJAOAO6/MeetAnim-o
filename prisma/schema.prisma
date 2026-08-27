@@ -114,6 +114,7 @@ model User {
   auditLogs           AuditLog[]
   passwordResetTokens PasswordResetToken[]
   twoFactorCodes      TwoFactorCode[]
+  blockedSlots        BlockedSlot[]
 
   @@index([email])
 }
@@ -266,6 +267,11 @@ model Appointment {
   duration    Int
   mode        VisitMode
   location    String
+  postalCode  String?
+  city        String?
+  inseeCode   String?
+  latitude    Float?
+  longitude   Float?
   price       Float
   status      AppointmentStatus @default(PENDING)
   notes       String            @db.Text
@@ -275,6 +281,19 @@ model Appointment {
 
   @@index([clientId])
   @@index([animalId])
+  @@index([date])
+}
+
+model BlockedSlot {
+  id        String   @id @default(cuid())
+  date      DateTime
+  startTime String
+  endTime   String
+  reason    String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
   @@index([date])
 }
 
