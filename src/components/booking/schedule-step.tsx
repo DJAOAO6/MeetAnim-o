@@ -116,11 +116,8 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   return (
     <form onSubmit={submit}>
       <StepHeading
-        eyebrow="Étape 4 · Créneaux"
+        eyebrow="Étape 3 · Rendez-vous"
         title={mode === "HOME" ? "Les meilleurs créneaux pour votre secteur" : "Choisissez une date et une heure"}
-        description={mode === "HOME" && zone
-          ? `Les propositions sont calculées à partir de votre adresse à ${clientAddress.city}, des tournées actives et des lieux déjà présents sur la carte.`
-          : "Les créneaux tiennent compte de l’agenda unique du professionnel."}
       />
       <div className="rounded-2xl bg-animeo-soft p-4 text-sm text-animeo-dark"><strong>{service.name}</strong> · {service.duration} minutes · {mode === "CABINET" ? "Au cabinet" : "À domicile"}</div>
 

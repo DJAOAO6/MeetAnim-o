@@ -6,10 +6,12 @@ export type IconName =
   | "bell"
   | "calendar"
   | "calendarPlus"
+  | "car"
   | "clients"
   | "dashboard"
   | "document"
   | "euro"
+  | "home"
   | "mail"
   | "map"
   | "moon"
@@ -71,6 +73,20 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6" />
       <path d="M9 3v15M15 6v15" />
+    </>
+  ),
+  home: (
+    <>
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9" />
+    </>
+  ),
+  car: (
+    <>
+      <path d="M5 11l1.4-4.2A2 2 0 0 1 8.3 5.4h7.4a2 2 0 0 1 1.9 1.4L19 11" />
+      <rect x="3" y="11" width="18" height="6" rx="2" />
+      <circle cx="7.5" cy="17.5" r="1.3" />
+      <circle cx="16.5" cy="17.5" r="1.3" />
     </>
   ),
   bell: (

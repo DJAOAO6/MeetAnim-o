@@ -125,6 +125,22 @@ function AppointmentSummary({ appointment, onEdit, onClose }: { appointment: App
       </div>
 
       <div className="border-t border-[#dce8e5] bg-white p-4 sm:p-5">
+        {appointment.clientId || isHomeVisit ? (
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            {appointment.clientId ? (
+              <a href={`/dashboard/clients/${appointment.clientId}`} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+                <Icon name="clients" className="h-3.5 w-3.5" />
+                Fiche client
+              </a>
+            ) : <span />}
+            {isHomeVisit ? (
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+                <Icon name="map" className="h-3.5 w-3.5" />
+                Itinéraire
+              </a>
+            ) : <span />}
+          </div>
+        ) : null}
         <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
           Modifier
         </button>

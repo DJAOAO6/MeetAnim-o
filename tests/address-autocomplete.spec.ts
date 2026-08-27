@@ -37,25 +37,17 @@ async function mockAddressSearch(page: Page, body: unknown, status = 200) {
   });
 }
 
-/** Amène la page jusqu'à l'étape "Où doit se dérouler la consultation ?" (mode domicile). */
+/** Amène la page jusqu'à l'étape "Vous & votre animal" (mode domicile), où vit le champ d'adresse. */
 async function gotoAddressStep(page: Page) {
   await page.goto(`/reserver/${PROFESSIONAL_SLUG}`);
-  await expect(page.getByText("Choisissez une prestation")).toBeVisible();
+  await expect(page.getByText("Quelle consultation souhaitez-vous")).toBeVisible();
 
   await page.locator("button[aria-pressed]").first().click();
+  await page.getByRole("button", { name: "Consultation à domicile", exact: true }).click();
   await page.locator('button[type="submit"]').click();
 
-  await page.getByRole("button", { name: "À domicile" }).click();
-  await page.locator('button[type="submit"]').click();
-
-  await page.fill('input[autocomplete="given-name"]', "Camille");
-  await page.fill('input[autocomplete="family-name"]', "Test");
-  await page.fill('input[autocomplete="tel"]', "0612345678");
-  await page.fill('input[autocomplete="email"]', "camille@example.com");
-  await page.locator('button[type="submit"]').click();
-
-  await expect(page.getByText("Où doit se dérouler la consultation")).toBeVisible();
-  return page.getByRole("combobox");
+  await expect(page.getByText("Quelques informations")).toBeVisible();
+  return page.getByLabel("Adresse", { exact: false }).and(page.locator('input[role="combobox"]'));
 }
 
 test.describe("Autocomplétion d'adresse (étape domicile)", () => {
@@ -87,7 +79,7 @@ test.describe("Autocomplétion d'adresse (étape domicile)", () => {
     ] });
     const input = await gotoAddressStep(page);
     await input.fill("12 rue jea");
-    const options = page.getByRole("option");
+    const options = page.getByRole("listbox").getByRole("option");
     await expect(options).toHaveCount(2);
     await expect(options.first()).toContainText("Jeanne d’Arc");
   });
@@ -98,13 +90,12 @@ test.describe("Autocomplétion d'adresse (étape domicile)", () => {
     ] });
     const input = await gotoAddressStep(page);
     await input.fill("12 rue jea");
-    await page.getByRole("option").first().click();
+    await page.getByRole("listbox").getByRole("option").first().click();
 
     await expect(input).toHaveValue("12 Rue Jeanne d’Arc 76000 Rouen");
     await expect(page.getByRole("listbox")).toHaveCount(0);
     await expect(page.getByLabel("Code postal")).toHaveValue("76000");
     await expect(page.getByLabel("Ville")).toHaveValue("Rouen");
-    await expect(page.getByRole("button", { name: "Continuer" })).toBeEnabled();
   });
 
   test("récupère les coordonnées géographiques via l'API de recherche", async ({ request }) => {
@@ -135,7 +126,7 @@ test.describe("Autocomplétion d'adresse (étape domicile)", () => {
     })) });
     const input = await gotoAddressStep(page);
     await input.fill("12 rue jea");
-    await expect(page.getByRole("option")).toHaveCount(2);
+    await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(2);
 
     // Échap ferme la liste sans rien sélectionner ni vider le champ
     await input.press("Escape");
@@ -144,11 +135,11 @@ test.describe("Autocomplétion d'adresse (étape domicile)", () => {
 
     // Reprendre la saisie relance une recherche et rouvre la liste
     await input.press("n");
-    await expect(page.getByRole("option")).toHaveCount(2);
+    await expect(page.getByRole("listbox").getByRole("option")).toHaveCount(2);
     await input.press("ArrowDown");
     await input.press("ArrowDown");
     await input.press("ArrowUp");
-    await expect(page.getByRole("option").nth(0)).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("listbox").getByRole("option").nth(0)).toHaveAttribute("aria-selected", "true");
     await input.press("Enter");
     await expect(input).toHaveValue("12 Rue Jeanne d’Arc 76000 Rouen");
   });
@@ -161,7 +152,7 @@ test.describe("Autocomplétion d'adresse (étape domicile)", () => {
     const input = await gotoAddressStep(page);
     await expect(input).toBeVisible();
     await input.fill("12 rue jea");
-    const option = page.getByRole("option").first();
+    const option = page.getByRole("listbox").getByRole("option").first();
     await expect(option).toBeVisible();
     const box = await option.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(30);
@@ -185,6 +176,8 @@ test.describe("Autocomplétion d'adresse (étape domicile)", () => {
     await page.waitForTimeout(600);
     await page.getByLabel("Code postal").fill("76000");
     await page.getByLabel("Ville").fill("Rouen");
-    await expect(page.getByRole("button", { name: "Continuer" })).toBeEnabled();
+    await expect(input).toHaveValue("12 rue des Tilleuls");
+    await expect(page.getByLabel("Code postal")).toHaveValue("76000");
+    await expect(page.getByLabel("Ville")).toHaveValue("Rouen");
   });
 });

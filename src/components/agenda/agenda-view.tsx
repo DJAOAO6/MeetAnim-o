@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
 import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/agenda-view-switcher";
@@ -104,6 +104,19 @@ type AgendaViewProps = {
 export function AgendaView({ clients, availability, tours, zones, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
+
+  useEffect(() => {
+    // Sur mobile, la vue Semaine impose un défilement horizontal peu
+    // lisible : la vue Jour (déjà pensée pour un écran étroit) démarre par
+    // défaut. Vérifié une seule fois au montage (après le premier rendu,
+    // pour ne pas provoquer de désaccord d'hydratation) et ne doit jamais
+    // écraser un choix de vue fait ensuite par l'utilisateur.
+    const frame = requestAnimationFrame(() => {
+      if (window.matchMedia("(max-width: 767px)").matches) setView("day");
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   const [weekOffset, setWeekOffset] = useState(0);
   const [dayOffset, setDayOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);

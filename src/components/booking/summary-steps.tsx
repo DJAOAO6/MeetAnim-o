@@ -38,7 +38,7 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 5 · Confirmation" title="Vérifiez votre demande" description="Le rendez-vous devra encore être accepté par Pauline avant d’être confirmé." />
+      <StepHeading eyebrow="Étape 4 · Confirmation" title="Vérifiez votre demande" />
 
       <div className="overflow-hidden rounded-[18px] border border-[#dfe9e6]">
         <div className="bg-animeo-dark p-5 text-white sm:p-6">
@@ -72,11 +72,11 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
 
       <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#dfe9e6] p-4">
         <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[#4FAF9F]" required />
-        <span className="text-sm leading-6 text-animeo-dark">J’accepte que mes informations soient utilisées pour traiter ma demande de rendez-vous. <span className="font-extrabold text-animeo underline">Politique de confidentialité</span></span>
+        <span className="text-sm leading-6 text-animeo-dark">J’accepte l’utilisation de mes informations pour traiter cette demande. <span className="font-extrabold text-animeo underline">Politique de confidentialité</span></span>
       </label>
-      <p className="mt-3 rounded-2xl bg-[#fff7e7] p-3 text-sm font-bold text-[#8d651d]">Cette demande sera envoyée avec le statut « En attente de validation ».</p>
-      {submitError ? <p role="alert" className="mt-3 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
-      <BookingActions onBack={onBack} nextLabel={submitting ? "Envoi…" : "Demander le rendez-vous"} nextDisabled={!privacyAccepted || submitting} />
+      <p className="mt-3 rounded-2xl bg-[#fff7e7] p-3 text-sm font-bold text-[#8d651d]">Cette demande sera envoyée en attente de validation par {professional.firstName}.</p>
+      {submitError ? <p role="alert" aria-live="polite" className="mt-3 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
+      <BookingActions onBack={onBack} nextLabel={submitting ? "Réservation en cours…" : "Réserver mon rendez-vous"} nextDisabled={!privacyAccepted} loading={submitting} />
     </form>
   );
 }
@@ -91,18 +91,20 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
 
 export function BookingSuccess({ professional, request, service, onReset }: { professional: PublicProfessional; request: PublicBookingRequest; service: PublicService; onReset: () => void }) {
   const date = bookingDates.find((item) => item.id === request.date);
+  const lieu = request.mode === "CABINET" ? `${professional.cabinetAddress}, ${professional.cabinetCity}` : [request.address?.city, request.address?.postalCode].filter(Boolean).join(" · ");
+
   return (
-    <div className="py-4 text-center sm:py-8">
+    <div role="status" aria-live="polite" className="py-4 text-center sm:py-8">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#e7f7f1] text-4xl text-[#278064]">✓</div>
       <span className="mt-5 inline-flex rounded-full bg-[#fff2dc] px-3 py-1.5 text-xs font-black text-[#a66a12]">En attente de validation</span>
-      <h2 className="mx-auto mt-4 max-w-xl text-2xl font-black text-animeo-dark sm:text-3xl">Votre demande a bien été envoyée</h2>
-      <p className="mt-3 text-base text-animeo-muted">{professional.firstName} doit maintenant confirmer votre rendez-vous.</p>
+      <h2 className="mx-auto mt-4 max-w-xl text-2xl font-black text-animeo-dark sm:text-3xl">Demande envoyée à {professional.firstName}</h2>
+
       <div className="mx-auto mt-6 max-w-md rounded-[18px] bg-animeo-soft p-5 text-left">
-        <p className="font-black text-animeo-dark">{date?.fullLabel ?? request.date} à {request.time}</p>
-        <p className="mt-1 text-sm text-animeo-muted">{service.name}</p>
-        <p className="mt-1 text-sm font-extrabold text-animeo-dark">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"} · {request.totalPrice} €</p>
+        <p className="text-lg font-black text-animeo-dark">{request.animal.name} · {service.name}</p>
+        <p className="mt-2 text-sm font-extrabold text-animeo-dark">{date?.fullLabel ?? request.date} à {request.time}</p>
+        <p className="mt-1 text-sm text-animeo-muted">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"}{lieu ? ` · ${lieu}` : ""}</p>
       </div>
-      <p className="mx-auto mt-6 max-w-lg text-sm leading-6 text-animeo-muted">Vous recevrez une confirmation lorsque le professionnel aura accepté votre demande. Aucun email réel n’est envoyé dans cette démonstration.</p>
+
       <button type="button" onClick={onReset} className="mt-7 min-h-12 rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm">Retour</button>
     </div>
   );

@@ -505,6 +505,8 @@ function CalendarEventCard({ event, columnLayout, isDragging, onPendingAction, o
       {event.location ? (
         <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-semibold opacity-80">
           {isTournee ? <Icon name="tournees" className="h-3 w-3 shrink-0" /> : null}
+          {event.kind === "cabinet" ? <Icon name="home" className="h-3 w-3 shrink-0" /> : null}
+          {event.kind === "domicile" ? <Icon name="car" className="h-3 w-3 shrink-0" /> : null}
           {event.location}
         </p>
       ) : null}
