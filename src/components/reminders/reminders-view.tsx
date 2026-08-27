@@ -23,7 +23,10 @@ type RemindersViewProps = {
   clientOptions: ReminderClientOption[];
 };
 
-const referenceDate = new Date(2026, 7, 24, 12);
+function referenceDate() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12);
+}
 
 const statsConfig: Array<{
   key: keyof RemindersViewProps["initialStats"];
@@ -68,9 +71,10 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
 
     return reminders.filter((reminder) => {
       const dueDate = new Date(`${reminder.dueDate}T12:00:00`);
-      const matchesCurrentMonth = dueDate.getFullYear() === referenceDate.getFullYear()
-        && dueDate.getMonth() === referenceDate.getMonth();
-      const nextMonthDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 1, 12);
+      const today = referenceDate();
+      const matchesCurrentMonth = dueDate.getFullYear() === today.getFullYear()
+        && dueDate.getMonth() === today.getMonth();
+      const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1, 12);
       const matchesNextMonth = dueDate.getFullYear() === nextMonthDate.getFullYear()
         && dueDate.getMonth() === nextMonthDate.getMonth();
       const matchesPeriod = periodFilter === "all"
@@ -157,7 +161,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
     if (!client || !animal) return;
 
     const dueDate = new Date(`${value.dueDate}T12:00:00`);
-    const calculatedStatus: ReminderStatus = dueDate <= referenceDate ? "À relancer" : "À venir";
+    const calculatedStatus: ReminderStatus = dueDate <= referenceDate() ? "À relancer" : "À venir";
 
     if (value.id) {
       setReminders((current) => current.map((reminder) => (

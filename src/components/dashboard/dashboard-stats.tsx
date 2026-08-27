@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { formatEuros } from "@/lib/format";
 import { hasPermission } from "@/lib/auth/permissions";
-import { dateId, referenceDate, weekDatesFrom } from "@/components/dashboard/dashboard-date";
+import { dateId, referenceDate, startOfWeek, weekDatesFrom } from "@/components/dashboard/dashboard-date";
 import type { Client } from "@/data/clients";
 
 export function DashboardStats({ clients, dueReminders }: { clients: Client[]; dueReminders: number }) {
@@ -16,8 +16,9 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
   const canViewFinances = hasPermission(currentUser, "VIEW_FINANCES");
 
   const stats = useMemo(() => {
-    const todayId = dateId(referenceDate);
-    const weekIds = new Set(weekDatesFrom(referenceDate).map(dateId));
+    const today = referenceDate();
+    const todayId = dateId(today);
+    const weekIds = new Set(weekDatesFrom(startOfWeek(today)).map(dateId));
     const active = appointments.filter((appointment) => appointment.status !== "cancelled");
 
     const monthPrefix = todayId.slice(0, 7);
@@ -31,7 +32,7 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
 
     const newClients = clients.filter((client) => {
       const created = new Date(client.createdAt);
-      return created.getFullYear() === referenceDate.getFullYear() && created.getMonth() === referenceDate.getMonth();
+      return created.getFullYear() === today.getFullYear() && created.getMonth() === today.getMonth();
     }).length;
 
     return { todayCount, weekCount, pendingCount, revenue, newClients };
@@ -48,7 +49,7 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
   ];
 
   return (
-    <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="mb-6 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => (
         <Card key={card.label} className="p-5">
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">

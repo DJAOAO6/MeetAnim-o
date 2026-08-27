@@ -7,13 +7,21 @@ import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planne
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import type { ClientPickerOption } from "@/data/clients";
 
-const REFERENCE_MONDAY = new Date(2026, 7, 24, 12);
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
+function getCurrentWeekMonday() {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday, 12);
+}
+
 function getWeekDates(offset: number) {
+  const monday = getCurrentWeekMonday();
   return Array.from({ length: 7 }, (_, dayIndex) =>
-    new Date(REFERENCE_MONDAY.getTime() + (offset * 7 + dayIndex) * DAY_IN_MS),
+    new Date(monday.getTime() + (offset * 7 + dayIndex) * DAY_IN_MS),
   );
 }
 
@@ -33,7 +41,7 @@ function dateId(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function AgendaView() {
+export function AgendaView({ clients }: { clients: ClientPickerOption[] }) {
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [weekOffset, setWeekOffset] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -186,6 +194,7 @@ export function AgendaView() {
         <WeekPlanner
           dates={weekDates}
           showEvents={weekOffset === 0}
+          clients={clients}
           localEvents={localEvents}
           appointmentEvents={appointmentEvents}
           onPendingAction={handlePendingAction}

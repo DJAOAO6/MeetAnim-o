@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppointments } from "@/components/appointments/appointments-context";
+import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 
@@ -64,7 +65,7 @@ function MiniCalendar({ weekDates }: AgendaSidePanelProps) {
         {days.map((date) => {
           const inVisibleMonth = date.getMonth() === visibleDate.getMonth();
           const inSelectedWeek = date >= weekDates[0] && date <= weekDates[6];
-          const isToday = sameDay(date, new Date(2026, 7, 24, 12));
+          const isToday = sameDay(date, new Date());
 
           return (
             <span
@@ -90,8 +91,9 @@ function MiniCalendar({ weekDates }: AgendaSidePanelProps) {
 
 function NextAppointment() {
   const { appointments, openManager } = useAppointments();
+  const todayId = dateId(referenceDate());
   const appointment = appointments
-    .filter((item) => item.status === "confirmed" || item.status === "pending")
+    .filter((item) => (item.status === "confirmed" || item.status === "pending") && item.date >= todayId)
     .sort((first, second) => `${first.date} ${first.start}`.localeCompare(`${second.date} ${second.start}`))[0];
 
   if (!appointment) {

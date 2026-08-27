@@ -11,16 +11,18 @@ import type { Tour, TourAppointment, Zone } from "@/data/tours";
 const weekdayOrder = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 function nextOccurrenceInDays(tour: Tour): number | null {
+  const today = referenceDate();
+
   if (tour.dateId) {
     const [year, month, day] = tour.dateId.split("-").map(Number);
     const target = new Date(year, month - 1, day, 12);
-    const diff = Math.round((target.getTime() - referenceDate.getTime()) / (24 * 60 * 60 * 1000));
+    const diff = Math.round((target.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
     return diff >= 0 ? diff : null;
   }
 
   const dayIndex = weekdayOrder.indexOf(tour.day);
   if (dayIndex === -1) return null;
-  const todayIndex = referenceDate.getDay() === 0 ? 6 : referenceDate.getDay() - 1;
+  const todayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1;
   return (dayIndex - todayIndex + 7) % 7;
 }
 

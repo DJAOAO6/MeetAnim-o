@@ -15,16 +15,16 @@ export function DashboardPlanning() {
   const { theme } = useDashboardTheme();
 
   const todayAppointments = useMemo(() => {
-    const todayId = dateId(referenceDate);
+    const todayId = dateId(referenceDate());
     return appointments
       .filter((appointment) => appointment.date === todayId && appointment.status !== "cancelled")
       .sort((first, second) => first.start.localeCompare(second.start));
   }, [appointments]);
 
-  const dateLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(referenceDate);
+  const dateLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(referenceDate());
 
   return (
-    <Card className="flex h-full flex-col p-5 sm:p-6">
+    <Card className="p-5 sm:p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark"><Icon name="calendar" className="h-5 w-5" /></span>
@@ -40,7 +40,7 @@ export function DashboardPlanning() {
       </div>
 
       {todayAppointments.length > 0 ? (
-        <ol className="relative flex-1 space-y-0">
+        <ol className="relative space-y-0">
           {todayAppointments.map((appointment, index) => (
             <TimelineRow
               key={appointment.id}
@@ -52,7 +52,7 @@ export function DashboardPlanning() {
           ))}
         </ol>
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl bg-animeo-bg px-4 py-10 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-animeo-bg px-4 py-10 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-animeo-dark shadow-sm"><Icon name="calendar" className="h-6 w-6" /></span>
           <p className="mt-4 font-bold text-animeo-dark">Aucun rendez-vous aujourd’hui</p>
           <p className="mt-1 text-sm text-animeo-muted">Votre journée est libre pour le moment.</p>
@@ -85,6 +85,12 @@ function TimelineRow({ appointment, isLast, color, onEdit }: { appointment: Appo
             {appointment.animalSpecies ? <span className="text-xs font-bold text-animeo-muted">· {appointment.animalSpecies}</span> : null}
           </div>
           <p className="truncate text-sm text-animeo-muted">{appointment.clientName}</p>
+          {isHomeVisit ? (
+            <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-animeo-muted">
+              <Icon name="map" className="h-3 w-3 shrink-0" />
+              {appointment.location}
+            </p>
+          ) : null}
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${isHomeVisit ? "bg-[#fff4dd] text-[#946116]" : "bg-animeo-soft text-animeo-dark"}`}>
           {isHomeVisit ? "Domicile" : "Cabinet"}

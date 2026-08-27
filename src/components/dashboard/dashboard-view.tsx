@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { DashboardAvailabilityControls } from "@/components/availability/dashboard-availability-controls";
-import { DashboardActivity } from "@/components/dashboard/dashboard-activity";
+import { DashboardActivityChart } from "@/components/dashboard/dashboard-activity-chart";
+import { DashboardActivitySummary } from "@/components/dashboard/dashboard-activity-summary";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardNextTour } from "@/components/dashboard/dashboard-next-tour";
 import { DashboardPlanning } from "@/components/dashboard/dashboard-planning";
@@ -19,15 +20,17 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
       <DashboardAvailabilityControls />
       <DashboardStats clients={clients} dueReminders={dueReminders} />
 
-      <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
-        <DashboardPlanning />
-        <div className="grid gap-6">
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
+        <div className="grid grid-cols-1 items-start gap-6">
+          <DashboardPlanning />
+          <DashboardActivityChart />
+        </div>
+        <div className="grid grid-cols-1 items-start gap-6">
           <DashboardNextTour tours={tours} zones={zones} tourAppointments={tourAppointments} />
           <DashboardRemindersCard reminders={reminders} />
+          <DashboardActivitySummary clients={clients} />
         </div>
       </div>
-
-      <DashboardActivity clients={clients} />
     </>
   );
 }
