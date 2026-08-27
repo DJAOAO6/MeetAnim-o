@@ -10,20 +10,18 @@ import type { ServiceSettings } from "@/data/settings";
 type ServicesSettingsTabProps = {
   services: ServiceSettings[];
   kilometricFeesEnabled: boolean;
-  onChange: (services: ServiceSettings[], message: string) => void;
+  saving: boolean;
+  onSave: (service: ServiceSettings) => Promise<void>;
+  onToggle: (service: ServiceSettings) => void;
+  onDelete: (service: ServiceSettings) => void;
 };
 
-export function ServicesSettingsTab({ services, kilometricFeesEnabled, onChange }: ServicesSettingsTabProps) {
+export function ServicesSettingsTab({ services, kilometricFeesEnabled, saving, onSave, onToggle, onDelete }: ServicesSettingsTabProps) {
   const [modal, setModal] = useState<ServiceSettings | "new" | null>(null);
 
-  function saveService(service: ServiceSettings) {
-    const exists = services.some((item) => item.id === service.id);
-    onChange(exists ? services.map((item) => item.id === service.id ? service : item) : [service, ...services], exists ? "Prestation modifiée" : "Prestation créée");
+  async function saveService(service: ServiceSettings) {
+    await onSave(service);
     setModal(null);
-  }
-
-  function toggleService(service: ServiceSettings) {
-    onChange(services.map((item) => item.id === service.id ? { ...item, active: !item.active } : item), service.active ? "Prestation désactivée" : "Prestation activée");
   }
 
   return (
@@ -74,8 +72,8 @@ export function ServicesSettingsTab({ services, kilometricFeesEnabled, onChange 
 
               <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[#e4ecea] pt-4">
                 <button type="button" onClick={() => setModal(service)} className="rounded-xl bg-animeo-soft px-3 py-2.5 text-xs font-extrabold text-animeo-dark">Modifier</button>
-                <button type="button" onClick={() => toggleService(service)} className="rounded-xl bg-animeo-bg px-3 py-2.5 text-xs font-extrabold text-animeo-muted">{service.active ? "Désactiver" : "Activer"}</button>
-                <button type="button" onClick={() => onChange(services.filter((item) => item.id !== service.id), "Prestation supprimée localement")} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b]">Supprimer</button>
+                <button type="button" onClick={() => onToggle(service)} className="rounded-xl bg-animeo-bg px-3 py-2.5 text-xs font-extrabold text-animeo-muted">{service.active ? "Désactiver" : "Activer"}</button>
+                <button type="button" onClick={() => onDelete(service)} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b]">Supprimer</button>
               </div>
             </div>
           </Card>
@@ -84,7 +82,7 @@ export function ServicesSettingsTab({ services, kilometricFeesEnabled, onChange 
 
       <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-animeo-soft p-4 text-sm text-animeo-dark">Les changements de tarif concernent les futures réservations. Les prix des rendez-vous historiques restent inchangés.</p>
 
-      {modal ? <ServiceModal service={modal === "new" ? undefined : modal} kilometricFeesEnabled={kilometricFeesEnabled} onClose={() => setModal(null)} onSave={saveService} /> : null}
+      {modal ? <ServiceModal service={modal === "new" ? undefined : modal} kilometricFeesEnabled={kilometricFeesEnabled} saving={saving} onClose={() => setModal(null)} onSave={saveService} /> : null}
     </>
   );
 }

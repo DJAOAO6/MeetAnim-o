@@ -46,7 +46,7 @@ export function ImagePicker({ label, value, onChange, shape = "round" }: { label
     reader.readAsDataURL(file);
   }
 
-  const isImage = value.startsWith("data:image");
+  const isImage = value.startsWith("data:image") || value.startsWith("http://") || value.startsWith("https://");
 
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-animeo-bg p-4">

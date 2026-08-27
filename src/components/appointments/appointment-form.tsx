@@ -2,8 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
+import type { GeocodedAddress } from "@/data/geocoding";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
 
@@ -91,6 +93,12 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
     if (nextMode === "home" && selectedClient) {
       setAddressLine((current) => current || selectedClient.address);
     }
+  }
+
+  function applySelectedAddress(result: GeocodedAddress) {
+    setAddressLine(result.label);
+    setPostalCode(result.postcode);
+    setCity(result.city);
   }
 
   function composeLocation(): string {
@@ -217,7 +225,11 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
 
           {draft.mode === "home" ? (
             <>
-              <div className="sm:col-span-2"><Field label="Adresse"><input value={addressLine} onChange={(event) => setAddressLine(event.target.value)} className={inputClassName} placeholder="12 rue Exemple" required /></Field></div>
+              <div className="sm:col-span-2">
+                <Field label="Adresse">
+                  <AddressAutocomplete value={addressLine} onQueryChange={setAddressLine} onSelect={applySelectedAddress} inputClassName={inputClassName} placeholder="12 rue Exemple" required />
+                </Field>
+              </div>
               <div className="sm:col-span-2"><Field label="Complément d’adresse" hint="Facultatif"><input value={addressExtra} onChange={(event) => setAddressExtra(event.target.value)} className={inputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></Field></div>
               <Field label="Code postal" hint="Facultatif"><input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} className={inputClassName} inputMode="numeric" placeholder="76000" /></Field>
               <Field label="Ville" hint="Facultatif"><input value={city} onChange={(event) => setCity(event.target.value)} className={inputClassName} placeholder="Rouen" /></Field>

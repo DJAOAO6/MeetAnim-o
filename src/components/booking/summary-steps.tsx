@@ -65,7 +65,6 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
         <div className="border-t border-[#e1eae8] bg-animeo-soft p-5 sm:p-6">
           <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Tarif</p>
           <SummaryLine label="Consultation" value={`${consultationPrice} €`} />
-          {mode === "HOME" ? <SummaryLine label="Frais de déplacement" value={travelFee > 0 ? `+${travelFee} €` : "Aucun"} /> : null}
           <div className="mt-4 flex items-center justify-between border-t border-[#ccded9] pt-4"><span className="font-black text-animeo-dark">Total estimé</span><span className="text-2xl font-black text-animeo-dark">{consultationPrice + travelFee} €</span></div>
         </div>
       </div>

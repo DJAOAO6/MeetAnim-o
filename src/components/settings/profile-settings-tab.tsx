@@ -2,7 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Field, ImagePicker, SectionTitle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import type { GeocodedAddress } from "@/data/geocoding";
 import type { ProfileSettings } from "@/data/settings";
 
 type ProfileSettingsTabProps = {
@@ -23,6 +25,10 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
 
   function update<K extends keyof ProfileSettings>(key: K, next: ProfileSettings[K]) {
     setDraft((current) => ({ ...current, [key]: next }));
+  }
+
+  function applySelectedAddress(result: GeocodedAddress) {
+    setDraft((current) => ({ ...current, address: result.label, postalCode: result.postcode, city: result.city }));
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -54,7 +60,11 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
           <Field label="Nom de l’entreprise"><input value={draft.company} onChange={(event) => update("company", event.target.value)} className={inputClassName} /></Field>
           <Field label="Téléphone"><input type="tel" value={draft.phone} onChange={(event) => update("phone", event.target.value)} className={inputClassName} /></Field>
           <Field label="Email"><input type="email" value={draft.email} onChange={(event) => update("email", event.target.value)} className={inputClassName} /></Field>
-          <div className="md:col-span-2"><Field label="Adresse du cabinet"><input value={draft.address} onChange={(event) => update("address", event.target.value)} className={inputClassName} /></Field></div>
+          <div className="md:col-span-2">
+            <Field label="Adresse du cabinet">
+              <AddressAutocomplete value={draft.address} onQueryChange={(value) => update("address", value)} onSelect={applySelectedAddress} inputClassName={inputClassName} />
+            </Field>
+          </div>
           <Field label="Code postal"><input value={draft.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={inputClassName} inputMode="numeric" /></Field>
           <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
           <div className="md:col-span-2"><Field label="Zone d’intervention" hint="Affichée sur votre page publique, ex. « Rouen et Normandie »."><input value={draft.location} onChange={(event) => update("location", event.target.value)} className={inputClassName} /></Field></div>

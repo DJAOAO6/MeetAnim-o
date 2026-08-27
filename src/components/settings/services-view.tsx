@@ -6,27 +6,59 @@ import { ServicesSettingsTab } from "@/components/settings/services-settings-tab
 import { Toggle } from "@/components/settings/settings-fields";
 import { Card } from "@/components/ui/card";
 import { initialSettings, type ServiceSettings } from "@/data/settings";
+import { deleteServiceAction, saveServiceAction } from "@/lib/services-actions";
 
-function cloneServices(services: ServiceSettings[]) {
-  return services.map((service) => ({
-    ...service,
-    animals: [...service.animals],
-    zoneFees: { ...service.zoneFees },
-  }));
-}
+type ServicesViewProps = {
+  initialServices: ServiceSettings[];
+};
 
-let sessionServices = cloneServices(initialSettings.services);
+// Le calcul kilométrique reste une préférence d'affichage locale (pas encore
+// persistée en base) : elle ne détermine que quelles options sont proposées
+// dans le formulaire d'une prestation, jamais les prix enregistrés.
 let sessionKilometricFeesEnabled = initialSettings.kilometricFeesEnabled;
 
-export function ServicesView() {
-  const [services, setServices] = useState<ServiceSettings[]>(() => sessionServices);
+export function ServicesView({ initialServices }: ServicesViewProps) {
+  const [services, setServices] = useState<ServiceSettings[]>(initialServices);
   const [kilometricFeesEnabled, setKilometricFeesEnabled] = useState(() => sessionKilometricFeesEnabled);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  function updateServices(nextServices: ServiceSettings[], message: string) {
-    sessionServices = nextServices;
-    setServices(nextServices);
-    setFeedback(message);
+  async function saveService(service: ServiceSettings) {
+    const isNew = !service.id;
+    setSaving(true);
+    const result = await saveServiceAction(service);
+    setSaving(false);
+
+    if (!result.ok) {
+      setFeedback(result.error);
+      return;
+    }
+
+    setServices((current) => {
+      const exists = current.some((item) => item.id === result.service.id);
+      return exists ? current.map((item) => (item.id === result.service.id ? result.service : item)) : [result.service, ...current];
+    });
+    setFeedback(isNew ? "Prestation créée" : "Prestation modifiée");
+  }
+
+  async function toggleService(service: ServiceSettings) {
+    const result = await saveServiceAction({ ...service, active: !service.active });
+    if (!result.ok) {
+      setFeedback(result.error);
+      return;
+    }
+    setServices((current) => current.map((item) => (item.id === result.service.id ? result.service : item)));
+    setFeedback(service.active ? "Prestation désactivée" : "Prestation activée");
+  }
+
+  async function removeService(service: ServiceSettings) {
+    const result = await deleteServiceAction(service.id);
+    if (!result.ok) {
+      setFeedback(result.error);
+      return;
+    }
+    setServices((current) => current.filter((item) => item.id !== service.id));
+    setFeedback("Prestation supprimée");
   }
 
   function updateKilometricFeesEnabled(value: boolean) {
@@ -68,10 +100,10 @@ export function ServicesView() {
         <Toggle checked={kilometricFeesEnabled} onChange={updateKilometricFeesEnabled} label={kilometricFeesEnabled ? "Activés" : "Désactivés"} />
       </Card>
 
-      <ServicesSettingsTab services={services} kilometricFeesEnabled={kilometricFeesEnabled} onChange={updateServices} />
+      <ServicesSettingsTab services={services} kilometricFeesEnabled={kilometricFeesEnabled} saving={saving} onSave={saveService} onToggle={toggleService} onDelete={removeService} />
 
       <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-white p-4 text-sm leading-6 text-animeo-muted">
-        Données locales uniquement : aucune prestation, distance ou modification n’est envoyée à un service externe.
+        Ces prestations sont enregistrées et apparaissent immédiatement sur votre page publique de réservation.
       </p>
     </>
   );

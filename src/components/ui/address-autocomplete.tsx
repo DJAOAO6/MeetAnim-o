@@ -11,12 +11,16 @@ type AddressAutocompleteProps = {
   required?: boolean;
   onQueryChange: (value: string) => void;
   onSelect: (result: GeocodedAddress) => void;
+  // Permet aux contextes hors réservation publique (dashboard, paramètres)
+  // de réutiliser ce composant avec leur propre style d'input plutôt que
+  // celui de la page de réservation.
+  inputClassName?: string;
 };
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 300;
 
-export function AddressAutocomplete({ id, value, placeholder, required, onQueryChange, onSelect }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ id, value, placeholder, required, onQueryChange, onSelect, inputClassName = bookingInputClassName }: AddressAutocompleteProps) {
   const [results, setResults] = useState<GeocodedAddress[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -136,7 +140,7 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
           onKeyDown={handleKeyDown}
           placeholder={placeholder ? `${placeholder}…` : undefined}
           required={required}
-          className={`${bookingInputClassName} touch-manipulation pr-10`}
+          className={`${inputClassName} touch-manipulation pr-10`}
         />
         {loading ? (
           <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">

@@ -36,6 +36,10 @@ export type ServiceSettings = {
   kilometricRate: number;
   suggestedReminder: "3 mois" | "6 mois" | "12 mois" | "Aucun";
   active: boolean;
+  // Photo uploadée par le professionnel (data URI) ; absente si aucune photo
+  // n'a encore été choisie, auquel cas une photo générique par espèce est
+  // utilisée à l'affichage.
+  photoUrl: string | null;
 };
 
 export type TimeSlot = {
@@ -128,6 +132,7 @@ export const initialSettings: SettingsState = {
       kilometricRate: 0.6,
       suggestedReminder: "6 mois",
       active: true,
+      photoUrl: null,
     },
     {
       id: "service-osteo-equine",
@@ -146,6 +151,7 @@ export const initialSettings: SettingsState = {
       kilometricRate: 0.6,
       suggestedReminder: "6 mois",
       active: true,
+      photoUrl: null,
     },
     {
       id: "service-massage-canin",
@@ -164,6 +170,7 @@ export const initialSettings: SettingsState = {
       kilometricRate: 0.6,
       suggestedReminder: "3 mois",
       active: true,
+      photoUrl: null,
     },
   ],
   availability: {

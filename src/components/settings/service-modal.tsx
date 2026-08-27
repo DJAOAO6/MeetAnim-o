@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Field, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { Field, ImagePicker, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { serviceZoneNames, type AnimalType, type ServiceSettings } from "@/data/settings";
+import { servicePhotoFor } from "@/data/service-photos";
+import type { PublicAnimalType } from "@/data/public-booking";
 
 type ServiceModalProps = {
   service?: ServiceSettings;
   kilometricFeesEnabled: boolean;
+  saving: boolean;
   onClose: () => void;
   onSave: (service: ServiceSettings) => void;
 };
@@ -31,9 +34,10 @@ const emptyService: ServiceSettings = {
   kilometricRate: 0.6,
   suggestedReminder: "6 mois",
   active: true,
+  photoUrl: null,
 };
 
-export function ServiceModal({ service, kilometricFeesEnabled, onClose, onSave }: ServiceModalProps) {
+export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, onSave }: ServiceModalProps) {
   const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
@@ -59,7 +63,7 @@ export function ServiceModal({ service, kilometricFeesEnabled, onClose, onSave }
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if ((!draft.cabinetEnabled && !draft.homeEnabled) || draft.animals.length === 0) return;
-    onSave({ ...draft, id: draft.id || `service-${Date.now()}` });
+    onSave(draft);
   }
 
   function updateFeeMode(value: "none" | ServiceSettings["travelFeeMode"]) {
@@ -96,6 +100,13 @@ export function ServiceModal({ service, kilometricFeesEnabled, onClose, onSave }
                 </Field>
                 {durationMode === "custom" ? <Field label="Durée personnalisée"><input type="number" min="15" step="5" value={draft.duration} onChange={(event) => update("duration", Number(event.target.value))} className={inputClassName} /></Field> : <div />}
               </div>
+
+              <ImagePicker
+                label="Photo de la prestation"
+                value={servicePhotoFor(draft.photoUrl, (draft.animals[0] ?? "Chien") as PublicAnimalType)}
+                onChange={(value) => update("photoUrl", value)}
+                shape="square"
+              />
 
               <div>
                 <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Types d’animaux concernés</p>
@@ -178,7 +189,7 @@ export function ServiceModal({ service, kilometricFeesEnabled, onClose, onSave }
 
           <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-[#e5eeeb] bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
             <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
-            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white">{service ? "Enregistrer" : "Créer la prestation"}</button>
+            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{saving ? "Enregistrement…" : service ? "Enregistrer" : "Créer la prestation"}</button>
           </div>
         </form>
       </section>

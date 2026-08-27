@@ -13,7 +13,7 @@ import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
 import { PersonalizationView } from "@/components/settings/personalization-view";
 import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
-import { initialSettings, type AvailabilitySettings, type ProfileSettings, type SettingsState } from "@/data/settings";
+import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ServiceSettings, type SettingsState } from "@/data/settings";
 import { updateAvailabilityAction, updateBusinessProfileAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
 import type { Tour, Zone } from "@/data/tours";
@@ -25,6 +25,7 @@ type SettingsViewProps = {
   zones: Zone[];
   businessProfile: BusinessProfileData;
   availability: AvailabilitySettings;
+  services: ServiceSettings[];
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
@@ -38,7 +39,7 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones, businessProfile, availability }: SettingsViewProps) {
+export function SettingsView({ tours, zones, businessProfile, availability, services }: SettingsViewProps) {
   const currentUser = useCurrentUser();
   const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
@@ -137,7 +138,7 @@ export function SettingsView({ tours, zones, businessProfile, availability }: Se
       {activeTab === "customization" ? (
         <PersonalizationView
           profile={settings.profile}
-          services={settings.services}
+          services={services}
           saving={saving}
           canEdit={canManagePublicSettings}
           onSaveTheme={saveTheme}

@@ -14,6 +14,10 @@ export type PublicService = {
   homePrice: number;
   travelFeeMode: TravelFeeMode;
   fixedTravelFee: number;
+  // Photo uploadée par le professionnel ; absente si aucune photo n'a été
+  // choisie, auquel cas l'étape "Consultation" affiche une photo générique
+  // selon animalTypes[0].
+  photoUrl?: string;
 };
 
 export type PublicZone = {

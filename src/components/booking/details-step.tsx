@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
-import { AddressAutocomplete } from "@/components/booking/address-autocomplete";
 import { BirthDatePicker } from "@/components/booking/birth-date-picker";
 import { BreedCombobox } from "@/components/booking/breed-combobox";
 import { BookingActions, BookingField, StepHeading, bookingErrorInputClassName, bookingInputClassName, bookingTextareaClassName } from "@/components/booking/booking-ui";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { computeAgeLabel } from "@/lib/animal-age";
@@ -13,6 +13,28 @@ import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, 
 const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^[0-9+()\s.-]{6,}$/;
+const REASON_MAX_WORDS = 60;
+
+function countWords(value: string): number {
+  const trimmed = value.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
+// Tronque au dernier mot complet dès que la limite est dépassée, plutôt que
+// de bloquer la frappe : moins de friction pour l'utilisateur qui tape vite.
+function limitWords(value: string, maxWords: number): string {
+  const words = value.split(/(\s+)/);
+  let count = 0;
+  let result = "";
+  for (const token of words) {
+    if (token.trim().length > 0) {
+      count += 1;
+      if (count > maxWords) break;
+    }
+    result += token;
+  }
+  return result;
+}
 
 function normalizeCity(value: string) {
   return value.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[’']/g, "'");
@@ -374,11 +396,12 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                 <textarea
                   ref={(node) => { fieldRefs.current.reason = node; }}
                   value={animal.notes}
-                  onChange={(event) => updateAnimal("notes", event.target.value)}
+                  onChange={(event) => updateAnimal("notes", limitWords(event.target.value, REASON_MAX_WORDS))}
                   onBlur={() => touch("reason")}
                   className={`${bookingTextareaClassName} ${fieldError("reason") ? bookingErrorInputClassName : ""}`}
                   placeholder="Ex. Boiterie depuis quelques jours…"
                 />
+                <p className="mt-1 text-right text-xs text-animeo-muted">{countWords(animal.notes)} / {REASON_MAX_WORDS} mots</p>
               </BookingField>
             </div>
           </div>

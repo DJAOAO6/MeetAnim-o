@@ -413,4 +413,9 @@ model Service {
   kilometricRate    Float         @default(0)
   suggestedReminder String
   active            Boolean       @default(true)
+  // Photo illustrant la prestation sur la page de réservation publique (data
+  // URI uploadée par le professionnel, même convention que les autres champs
+  // image de l'app) ; à défaut, une photo générique par espèce est utilisée.
+  photoUrl          String?       @db.Text
+  createdAt         DateTime      @default(now())
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicBookingFlow } from "@/components/booking/public-booking-flow";
 import { bookingProfessionals, type PublicProfessional } from "@/data/public-booking";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
+import { getPublicServices } from "@/lib/services-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ async function loadProfessional(slug: string): Promise<PublicProfessional | null
   if (profile.slug !== slug) return null;
 
   const base = bookingProfessionals[0];
+  const services = await getPublicServices();
   return {
     ...base,
     slug: profile.slug,
@@ -28,6 +30,7 @@ async function loadProfessional(slug: string): Promise<PublicProfessional | null
     photo: profile.photo,
     cabinetAvailable: profile.cabinetAvailable,
     homeAvailable: profile.homeAvailable,
+    services,
   };
 }
 
