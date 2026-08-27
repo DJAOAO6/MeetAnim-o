@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import { useEffect, useRef, type FormEvent } from "react";
 import { useManualAvailability } from "@/components/availability/manual-availability";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import type { BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
@@ -31,6 +31,19 @@ function availabilityLabel(service: PublicService) {
 export function ConsultationStep({ professional, serviceId, mode, onServiceChange, onModeChange, onNext }: ConsultationStepProps) {
   const { availability } = useManualAvailability();
   const service = professional.services.find((item) => item.id === serviceId);
+  const locationRef = useRef<HTMLDivElement>(null);
+  const skipNextScroll = useRef(true);
+
+  useEffect(() => {
+    if (skipNextScroll.current) {
+      // Ne pas défiler au premier rendu : seulement quand l'utilisateur
+      // vient de choisir une prestation, pas lorsqu'il revient sur cette
+      // étape avec un choix déjà fait.
+      skipNextScroll.current = false;
+      return;
+    }
+    if (serviceId) locationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [serviceId]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,7 +82,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
       </div>
 
       {service ? (
-        <div className="mt-6">
+        <div ref={locationRef} className="mt-6 animate-gentle-reveal scroll-mt-6">
           <p className="mb-3 text-sm font-black text-animeo-dark">Où ?</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <ModeCard

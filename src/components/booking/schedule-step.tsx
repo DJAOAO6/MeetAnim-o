@@ -121,28 +121,16 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
       />
       <div className="rounded-2xl bg-animeo-soft p-4 text-sm text-animeo-dark"><strong>{service.name}</strong> · {service.duration} minutes · {mode === "CABINET" ? "Au cabinet" : "À domicile"}</div>
 
-      {mode === "HOME" && zone ? (
+      {mode === "HOME" && zone && activeTours.length > 0 ? (
         <div className="mt-4 rounded-2xl border border-[#bfe1d8] bg-[#edf9f5] p-4">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo text-lg font-black text-white">⌖</span>
             <div>
               <p className="font-black text-[#24755f]">{zone.name} détectée</p>
               <p className="mt-1 text-sm leading-6 text-animeo-dark">
-                {activeTours.length > 0
-                  ? `${activeTours.map((tour) => tour.name).join(", ")} · passage le${activeTourDays.size > 1 ? "s" : ""} ${[...activeTourDays].join(" et ").toLocaleLowerCase("fr-FR")}. Ces jours sont mis en avant ci-dessous, mais tous les autres créneaux libres restent disponibles.`
-                  : "Aucune tournée n’est actuellement active dans cette zone, mais tous les créneaux libres ci-dessous restent disponibles."}
+                {activeTours.map((tour) => tour.name).join(", ")} · passage le{activeTourDays.size > 1 ? "s" : ""} {[...activeTourDays].join(" et ").toLocaleLowerCase("fr-FR")}. Ces jours sont mis en avant ci-dessous, mais tous les autres créneaux libres restent disponibles.
               </p>
               {nearbyLocationCount > 0 ? <p className="mt-2 text-sm font-extrabold text-animeo-dark">{nearbyLocationCount} passage{nearbyLocationCount > 1 ? "s" : ""} ou lieu{nearbyLocationCount > 1 ? "x" : ""} déjà identifié{nearbyLocationCount > 1 ? "s" : ""} à {clientAddress.city} : ces dates facilitent le regroupement des visites.</p> : null}
-            </div>
-          </div>
-        </div>
-      ) : mode === "HOME" ? (
-        <div className="mt-4 rounded-2xl border border-[#dfe9e6] bg-white p-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-soft text-lg font-black text-animeo-dark">⌖</span>
-            <div>
-              <p className="font-black text-animeo-dark">Aucune tournée régulière dans votre secteur</p>
-              <p className="mt-1 text-sm leading-6 text-animeo-muted">Tous les créneaux libres de l’agenda restent disponibles ci-dessous : choisissez simplement celui qui vous convient.</p>
             </div>
           </div>
         </div>
@@ -169,11 +157,6 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
           </div>
         </div>
       ) : null}
-
-      <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#dbe9e5] bg-white p-4 text-sm text-animeo-dark">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-animeo-soft text-xs font-black text-animeo">3M</span>
-        <p><strong>Réservation jusqu’à 3 mois à l’avance :</strong><br /><span className="text-animeo-muted">créneaux disponibles du {formatRangeDate(bookingStartDate)} au {formatRangeDate(bookingLimitDate)}.</span></p>
-      </div>
 
       {dates.length > 0 ? (
         <div className="mt-6">
@@ -231,8 +214,4 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
 function formatMonth(monthId: string) {
   const [year, month] = monthId.split("-").map(Number);
   return new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1, 12));
-}
-
-function formatRangeDate(date: Date) {
-  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(date);
 }

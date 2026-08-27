@@ -80,7 +80,11 @@ export type AnimalInformation = {
   name: string;
   species: PublicAnimalType;
   breed: string;
-  ageOrBirthDate: string;
+  // Date de naissance structurée (ISO YYYY-MM-DD), ou "" si non renseignée.
+  // birthDateApproximate signale une estimation par année seule (jour/mois
+  // fixés arbitrairement au 1er juillet) plutôt qu'une date exacte connue.
+  birthDate: string;
+  birthDateApproximate: boolean;
   notes: string;
 };
 

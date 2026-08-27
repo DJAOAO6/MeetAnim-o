@@ -37,7 +37,7 @@ async function mockAddressSearch(page: Page, body: unknown, status = 200) {
   });
 }
 
-/** Amène la page jusqu'à l'étape "Vous & votre animal" (mode domicile), où vit le champ d'adresse. */
+/** Amène la page jusqu'à la section "Adresse" (mode domicile), ouverte après le groupe Coordonnées. */
 async function gotoAddressStep(page: Page) {
   await page.goto(`/reserver/${PROFESSIONAL_SLUG}`);
   await expect(page.getByText("Quelle consultation souhaitez-vous")).toBeVisible();
@@ -47,7 +47,18 @@ async function gotoAddressStep(page: Page) {
   await page.locator('button[type="submit"]').click();
 
   await expect(page.getByText("Quelques informations")).toBeVisible();
-  return page.getByLabel("Adresse", { exact: false }).and(page.locator('input[role="combobox"]'));
+
+  // Le groupe "Coordonnées" s'ouvre en premier ; le remplir enchaîne
+  // automatiquement vers le groupe "Adresse" où vit le champ recherché.
+  await page.fill('input[autocomplete="given-name"]', "Camille");
+  await page.fill('input[autocomplete="family-name"]', "Test");
+  await page.fill('input[autocomplete="tel"]', "0612345678");
+  await page.locator('input[autocomplete="email"]').fill("camille@example.com");
+  await page.locator('input[autocomplete="email"]').blur();
+
+  const input = page.getByLabel("Adresse", { exact: false }).and(page.locator('input[role="combobox"]'));
+  await expect(input).toBeVisible();
+  return input;
 }
 
 test.describe("Autocomplétion d'adresse (étape domicile)", () => {

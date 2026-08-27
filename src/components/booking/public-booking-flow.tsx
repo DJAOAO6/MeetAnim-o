@@ -15,7 +15,7 @@ export type BookingScreen = "consultation" | "details" | "schedule" | "summary" 
 
 const emptyAddress: BookingAddress = { address: "", addressExtra: "", postalCode: "", city: "" };
 const emptyOwner: OwnerInformation = { firstName: "", lastName: "", phone: "", email: "", ...emptyAddress };
-const emptyAnimal: AnimalInformation = { name: "", species: "Chien", breed: "", ageOrBirthDate: "", notes: "" };
+const emptyAnimal: AnimalInformation = { name: "", species: "Chien", breed: "", birthDate: "", birthDateApproximate: false, notes: "" };
 
 function progressFor(screen: BookingScreen) {
   if (screen === "consultation") return 1;
@@ -98,6 +98,16 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
       longitude: mode === "HOME" ? address.longitude : undefined,
       price: consultationPrice + travelFee,
       notes: animal.notes || "Demande reçue depuis la page publique de réservation.",
+      ownerFirstName: owner.firstName || undefined,
+      ownerLastName: owner.lastName || undefined,
+      ownerPhone: owner.phone || undefined,
+      ownerEmail: owner.email || undefined,
+      ownerAddress: owner.address || undefined,
+      ownerCity: owner.city || undefined,
+      animalSpecies: animal.species || undefined,
+      animalBreed: animal.breed || undefined,
+      animalBirthDate: animal.birthDate || undefined,
+      animalBirthDateApproximate: animal.birthDateApproximate,
     });
 
     setSubmitting(false);

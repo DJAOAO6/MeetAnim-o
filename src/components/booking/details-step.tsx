@@ -1,9 +1,13 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
 import { AddressAutocomplete } from "@/components/booking/address-autocomplete";
+import { BirthDatePicker } from "@/components/booking/birth-date-picker";
+import { BreedCombobox } from "@/components/booking/breed-combobox";
 import { BookingActions, BookingField, StepHeading, bookingErrorInputClassName, bookingInputClassName, bookingTextareaClassName } from "@/components/booking/booking-ui";
+import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
+import { computeAgeLabel } from "@/lib/animal-age";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicAnimalType, PublicProfessional, PublicService } from "@/data/public-booking";
 
 const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
@@ -25,6 +29,10 @@ function findMatchingZone(professional: PublicProfessional, address: BookingAddr
 }
 
 type FieldKey = "firstName" | "lastName" | "phone" | "email" | "address" | "postalCode" | "city" | "animalName" | "reason";
+type GroupKey = "contact" | "address" | "animal";
+
+const groupOrder: GroupKey[] = ["contact", "address", "animal"];
+const groupTitles: Record<GroupKey, string> = { contact: "Coordonnées", address: "Adresse", animal: "Votre animal" };
 
 type DetailsStepProps = {
   professional: PublicProfessional;
@@ -46,7 +54,43 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
   const [touched, setTouched] = useState<Set<FieldKey>>(new Set());
   const [submitted, setSubmitted] = useState(false);
   const fieldRefs = useRef<Partial<Record<FieldKey, HTMLElement | null>>>({});
+  const groupContentRefs = useRef<Partial<Record<GroupKey, HTMLDivElement | null>>>({});
   const zone = professional.zones.find((item) => item.id === zoneId);
+  const activeAddress = mode === "CABINET" ? owner : address;
+
+  function isGroupValid(group: GroupKey): boolean {
+    switch (group) {
+      case "contact":
+        return owner.firstName.trim().length > 0 && owner.lastName.trim().length > 0 && phonePattern.test(owner.phone) && emailPattern.test(owner.email);
+      case "address":
+        return activeAddress.address.trim().length > 0 && activeAddress.postalCode.trim().length === 5 && activeAddress.city.trim().length > 0;
+      case "animal":
+        return animal.name.trim().length > 0 && animal.notes.trim().length > 0;
+    }
+  }
+
+  const [openGroup, setOpenGroup] = useState<GroupKey | null>(() => groupOrder.find((group) => !isGroupValid(group)) ?? null);
+
+  useEffect(() => {
+    if (!openGroup) return;
+    const container = groupContentRefs.current[openGroup];
+    if (!container) return;
+    const frame = requestAnimationFrame(() => {
+      container.querySelector<HTMLElement>("input, select, textarea")?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [openGroup]);
+
+  function toggleGroup(group: GroupKey) {
+    setOpenGroup((current) => (current === group ? null : group));
+  }
+
+  function advanceFrom(group: GroupKey) {
+    setOpenGroup((current) => {
+      if (current !== group || !isGroupValid(group)) return current;
+      return groupOrder[groupOrder.indexOf(group) + 1] ?? null;
+    });
+  }
 
   function updateOwner(key: keyof OwnerInformation, next: string) {
     onOwnerChange({ ...owner, [key]: next });
@@ -80,6 +124,14 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
     };
     onAddressChange(nextAddress);
     onZoneChange(findMatchingZone(professional, nextAddress)?.id ?? null);
+    // onAddressChange met à jour l'état du parent : `address` (et donc
+    // isGroupValid) ne reflète cette sélection qu'au prochain rendu. On
+    // valide donc ici directement sur l'objet fraîchement construit plutôt
+    // que sur la prop encore périmée.
+    const nextIsValid = nextAddress.address.trim().length > 0 && nextAddress.postalCode.trim().length === 5 && nextAddress.city.trim().length > 0;
+    if (nextIsValid) {
+      setOpenGroup((current) => (current === "address" ? groupOrder[groupOrder.indexOf("address") + 1] ?? null : current));
+    }
   }
 
   function updateAnimal<K extends keyof AnimalInformation>(key: K, next: AnimalInformation[K]) {
@@ -90,7 +142,16 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
     setTouched((current) => (current.has(key) ? current : new Set(current).add(key)));
   }
 
-  const activeAddress = mode === "CABINET" ? owner : address;
+  function commit(key: FieldKey, group: GroupKey) {
+    touch(key);
+    advanceFrom(group);
+  }
+
+  function commitOnEnter(key: FieldKey, group: GroupKey) {
+    return (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") { event.preventDefault(); commit(key, group); }
+    };
+  }
 
   function fieldError(key: FieldKey): string | null {
     if (!submitted && !touched.has(key)) return null;
@@ -107,97 +168,118 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
     }
   }
 
-  const requiredKeys: FieldKey[] = ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "animalName", "reason"];
+  function groupSummary(group: GroupKey): string | null {
+    switch (group) {
+      case "contact":
+        return owner.firstName.trim() || owner.lastName.trim() ? `${owner.firstName} ${owner.lastName}`.trim() + (owner.phone.trim() ? ` · ${owner.phone.trim()}` : "") : null;
+      case "address":
+        return activeAddress.address.trim() ? `${activeAddress.address.trim()}${activeAddress.city.trim() ? `, ${activeAddress.city.trim()}` : ""}` : null;
+      case "animal":
+        return animal.name.trim() ? `${animal.name.trim()}${animal.species ? ` · ${animal.species}` : ""}` : null;
+    }
+  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
-    const firstInvalid = requiredKeys.find((key) => fieldErrorForSubmit(key));
-    if (firstInvalid) {
-      fieldRefs.current[firstInvalid]?.focus();
+    const firstInvalidGroup = groupOrder.find((group) => !isGroupValid(group));
+    if (firstInvalidGroup) {
+      setOpenGroup(firstInvalidGroup);
       return;
     }
     onNext();
-
-    function fieldErrorForSubmit(key: FieldKey): boolean {
-      switch (key) {
-        case "firstName": return !owner.firstName.trim();
-        case "lastName": return !owner.lastName.trim();
-        case "phone": return !owner.phone.trim() || !phonePattern.test(owner.phone);
-        case "email": return !owner.email.trim() || !emailPattern.test(owner.email);
-        case "address": return !activeAddress.address.trim();
-        case "postalCode": return activeAddress.postalCode.trim().length !== 5;
-        case "city": return !activeAddress.city.trim();
-        case "animalName": return !animal.name.trim();
-        case "reason": return !animal.notes.trim();
-      }
-    }
   }
+
+  const showAddressDetails = activeAddress.address.trim().length > 0;
+  const ageLabel = computeAgeLabel({ date: animal.birthDate, approximate: animal.birthDateApproximate });
 
   return (
     <form onSubmit={submit} noValidate>
       <StepHeading eyebrow="Étape 2 · Vous & votre animal" title="Quelques informations" />
 
-      <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Vos coordonnées</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <BookingField label="Prénom" required error={fieldError("firstName")}>
-          <input
-            ref={(node) => { fieldRefs.current.firstName = node; }}
-            value={owner.firstName}
-            onChange={(event) => updateOwner("firstName", event.target.value)}
-            onBlur={() => touch("firstName")}
-            className={`${bookingInputClassName} ${fieldError("firstName") ? bookingErrorInputClassName : ""}`}
-            autoComplete="given-name"
-          />
-        </BookingField>
-        <BookingField label="Nom" required error={fieldError("lastName")}>
-          <input
-            ref={(node) => { fieldRefs.current.lastName = node; }}
-            value={owner.lastName}
-            onChange={(event) => updateOwner("lastName", event.target.value)}
-            onBlur={() => touch("lastName")}
-            className={`${bookingInputClassName} ${fieldError("lastName") ? bookingErrorInputClassName : ""}`}
-            autoComplete="family-name"
-          />
-        </BookingField>
-        <BookingField label="Téléphone" required error={fieldError("phone")}>
-          <input
-            ref={(node) => { fieldRefs.current.phone = node; }}
-            type="tel"
-            value={owner.phone}
-            onChange={(event) => updateOwner("phone", event.target.value)}
-            onBlur={() => touch("phone")}
-            className={`${bookingInputClassName} ${fieldError("phone") ? bookingErrorInputClassName : ""}`}
-            autoComplete="tel"
-            placeholder="06 12 34 56 78"
-          />
-        </BookingField>
-        <BookingField label="Email" required error={fieldError("email")}>
-          <input
-            ref={(node) => { fieldRefs.current.email = node; }}
-            type="email"
-            value={owner.email}
-            onChange={(event) => updateOwner("email", event.target.value)}
-            onBlur={() => touch("email")}
-            className={`${bookingInputClassName} ${fieldError("email") ? bookingErrorInputClassName : ""}`}
-            autoComplete="email"
-            spellCheck={false}
-            placeholder="vous@exemple.fr"
-          />
-        </BookingField>
+      <div className="mb-5 flex gap-1.5" aria-hidden="true">
+        {groupOrder.map((group) => (
+          <span key={group} className={`h-1 flex-1 rounded-full transition-colors motion-reduce:transition-none ${isGroupValid(group) ? "bg-animeo" : group === openGroup ? "bg-animeo/40" : "bg-[#e5eae9]"}`} />
+        ))}
       </div>
 
-      <p className="mb-3 mt-6 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">{mode === "HOME" ? "Adresse de la consultation" : "Votre adresse"}</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
+      <div className="rounded-2xl border border-[#e5eae9] bg-white">
+        <AccordionGroup
+          groupKey="contact"
+          index={0}
+          title={groupTitles.contact}
+          summary={groupSummary("contact")}
+          isOpen={openGroup === "contact"}
+          isValid={isGroupValid("contact")}
+          onToggle={() => toggleGroup("contact")}
+          contentRef={(node) => { groupContentRefs.current.contact = node; }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BookingField label="Prénom" required error={fieldError("firstName")}>
+              <input
+                ref={(node) => { fieldRefs.current.firstName = node; }}
+                value={owner.firstName}
+                onChange={(event) => updateOwner("firstName", event.target.value)}
+                onBlur={() => commit("firstName", "contact")}
+                onKeyDown={commitOnEnter("firstName", "contact")}
+                className={`${bookingInputClassName} ${fieldError("firstName") ? bookingErrorInputClassName : ""}`}
+                autoComplete="given-name"
+              />
+            </BookingField>
+            <BookingField label="Nom" required error={fieldError("lastName")}>
+              <input
+                ref={(node) => { fieldRefs.current.lastName = node; }}
+                value={owner.lastName}
+                onChange={(event) => updateOwner("lastName", event.target.value)}
+                onBlur={() => commit("lastName", "contact")}
+                onKeyDown={commitOnEnter("lastName", "contact")}
+                className={`${bookingInputClassName} ${fieldError("lastName") ? bookingErrorInputClassName : ""}`}
+                autoComplete="family-name"
+              />
+            </BookingField>
+            <BookingField label="Téléphone" required error={fieldError("phone")}>
+              <input
+                ref={(node) => { fieldRefs.current.phone = node; }}
+                type="tel"
+                value={owner.phone}
+                onChange={(event) => updateOwner("phone", event.target.value)}
+                onBlur={() => commit("phone", "contact")}
+                onKeyDown={commitOnEnter("phone", "contact")}
+                className={`${bookingInputClassName} ${fieldError("phone") ? bookingErrorInputClassName : ""}`}
+                autoComplete="tel"
+                placeholder="06 12 34 56 78"
+              />
+            </BookingField>
+            <BookingField label="Email" required error={fieldError("email")}>
+              <input
+                ref={(node) => { fieldRefs.current.email = node; }}
+                type="email"
+                value={owner.email}
+                onChange={(event) => updateOwner("email", event.target.value)}
+                onBlur={() => commit("email", "contact")}
+                onKeyDown={commitOnEnter("email", "contact")}
+                className={`${bookingInputClassName} ${fieldError("email") ? bookingErrorInputClassName : ""}`}
+                autoComplete="email"
+                spellCheck={false}
+                placeholder="vous@exemple.fr"
+              />
+            </BookingField>
+          </div>
+        </AccordionGroup>
+
+        <AccordionGroup
+          groupKey="address"
+          index={1}
+          title={groupTitles.address}
+          summary={groupSummary("address")}
+          isOpen={openGroup === "address"}
+          isValid={isGroupValid("address")}
+          onToggle={() => toggleGroup("address")}
+          contentRef={(node) => { groupContentRefs.current.address = node; }}
+        >
           <BookingField label="Adresse" required error={fieldError("address")}>
             {mode === "HOME" ? (
-              <AddressAutocomplete
-                value={address.address}
-                onQueryChange={updateAddressQuery}
-                onSelect={applySelectedAddress}
-                placeholder="12 rue Exemple"
-              />
+              <AddressAutocomplete value={address.address} onQueryChange={updateAddressQuery} onSelect={applySelectedAddress} placeholder="12 rue Exemple" />
             ) : (
               <input
                 ref={(node) => { fieldRefs.current.address = node; }}
@@ -209,77 +291,180 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
               />
             )}
           </BookingField>
-        </div>
-        {mode === "HOME" ? (
-          <div className="sm:col-span-2"><BookingField label="Complément d’adresse" hint="Facultatif"><input value={address.addressExtra} onChange={(event) => updateAddress("addressExtra", event.target.value)} className={bookingInputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></BookingField></div>
-        ) : null}
-        <BookingField label="Code postal" required error={fieldError("postalCode")}>
-          <input
-            ref={(node) => { fieldRefs.current.postalCode = node; }}
-            value={activeAddress.postalCode}
-            onChange={(event) => (mode === "HOME" ? updateAddress : updateOwner)("postalCode", event.target.value.replace(/\D/g, "").slice(0, 5))}
-            onBlur={() => touch("postalCode")}
-            className={`${bookingInputClassName} ${fieldError("postalCode") ? bookingErrorInputClassName : ""}`}
-            inputMode="numeric"
-            maxLength={5}
-            autoComplete="postal-code"
-            placeholder="76000"
-          />
-        </BookingField>
-        <BookingField label="Ville" required error={fieldError("city")}>
-          <input
-            ref={(node) => { fieldRefs.current.city = node; }}
-            value={activeAddress.city}
-            onChange={(event) => (mode === "HOME" ? updateAddress : updateOwner)("city", event.target.value)}
-            onBlur={() => touch("city")}
-            className={`${bookingInputClassName} ${fieldError("city") ? bookingErrorInputClassName : ""}`}
-            autoComplete="address-level2"
-            placeholder="Rouen"
-          />
-        </BookingField>
-      </div>
 
-      {mode === "HOME" && zone ? (
-        <div className="mt-4 rounded-2xl border border-[#bfe1d8] bg-[#edf9f5] p-4 text-sm">
-          <p className="font-black text-[#24755f]">✓ Une tournée passe régulièrement par votre secteur</p>
-          <p className="mt-1 text-animeo-dark">{zone.name} · le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")} — sans limiter les autres créneaux disponibles.</p>
-        </div>
-      ) : null}
+          <DynamicReveal show={showAddressDetails}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {mode === "HOME" ? (
+                <div className="sm:col-span-2"><BookingField label="Complément d’adresse" hint="Facultatif"><input value={address.addressExtra} onChange={(event) => updateAddress("addressExtra", event.target.value)} className={bookingInputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></BookingField></div>
+              ) : null}
+              <BookingField label="Code postal" required error={fieldError("postalCode")}>
+                <input
+                  ref={(node) => { fieldRefs.current.postalCode = node; }}
+                  value={activeAddress.postalCode}
+                  onChange={(event) => (mode === "HOME" ? updateAddress : updateOwner)("postalCode", event.target.value.replace(/\D/g, "").slice(0, 5))}
+                  onBlur={() => commit("postalCode", "address")}
+                  onKeyDown={commitOnEnter("postalCode", "address")}
+                  className={`${bookingInputClassName} ${fieldError("postalCode") ? bookingErrorInputClassName : ""}`}
+                  inputMode="numeric"
+                  maxLength={5}
+                  autoComplete="postal-code"
+                  placeholder="76000"
+                />
+              </BookingField>
+              <BookingField label="Ville" required error={fieldError("city")}>
+                <input
+                  ref={(node) => { fieldRefs.current.city = node; }}
+                  value={activeAddress.city}
+                  onChange={(event) => (mode === "HOME" ? updateAddress : updateOwner)("city", event.target.value)}
+                  onBlur={() => commit("city", "address")}
+                  onKeyDown={commitOnEnter("city", "address")}
+                  className={`${bookingInputClassName} ${fieldError("city") ? bookingErrorInputClassName : ""}`}
+                  autoComplete="address-level2"
+                  placeholder="Rouen"
+                />
+              </BookingField>
+            </div>
 
-      <p className="mb-3 mt-6 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Votre animal</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <BookingField label="Nom de l’animal" required error={fieldError("animalName")}>
-          <input
-            ref={(node) => { fieldRefs.current.animalName = node; }}
-            value={animal.name}
-            onChange={(event) => updateAnimal("name", event.target.value)}
-            onBlur={() => touch("animalName")}
-            className={`${bookingInputClassName} ${fieldError("animalName") ? bookingErrorInputClassName : ""}`}
-            placeholder="Luna"
-          />
-        </BookingField>
-        <BookingField label="Espèce" required>
-          <select value={animal.species} onChange={(event) => updateAnimal("species", event.target.value as PublicAnimalType)} className={bookingInputClassName}>
-            {species.filter((item) => service.animalTypes.includes(item)).map((item) => <option key={item}>{item}</option>)}
-          </select>
-        </BookingField>
-        <BookingField label="Race" hint="Facultatif"><input value={animal.breed} onChange={(event) => updateAnimal("breed", event.target.value)} className={bookingInputClassName} placeholder="Golden Retriever" /></BookingField>
-        <BookingField label="Âge ou date de naissance" hint="Facultatif"><input value={animal.ageOrBirthDate} onChange={(event) => updateAnimal("ageOrBirthDate", event.target.value)} className={bookingInputClassName} placeholder="5 ans ou 12/04/2021" /></BookingField>
-        <div className="sm:col-span-2">
-          <BookingField label="Motif de consultation" required error={fieldError("reason")}>
-            <textarea
-              ref={(node) => { fieldRefs.current.reason = node; }}
-              value={animal.notes}
-              onChange={(event) => updateAnimal("notes", event.target.value)}
-              onBlur={() => touch("reason")}
-              className={`${bookingTextareaClassName} ${fieldError("reason") ? bookingErrorInputClassName : ""}`}
-              placeholder="Ex. Boiterie depuis quelques jours…"
-            />
-          </BookingField>
-        </div>
+            {mode === "HOME" && zone ? (
+              <div className="mt-4 rounded-2xl border border-[#bfe1d8] bg-[#edf9f5] p-3.5 text-sm">
+                <p className="font-black text-[#24755f]">✓ {zone.name} — passage régulier le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}</p>
+              </div>
+            ) : null}
+          </DynamicReveal>
+        </AccordionGroup>
+
+        <AccordionGroup
+          groupKey="animal"
+          index={2}
+          title={groupTitles.animal}
+          summary={groupSummary("animal")}
+          isOpen={openGroup === "animal"}
+          isValid={isGroupValid("animal")}
+          onToggle={() => toggleGroup("animal")}
+          contentRef={(node) => { groupContentRefs.current.animal = node; }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <BookingField label="Nom de l’animal" required error={fieldError("animalName")}>
+              <input
+                ref={(node) => { fieldRefs.current.animalName = node; }}
+                value={animal.name}
+                onChange={(event) => updateAnimal("name", event.target.value)}
+                onBlur={() => touch("animalName")}
+                className={`${bookingInputClassName} ${fieldError("animalName") ? bookingErrorInputClassName : ""}`}
+                placeholder="Luna"
+              />
+            </BookingField>
+            <BookingField label="Espèce" required>
+              <select value={animal.species} onChange={(event) => updateAnimal("species", event.target.value as PublicAnimalType)} className={bookingInputClassName}>
+                {species.filter((item) => service.animalTypes.includes(item)).map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </BookingField>
+            <BookingField label={breedFieldLabel[animal.species]} hint="Facultatif">
+              <BreedCombobox species={animal.species} value={animal.breed} onChange={(value) => updateAnimal("breed", value)} placeholder="Commencez à taper…" />
+            </BookingField>
+            <BookingField label="Date de naissance" hint="Facultatif">
+              <BirthDatePicker
+                value={{ date: animal.birthDate, approximate: animal.birthDateApproximate }}
+                onChange={(value) => onAnimalChange({ ...animal, birthDate: value.date, birthDateApproximate: value.approximate })}
+              />
+              {ageLabel ? <p className="mt-1.5 text-xs font-semibold text-animeo-muted">{ageLabel}</p> : null}
+            </BookingField>
+            <div className="sm:col-span-2">
+              <BookingField label="Motif de consultation" required error={fieldError("reason")}>
+                <textarea
+                  ref={(node) => { fieldRefs.current.reason = node; }}
+                  value={animal.notes}
+                  onChange={(event) => updateAnimal("notes", event.target.value)}
+                  onBlur={() => touch("reason")}
+                  className={`${bookingTextareaClassName} ${fieldError("reason") ? bookingErrorInputClassName : ""}`}
+                  placeholder="Ex. Boiterie depuis quelques jours…"
+                />
+              </BookingField>
+            </div>
+          </div>
+        </AccordionGroup>
       </div>
 
       <BookingActions onBack={onBack} />
     </form>
+  );
+}
+
+function AccordionGroup({ groupKey, index, title, summary, isOpen, isValid, onToggle, contentRef, children }: {
+  groupKey: GroupKey;
+  index: number;
+  title: string;
+  summary: string | null;
+  isOpen: boolean;
+  isValid: boolean;
+  onToggle: () => void;
+  contentRef: (node: HTMLDivElement | null) => void;
+  children: ReactNode;
+}) {
+  const headerId = `booking-details-header-${groupKey}`;
+  const panelId = `booking-details-panel-${groupKey}`;
+
+  return (
+    <div className="border-b border-[#e5eae9] px-4 last:border-b-0 sm:px-5">
+      <button
+        type="button"
+        id={headerId}
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        className="flex w-full items-center justify-between gap-3 rounded-lg py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-1"
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition motion-reduce:transition-none ${
+            isValid ? "bg-animeo text-white" : isOpen ? "border-2 border-animeo text-animeo-dark" : "bg-[#eef1f1] text-animeo-muted"
+          }`}>
+            {isValid ? <CheckMark /> : index + 1}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-extrabold text-animeo-dark">{title}</span>
+            {!isOpen && summary ? <span className="block truncate text-xs text-animeo-muted">{summary}</span> : null}
+          </span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-animeo-muted transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={headerId}
+        inert={!isOpen}
+        className="grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none"
+        style={{ gridTemplateRows: isOpen ? "1fr" : "0fr", overflow: isOpen ? "visible" : "hidden" }}
+      >
+        <div ref={contentRef} className="min-h-0">
+          <div className="pb-5">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DynamicReveal({ show, children }: { show: boolean; children: ReactNode }) {
+  return (
+    <div className="grid transition-[grid-template-rows] duration-[250ms] ease-out motion-reduce:transition-none" style={{ gridTemplateRows: show ? "1fr" : "0fr" }}>
+      <div className="overflow-hidden">
+        <div className="pt-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function CheckMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function ChevronDown({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

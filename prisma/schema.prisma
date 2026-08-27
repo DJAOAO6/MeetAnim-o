@@ -169,7 +169,7 @@ model RateLimitEvent {
 }
 
 model Client {
-  id        String       @id
+  id        String       @id @default(cuid())
   firstName String
   lastName  String
   phone     String
@@ -185,6 +185,7 @@ model Client {
   reminders    Reminder[]
 
   @@index([lastName, firstName])
+  @@index([email])
 }
 
 model Animal {
@@ -196,6 +197,8 @@ model Animal {
   species          String
   breed            String
   age              String
+  birthDate            DateTime?
+  birthDateApproximate Boolean   @default(false)
   weight           String
   sex              String
   avatar           String

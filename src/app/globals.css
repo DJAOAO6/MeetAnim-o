@@ -142,3 +142,24 @@ a:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--theme-primary) 45%, transparent);
   outline-offset: 3px;
 }
+
+@keyframes gentle-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-gentle-reveal {
+  animation: gentle-reveal 320ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-gentle-reveal {
+    animation: none;
+  }
+}

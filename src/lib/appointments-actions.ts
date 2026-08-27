@@ -5,9 +5,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
+import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
+import { computeAgeLabel } from "@/lib/animal-age";
 
 const dbMode: Record<AppointmentMode, VisitMode> = { cabinet: "CABINET", home: "DOMICILE" };
 const modeLabel: Record<VisitMode, AppointmentMode> = { CABINET: "cabinet", DOMICILE: "home" };
@@ -162,6 +164,20 @@ export type PublicBookingInput = {
   inseeCode?: string;
   latitude?: number;
   longitude?: number;
+  // Coordonnées et animal saisis sur la page de réservation publique, utilisés
+  // pour rattacher la demande à une fiche Client/Animal réelle (voir
+  // findOrCreateClientAndAnimal). Comme les champs géocodés ci-dessus, jamais
+  // garantis valides côté serveur : revalidés avant toute écriture.
+  ownerFirstName?: string;
+  ownerLastName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  ownerAddress?: string;
+  ownerCity?: string;
+  animalSpecies?: string;
+  animalBreed?: string;
+  animalBirthDate?: string;
+  animalBirthDateApproximate?: boolean;
 };
 
 export type PublicBookingResult = { ok: true; id: string } | { ok: false; error: string };
@@ -190,6 +206,117 @@ function sanitizeGeoFields(input: PublicBookingInput) {
   return parsed.success ? parsed.data : {};
 }
 
+const ownerFieldsSchema = z.object({
+  firstName: z.string().trim().min(1).max(200).optional(),
+  lastName: z.string().trim().min(1).max(200).optional(),
+  phone: z.string().trim().min(1).max(50).optional(),
+  email: z.string().trim().toLowerCase().email().max(320).optional(),
+  address: z.string().trim().max(500).optional(),
+  city: z.string().trim().max(200).optional(),
+});
+
+const animalFieldsSchema = z.object({
+  species: z.enum(["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"]).optional(),
+  breed: z.string().trim().max(200).optional(),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  birthDateApproximate: z.boolean().optional(),
+});
+
+function sanitizeOwnerFields(input: PublicBookingInput) {
+  const parsed = ownerFieldsSchema.safeParse({
+    firstName: input.ownerFirstName,
+    lastName: input.ownerLastName,
+    phone: input.ownerPhone,
+    email: input.ownerEmail,
+    address: input.ownerAddress,
+    city: input.ownerCity,
+  });
+  return parsed.success ? parsed.data : {};
+}
+
+function sanitizeAnimalFields(input: PublicBookingInput) {
+  const parsed = animalFieldsSchema.safeParse({
+    species: input.animalSpecies,
+    breed: input.animalBreed,
+    birthDate: input.animalBirthDate,
+    birthDateApproximate: input.animalBirthDateApproximate,
+  });
+  return parsed.success ? parsed.data : {};
+}
+
+/**
+ * Rattache la demande de réservation publique à une vraie fiche Client/Animal
+ * plutôt que de laisser ces informations se perdre dans les seuls champs
+ * texte de l'Appointment (clientName/animalName). Recherche du client par
+ * email (insensible à la casse) pour éviter les doublons d'une réservation à
+ * l'autre ; l'animal est recherché par nom au sein de ce client. Best-effort
+ * uniquement : une donnée manquante ou invalide fait renoncer à la
+ * création/liaison plutôt que d'échouer la demande de rendez-vous.
+ */
+async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<{ clientId: string | null; animalId: string | null }> {
+  try {
+    const owner = sanitizeOwnerFields(input);
+    if (!owner.email || !owner.firstName || !owner.lastName) {
+      return { clientId: null, animalId: null };
+    }
+
+    let client = await prisma.client.findFirst({ where: { email: { equals: owner.email, mode: "insensitive" } } });
+    if (!client) {
+      client = await prisma.client.create({
+        data: {
+          firstName: owner.firstName,
+          lastName: owner.lastName,
+          phone: owner.phone ?? "",
+          email: owner.email,
+          city: owner.city ?? "",
+          address: owner.address ?? "",
+        },
+      });
+    }
+
+    const animalName = input.animalName.trim();
+    if (!animalName) {
+      return { clientId: client.id, animalId: null };
+    }
+
+    let animal = await prisma.animal.findFirst({
+      where: { clientId: client.id, name: { equals: animalName, mode: "insensitive" } },
+    });
+
+    if (!animal) {
+      const animalFields = sanitizeAnimalFields(input);
+      const species = animalFields.species ?? "Chien";
+      const birthDate = animalFields.birthDate ? new Date(`${animalFields.birthDate}T00:00:00.000Z`) : null;
+      const birthDateApproximate = animalFields.birthDateApproximate ?? false;
+      const ageLabel = computeAgeLabel({ date: animalFields.birthDate ?? "", approximate: birthDateApproximate }) ?? "";
+
+      animal = await prisma.animal.create({
+        data: {
+          clientId: client.id,
+          name: animalName,
+          species,
+          breed: animalFields.breed ?? "",
+          age: ageLabel,
+          birthDate,
+          birthDateApproximate,
+          weight: "",
+          sex: "",
+          avatar: avatarForSpecies(species),
+          avatarBackground: avatarBackgroundFor(`${client.id}-${animalName}`),
+          history: "",
+          conditions: "",
+          treatments: "",
+          notes: "",
+        },
+      });
+    }
+
+    return { clientId: client.id, animalId: animal.id };
+  } catch {
+    return { clientId: null, animalId: null };
+  }
+}
+
 /**
  * Point d'entrée public (appelé depuis /reserver, sans session) : crée une
  * demande de rendez-vous PENDING directement en base, avec la même
@@ -202,14 +329,19 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   }
 
   const geoFields = sanitizeGeoFields(input);
+  const animalFields = sanitizeAnimalFields(input);
+  const { clientId, animalId } = await findOrCreateClientAndAnimal(input);
 
   const row = await prisma.appointment.create({
     data: {
+      clientId,
+      animalId,
       date: toDate(input.date),
       start: input.start,
       duration: input.duration,
       clientName: input.clientName,
       animalName: input.animalName,
+      animalSpecies: animalFields.species ?? null,
       serviceName: input.serviceName,
       mode: dbMode[input.mode],
       location: input.location,
