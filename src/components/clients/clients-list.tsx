@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -10,7 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
 import { deleteClientAction } from "@/lib/clients-actions";
-import type { Client } from "@/data/clients";
+import type { Animal, Client } from "@/data/clients";
 
 type ClientsListProps = {
   clients: Client[];
@@ -219,7 +220,7 @@ function ClientTableRow({ client, canDelete, onDeleted }: { client: Client; canD
     <tr className={`transition hover:bg-animeo-bg/70 ${pending ? "opacity-50" : ""}`}>
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
-          <ClientAvatar initials={client.initials} />
+          <AnimalAvatarStack animals={client.animals} />
           <div>
             <p className="font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</p>
             <p className="mt-0.5 text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
@@ -264,7 +265,7 @@ function ClientMobileCard({ client, canDelete, onDeleted }: { client: Client; ca
   return (
     <article className={`rounded-2xl border border-[#e1ebe8] bg-white p-4 ${pending ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-3">
-        <ClientAvatar initials={client.initials} />
+        <AnimalAvatarStack animals={client.animals} />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</h3>
           <p className="text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
@@ -284,10 +285,35 @@ function ClientMobileCard({ client, canDelete, onDeleted }: { client: Client; ca
   );
 }
 
-function ClientAvatar({ initials }: { initials: string }) {
+function AnimalAvatarStack({ animals }: { animals: Animal[] }) {
+  if (animals.length === 0) {
+    return (
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-animeo-bg text-animeo-muted">
+        <Icon name="paw" className="h-5 w-5" />
+      </span>
+    );
+  }
+
+  const visible = animals.slice(0, 2);
+  const extra = animals.length - visible.length;
+
   return (
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-animeo-soft text-sm font-black text-animeo-dark">
-      {initials}
+    <div className="flex shrink-0 -space-x-3">
+      {visible.map((animal) => (
+        <span
+          key={animal.id}
+          role="img"
+          aria-label={animal.photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}
+          className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border-2 border-white bg-gradient-to-br text-lg shadow-sm ${animal.avatarBackground}`}
+        >
+          {animal.photo ? <Image src={animal.photo} alt="" width={44} height={44} unoptimized className="h-full w-full object-cover" /> : animal.avatar}
+        </span>
+      ))}
+      {extra > 0 ? (
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl border-2 border-white bg-animeo-soft text-xs font-black text-animeo-dark shadow-sm">
+          +{extra}
+        </span>
+      ) : null}
     </div>
   );
 }

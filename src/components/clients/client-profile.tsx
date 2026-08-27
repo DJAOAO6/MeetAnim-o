@@ -118,39 +118,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
         description={`${animals.length} animal${animals.length > 1 ? "aux" : ""} associé${animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
       />
 
-      {feedback ? (
-        <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">
-          <span>{feedback}</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer le message" className="text-lg leading-none">×</button>
-        </div>
-      ) : null}
-
-      {selectedAnimal ? (
-        <div className="mb-6 grid items-start gap-6 2xl:grid-cols-[260px_minmax(0,1fr)_300px]">
-          <AnimalSelector
-            animals={animals}
-            clientId={client.id}
-            animalPhotos={animalPhotos}
-            selectedAnimalId={selectedAnimal.id}
-            onSelect={setSelectedAnimalId}
-            canDelete={canDelete}
-            onDeleted={handleAnimalDeleted}
-          />
-          <AnimalRecord
-            animal={selectedAnimal}
-            photo={animalPhotos[animalPhotoKey(client.id, selectedAnimal.id)] ?? selectedAnimal.photo}
-            onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
-            onAnimalUpdated={handleAnimalUpdated}
-          />
-          <AnimalSideCards animal={selectedAnimal} onAction={showFeedback} />
-        </div>
-      ) : (
-        <Card className="mb-6 p-10 text-center">
-          <p className="font-extrabold text-animeo-dark">Aucun animal associé à ce client.</p>
-        </Card>
-      )}
-
-      <Card className="p-5 sm:p-6">
+      <Card className="mb-6 p-5 sm:p-6">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-animeo-soft text-xl font-black text-animeo-dark">
@@ -196,6 +164,38 @@ export function ClientProfile({ client }: ClientProfileProps) {
           </div>
         </div>
       </Card>
+
+      {feedback ? (
+        <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">
+          <span>{feedback}</span>
+          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer le message" className="text-lg leading-none">×</button>
+        </div>
+      ) : null}
+
+      {selectedAnimal ? (
+        <div className="grid items-start gap-6 2xl:grid-cols-[260px_minmax(0,1fr)_300px]">
+          <AnimalSelector
+            animals={animals}
+            clientId={client.id}
+            animalPhotos={animalPhotos}
+            selectedAnimalId={selectedAnimal.id}
+            onSelect={setSelectedAnimalId}
+            canDelete={canDelete}
+            onDeleted={handleAnimalDeleted}
+          />
+          <AnimalRecord
+            animal={selectedAnimal}
+            photo={animalPhotos[animalPhotoKey(client.id, selectedAnimal.id)] ?? selectedAnimal.photo}
+            onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
+            onAnimalUpdated={handleAnimalUpdated}
+          />
+          <AnimalSideCards animal={selectedAnimal} onAction={showFeedback} />
+        </div>
+      ) : (
+        <Card className="p-10 text-center">
+          <p className="font-extrabold text-animeo-dark">Aucun animal associé à ce client.</p>
+        </Card>
+      )}
     </>
   );
 }
