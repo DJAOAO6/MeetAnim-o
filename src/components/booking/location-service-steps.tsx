@@ -2,7 +2,9 @@
 
 import type { FormEvent } from "react";
 import { useManualAvailability } from "@/components/availability/manual-availability";
+import { AddressAutocomplete } from "@/components/booking/address-autocomplete";
 import { BookingActions, BookingField, StepHeading, bookingInputClassName } from "@/components/booking/booking-ui";
+import type { GeocodedAddress } from "@/data/geocoding";
 import type { BookingAddress, BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
 
 type ServiceStepProps = {
@@ -170,6 +172,39 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
     onZoneChange(matchingZone?.id ?? null);
   }
 
+  function updateAddressQuery(next: string) {
+    // Une nouvelle saisie manuelle invalide une sélection précédente : on
+    // efface les données géocodées associées plutôt que de les laisser
+    // pointer vers une adresse qui ne correspond plus au texte affiché.
+    const address: BookingAddress = value.latitude !== undefined
+      ? { ...value, address: next, houseNumber: undefined, street: undefined, citycode: undefined, latitude: undefined, longitude: undefined }
+      : { ...value, address: next };
+    onChange(address);
+    const matchingZone = findMatchingZone(professional, address);
+    onZoneChange(matchingZone?.id ?? null);
+  }
+
+  function applySelectedAddress(result: GeocodedAddress) {
+    const address: BookingAddress = {
+      ...value,
+      address: result.label,
+      postalCode: result.postcode,
+      city: result.city,
+      houseNumber: result.houseNumber,
+      street: result.street,
+      citycode: result.citycode,
+      latitude: result.latitude,
+      longitude: result.longitude,
+    };
+    onChange(address);
+    const matchingZone = findMatchingZone(professional, address);
+    onZoneChange(matchingZone?.id ?? null);
+  }
+
+  function updatePostalCode(next: string) {
+    update("postalCode", next.replace(/\D/g, "").slice(0, 5));
+  }
+
   const hasCompleteAddress = value.address.trim().length > 0 && value.postalCode.trim().length > 0 && value.city.trim().length > 0;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -181,9 +216,13 @@ export function AddressStep({ professional, service, value, zoneId, onChange, on
     <form onSubmit={submit}>
       <StepHeading eyebrow="Étape 3 · Informations" title="Où doit se dérouler la consultation ?" description="Les tournées existent pour optimiser les trajets du professionnel : elles ne limitent jamais les créneaux que vous pouvez choisir." />
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2"><BookingField label="Adresse" required><input value={value.address} onChange={(event) => update("address", event.target.value)} className={bookingInputClassName} placeholder="12 rue Exemple" required /></BookingField></div>
+        <div className="sm:col-span-2">
+          <BookingField label="Votre adresse" required>
+            <AddressAutocomplete value={value.address} onQueryChange={updateAddressQuery} onSelect={applySelectedAddress} placeholder="12 rue Exemple" required />
+          </BookingField>
+        </div>
         <div className="sm:col-span-2"><BookingField label="Complément d’adresse" hint="Facultatif"><input value={value.addressExtra} onChange={(event) => update("addressExtra", event.target.value)} className={bookingInputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></BookingField></div>
-        <BookingField label="Code postal" required><input value={value.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={bookingInputClassName} inputMode="numeric" placeholder="76000" required /></BookingField>
+        <BookingField label="Code postal" required><input value={value.postalCode} onChange={(event) => updatePostalCode(event.target.value)} className={bookingInputClassName} inputMode="numeric" maxLength={5} placeholder="76000" required /></BookingField>
         <BookingField label="Ville" required><input value={value.city} onChange={(event) => update("city", event.target.value)} className={bookingInputClassName} placeholder="Rouen" required /></BookingField>
       </div>
 

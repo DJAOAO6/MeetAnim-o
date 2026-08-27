@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
@@ -152,9 +153,42 @@ export type PublicBookingInput = {
   location: string;
   price: number;
   notes: string;
+  // Issues de l'autocomplétion d'adresse (Géoplateforme IGN) pour un
+  // rendez-vous à domicile ; absentes pour le cabinet ou une saisie
+  // manuelle. Toujours revalidées ci-dessous avant écriture : ce sont des
+  // données saisies/relayées côté client, jamais garanties valides.
+  postalCode?: string;
+  city?: string;
+  inseeCode?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type PublicBookingResult = { ok: true; id: string } | { ok: false; error: string };
+
+/**
+ * Les champs géocodés sont un bonus (carte, tournées, distances futures) :
+ * une valeur absente ou mal formée ne doit jamais faire échouer la demande
+ * de rendez-vous, elle est simplement ignorée (stockée à null).
+ */
+const geoFieldsSchema = z.object({
+  postalCode: z.string().regex(/^\d{5}$/).optional(),
+  city: z.string().trim().min(1).max(200).optional(),
+  inseeCode: z.string().regex(/^(\d{2}|2[AB])\d{3}$/i).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+});
+
+function sanitizeGeoFields(input: PublicBookingInput) {
+  const parsed = geoFieldsSchema.safeParse({
+    postalCode: input.postalCode,
+    city: input.city,
+    inseeCode: input.inseeCode,
+    latitude: input.latitude,
+    longitude: input.longitude,
+  });
+  return parsed.success ? parsed.data : {};
+}
 
 /**
  * Point d'entrée public (appelé depuis /reserver, sans session) : crée une
@@ -167,6 +201,8 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
 
+  const geoFields = sanitizeGeoFields(input);
+
   const row = await prisma.appointment.create({
     data: {
       date: toDate(input.date),
@@ -177,6 +213,11 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
       serviceName: input.serviceName,
       mode: dbMode[input.mode],
       location: input.location,
+      postalCode: geoFields.postalCode ?? null,
+      city: geoFields.city ?? null,
+      inseeCode: geoFields.inseeCode ?? null,
+      latitude: geoFields.latitude ?? null,
+      longitude: geoFields.longitude ?? null,
       price: input.price,
       status: "PENDING",
       notes: input.notes,
@@ -189,24 +230,44 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   return { ok: true, id: row.id };
 }
 
+function minutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function timeToMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
 /**
  * Lecture publique (sans session) des créneaux déjà occupés sur une période :
  * ne renvoie que date + heure, jamais l'identité du client, pour alimenter
- * le calendrier de réservation sans exposer de données personnelles.
+ * le calendrier de réservation sans exposer de données personnelles. Les
+ * créneaux bloqués par le praticien (BlockedSlot) sont inclus de la même
+ * façon, en générant tous les repères de 15 min couverts par leur plage.
  */
 export async function getOccupiedSlotsAction(fromDateId: string, toDateId: string): Promise<Record<string, string[]>> {
-  const rows = await prisma.appointment.findMany({
-    where: {
-      status: { not: "CANCELLED" },
-      date: { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) },
-    },
-    select: { date: true, start: true },
-  });
+  const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
+
+  const [appointmentRows, blockedRows] = await Promise.all([
+    prisma.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true } }),
+    prisma.blockedSlot.findMany({ where: { date: range }, select: { date: true, startTime: true, endTime: true } }),
+  ]);
 
   const result: Record<string, string[]> = {};
-  for (const row of rows) {
+  for (const row of appointmentRows) {
     const id = row.date.toISOString().slice(0, 10);
     (result[id] ??= []).push(row.start);
+  }
+  for (const row of blockedRows) {
+    const id = row.date.toISOString().slice(0, 10);
+    const startMinutes = timeToMinutes(row.startTime);
+    const endMinutes = timeToMinutes(row.endTime);
+    for (let minutes = startMinutes; minutes < endMinutes; minutes += 15) {
+      (result[id] ??= []).push(minutesToTime(minutes));
+    }
   }
   return result;
 }

@@ -59,6 +59,14 @@ export type BookingAddress = {
   addressExtra: string;
   postalCode: string;
   city: string;
+  // Renseignés automatiquement lors d'une sélection via l'autocomplétion
+  // d'adresse (Géoplateforme IGN) ; absents pour une saisie manuelle.
+  // Conservés pour les futurs usages carte/tournées/distances.
+  houseNumber?: string;
+  street?: string;
+  citycode?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type OwnerInformation = BookingAddress & {

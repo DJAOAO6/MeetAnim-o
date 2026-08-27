@@ -65,6 +65,9 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
     setSubmitting(true);
     setSubmitError(null);
 
+    const homeLocation = [address.address, address.addressExtra].filter(Boolean).join(" ")
+      + (address.postalCode || address.city ? `, ${[address.postalCode, address.city].filter(Boolean).join(" ")}` : "");
+
     const result = await submitPublicBookingAction({
       date: dateId,
       start: time,
@@ -73,7 +76,12 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
       animalName: animal.name,
       serviceName: service.name,
       mode: mode === "CABINET" ? "cabinet" : "home",
-      location: mode === "CABINET" ? "Cabinet" : address.city,
+      location: mode === "CABINET" ? "Cabinet" : homeLocation,
+      postalCode: mode === "HOME" ? address.postalCode || undefined : undefined,
+      city: mode === "HOME" ? address.city || undefined : undefined,
+      inseeCode: mode === "HOME" ? address.citycode : undefined,
+      latitude: mode === "HOME" ? address.latitude : undefined,
+      longitude: mode === "HOME" ? address.longitude : undefined,
       price: consultationPrice + travelFee,
       notes: animal.notes || "Demande reçue depuis la page publique de réservation.",
     });

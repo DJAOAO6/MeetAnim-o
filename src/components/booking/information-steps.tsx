@@ -33,7 +33,7 @@ export function OwnerStep({ mode, value, onChange, onBack, onNext }: OwnerStepPr
         {mode === "CABINET" ? (
           <>
             <div className="sm:col-span-2"><BookingField label="Votre adresse" required><input value={value.address} onChange={(event) => update("address", event.target.value)} className={bookingInputClassName} autoComplete="street-address" required /></BookingField></div>
-            <BookingField label="Code postal" required><input value={value.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={bookingInputClassName} inputMode="numeric" autoComplete="postal-code" required /></BookingField>
+            <BookingField label="Code postal" required><input value={value.postalCode} onChange={(event) => update("postalCode", event.target.value.replace(/\D/g, "").slice(0, 5))} className={bookingInputClassName} inputMode="numeric" maxLength={5} autoComplete="postal-code" required /></BookingField>
             <BookingField label="Ville" required><input value={value.city} onChange={(event) => update("city", event.target.value)} className={bookingInputClassName} autoComplete="address-level2" required /></BookingField>
           </>
         ) : (
