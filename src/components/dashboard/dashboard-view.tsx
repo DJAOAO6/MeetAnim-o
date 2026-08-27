@@ -22,7 +22,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
         <div className="grid grid-cols-1 items-start gap-6">
-          <DashboardPlanning />
+          <DashboardPlanning clients={clients} />
           <DashboardActivityChart />
         </div>
         <div className="grid grid-cols-1 items-start gap-6">

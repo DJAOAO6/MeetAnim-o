@@ -13,8 +13,8 @@ import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
 import { PersonalizationView } from "@/components/settings/personalization-view";
 import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
-import { initialSettings, type ProfileSettings, type SettingsState } from "@/data/settings";
-import { updateBusinessProfileAction, type BusinessProfileData } from "@/lib/business-profile-actions";
+import { initialSettings, type AvailabilitySettings, type ProfileSettings, type SettingsState } from "@/data/settings";
+import { updateAvailabilityAction, updateBusinessProfileAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
 import type { Tour, Zone } from "@/data/tours";
 
@@ -24,6 +24,7 @@ type SettingsViewProps = {
   tours: Tour[];
   zones: Zone[];
   businessProfile: BusinessProfileData;
+  availability: AvailabilitySettings;
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
@@ -37,7 +38,7 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones, businessProfile }: SettingsViewProps) {
+export function SettingsView({ tours, zones, businessProfile, availability }: SettingsViewProps) {
   const currentUser = useCurrentUser();
   const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
@@ -46,6 +47,7 @@ export function SettingsView({ tours, zones, businessProfile }: SettingsViewProp
     ...sessionSettings,
     profile: businessProfile,
     publicColor: businessProfile.publicColor,
+    availability,
   }));
   const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable"> = { cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable };
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -83,6 +85,19 @@ export function SettingsView({ tours, zones, businessProfile }: SettingsViewProp
     await saveProfile(settings.profile, draft.primaryColor, "Personnalisation enregistrée");
   }
 
+  async function saveAvailability(value: AvailabilitySettings, message: string) {
+    setSaving(true);
+    const result = await updateAvailabilityAction(value);
+    setSaving(false);
+
+    if (!result.ok) {
+      setFeedback(result.error);
+      return;
+    }
+
+    updateSettings("availability", value, message);
+  }
+
   return (
     <>
       <PageHeader
@@ -116,7 +131,7 @@ export function SettingsView({ tours, zones, businessProfile }: SettingsViewProp
 
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
-      {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={(value, message) => updateSettings("availability", value, message)} /> : null}
+      {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} /> : null}
       {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} onNotify={setFeedback} /> : null}
       {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={(value) => updateSettings("reminders", value)} /> : null}
       {activeTab === "customization" ? (

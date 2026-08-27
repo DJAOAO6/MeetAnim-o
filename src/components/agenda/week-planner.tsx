@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AgendaEventPopover } from "@/components/agenda/agenda-event-popover";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { computeClosedRanges, getDayAvailability } from "@/lib/availability";
 import type { ClientPickerOption } from "@/data/clients";
+import type { AvailabilitySettings } from "@/data/settings";
 
 type EventKind = "cabinet" | "domicile" | "pending" | "unavailable" | "tournee";
 
@@ -26,6 +28,7 @@ type WeekPlannerProps = {
   dates: Date[];
   showEvents: boolean;
   clients: ClientPickerOption[];
+  availability: AvailabilitySettings;
   onPendingAction: (action: string, event: CalendarEvent) => void;
   localEvents?: CalendarEvent[];
   appointmentEvents?: CalendarEvent[];
@@ -40,9 +43,7 @@ const MIN_PENDING_HEIGHT = 100;
 
 const events: CalendarEvent[] = [
   { id: "tour-rouen", day: 1, start: "13:00", duration: 150, kind: "tournee", title: "Tournée Rouen Ouest", location: "4 rendez-vous" },
-  { id: "unavailable-personal", day: 2, start: "14:00", duration: 120, kind: "unavailable", title: "Indisponible", location: "Temps personnel" },
   { id: "tour-le-havre", day: 4, start: "07:30", duration: 180, kind: "tournee", title: "Tournée Le Havre", location: "5 rendez-vous" },
-  { id: "unavailable-sunday", day: 6, start: "09:00", duration: 180, kind: "unavailable", title: "Indisponible", location: "Cabinet fermé" },
 ];
 
 const eventStyles: Record<EventKind, string> = {
@@ -57,8 +58,8 @@ const legend = [
   { label: "Cabinet", color: "bg-animeo" },
   { label: "Domicile", color: "bg-[#4C8190]" },
   { label: "En attente", color: "bg-animeo-accent" },
-  { label: "Indisponible", color: "bg-[#AEB8BB]" },
   { label: "Tournée", color: "bg-[#8067B0]" },
+  { label: "Fermé", color: "bg-[#AEB8BB]" },
 ];
 
 const dayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
@@ -78,9 +79,11 @@ function isReferenceDay(date: Date) {
   return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
 }
 
-export function WeekPlanner({ dates, showEvents, clients, onPendingAction, localEvents = [], appointmentEvents = [] }: WeekPlannerProps) {
+export function WeekPlanner({ dates, showEvents, clients, availability, onPendingAction, localEvents = [], appointmentEvents = [] }: WeekPlannerProps) {
   const { appointments, saveAppointment } = useAppointments();
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
+  const isDayView = dates.length === 1;
+  const gridTemplateColumns = `70px repeat(${dates.length}, minmax(0,1fr))`;
 
   function handleSelectEvent(event: CalendarEvent, anchorRect: DOMRect) {
     setSelection({ event, anchorRect });
@@ -99,7 +102,7 @@ export function WeekPlanner({ dates, showEvents, clients, onPendingAction, local
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-extrabold text-animeo-dark">Planning de la semaine</h2>
+            <h2 className="font-extrabold text-animeo-dark">{isDayView ? "Planning du jour" : "Planning de la semaine"}</h2>
             <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de 07h00 à 19h00</p>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2" aria-label="Légende du planning">
@@ -113,8 +116,8 @@ export function WeekPlanner({ dates, showEvents, clients, onPendingAction, local
         </div>
 
         <div className="overflow-x-auto">
-          <div className="min-w-[980px]">
-            <div className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))] border-b border-[#dfe9e6] bg-[#fbfdfc]">
+          <div className={isDayView ? "" : "min-w-[980px]"}>
+            <div className="grid border-b border-[#dfe9e6] bg-[#fbfdfc]" style={{ gridTemplateColumns }}>
               <div className="border-r border-[#dfe9e6]" />
               {dates.map((date) => {
                 const active = isReferenceDay(date);
@@ -132,11 +135,13 @@ export function WeekPlanner({ dates, showEvents, clients, onPendingAction, local
               })}
             </div>
 
-            <div className="grid grid-cols-[70px_repeat(7,minmax(0,1fr))]">
+            <div className="grid" style={{ gridTemplateColumns }}>
               <TimeColumn />
               {dates.map((date, dayIndex) => (
                 <DayColumn
                   key={date.toISOString()}
+                  date={date}
+                  availability={availability}
                   events={[...(showEvents ? [...events, ...localEvents] : []), ...appointmentEvents].filter((event) => event.day === dayIndex)}
                   onPendingAction={onPendingAction}
                   onSelectEvent={handleSelectEvent}
@@ -178,12 +183,20 @@ function TimeColumn() {
   );
 }
 
-function DayColumn({ events: dayEvents, onPendingAction, onSelectEvent, selectedEventId }: {
+function DayColumn({ date, availability, events: dayEvents, onPendingAction, onSelectEvent, selectedEventId }: {
+  date: Date;
+  availability: AvailabilitySettings;
   events: CalendarEvent[];
   onPendingAction: WeekPlannerProps["onPendingAction"];
   onSelectEvent: (event: CalendarEvent, anchorRect: DOMRect) => void;
   selectedEventId: string | null;
 }) {
+  const dayAvailability = useMemo(() => getDayAvailability(date, availability), [date, availability]);
+  const closedRanges = useMemo(
+    () => (dayAvailability.open ? computeClosedRanges(dayAvailability.hourly, START_HOUR, END_HOUR) : [{ start: START_HOUR, end: END_HOUR }]),
+    [dayAvailability],
+  );
+
   return (
     <div
       className="relative border-r border-[#dfe9e6] last:border-r-0"
@@ -193,6 +206,21 @@ function DayColumn({ events: dayEvents, onPendingAction, onSelectEvent, selected
         backgroundSize: `100% ${HOUR_HEIGHT}px`,
       }}
     >
+      {closedRanges.map((range) => (
+        <div
+          key={`${range.start}-${range.end}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 z-[1] bg-[repeating-linear-gradient(135deg,#F1F3F3,#F1F3F3_8px,#E7EBEA_8px,#E7EBEA_16px)]"
+          style={{ top: (range.start - START_HOUR) * HOUR_HEIGHT, height: (range.end - range.start) * HOUR_HEIGHT }}
+        >
+          {!dayAvailability.open && range.start === START_HOUR && range.end === END_HOUR ? (
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#59666B]">
+              Fermé
+            </span>
+          ) : null}
+        </div>
+      ))}
+
       {dayEvents.map((event) => (
         <CalendarEventCard
           key={event.id}

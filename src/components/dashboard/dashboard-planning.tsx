@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AgendaEventPopover } from "@/components/agenda/agenda-event-popover";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { Card } from "@/components/ui/card";
@@ -9,10 +10,21 @@ import { Icon } from "@/components/ui/icon";
 import { resolveSpeciesColor } from "@/data/species";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import type { Appointment } from "@/data/appointments";
+import type { Client, ClientPickerOption } from "@/data/clients";
 
-export function DashboardPlanning() {
-  const { appointments, openManager } = useAppointments();
+export function DashboardPlanning({ clients }: { clients: Client[] }) {
+  const { appointments, saveAppointment } = useAppointments();
   const { theme } = useDashboardTheme();
+  const [selection, setSelection] = useState<{ appointment: Appointment; anchorRect: DOMRect } | null>(null);
+
+  const clientOptions = useMemo<ClientPickerOption[]>(() => clients.map((client) => ({
+    id: client.id,
+    firstName: client.firstName,
+    lastName: client.lastName,
+    address: client.address,
+    city: client.city,
+    animals: client.animals.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species })),
+  })), [clients]);
 
   const todayAppointments = useMemo(() => {
     const todayId = dateId(referenceDate());
@@ -47,7 +59,7 @@ export function DashboardPlanning() {
               appointment={appointment}
               isLast={index === todayAppointments.length - 1}
               color={appointment.animalSpecies ? resolveSpeciesColor(theme.speciesColors, appointment.animalSpecies) : "#7c8b90"}
-              onEdit={() => openManager(appointment.id)}
+              onSelect={(selectedAppointment, anchorRect) => setSelection({ appointment: selectedAppointment, anchorRect })}
             />
           ))}
         </ol>
@@ -61,12 +73,41 @@ export function DashboardPlanning() {
           </Link>
         </div>
       )}
+
+      {selection ? (
+        <AgendaEventPopover
+          key={selection.appointment.id}
+          appointment={selection.appointment}
+          clients={clientOptions}
+          anchorRect={selection.anchorRect}
+          onSave={saveAppointment}
+          onClose={() => setSelection(null)}
+        />
+      ) : null}
     </Card>
   );
 }
 
-function TimelineRow({ appointment, isLast, color, onEdit }: { appointment: Appointment; isLast: boolean; color: string; onEdit: () => void }) {
+function TimelineRow({ appointment, isLast, color, onSelect }: {
+  appointment: Appointment;
+  isLast: boolean;
+  color: string;
+  onSelect: (appointment: Appointment, anchorRect: DOMRect) => void;
+}) {
   const isHomeVisit = appointment.mode === "home";
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  function handleSelect() {
+    if (!rowRef.current) return;
+    onSelect(appointment, rowRef.current.getBoundingClientRect());
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleSelect();
+    }
+  }
 
   return (
     <li className="flex gap-4">
@@ -75,7 +116,15 @@ function TimelineRow({ appointment, isLast, color, onEdit }: { appointment: Appo
         <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
         {!isLast ? <span className="mt-1 w-px flex-1 bg-[#e5eeeb]" /> : null}
       </div>
-      <div className={`flex min-w-0 flex-1 items-center gap-3 pb-6 ${isLast ? "" : ""}`}>
+      <div
+        ref={rowRef}
+        role="button"
+        tabIndex={0}
+        onClick={handleSelect}
+        onKeyDown={handleKeyDown}
+        aria-label={`Voir le rendez-vous de ${appointment.animalName} à ${appointment.start}`}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-2xl px-2 pb-6 outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark"
+      >
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-lg" style={{ backgroundColor: `color-mix(in srgb, ${color} 18%, white)`, color }}>
           <Icon name="paw" className="h-5 w-5" />
         </span>
@@ -95,9 +144,9 @@ function TimelineRow({ appointment, isLast, color, onEdit }: { appointment: Appo
         <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${isHomeVisit ? "bg-[#fff4dd] text-[#946116]" : "bg-animeo-soft text-animeo-dark"}`}>
           {isHomeVisit ? "Domicile" : "Cabinet"}
         </span>
-        <button type="button" onClick={onEdit} aria-label={`Actions pour le rendez-vous de ${appointment.animalName}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
+        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted">
           <DotsIcon />
-        </button>
+        </span>
       </div>
     </li>
   );

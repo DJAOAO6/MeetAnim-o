@@ -370,6 +370,7 @@ model BusinessProfile {
   publicColor      String
   cabinetAvailable Boolean  @default(true)
   homeAvailable    Boolean  @default(true)
+  availability     Json?
   updatedAt        DateTime @updatedAt
 }
 

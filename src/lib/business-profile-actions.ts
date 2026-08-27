@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
-import type { ProfileSettings } from "@/data/settings";
+import { initialSettings, type AvailabilitySettings, type ProfileSettings } from "@/data/settings";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type BusinessProfileData = ProfileSettings & {
   publicColor: string;
@@ -69,6 +70,32 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   revalidatePath(`/reserver/${slug}`);
   if (existing && existing.slug !== slug) revalidatePath(`/reserver/${existing.slug}`);
   revalidatePath("/dashboard/parametres");
+
+  return { ok: true };
+}
+
+export async function getAvailability(): Promise<AvailabilitySettings> {
+  const row = await prisma.businessProfile.findFirst({ select: { availability: true } });
+  if (row?.availability) return row.availability as unknown as AvailabilitySettings;
+  return initialSettings.availability;
+}
+
+export async function updateAvailabilityAction(input: AvailabilitySettings): Promise<BusinessProfileActionResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de modifier les disponibilités." };
+  }
+
+  const existing = await prisma.businessProfile.findFirst({ select: { id: true } });
+  if (existing) {
+    await prisma.businessProfile.update({ where: { id: existing.id }, data: { availability: input as unknown as Prisma.InputJsonValue } });
+  } else {
+    await prisma.businessProfile.create({ data: { ...DEFAULT_PROFILE, availability: input as unknown as Prisma.InputJsonValue } });
+  }
+
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard/parametres");
+  revalidatePath("/dashboard");
 
   return { ok: true };
 }

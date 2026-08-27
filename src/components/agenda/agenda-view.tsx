@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type { ClientPickerOption } from "@/data/clients";
+import type { AvailabilitySettings } from "@/data/settings";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -25,9 +26,14 @@ function getWeekDates(offset: number) {
   );
 }
 
+function getDayDate(offset: number) {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
+}
+
 function formatWeekLabel(dates: Date[]) {
   const first = dates[0];
-  const last = dates[6];
+  const last = dates[dates.length - 1];
   const monthFormatter = new Intl.DateTimeFormat("fr-FR", { month: "long" });
 
   if (first.getMonth() === last.getMonth()) {
@@ -37,19 +43,30 @@ function formatWeekLabel(dates: Date[]) {
   return `${first.getDate()} ${monthFormatter.format(first)} – ${last.getDate()} ${monthFormatter.format(last)} ${last.getFullYear()}`;
 }
 
+const dayLabelFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+function formatDayLabel(date: Date) {
+  const label = dayLabelFormatter.format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function dateId(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function AgendaView({ clients }: { clients: ClientPickerOption[] }) {
+export function AgendaView({ clients, availability }: { clients: ClientPickerOption[]; availability: AvailabilitySettings }) {
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
+  const [view, setView] = useState<"day" | "week">("week");
   const [weekOffset, setWeekOffset] = useState(0);
+  const [dayOffset, setDayOffset] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
   const weekDates = getWeekDates(weekOffset);
+  const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
+  const isCurrentPeriod = view === "day" ? dayOffset === 0 : weekOffset === 0;
   const appointmentEvents: CalendarEvent[] = appointments
     .filter((appointment) => appointment.status !== "cancelled")
-    .map((appointment) => ({ appointment, day: weekDates.findIndex((date) => dateId(date) === appointment.date) }))
+    .map((appointment) => ({ appointment, day: activeDates.findIndex((date) => dateId(date) === appointment.date) }))
     .filter(({ day }) => day >= 0)
     .map(({ appointment, day }) => ({
       id: appointment.id,
@@ -74,6 +91,21 @@ export function AgendaView({ clients }: { clients: ClientPickerOption[] }) {
       { id: "blocked-local", day: 4, start: "16:00", duration: 60, kind: "unavailable", title: "Indisponible", location: "Créneau bloqué localement" },
     ]);
     setFeedback("Le créneau du vendredi à 16:00 a été bloqué localement dans l’agenda unique.");
+  }
+
+  function goToPrevious() {
+    if (view === "day") setDayOffset((current) => current - 1);
+    else setWeekOffset((current) => current - 1);
+  }
+
+  function goToNext() {
+    if (view === "day") setDayOffset((current) => current + 1);
+    else setWeekOffset((current) => current + 1);
+  }
+
+  function goToToday() {
+    if (view === "day") setDayOffset(0);
+    else setWeekOffset(0);
   }
 
   async function handlePendingAction(action: string, event: CalendarEvent) {
@@ -103,52 +135,55 @@ export function AgendaView({ clients }: { clients: ClientPickerOption[] }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setWeekOffset((current) => current - 1)}
-              aria-label="Afficher la semaine précédente"
+              onClick={goToPrevious}
+              aria-label={view === "day" ? "Afficher le jour précédent" : "Afficher la semaine précédente"}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4 rotate-180" />
             </button>
             <button
               type="button"
-              onClick={() => setWeekOffset((current) => current + 1)}
-              aria-label="Afficher la semaine suivante"
+              onClick={goToNext}
+              aria-label={view === "day" ? "Afficher le jour suivant" : "Afficher la semaine suivante"}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={() => setWeekOffset(0)}
+              onClick={goToToday}
               className="rounded-xl border border-[#d9e5e2] bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo"
             >
               Aujourd’hui
             </button>
             <h2 className="ml-1 text-lg font-extrabold capitalize text-animeo-dark sm:text-xl">
-              {formatWeekLabel(weekDates)}
+              {view === "day" ? formatDayLabel(activeDates[0]) : formatWeekLabel(weekDates)}
             </h2>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="inline-flex w-fit rounded-xl bg-animeo-soft p-1" aria-label="Choix de la vue">
               {[
-                { label: "Jour", active: false },
-                { label: "Semaine", active: true },
-                { label: "Mois", active: false },
-              ].map((view) => (
+                { id: "day" as const, label: "Jour", active: view === "day", enabled: true },
+                { id: "week" as const, label: "Semaine", active: view === "week", enabled: true },
+                { id: "month" as const, label: "Mois", active: false, enabled: false },
+              ].map((option) => (
                 <button
-                  key={view.label}
+                  key={option.label}
                   type="button"
-                  aria-pressed={view.active}
-                  disabled={!view.active}
+                  aria-pressed={option.active}
+                  disabled={!option.enabled}
+                  onClick={option.enabled && option.id !== "month" ? () => setView(option.id) : undefined}
                   className={`rounded-lg px-3.5 py-2 text-sm font-extrabold transition ${
-                    view.active
+                    option.active
                       ? "bg-white text-animeo-dark shadow-sm"
-                      : "cursor-not-allowed text-animeo-muted opacity-65"
+                      : option.enabled
+                        ? "text-animeo-muted hover:text-animeo-dark"
+                        : "cursor-not-allowed text-animeo-muted opacity-65"
                   }`}
-                  title={view.active ? "Vue active" : "Cette vue sera construite plus tard"}
+                  title={option.enabled ? undefined : "Cette vue sera construite plus tard"}
                 >
-                  {view.label}
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -188,13 +223,14 @@ export function AgendaView({ clients }: { clients: ClientPickerOption[] }) {
         ) : null}
       </Card>
 
-      <PendingRequestsPanel requests={pendingRequests} weekDates={weekDates} onAction={handlePendingAction} />
+      <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} onAction={handlePendingAction} />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
         <WeekPlanner
-          dates={weekDates}
-          showEvents={weekOffset === 0}
+          dates={activeDates}
+          showEvents={view === "week" && isCurrentPeriod}
           clients={clients}
+          availability={availability}
           localEvents={localEvents}
           appointmentEvents={appointmentEvents}
           onPendingAction={handlePendingAction}
