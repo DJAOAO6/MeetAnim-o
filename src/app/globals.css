@@ -4,6 +4,7 @@
   --background: #f7faf9;
   --foreground: #1f2933;
   --theme-primary: #4faf9f;
+  --theme-secondary: #2f7a6e;
   --theme-accent: #f4b860;
   --theme-background: #f7faf9;
   --theme-surface: #ffffff;
@@ -14,12 +15,15 @@
   --theme-muted: #6b7780;
   --theme-soft: color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface));
   --theme-border: color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface));
+  --theme-card-radius: 18px;
+  --theme-font-family: var(--font-nunito-sans);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-animeo: var(--theme-primary);
+  --color-animeo-secondary: var(--theme-secondary);
   --color-animeo-dark: var(--theme-heading);
   --color-animeo-bg: var(--theme-background);
   --color-animeo-soft: var(--theme-soft);
@@ -85,6 +89,15 @@ html {
 [data-dashboard-theme] .theme-selected-option {
   border-color: var(--theme-primary);
   background-color: color-mix(in srgb, var(--theme-primary) 14%, var(--theme-surface));
+}
+
+[data-dashboard-theme] {
+  font-family: var(--theme-font-family), var(--font-nunito-sans), Arial, Helvetica, sans-serif;
+}
+
+[data-dashboard-theme][data-animations="off"] * {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
 }
 
 [data-dashboard-theme] .public-booking-preview {

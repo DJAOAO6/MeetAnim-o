@@ -8,13 +8,18 @@ export type IconName =
   | "calendarPlus"
   | "clients"
   | "dashboard"
+  | "document"
   | "euro"
+  | "mail"
   | "map"
+  | "moon"
+  | "monitor"
   | "paw"
   | "services"
   | "settings"
   | "shield"
   | "stats"
+  | "sun"
   | "tournees";
 
 type IconProps = SVGProps<SVGSVGElement> & {
@@ -115,6 +120,31 @@ const paths: Record<IconName, React.ReactNode> = {
     </>
   ),
   arrow: <path d="m9 18 6-6-6-6" />,
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </>
+  ),
+  moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />,
+  monitor: (
+    <>
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+    </>
+  ),
+  document: (
+    <>
+      <path d="M6 3h9l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M14 3v4h4M8 12h8M8 16h8M8 8h3" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </>
+  ),
 };
 
 export function Icon({ name, className, ...props }: IconProps) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -10,7 +11,8 @@ import { ServicesSettingsShortcut } from "@/components/settings/services-setting
 import { AvailabilitySettingsTab } from "@/components/settings/availability-settings-tab";
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
-import { CustomizationSettingsTab } from "@/components/settings/customization-settings-tab";
+import { PersonalizationView } from "@/components/settings/personalization-view";
+import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
 import { initialSettings, type ProfileSettings, type SettingsState } from "@/data/settings";
 import { updateBusinessProfileAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -37,6 +39,7 @@ let sessionSettings = initialSettings;
 
 export function SettingsView({ tours, zones, businessProfile }: SettingsViewProps) {
   const currentUser = useCurrentUser();
+  const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [settings, setSettings] = useState<SettingsState>(() => ({
@@ -73,6 +76,11 @@ export function SettingsView({ tours, zones, businessProfile }: SettingsViewProp
       return next;
     });
     setFeedback(message);
+  }
+
+  async function saveTheme(draft: ThemeDraft) {
+    updateTheme(draft);
+    await saveProfile(settings.profile, draft.primaryColor, "Personnalisation enregistrée");
   }
 
   return (
@@ -112,13 +120,12 @@ export function SettingsView({ tours, zones, businessProfile }: SettingsViewProp
       {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} onNotify={setFeedback} /> : null}
       {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={(value) => updateSettings("reminders", value)} /> : null}
       {activeTab === "customization" ? (
-        <CustomizationSettingsTab
+        <PersonalizationView
           profile={settings.profile}
-          color={settings.publicColor}
+          services={settings.services}
           saving={saving}
           canEdit={canManagePublicSettings}
-          onProfileChange={(value) => saveProfile(value, settings.publicColor, "Image mise à jour sur votre page publique")}
-          onColorChange={(value) => saveProfile(settings.profile, value, "Personnalisation enregistrée sur votre page publique")}
+          onSaveTheme={saveTheme}
         />
       ) : null}
     </>
