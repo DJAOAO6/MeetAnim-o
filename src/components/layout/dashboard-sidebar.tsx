@@ -33,7 +33,6 @@ const navigation: NavigationItem[] = [
   { label: "Carte clients", href: "/dashboard/carte", icon: "map", assetKey: "map" },
   { label: "Rappels clients", href: "/dashboard/rappels", icon: "bell", assetKey: "reminders" },
   { label: "Prestations", href: "/dashboard/prestations", icon: "services", assetKey: "services" },
-  { label: "Paramètres", href: "/dashboard/parametres", icon: "settings", assetKey: "settings" },
 ];
 
 const statisticsItem: NavigationItem = { label: "Statistiques", href: "/dashboard/statistiques", icon: "stats", assetKey: "stats" };
@@ -52,12 +51,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
   const [profileOpen, setProfileOpen] = useState(false);
   const { theme } = useDashboardTheme();
   const user = useCurrentUser();
-  const baseItems = showStatistics
-    ? [...navigation.slice(0, -1), statisticsItem, navigation[navigation.length - 1]]
-    : navigation;
-  const items = showAdmin
-    ? [...baseItems, { label: "Administration", href: "/dashboard/admin", icon: "shield" as const, assetKey: "admin" as const }]
-    : baseItems;
+  const items = showStatistics ? [...navigation, statisticsItem] : navigation;
 
   return (
     <>
@@ -145,12 +139,34 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
             </button>
 
             {profileOpen ? (
-              <form action={logout} className="mt-1">
-                <button type="submit" className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">
-                  <LogoutIcon />
-                  Se déconnecter
-                </button>
-              </form>
+              <div className="mt-1 space-y-0.5">
+                <Link
+                  href="/dashboard/parametres"
+                  onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                  aria-current={isActive(pathname, "/dashboard/parametres") ? "page" : undefined}
+                  className="flex items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Icon name="settings" className="h-4 w-4" />
+                  Paramètres
+                </Link>
+                {showAdmin ? (
+                  <Link
+                    href="/dashboard/admin"
+                    onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                    aria-current={isActive(pathname, "/dashboard/admin") ? "page" : undefined}
+                    className="flex items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
+                  >
+                    <Icon name="shield" className="h-4 w-4" />
+                    Administration
+                  </Link>
+                ) : null}
+                <form action={logout}>
+                  <button type="submit" className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">
+                    <LogoutIcon />
+                    Se déconnecter
+                  </button>
+                </form>
+              </div>
             ) : null}
           </div>
         ) : null}

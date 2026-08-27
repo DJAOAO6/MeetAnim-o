@@ -13,6 +13,14 @@ export type ThemeDraft = {
   displayOptions: DashboardDisplayOptions;
 };
 
+type ThemePreset = { id: string; label: string; description: string; primary: string; secondary: string; accent: string };
+
+const themePresets: ThemePreset[] = [
+  { id: "teal", label: "Émeraude Animéo", description: "Le vert-bleu signature, frais et professionnel.", primary: "#4FAF9F", secondary: "#2F7A6E", accent: "#F4B860" },
+  { id: "ocean", label: "Bleu Océan", description: "Un bleu confiant et apaisant.", primary: "#3B82F6", secondary: "#1E3A5F", accent: "#F59E0B" },
+  { id: "plum", label: "Violet Prune", description: "Une touche élégante et originale.", primary: "#8B5CF6", secondary: "#5B3A99", accent: "#EC4899" },
+];
+
 const primarySwatches = ["#4FAF9F", "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B"];
 const secondarySwatches = ["#7FD1C3", "#2F7A6E", "#7FB3F5", "#B79EF0", "#C4CCCF"];
 const accentSwatches = ["#F4B860", "#E4574C", "#4FAF9F", "#5B8DEF", "#9AA6AA"];
@@ -53,6 +61,40 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
 
         <h2 className="text-lg font-black text-animeo-dark">Thème et couleurs</h2>
         <p className="mt-1 text-sm text-animeo-muted">Personnalisez les couleurs et l’apparence de votre interface et de votre page de réservation.</p>
+
+        <div className="mt-6">
+          <Field label="Thèmes prédéfinis" hint="Choisissez un thème complet en un clic, puis affinez les couleurs ci-dessous si besoin.">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {themePresets.map((preset) => {
+                const active = draft.primaryColor.toUpperCase() === preset.primary.toUpperCase()
+                  && draft.secondaryColor.toUpperCase() === preset.secondary.toUpperCase()
+                  && draft.accentColor.toUpperCase() === preset.accent.toUpperCase();
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => onChange({ ...draft, primaryColor: preset.primary, secondaryColor: preset.secondary, accentColor: preset.accent })}
+                    aria-pressed={active}
+                    className={`relative rounded-2xl border-2 p-4 text-left transition ${active ? "border-animeo bg-animeo-soft" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"}`}
+                  >
+                    {active ? (
+                      <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-animeo text-white">
+                        <CheckIcon className="h-3 w-3" />
+                      </span>
+                    ) : null}
+                    <div className="flex h-10 overflow-hidden rounded-xl">
+                      <span className="flex-1" style={{ backgroundColor: preset.primary }} />
+                      <span className="flex-1" style={{ backgroundColor: preset.secondary }} />
+                      <span className="flex-1" style={{ backgroundColor: preset.accent }} />
+                    </div>
+                    <p className="mt-3 text-sm font-extrabold text-animeo-dark">{preset.label}</p>
+                    <p className="mt-1 text-xs text-animeo-muted">{preset.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        </div>
 
         <div className="mt-6 grid gap-6 sm:grid-cols-2">
           <SwatchField

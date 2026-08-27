@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState, type ChangeEvent } from "react";
+import { AnimalEditModal } from "@/components/clients/animal-edit-modal";
 import { Card } from "@/components/ui/card";
 import type { Animal } from "@/data/clients";
 
@@ -9,10 +10,12 @@ type AnimalRecordProps = {
   animal: Animal;
   photo?: string;
   onPhotoChange: (photo: string | null) => void;
+  onAnimalUpdated: (animal: Animal) => void;
 };
 
-export function AnimalRecord({ animal, photo, onPhotoChange }: AnimalRecordProps) {
+export function AnimalRecord({ animal, photo, onPhotoChange, onAnimalUpdated }: AnimalRecordProps) {
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -37,7 +40,8 @@ export function AnimalRecord({ animal, photo, onPhotoChange }: AnimalRecordProps
     <div className="space-y-6">
       <Card className="overflow-hidden">
         <div className="bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="shrink-0" style={{ width: 128 }}>
               <div className={`relative flex items-center justify-center overflow-hidden rounded-[24px] border-4 border-white bg-gradient-to-br text-6xl shadow-[0_8px_24px_rgba(24,59,69,0.1)] ${animal.avatarBackground}`} style={{ width: 128, height: 128 }} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
                 {photo ? <Image src={photo} alt="" fill unoptimized sizes="128px" className="object-cover" /> : animal.avatar}
@@ -60,6 +64,15 @@ export function AnimalRecord({ animal, photo, onPhotoChange }: AnimalRecordProps
                 <AnimalInfo label="Sexe" value={animal.sex} />
               </div>
             </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-[#d4e2df] bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft"
+            >
+              <EditIcon />
+              Modifier
+            </button>
           </div>
           {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{photoError}</p> : null}
         </div>
@@ -73,7 +86,27 @@ export function AnimalRecord({ animal, photo, onPhotoChange }: AnimalRecordProps
       </Card>
 
       <ConsultationHistory animal={animal} />
+
+      {editing ? (
+        <AnimalEditModal
+          animal={animal}
+          onClose={() => setEditing(false)}
+          onSaved={(updated) => {
+            onAnimalUpdated(updated);
+            setEditing(false);
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }
 

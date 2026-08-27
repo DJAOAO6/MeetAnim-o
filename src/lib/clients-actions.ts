@@ -27,6 +27,38 @@ export async function deleteClientAction(clientId: string): Promise<ClientAction
   return { ok: true };
 }
 
+export type UpdateAnimalInput = {
+  name: string;
+  species: string;
+  breed: string;
+  age: string;
+  weight: string;
+  sex: string;
+  history: string;
+  conditions: string;
+  treatments: string;
+  notes: string;
+};
+
+export async function updateAnimalAction(animalId: string, input: UpdateAnimalInput): Promise<ClientActionResult> {
+  const user = await requireUser();
+
+  const animal = await prisma.animal.findUnique({ where: { id: animalId }, select: { id: true, clientId: true } });
+  if (!animal) return { ok: false, error: "Animal introuvable." };
+
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Le nom de l’animal est obligatoire." };
+
+  await prisma.animal.update({ where: { id: animalId }, data: { ...input, name } });
+  await logAudit({ userId: user.id, action: "ANIMAL_UPDATED", entityType: "Animal", entityId: animalId, metadata: { clientId: animal.clientId } });
+
+  revalidatePath(`/dashboard/clients/${animal.clientId}`);
+  revalidatePath("/dashboard/clients");
+  revalidatePath("/dashboard/rappels");
+
+  return { ok: true };
+}
+
 export async function deleteAnimalAction(animalId: string): Promise<ClientActionResult> {
   const user = await requireUser();
   if (!hasPermission(user, "DELETE_CLIENTS")) {
