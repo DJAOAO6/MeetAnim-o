@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
+import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/agenda-view-switcher";
+import { DayDetailPanel } from "@/components/agenda/day-detail-panel";
+import { filterOptions, kindDotColor, MonthCalendarView, type MonthFilter } from "@/components/agenda/month-calendar-view";
 import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planner";
+import { YearCalendarView, YearSidePanel, YearStatsRibbon } from "@/components/agenda/year-calendar-view";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -31,6 +35,20 @@ function getDayDate(offset: number) {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
 }
 
+function getMonthDate(offset: number) {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + offset, 1, 12);
+}
+
+function getYearValue(offset: number) {
+  return new Date().getFullYear() + offset;
+}
+
+function monthOffsetFor(year: number, monthIndex: number) {
+  const now = new Date();
+  return (year - now.getFullYear()) * 12 + (monthIndex - now.getMonth());
+}
+
 function formatWeekLabel(dates: Date[]) {
   const first = dates[0];
   const last = dates[dates.length - 1];
@@ -50,20 +68,33 @@ function formatDayLabel(date: Date) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+const monthLabelFormatter = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" });
+
+function formatMonthLabel(date: Date) {
+  const label = monthLabelFormatter.format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function dateId(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export function AgendaView({ clients, availability }: { clients: ClientPickerOption[]; availability: AvailabilitySettings }) {
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
-  const [view, setView] = useState<"day" | "week">("week");
+  const [view, setView] = useState<AgendaViewMode>("week");
   const [weekOffset, setWeekOffset] = useState(0);
   const [dayOffset, setDayOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [yearOffset, setYearOffset] = useState(0);
+  const [monthFilter, setMonthFilter] = useState<MonthFilter>("all");
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [localEvents, setLocalEvents] = useState<CalendarEvent[]>([]);
   const weekDates = getWeekDates(weekOffset);
   const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
   const isCurrentPeriod = view === "day" ? dayOffset === 0 : weekOffset === 0;
+  const monthDate = getMonthDate(monthOffset);
+  const yearValue = getYearValue(yearOffset);
   const appointmentEvents: CalendarEvent[] = appointments
     .filter((appointment) => appointment.status !== "cancelled")
     .map((appointment) => ({ appointment, day: activeDates.findIndex((date) => dateId(date) === appointment.date) }))
@@ -95,17 +126,40 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
 
   function goToPrevious() {
     if (view === "day") setDayOffset((current) => current - 1);
-    else setWeekOffset((current) => current - 1);
+    else if (view === "week") setWeekOffset((current) => current - 1);
+    else if (view === "month") { setMonthOffset((current) => current - 1); setSelectedDay(null); }
+    else setYearOffset((current) => current - 1);
   }
 
   function goToNext() {
     if (view === "day") setDayOffset((current) => current + 1);
-    else setWeekOffset((current) => current + 1);
+    else if (view === "week") setWeekOffset((current) => current + 1);
+    else if (view === "month") { setMonthOffset((current) => current + 1); setSelectedDay(null); }
+    else setYearOffset((current) => current + 1);
   }
 
   function goToToday() {
     if (view === "day") setDayOffset(0);
-    else setWeekOffset(0);
+    else if (view === "week") setWeekOffset(0);
+    else if (view === "month") { setMonthOffset(0); setSelectedDay(null); }
+    else setYearOffset(0);
+  }
+
+  function handleViewChange(nextView: AgendaViewMode) {
+    setView(nextView);
+    setSelectedDay(null);
+  }
+
+  function jumpToDay(date: Date) {
+    const diffDays = Math.round((date.getTime() - getDayDate(0).getTime()) / DAY_IN_MS);
+    setDayOffset(diffDays);
+    setView("day");
+  }
+
+  function jumpToMonth(monthIndex: number) {
+    setMonthOffset(monthOffsetFor(yearValue, monthIndex));
+    setSelectedDay(null);
+    setView("month");
   }
 
   async function handlePendingAction(action: string, event: CalendarEvent) {
@@ -136,7 +190,7 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
             <button
               type="button"
               onClick={goToPrevious}
-              aria-label={view === "day" ? "Afficher le jour précédent" : "Afficher la semaine précédente"}
+              aria-label={navLabel(view, "précédent")}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4 rotate-180" />
@@ -144,7 +198,7 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
             <button
               type="button"
               onClick={goToNext}
-              aria-label={view === "day" ? "Afficher le jour suivant" : "Afficher la semaine suivante"}
+              aria-label={navLabel(view, "suivant")}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4" />
@@ -157,63 +211,67 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
               Aujourd’hui
             </button>
             <h2 className="ml-1 text-lg font-extrabold capitalize text-animeo-dark sm:text-xl">
-              {view === "day" ? formatDayLabel(activeDates[0]) : formatWeekLabel(weekDates)}
+              {view === "day" ? formatDayLabel(activeDates[0])
+                : view === "week" ? formatWeekLabel(weekDates)
+                  : view === "month" ? formatMonthLabel(monthDate)
+                    : yearValue}
             </h2>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="inline-flex w-fit rounded-xl bg-animeo-soft p-1" aria-label="Choix de la vue">
-              {[
-                { id: "day" as const, label: "Jour", active: view === "day", enabled: true },
-                { id: "week" as const, label: "Semaine", active: view === "week", enabled: true },
-                { id: "month" as const, label: "Mois", active: false, enabled: false },
-              ].map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  aria-pressed={option.active}
-                  disabled={!option.enabled}
-                  onClick={option.enabled && option.id !== "month" ? () => setView(option.id) : undefined}
-                  className={`rounded-lg px-3.5 py-2 text-sm font-extrabold transition ${
-                    option.active
-                      ? "bg-white text-animeo-dark shadow-sm"
-                      : option.enabled
-                        ? "text-animeo-muted hover:text-animeo-dark"
-                        : "cursor-not-allowed text-animeo-muted opacity-65"
-                  }`}
-                  title={option.enabled ? undefined : "Cette vue sera construite plus tard"}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <AgendaViewSwitcher value={view} onChange={handleViewChange} />
 
-            <button
-              type="button"
-              onClick={simulateBlockedSlot}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
-              <LockIcon />
-              Bloquer un créneau
-            </button>
-            <button
-              type="button"
-              onClick={openNewAppointment}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
-            >
-              <span aria-hidden="true" className="text-xl leading-none">+</span>
-              Nouveau rendez-vous
-            </button>
+            {view === "day" || view === "week" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={simulateBlockedSlot}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+                >
+                  <LockIcon />
+                  Bloquer un créneau
+                </button>
+                <button
+                  type="button"
+                  onClick={openNewAppointment}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+                >
+                  <span aria-hidden="true" className="text-xl leading-none">+</span>
+                  Nouveau rendez-vous
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
 
-        <div className="mt-4 flex items-start gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
-          <Icon name="calendar" className="mt-0.5 h-5 w-5 shrink-0 text-animeo" />
-          <p>
-            <strong>Agenda unique :</strong> Cabinet et Domicile sont deux modes de réservation.
-            Un créneau occupé dans l’un est automatiquement indisponible dans l’autre.
-          </p>
-        </div>
+        {view === "month" ? (
+          <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Filtrer les rendez-vous affichés">
+            {filterOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={monthFilter === option.id}
+                onClick={() => setMonthFilter(option.id)}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${
+                  monthFilter === option.id ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"
+                }`}
+              >
+                {option.id !== "all" ? <span className={`h-1.5 w-1.5 rounded-full ${monthFilter === option.id ? "bg-white" : kindDotColor[option.id]}`} /> : null}
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {view === "day" || view === "week" ? (
+          <div className="mt-4 flex items-start gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
+            <Icon name="calendar" className="mt-0.5 h-5 w-5 shrink-0 text-animeo" />
+            <p>
+              <strong>Agenda unique :</strong> Cabinet et Domicile sont deux modes de réservation.
+              Un créneau occupé dans l’un est automatiquement indisponible dans l’autre.
+            </p>
+          </div>
+        ) : null}
 
         {feedback ? (
           <div role="status" className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-[#f4d99e] bg-[#fff9ec] px-4 py-2.5 text-sm font-bold text-[#8c6118]">
@@ -223,22 +281,74 @@ export function AgendaView({ clients, availability }: { clients: ClientPickerOpt
         ) : null}
       </Card>
 
-      <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} onAction={handlePendingAction} />
+      {view === "day" || view === "week" ? (
+        <>
+          <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} onAction={handlePendingAction} />
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
-        <WeekPlanner
-          dates={activeDates}
-          showEvents={view === "week" && isCurrentPeriod}
-          clients={clients}
-          availability={availability}
-          localEvents={localEvents}
-          appointmentEvents={appointmentEvents}
-          onPendingAction={handlePendingAction}
-        />
-        <AgendaSidePanel weekDates={weekDates} />
-      </div>
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+            <WeekPlanner
+              dates={activeDates}
+              showEvents={view === "week" && isCurrentPeriod}
+              clients={clients}
+              availability={availability}
+              localEvents={localEvents}
+              appointmentEvents={appointmentEvents}
+              onPendingAction={handlePendingAction}
+            />
+            <AgendaSidePanel weekDates={weekDates} />
+          </div>
+        </>
+      ) : view === "month" ? (
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+          <Card className="overflow-hidden p-4 sm:p-5">
+            <div className="mb-3">
+              <h2 className="font-extrabold text-animeo-dark">Planning du mois</h2>
+              <p className="mt-0.5 text-xs text-animeo-muted">Cliquez sur un jour pour afficher le détail des rendez-vous.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="min-w-[720px]">
+                <MonthCalendarView
+                  monthDate={monthDate}
+                  availability={availability}
+                  filter={monthFilter}
+                  selectedDay={selectedDay}
+                  onSelectDay={setSelectedDay}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {selectedDay ? (
+            <div className="xl:sticky xl:top-6">
+              <DayDetailPanel date={selectedDay} availability={availability} onClose={() => setSelectedDay(null)} onViewDay={() => jumpToDay(selectedDay)} />
+            </div>
+          ) : (
+            <Card className="p-5 text-sm font-bold text-animeo-muted xl:sticky xl:top-6">
+              Sélectionnez un jour dans le calendrier pour voir le détail des rendez-vous.
+            </Card>
+          )}
+        </div>
+      ) : (
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+          <div className="flex flex-col gap-4">
+            <YearStatsRibbon />
+            <Card className="p-4 sm:p-5">
+              <YearCalendarView year={yearValue} availability={availability} onSelectMonth={jumpToMonth} />
+            </Card>
+          </div>
+          <div className="xl:sticky xl:top-6">
+            <YearSidePanel />
+          </div>
+        </div>
+      )}
     </>
   );
+}
+
+function navLabel(view: AgendaViewMode, direction: "précédent" | "suivant") {
+  const unit = view === "day" ? "le jour" : view === "week" ? "la semaine" : view === "month" ? "le mois" : "l’année";
+  const suffix = direction === "précédent" ? (view === "day" || view === "month" ? "précédent" : "précédente") : "suivant" + (view === "week" ? "e" : "");
+  return `Afficher ${unit} ${suffix}`;
 }
 
 function PendingRequestsPanel({ requests, weekDates, onAction }: {
