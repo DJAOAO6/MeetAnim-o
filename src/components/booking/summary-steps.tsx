@@ -115,7 +115,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
         <p className="mt-1 text-sm text-animeo-muted">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"}{lieu ? ` · ${lieu}` : ""}</p>
       </div>
 
-      <button type="button" onClick={onReset} className="mt-7 min-h-12 rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm">Retour</button>
+      <button type="button" onClick={onReset} className="mt-7 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-[#459e90] focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
     </div>
   );
 }

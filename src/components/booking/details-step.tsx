@@ -501,7 +501,7 @@ function AccordionGroup({ groupKey, index, title, summary, isOpen, isValid, onTo
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between gap-3 rounded-lg py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-1"
+        className="flex w-full touch-manipulation items-center justify-between gap-3 rounded-lg py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-1"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition motion-reduce:transition-none ${

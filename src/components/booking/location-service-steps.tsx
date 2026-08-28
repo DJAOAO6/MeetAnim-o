@@ -157,7 +157,7 @@ function ClockIcon() {
 
 function ModeCard({ icon, title, ariaLabel, detail, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; ariaLabel: string; detail: React.ReactNode; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} aria-label={ariaLabel} className={`rounded-[18px] border-2 p-4 text-left transition sm:p-5 ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} aria-label={ariaLabel} className={`touch-manipulation rounded-[18px] border-2 p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:p-5 ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
       <span className={`flex h-11 w-11 items-center justify-center rounded-2xl text-xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
       <span className="mt-3 block text-lg font-black text-animeo-dark">{title}</span>
       <span className="mt-3 block rounded-2xl bg-white/80 p-3 text-sm font-bold leading-5 text-animeo-dark">{disabled ? disabledLabel : detail}</span>
