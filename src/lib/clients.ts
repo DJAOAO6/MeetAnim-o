@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/dal";
@@ -102,9 +103,11 @@ export async function getClients(): Promise<Client[]> {
 /**
  * Version allégée de getClients(), sans consultations ni documents : sert
  * uniquement à alimenter le sélecteur de client/animal du formulaire de
- * rendez-vous, chargé sur chaque page du dashboard via le layout.
+ * rendez-vous, chargé sur chaque page du dashboard via le layout — mais
+ * aussi rechargé par certaines pages (agenda) qui en ont besoin dès le
+ * rendu serveur. cache() déduplique ces deux lectures sur une même requête.
  */
-export async function getClientPickerOptions(): Promise<ClientPickerOption[]> {
+export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption[]> => {
   const clients = await prisma.client.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
@@ -118,7 +121,7 @@ export async function getClientPickerOptions(): Promise<ClientPickerOption[]> {
   });
 
   return clients;
-}
+});
 
 export async function getClientById(id: string): Promise<Client | undefined> {
   const client = await prisma.client.findUnique({

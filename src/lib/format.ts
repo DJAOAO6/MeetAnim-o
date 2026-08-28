@@ -12,3 +12,8 @@ export function formatEuros(amount: number): string {
 export function initialsFor(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
+
+/** Plafonne l'affichage du badge de notifications au-delà de 99 (PROMPT-NOTIFICATIONS.md §B2). */
+export function formatNotificationBadge(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}

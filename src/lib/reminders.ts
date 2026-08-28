@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
 import type { Reminder, ReminderClientOption, ReminderStatus } from "@/data/reminders";
@@ -23,7 +24,12 @@ function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export async function getReminders(): Promise<Reminder[]> {
+/**
+ * Lue à la fois par la page tableau de bord (getDashboardOverviewData) et
+ * par le layout dashboard (pour alimenter la cloche de notifications) :
+ * cache() déduplique ces deux lectures sur une même requête.
+ */
+export const getReminders = cache(async (): Promise<Reminder[]> => {
   const reminders = await prisma.reminder.findMany({
     include: { client: true, animal: true },
     orderBy: { dueDate: "asc" },
@@ -43,7 +49,7 @@ export async function getReminders(): Promise<Reminder[]> {
     status: statusLabel[reminder.status],
     note: reminder.note ?? undefined,
   }));
-}
+});
 
 export async function getReminderStats() {
   const [due, sent, booked, upcoming] = await Promise.all([

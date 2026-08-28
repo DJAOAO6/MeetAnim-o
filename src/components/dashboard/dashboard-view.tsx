@@ -16,7 +16,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
 
   return (
     <>
-      <DashboardHeader reminders={reminders} />
+      <DashboardHeader />
       <DashboardAvailabilityControls />
       <DashboardStats clients={clients} dueReminders={dueReminders} />
 

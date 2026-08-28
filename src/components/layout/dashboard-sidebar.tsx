@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { logout } from "@/lib/auth/actions";
@@ -59,24 +60,26 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
         <Link href="/dashboard" aria-label="Animéo — Tableau de bord">
           <AnimeoLogo size="mobile" tone="light" priority />
         </Link>
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          aria-label="Ouvrir le menu"
-          aria-expanded={mobileOpen}
-          className="dashboard-mobile-menu-button flex h-11 w-11 items-center justify-center rounded-[14px] bg-white/10 text-2xl font-bold"
-          style={{
-            position: "fixed",
-            right: 16,
-            top: 10,
-            zIndex: 70,
-            display: "flex",
-            background: "rgba(255,255,255,0.12)",
-            color: "#ffffff",
-          }}
-        >
-          ☰
-        </button>
+        {/* Cloche + bouton menu regroupés dans un même conteneur fixe, pour
+            ne pas empiler une seconde barre d'en-tête sous 768px : la cloche
+            de DashboardTopBar est masquée sur mobile et vit ici à la place
+            (PROMPT-NOTIFICATIONS.md §B2 bis, option 1). */}
+        {/* Cloche placée après le bouton menu (dernier élément du groupe) :
+            le panneau s'ancre en `right-0` sur son propre conteneur, donc la
+            garder au bord droit évite qu'il ne déborde à gauche du viewport. */}
+        <div className="flex items-center gap-2" style={{ position: "fixed", right: 16, top: 10, zIndex: 70 }}>
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Ouvrir le menu"
+            aria-expanded={mobileOpen}
+            className="dashboard-mobile-menu-button flex h-11 w-11 items-center justify-center rounded-[14px] bg-white/10 text-2xl font-bold"
+            style={{ background: "rgba(255,255,255,0.12)", color: "#ffffff" }}
+          >
+            ☰
+          </button>
+          <NotificationsBell variant="onDark" />
+        </div>
       </header>
 
       {mobileOpen ? <button type="button" aria-label="Fermer le menu" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-50 bg-animeo-dark/45 backdrop-blur-[2px] md:hidden" /> : null}
