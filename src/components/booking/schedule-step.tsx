@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import type { BookingDate, BookingMode, PublicService } from "@/data/public-booking";
 import { getOccupiedSlotsAction, type OccupiedInterval } from "@/lib/appointments-actions";
@@ -26,6 +26,8 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
   const [selectedMonth, setSelectedMonth] = useState("");
   const [revalidating, setRevalidating] = useState(false);
   const [revalidationError, setRevalidationError] = useState<string | null>(null);
+  const monthScrollRef = useRef<HTMLDivElement>(null);
+  const [monthScrollHasMore, setMonthScrollHasMore] = useState(false);
 
   // Générées depuis les vraies disponibilités du praticien (horaires,
   // vacances, fermetures exceptionnelles), sur une fenêtre glissante
@@ -46,9 +48,15 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
 
   // Recale le mois sélectionné dès que la liste de dates change (premier
   // chargement, ou changement de mode/prestation qui invalide le mois
-  // précédemment sélectionné).
+  // précédemment sélectionné). `selectedMonth === ""` doit être vérifié
+  // explicitement : `date.id.startsWith("")` vaut toujours `true`, donc sans
+  // ce cas particulier `.some(...)` réussit trivialement dès le premier
+  // rendu et cette recalibration ne se déclenche jamais — la grille affiche
+  // alors les ~90 jours de la fenêtre entière au lieu d'un seul mois filtré
+  // (bug préexistant, découvert en QA visuelle Phase 5, pas introduit par
+  // le réordonnancement des étapes).
   useEffect(() => {
-    if (bookingDates.length > 0 && !bookingDates.some((date) => date.id.startsWith(selectedMonth))) {
+    if (bookingDates.length > 0 && (selectedMonth === "" || !bookingDates.some((date) => date.id.startsWith(selectedMonth)))) {
       const firstMonth = bookingDates[0].id.slice(0, 7);
       queueMicrotask(() => setSelectedMonth(firstMonth));
     }
@@ -72,6 +80,28 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
         if (!cancelled) setOccupiedSlotsError(true);
       });
     return () => { cancelled = true; };
+  }, [bookingDates]);
+
+  // Signale qu'il reste des mois à découvrir vers la droite (P2 "débordement
+  // horizontal du sélecteur de mois non signalé") : recalculé après tout
+  // changement de contenu (nouvelle liste de mois, redimensionnement) et à
+  // chaque défilement, pour disparaître une fois arrivé au bout plutôt que
+  // de suggérer indéfiniment qu'il reste du contenu cliquable.
+  useEffect(() => {
+    const container = monthScrollRef.current;
+    if (!container) return;
+    function updateHasMore() {
+      if (!container) return;
+      setMonthScrollHasMore(container.scrollWidth - container.scrollLeft - container.clientWidth > 1);
+    }
+    updateHasMore();
+    container.addEventListener("scroll", updateHasMore, { passive: true });
+    const observer = new ResizeObserver(updateHasMore);
+    observer.observe(container);
+    return () => {
+      container.removeEventListener("scroll", updateHasMore);
+      observer.disconnect();
+    };
   }, [bookingDates]);
 
   const monthIds = [...new Set(bookingDates.map((date) => date.id.slice(0, 7)))];
@@ -134,26 +164,31 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
       {bookingDates.length > 0 ? (
         <div className="mt-6">
           <p className="mb-3 text-sm font-black text-animeo-dark">1. Choisissez une date</p>
-          <div className="mb-4 overflow-x-auto pb-1">
-            <div className="flex min-w-max gap-2" aria-label="Choisir le mois">
-              {monthIds.map((monthId) => (
-                <button
-                  key={monthId}
-                  type="button"
-                  aria-pressed={selectedMonth === monthId}
-                  onClick={() => { setSelectedMonth(monthId); onDateChange(null); onTimeChange(null); }}
-                  className={`rounded-xl px-4 py-2.5 text-sm font-extrabold capitalize transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${selectedMonth === monthId ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
-                >
-                  {formatMonth(monthId)}
-                </button>
-              ))}
+          <div className="relative mb-4">
+            <div ref={monthScrollRef} className="overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2" aria-label="Choisir le mois">
+                {monthIds.map((monthId) => (
+                  <button
+                    key={monthId}
+                    type="button"
+                    aria-pressed={selectedMonth === monthId}
+                    onClick={() => { setSelectedMonth(monthId); onDateChange(null); onTimeChange(null); }}
+                    className={`touch-manipulation rounded-xl px-4 py-2.5 text-sm font-extrabold capitalize transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${selectedMonth === monthId ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
+                  >
+                    {formatMonth(monthId)}
+                  </button>
+                ))}
+              </div>
             </div>
+            {monthScrollHasMore ? (
+              <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
+            ) : null}
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
             {visibleDates.map((date) => {
               const isSelected = dateId === date.id;
               return (
-                <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={isSelected} className={`min-h-24 rounded-2xl border-2 px-3 py-3 text-center transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
+                <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={isSelected} className={`touch-manipulation min-h-16 rounded-2xl border-2 px-2 py-2.5 text-center transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
                   <span className={`block text-xs font-extrabold uppercase ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>{date.weekday}</span>
                   <span className={`mt-1 block font-black ${isSelected ? "text-white" : "text-animeo-dark"}`}>{date.shortLabel}</span>
                 </button>
@@ -167,7 +202,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
         <div className="mt-6">
           <p className="mb-3 text-sm font-black text-animeo-dark">2. Choisissez une heure</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {availableSlots.map((slot) => <button key={slot} type="button" onClick={() => onTimeChange(slot)} aria-pressed={time === slot} className={`min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo bg-animeo text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}>{slot}</button>)}
+            {availableSlots.map((slot) => <button key={slot} type="button" onClick={() => onTimeChange(slot)} aria-pressed={time === slot} className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo bg-animeo text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}>{slot}</button>)}
           </div>
           <p className="mt-3 text-xs leading-5 text-animeo-muted">Les heures déjà occupées sont retirées : les rendez-vous au cabinet et à domicile partagent un seul agenda.</p>
           {occupiedSlotsError ? (
