@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingProgress } from "@/components/booking/booking-progress";
@@ -43,6 +43,20 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
   // réinitialisé par resetBooking() : recommencer une demande ne doit pas
   // remettre le chronomètre à zéro.
   const [bookingStartedAt] = useState(() => Date.now());
+  const skipInitialFocus = useRef(true);
+
+  // Déplace le focus sur le titre du nouvel écran à chaque changement
+  // d'étape (pattern WAI-ARIA "wizard") : sans ça, un utilisateur au
+  // clavier/lecteur d'écran garde le focus sur un bouton qui vient de
+  // disparaître, et rien ne signale que l'écran a changé. Ignoré au tout
+  // premier rendu pour ne pas voler le focus au chargement de la page.
+  useEffect(() => {
+    if (skipInitialFocus.current) {
+      skipInitialFocus.current = false;
+      return;
+    }
+    document.getElementById("booking-step-heading")?.focus();
+  }, [screen]);
 
   const service = professional.services.find((item) => item.id === serviceId);
   const zone = professional.zones.find((item) => item.id === zoneId);

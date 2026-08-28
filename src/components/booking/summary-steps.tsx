@@ -72,7 +72,17 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
 
       <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#dfe9e6] p-4">
         <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[#4FAF9F]" required />
-        <span className="text-sm leading-6 text-animeo-dark">J’accepte l’utilisation de mes informations pour traiter cette demande. <span className="font-extrabold text-animeo underline">Politique de confidentialité</span></span>
+        <span className="text-sm leading-6 text-animeo-dark">
+          J’accepte l’utilisation de mes informations pour traiter cette demande.{" "}
+          <a
+            href={`/politique-de-confidentialite/${professional.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-extrabold text-animeo underline underline-offset-2 hover:text-animeo-dark"
+          >
+            Politique de confidentialité
+          </a>
+        </span>
       </label>
       <p className="mt-3 rounded-2xl bg-[#fff7e7] p-3 text-sm font-bold text-[#8d651d]">Cette demande sera envoyée en attente de validation par {professional.firstName}.</p>
       {submitError ? <p role="alert" aria-live="polite" className="mt-3 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
@@ -97,7 +107,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
     <div role="status" aria-live="polite" className="py-4 text-center sm:py-8">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#e7f7f1] text-4xl text-[#278064]">✓</div>
       <span className="mt-5 inline-flex rounded-full bg-[#fff2dc] px-3 py-1.5 text-xs font-black text-[#a66a12]">En attente de validation</span>
-      <h2 className="mx-auto mt-4 max-w-xl text-2xl font-black text-animeo-dark sm:text-3xl">Demande envoyée à {professional.firstName}</h2>
+      <h2 id="booking-step-heading" tabIndex={-1} className="mx-auto mt-4 max-w-xl rounded-md text-2xl font-black text-animeo-dark focus:outline-none focus:ring-2 focus:ring-animeo focus:ring-offset-2 sm:text-3xl">Demande envoyée à {professional.firstName}</h2>
 
       <div className="mx-auto mt-6 max-w-md rounded-[18px] bg-animeo-soft p-5 text-left">
         <p className="text-lg font-black text-animeo-dark">{request.animal.name} · {service.name}</p>
