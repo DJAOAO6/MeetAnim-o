@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
+import { CalendarMonth, type CalendarDayStatus } from "@/components/booking/calendar-month";
 import type { BookingDate, BookingMode, PublicService } from "@/data/public-booking";
 import { getOccupiedSlotsAction, type OccupiedInterval } from "@/lib/appointments-actions";
 import { getPublicScheduleAction } from "@/lib/public-schedule";
-import { intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
+import { formatBookingDateLabels, groupSlotsByPeriod, intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
 
 type ScheduleStepProps = {
   mode: BookingMode;
@@ -18,16 +19,18 @@ type ScheduleStepProps = {
   onNext: () => void;
 };
 
+const periodLabels = { morning: "Matin", afternoon: "Après-midi", evening: "Soir" } as const;
+
 export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
   const [bookingDates, setBookingDates] = useState<BookingDate[]>([]);
+  const [windowStartId, setWindowStartId] = useState<string | null>(null);
+  const [windowEndId, setWindowEndId] = useState<string | null>(null);
   const [loadingDates, setLoadingDates] = useState(true);
   const [occupiedSlots, setOccupiedSlots] = useState<Record<string, OccupiedInterval[]>>({});
   const [occupiedSlotsError, setOccupiedSlotsError] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [revalidating, setRevalidating] = useState(false);
   const [revalidationError, setRevalidationError] = useState<string | null>(null);
-  const monthScrollRef = useRef<HTMLDivElement>(null);
-  const [monthScrollHasMore, setMonthScrollHasMore] = useState(false);
 
   // Générées depuis les vraies disponibilités du praticien (horaires,
   // vacances, fermetures exceptionnelles), sur une fenêtre glissante
@@ -40,27 +43,27 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
     // de l'effet (même convention que src/components/availability/manual-availability.ts).
     queueMicrotask(() => { if (!cancelled) setLoadingDates(true); });
     getPublicScheduleAction(mode === "CABINET" ? "cabinet" : "home", service.duration)
-      .then((result) => { if (!cancelled) setBookingDates(result); })
+      .then((result) => {
+        if (cancelled) return;
+        setBookingDates(result.dates);
+        setWindowStartId(result.windowStartId);
+        setWindowEndId(result.windowEndId);
+      })
       .catch(() => { if (!cancelled) setBookingDates([]); })
       .finally(() => { if (!cancelled) setLoadingDates(false); });
     return () => { cancelled = true; };
   }, [mode, service.duration]);
 
-  // Recale le mois sélectionné dès que la liste de dates change (premier
-  // chargement, ou changement de mode/prestation qui invalide le mois
-  // précédemment sélectionné). `selectedMonth === ""` doit être vérifié
-  // explicitement : `date.id.startsWith("")` vaut toujours `true`, donc sans
-  // ce cas particulier `.some(...)` réussit trivialement dès le premier
-  // rendu et cette recalibration ne se déclenche jamais — la grille affiche
-  // alors les ~90 jours de la fenêtre entière au lieu d'un seul mois filtré
-  // (bug préexistant, découvert en QA visuelle Phase 5, pas introduit par
-  // le réordonnancement des étapes).
+  // Recale le mois affiché dès que la fenêtre change (premier chargement, ou
+  // changement de mode/prestation) : le mois de départ de la fenêtre plutôt
+  // que le premier jour AVEC créneaux — le calendrier doit pouvoir afficher
+  // un mois entièrement fermé sans sauter dessus.
   useEffect(() => {
-    if (bookingDates.length > 0 && (selectedMonth === "" || !bookingDates.some((date) => date.id.startsWith(selectedMonth)))) {
-      const firstMonth = bookingDates[0].id.slice(0, 7);
-      queueMicrotask(() => setSelectedMonth(firstMonth));
+    if (windowStartId) {
+      const startMonth = windowStartId.slice(0, 7);
+      queueMicrotask(() => setSelectedMonth((current) => (current && current >= startMonth && (!windowEndId || current <= windowEndId.slice(0, 7)) ? current : startMonth)));
     }
-  }, [bookingDates, selectedMonth]);
+  }, [windowStartId, windowEndId]);
 
   useEffect(() => {
     if (bookingDates.length === 0) {
@@ -72,41 +75,37 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
     getOccupiedSlotsAction(bookingDates[0].id, bookingDates[bookingDates.length - 1].id)
       .then((slots) => { if (!cancelled) setOccupiedSlots(slots); })
       .catch(() => {
-        // En cas d'échec réseau, aucun créneau n'est masqué localement (la
-        // vérification définitive reste faite côté serveur au moment de la
-        // soumission, et re-vérifiée une dernière fois juste avant l'étape
-        // suivante — voir submit), mais l'état dégradé est signalé
-        // explicitement plutôt que masqué en silence.
+        // En cas d'échec réseau, aucune date n'est marquée "complet" à tort
+        // (voir statusFor) — la vérification définitive reste faite côté
+        // serveur au moment de la soumission, et re-vérifiée une dernière
+        // fois juste avant l'étape suivante (voir submit) — mais l'état
+        // dégradé est signalé explicitement plutôt que masqué en silence.
         if (!cancelled) setOccupiedSlotsError(true);
       });
     return () => { cancelled = true; };
   }, [bookingDates]);
 
-  // Signale qu'il reste des mois à découvrir vers la droite (P2 "débordement
-  // horizontal du sélecteur de mois non signalé") : recalculé après tout
-  // changement de contenu (nouvelle liste de mois, redimensionnement) et à
-  // chaque défilement, pour disparaître une fois arrivé au bout plutôt que
-  // de suggérer indéfiniment qu'il reste du contenu cliquable.
-  useEffect(() => {
-    const container = monthScrollRef.current;
-    if (!container) return;
-    function updateHasMore() {
-      if (!container) return;
-      setMonthScrollHasMore(container.scrollWidth - container.scrollLeft - container.clientWidth > 1);
-    }
-    updateHasMore();
-    container.addEventListener("scroll", updateHasMore, { passive: true });
-    const observer = new ResizeObserver(updateHasMore);
-    observer.observe(container);
-    return () => {
-      container.removeEventListener("scroll", updateHasMore);
-      observer.disconnect();
-    };
-  }, [bookingDates]);
+  const bookingDatesById = new Map(bookingDates.map((date) => [date.id, date]));
+  const selectedDate = dateId ? bookingDatesById.get(dateId) : undefined;
 
-  const monthIds = [...new Set(bookingDates.map((date) => date.id.slice(0, 7)))];
-  const visibleDates = bookingDates.filter((date) => date.id.startsWith(selectedMonth));
-  const selectedDate = bookingDates.find((date) => date.id === dateId);
+  /**
+   * État d'une cellule du calendrier — voir PROMPT-CALENDRIER.md §A2. Le
+   * calendrier a besoin de tous les jours du mois, y compris ceux sans
+   * créneau (fermés) ou hors fenêtre, pas seulement les jours présents dans
+   * `bookingDates` (qui n'inclut que les jours avec au moins un créneau).
+   */
+  function statusFor(candidateDateId: string): CalendarDayStatus {
+    if (!windowStartId || !windowEndId || candidateDateId < windowStartId || candidateDateId > windowEndId) return "outside-window";
+    const date = bookingDatesById.get(candidateDateId);
+    if (!date) return "closed";
+    if (occupiedSlotsError) return "available";
+    const occupied = occupiedSlots[candidateDateId] ?? [];
+    const isFull = date.slots.every((slot) =>
+      occupied.some((interval) => intervalsOverlap(timeToMinutes(slot), service.duration, timeToMinutes(interval.start), interval.duration)),
+    );
+    return isFull ? "full" : "available";
+  }
+
   // Un créneau n'est proposé que si [début, début+durée) ne recouvre aucun
   // intervalle déjà occupé — même règle que hasConflict() côté serveur
   // (src/lib/appointments-actions.ts), pas une simple égalité d'horaire de
@@ -119,9 +118,10 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
         );
       })
     : [];
+  const groupedSlots = groupSlotsByPeriod(availableSlots);
+  const periodGroups = (["morning", "afternoon", "evening"] as const).filter((period) => groupedSlots[period].length > 0);
 
   function selectDate(nextDateId: string) {
-    setSelectedMonth(nextDateId.slice(0, 7));
     onDateChange(nextDateId);
     onTimeChange(null);
   }
@@ -158,57 +158,11 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
 
   return (
     <form onSubmit={submit}>
-      <StepHeading eyebrow="Étape 2 · Rendez-vous" title="Choisissez une date et une heure" />
+      <StepHeading eyebrow="Étape 2 · Rendez-vous" title="Choisissez votre créneau" />
       <div className="rounded-2xl bg-animeo-soft p-4 text-sm text-animeo-dark"><strong>{service.name}</strong> · {service.duration} minutes · {mode === "CABINET" ? "Au cabinet" : "À domicile"}</div>
 
-      {bookingDates.length > 0 ? (
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-black text-animeo-dark">1. Choisissez une date</p>
-          <div className="relative mb-4">
-            <div ref={monthScrollRef} className="overflow-x-auto pb-1">
-              <div className="flex min-w-max gap-2" aria-label="Choisir le mois">
-                {monthIds.map((monthId) => (
-                  <button
-                    key={monthId}
-                    type="button"
-                    aria-pressed={selectedMonth === monthId}
-                    onClick={() => { setSelectedMonth(monthId); onDateChange(null); onTimeChange(null); }}
-                    className={`touch-manipulation rounded-xl px-4 py-2.5 text-sm font-extrabold capitalize transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${selectedMonth === monthId ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
-                  >
-                    {formatMonth(monthId)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {monthScrollHasMore ? (
-              <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white to-transparent" />
-            ) : null}
-          </div>
-          <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
-            {visibleDates.map((date) => {
-              const isSelected = dateId === date.id;
-              return (
-                <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={isSelected} className={`touch-manipulation min-h-16 rounded-2xl border-2 px-2 py-2.5 text-center transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
-                  <span className={`block text-xs font-extrabold uppercase ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>{date.weekday}</span>
-                  <span className={`mt-1 block font-black ${isSelected ? "text-white" : "text-animeo-dark"}`}>{date.shortLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
-      {selectedDate ? (
-        <div className="mt-6">
-          <p className="mb-3 text-sm font-black text-animeo-dark">2. Choisissez une heure</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {availableSlots.map((slot) => <button key={slot} type="button" onClick={() => onTimeChange(slot)} aria-pressed={time === slot} className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo bg-animeo text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}>{slot}</button>)}
-          </div>
-          <p className="mt-3 text-xs leading-5 text-animeo-muted">Les heures déjà occupées sont retirées : les rendez-vous au cabinet et à domicile partagent un seul agenda.</p>
-          {occupiedSlotsError ? (
-            <p role="alert" className="mt-3 rounded-2xl bg-[#fff7f0] p-3 text-xs font-bold leading-5 text-[#a85d32]">Impossible de vérifier les créneaux déjà pris — les horaires affichés pourraient ne pas être à jour. Une dernière vérification aura lieu avant de continuer.</p>
-          ) : null}
-        </div>
+      {occupiedSlotsError ? (
+        <p role="alert" className="mt-4 rounded-2xl bg-[#fff7f0] p-3 text-xs font-bold leading-5 text-[#a85d32]">Impossible de vérifier les créneaux déjà pris — les jours affichés comme disponibles pourraient en réalité être complets. Une dernière vérification aura lieu avant de continuer.</p>
       ) : null}
 
       {loadingDates ? (
@@ -218,14 +172,90 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
         </p>
       ) : bookingDates.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Aucun créneau n’est disponible pour le moment. Revenez à l’étape précédente ou contactez directement le professionnel.</p>
+      ) : selectedMonth && windowStartId && windowEndId ? (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div>
+            <p className="mb-3 text-sm font-black text-animeo-dark">1. Choisissez une date</p>
+            <CalendarMonth
+              monthId={selectedMonth}
+              onMonthChange={setSelectedMonth}
+              minMonthId={windowStartId.slice(0, 7)}
+              maxMonthId={windowEndId.slice(0, 7)}
+              selectedDateId={dateId}
+              onSelectDate={selectDate}
+              statusFor={statusFor}
+            />
+          </div>
+
+          {selectedDate ? (
+            <div>
+              <p className="mb-3 text-sm font-black text-animeo-dark">2. Choisissez une heure</p>
+              <div className="mb-4 flex items-center gap-2 rounded-2xl bg-animeo-bg px-4 py-3 text-sm font-extrabold text-animeo-dark">
+                <CalendarIcon />
+                {formatBookingDateLabels(selectedDate.id).fullLabel}
+              </div>
+
+              {periodGroups.length === 0 ? (
+                <p className="rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Plus aucun créneau disponible ce jour-là. Choisissez une autre date.</p>
+              ) : (
+                <div className="space-y-5">
+                  {periodGroups.map((period) => {
+                    const groupHeadingId = `schedule-period-${period}`;
+                    return (
+                      <div key={period} role="group" aria-labelledby={groupHeadingId}>
+                        <p id={groupHeadingId} className="mb-2 text-xs font-extrabold uppercase tracking-wide text-animeo-muted">{periodLabels[period]}</p>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {groupedSlots[period].map((slot) => (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => onTimeChange(slot)}
+                              aria-pressed={time === slot}
+                              className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo-dark bg-animeo-dark text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <p className="mt-4 flex items-center gap-1.5 text-xs leading-5 text-animeo-muted">
+                <ClockIcon />
+                Seuls les créneaux disponibles sont affichés.
+              </p>
+            </div>
+          ) : (
+            <div className="hidden min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#dfe9e6] p-6 text-center text-sm font-bold text-animeo-muted lg:flex">
+              Choisissez d’abord une date
+            </div>
+          )}
+        </div>
       ) : null}
+
       {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{revalidationError}</p> : null}
       <BookingActions onBack={onBack} nextDisabled={!dateId || !time} loading={revalidating} />
     </form>
   );
 }
 
-function formatMonth(monthId: string) {
-  const [year, month] = monthId.split("-").map(Number);
-  return new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1, 12));
+function CalendarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M16 3v4M8 3v4M3 10h18" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
+  );
 }
