@@ -41,9 +41,9 @@ export function BookingField({ id, label, required, hint, error, children }: { i
 
 export function BookingActions({ onBack, nextLabel = "Continuer", nextDisabled = false, loading = false }: { onBack?: () => void; nextLabel?: string; nextDisabled?: boolean; loading?: boolean }) {
   return (
-    <div className="sticky bottom-0 -mx-4 mt-7 flex gap-3 border-t border-[#e2ebe8] bg-white/95 px-4 py-4 backdrop-blur sm:static sm:mx-0 sm:justify-between sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
-      {onBack ? <button type="button" onClick={onBack} disabled={loading} className="min-h-12 flex-1 rounded-[14px] border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none">Retour</button> : <span className="hidden sm:block" />}
-      <button type="submit" disabled={nextDisabled || loading} className="flex min-h-12 flex-[2] items-center justify-center gap-2 rounded-[14px] bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none">
+    <div className="sticky bottom-0 -mx-4 mt-7 flex gap-3 border-t border-[#e2ebe8] bg-white/95 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:justify-between sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
+      {onBack ? <button type="button" onClick={onBack} disabled={loading} className="min-h-12 flex-1 touch-manipulation rounded-[14px] border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none">Retour</button> : <span className="hidden sm:block" />}
+      <button type="submit" disabled={nextDisabled || loading} className="flex min-h-12 flex-[2] touch-manipulation items-center justify-center gap-2 rounded-[14px] bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none">
         {loading ? <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/35 border-t-white" /> : null}
         {nextLabel}
       </button>

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Inter, Manrope, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -32,6 +32,16 @@ export const metadata: Metadata = {
     template: "%s · Animéo",
   },
   description: "L’agenda intelligent des professionnels animaliers.",
+};
+
+// viewportFit: "cover" est nécessaire pour que env(safe-area-inset-*) (voir
+// booking-ui.tsx, BookingActions) résolve à une vraie valeur sur iOS plutôt
+// qu'à 0 — sans lui, le contenu ne s'étend jamais sous l'encoche/la barre
+// système et les variables d'inset restent inertes.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
