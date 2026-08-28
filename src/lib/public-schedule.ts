@@ -2,7 +2,7 @@
 
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
-import { zoneByWeekday, type BookingDate } from "@/data/public-booking";
+import type { BookingDate } from "@/data/public-booking";
 import {
   BOOKING_WINDOW_DAYS,
   formatBookingDateLabels,
@@ -44,7 +44,7 @@ export async function getPublicScheduleAction(mode: "cabinet" | "home", duration
       const slots = generateCandidateStarts(hourly, mode, durationMinutes);
       if (slots.length > 0) {
         const dateId = toLocalDateId(cursor);
-        dates.push({ id: dateId, ...formatBookingDateLabels(dateId), slots, zoneId: zoneByWeekday[cursor.getDay()] });
+        dates.push({ id: dateId, ...formatBookingDateLabels(dateId), slots });
       }
     }
     cursor.setDate(cursor.getDate() + 1);

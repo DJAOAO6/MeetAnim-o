@@ -228,7 +228,7 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
 
   return (
     <form onSubmit={submit} noValidate>
-      <StepHeading eyebrow="Étape 2 · Vous & votre animal" title="Quelques informations" />
+      <StepHeading eyebrow="Étape 3 · Vous & votre animal" title="Quelques informations" />
 
       <div className="mb-5 flex gap-1.5" aria-hidden="true">
         {groupOrder.map((group) => (

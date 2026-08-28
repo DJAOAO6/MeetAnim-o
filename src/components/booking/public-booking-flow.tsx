@@ -17,10 +17,17 @@ const emptyAddress: BookingAddress = { address: "", addressExtra: "", postalCode
 const emptyOwner: OwnerInformation = { firstName: "", lastName: "", phone: "", email: "", ...emptyAddress };
 const emptyAnimal: AnimalInformation = { name: "", species: "Chien", breed: "", birthDate: "", birthDateApproximate: false, notes: "" };
 
+// Ordre : service → créneau → coordonnées. Montrer un créneau disponible
+// avant de demander les coordonnées réduit la friction avant la première
+// preuve de disponibilité réelle (P1 "ordre des étapes contre-productif").
+// Contrepartie assumée : l'étape créneau ne connaît plus l'adresse du
+// client à ce stade, donc la mise en avant par tournée pour le domicile
+// (auparavant dans schedule-step.tsx) n'est plus possible et a été retirée
+// — voir le commit dédié.
 function progressFor(screen: BookingScreen) {
   if (screen === "consultation") return 1;
-  if (screen === "details") return 2;
-  if (screen === "schedule") return 3;
+  if (screen === "schedule") return 2;
+  if (screen === "details") return 3;
   return 4;
 }
 
@@ -351,6 +358,18 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
               mode={mode}
               onServiceChange={changeService}
               onModeChange={changeMode}
+              onNext={() => setScreen("schedule")}
+            />
+          ) : null}
+          {screen === "schedule" && mode && service ? (
+            <ScheduleStep
+              mode={mode}
+              service={service}
+              dateId={dateId}
+              time={time}
+              onDateChange={(value) => { setDateId(value); setTime(null); }}
+              onTimeChange={setTime}
+              onBack={goToPreviousScreen}
               onNext={() => setScreen("details")}
             />
           ) : null}
@@ -368,10 +387,9 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
               animal={animal}
               onAnimalChange={setAnimal}
               onBack={goToPreviousScreen}
-              onNext={() => setScreen("schedule")}
+              onNext={() => setScreen("summary")}
             />
           ) : null}
-          {screen === "schedule" && mode && service ? <ScheduleStep professional={professional} mode={mode} service={service} clientAddress={mode === "HOME" ? address : owner} zoneId={zoneId} dateId={dateId} time={time} onDateChange={(value) => { setDateId(value); setTime(null); }} onTimeChange={setTime} onBack={goToPreviousScreen} onNext={() => setScreen("summary")} /> : null}
           {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} submitting={submitting} submitError={submitError} onBack={goToPreviousScreen} onSubmit={submitRequest} /> : null}
           {screen === "success" && request && service ? <BookingSuccess professional={professional} request={request} service={service} onReset={resetBooking} /> : null}
         </section>

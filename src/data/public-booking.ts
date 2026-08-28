@@ -35,7 +35,6 @@ export type BookingDate = {
   shortLabel: string;
   fullLabel: string;
   slots: string[];
-  zoneId?: string;
 };
 
 export type PublicProfessional = {
@@ -205,13 +204,3 @@ export const bookingProfessionals: PublicProfessional[] = [
 // Les créneaux réellement proposés viennent désormais de
 // src/lib/public-schedule.ts (getPublicScheduleAction), généré à partir des
 // vraies disponibilités du praticien sur une fenêtre glissante J+1 → J+90.
-// zoneByWeekday reste ici : les tournées mises en avant dans le tunnel
-// (src/data/public-booking-tours.ts) sont encore une donnée de démonstration
-// distincte, non branchée sur de vraies tournées en base — voir
-// AUDIT-FINDINGS.md §4. L'associer à un jour de la semaine plutôt qu'à une
-// vraie zone géocodée reste donc une limite connue, pas une régression.
-export const zoneByWeekday: Partial<Record<number, string>> = {
-  1: "zone-le-havre",
-  2: "zone-rouen-nord",
-  5: "zone-dieppe",
-};

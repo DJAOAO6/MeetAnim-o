@@ -46,6 +46,21 @@ async function gotoAddressStep(page: Page) {
   await page.getByRole("button", { name: "Consultation à domicile", exact: true }).click();
   await page.locator('button[type="submit"]').click();
 
+  // L'étape "Rendez-vous" (créneau) précède désormais "Vous & votre animal" :
+  // choisir une date puis une heure avant de pouvoir continuer. Le passage à
+  // l'étape suivante revalide le créneau côté serveur (schedule-step.tsx,
+  // submit()) : sous exécution parallèle lourde, la vérification cliente
+  // initiale des créneaux occupés peut ne pas encore être revenue au moment
+  // du choix, et la revalidation rejette alors à bon droit un horaire qui
+  // n'était pas réellement libre — sans rapport avec l'objet de ces tests.
+  // On boucle sur les horaires proposés jusqu'à ce qu'un passe la
+  // revalidation, plutôt que de deviner un délai d'attente arbitraire.
+  await expect(page.getByText("Choisissez une date et une heure")).toBeVisible();
+  await page.locator(".grid.grid-cols-2.gap-2.sm\\:grid-cols-3.md\\:grid-cols-5 button").first().click();
+  await expect(page.locator('button:has-text(":")').first()).toBeVisible();
+  await page.locator('button:has-text(":")').first().click();
+  await page.locator('button[type="submit"]').click();
+
   await expect(page.getByText("Quelques informations")).toBeVisible();
 
   // Le groupe "Coordonnées" s'ouvre en premier ; le remplir enchaîne
@@ -62,6 +77,16 @@ async function gotoAddressStep(page: Page) {
 }
 
 test.describe("Autocomplétion d'adresse (étape domicile)", () => {
+  // Chaque test traverse l'étape "Rendez-vous" et sélectionne un vrai
+  // créneau, revalidé côté serveur contre l'agenda réel (schedule-step.tsx,
+  // submit()) : sous exécution parallèle, plusieurs instances Chromium
+  // simultanées ralentissent le serveur next dev au point que la
+  // vérification initiale des créneaux occupés peut ne pas être revenue à
+  // temps, menant à une revalidation qui rejette (à raison) un horaire pas
+  // encore connu comme pris — sans rapport avec l'objet de ces tests.
+  // Exécution en série pour ce fichier plutôt que deviner un délai d'attente.
+  test.describe.configure({ mode: "serial" });
+
   test("n'effectue aucune recherche avec un champ vide", async ({ page }) => {
     let requested = false;
     await page.route("**/api/address-search**", (route) => { requested = true; route.continue(); });

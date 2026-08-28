@@ -1,6 +1,6 @@
 import { Icon } from "@/components/ui/icon";
 
-const steps = ["Consultation", "Vous & votre animal", "Rendez-vous", "Confirmation"];
+const steps = ["Consultation", "Rendez-vous", "Vous & votre animal", "Confirmation"];
 
 export function BookingProgress({ current }: { current: number }) {
   const percent = ((current - 1) / (steps.length - 1)) * 100;
