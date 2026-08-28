@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   addMonths,
+  buildIcsContent,
   computeConsultationPrice,
   computeTotalPrice,
   computeTravelFee,
@@ -313,4 +314,39 @@ test("getMonthGridDays has zero leading blanks when the month starts on a Monday
   const result = getMonthGridDays("2026-06");
   assert.equal(result.leadingBlanks, 0);
   assert.equal(result.dateIds.length, 30);
+});
+
+test("buildIcsContent produces a well-formed single-event calendar with floating DTSTART/DTEND", () => {
+  const ics = buildIcsContent({
+    uid: "appt-123@animeo.app",
+    dateId: "2026-11-05",
+    start: "14:30",
+    durationMinutes: 60,
+    summary: "Ostéopathie canine — Rex",
+    description: "Consultation à domicile",
+    location: "Cabinet",
+  }, new Date("2026-10-01T10:00:00.000Z"));
+
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /\r\nEND:VCALENDAR$/);
+  assert.match(ics, /UID:appt-123@animeo\.app\r\n/);
+  assert.match(ics, /DTSTART:20261105T143000\r\n/);
+  assert.match(ics, /DTEND:20261105T153000\r\n/);
+  assert.match(ics, /DTSTAMP:20261001T100000Z\r\n/);
+  assert.match(ics, /SUMMARY:Ostéopathie canine — Rex\r\n/);
+});
+
+test("buildIcsContent escapes commas, semicolons and newlines in text fields", () => {
+  const ics = buildIcsContent({
+    uid: "appt-456@animeo.app",
+    dateId: "2026-11-05",
+    start: "09:00",
+    durationMinutes: 30,
+    summary: "Test",
+    description: "Ligne 1\nLigne 2, avec; des caractères spéciaux",
+    location: "12 rue Exemple, 76000 Rouen",
+  }, new Date("2026-10-01T10:00:00.000Z"));
+
+  assert.match(ics, /DESCRIPTION:Ligne 1\\nLigne 2\\, avec\\; des caractères spéciaux\r\n/);
+  assert.match(ics, /LOCATION:12 rue Exemple\\, 76000 Rouen\r\n/);
 });

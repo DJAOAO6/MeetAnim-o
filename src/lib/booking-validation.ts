@@ -267,3 +267,79 @@ export function generateCandidateStarts(hourly: Record<number, HourAvailability>
   }
   return starts;
 }
+
+/**
+ * Référence courte et lisible dérivée de l'identifiant réel (cuid, pas
+ * pensé pour être lu/dicté) — purement cosmétique, l'identifiant complet
+ * reste la clé stockée en base. Partagée entre l'email de confirmation
+ * (appointments-actions.ts) et l'écran de succès (summary-steps.tsx) pour
+ * qu'un client puisse relier les deux.
+ */
+export function formatBookingReference(id: string): string {
+  return id.slice(-8).toUpperCase();
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * Échappe une valeur texte pour un champ .ics (RFC 5545 §3.3.11) :
+ * antislash, virgule, point-virgule et retour à la ligne sont des
+ * caractères spéciaux du format qui casseraient le fichier s'ils
+ * apparaissaient tels quels (ex. une adresse contenant une virgule).
+ */
+function escapeIcsText(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/;/g, "\\;").replace(/\n/g, "\\n");
+}
+
+export type IcsEventInput = {
+  uid: string;
+  dateId: string;
+  start: string;
+  durationMinutes: number;
+  summary: string;
+  description: string;
+  location: string;
+};
+
+/**
+ * Construit un fichier .ics minimal (un seul VEVENT) pour le bouton
+ * "Ajouter à mon calendrier" de l'écran de succès (BookingSuccess). DTSTART/
+ * DTEND sont en heure "flottante" (sans suffixe Z ni TZID) plutôt qu'en UTC
+ * précis : convertir correctement Europe/Paris (praticien) vers UTC exige de
+ * gérer les changements d'heure été/hiver, hors de portée pour ce gain
+ * ponctuel — une heure flottante est interprétée par la plupart des
+ * calendriers dans le fuseau local du lecteur, ce qui coïncide avec celui du
+ * praticien pour l'immense majorité de ses clients (patientèle locale).
+ * DTSTAMP (horodatage de génération du fichier, sémantiquement différent de
+ * DTSTART) reste en UTC réel comme l'exige RFC 5545.
+ */
+export function buildIcsContent(input: IcsEventInput, now: Date = new Date()): string {
+  const [year, month, day] = input.dateId.split("-").map(Number);
+  const [startHour, startMinute] = input.start.split(":").map(Number);
+  const startDate = new Date(year, month - 1, day, startHour, startMinute);
+  const endDate = new Date(startDate.getTime() + input.durationMinutes * 60_000);
+
+  const formatFloating = (date: Date) => `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}T${pad2(date.getHours())}${pad2(date.getMinutes())}00`;
+  const formatUtc = (date: Date) => `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}${pad2(date.getUTCSeconds())}Z`;
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Animeo//Reservation publique//FR",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${input.uid}`,
+    `DTSTAMP:${formatUtc(now)}`,
+    `DTSTART:${formatFloating(startDate)}`,
+    `DTEND:${formatFloating(endDate)}`,
+    `SUMMARY:${escapeIcsText(input.summary)}`,
+    `DESCRIPTION:${escapeIcsText(input.description)}`,
+    `LOCATION:${escapeIcsText(input.location)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  // RFC 5545 impose des fins de ligne CRLF.
+  return lines.join("\r\n");
+}
