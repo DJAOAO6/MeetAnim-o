@@ -13,7 +13,8 @@ import {
   type PublicService,
 } from "@/data/public-booking";
 import { publicBookingMapClients, publicBookingTourAppointments, publicBookingTours } from "@/data/public-booking-tours";
-import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
+import { getOccupiedSlotsAction, type OccupiedInterval } from "@/lib/appointments-actions";
+import { intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
 import type { Tour } from "@/data/tours";
 
 function toDateId(date: Date) {
@@ -46,7 +47,7 @@ function tourRunsOnDate(tour: Tour, date: BookingDate) {
 }
 
 export function ScheduleStep({ professional, mode, service, clientAddress, zoneId, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
-  const [occupiedSlots, setOccupiedSlots] = useState<Record<string, string[]>>({});
+  const [occupiedSlots, setOccupiedSlots] = useState<Record<string, OccupiedInterval[]>>({});
   // Mesure palliative en attendant la Phase 2 (génération des créneaux à
   // partir des vraies disponibilités, sur une fenêtre glissante) : bookingDates
   // est une liste figée qui ne tient pas compte de la date du jour, elle
@@ -102,7 +103,18 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const [selectedMonth, setSelectedMonth] = useState(monthIds[0] ?? "");
   const visibleDates = dates.filter((date) => date.id.startsWith(selectedMonth));
   const selectedDate = dates.find((date) => date.id === dateId);
-  const availableSlots = selectedDate?.slots.filter((slot) => !(occupiedSlots[selectedDate.id] ?? []).includes(slot)) ?? [];
+  // Un créneau n'est proposé que si [début, début+durée) ne recouvre aucun
+  // intervalle déjà occupé — même règle que hasConflict() côté serveur
+  // (src/lib/appointments-actions.ts), pas une simple égalité d'horaire de
+  // départ : un soin de 60 min à 09:00 doit aussi retirer 09:30.
+  const availableSlots = selectedDate
+    ? selectedDate.slots.filter((slot) => {
+        const slotStartMinutes = timeToMinutes(slot);
+        return !(occupiedSlots[selectedDate.id] ?? []).some((occupied) =>
+          intervalsOverlap(slotStartMinutes, service.duration, timeToMinutes(occupied.start), occupied.duration),
+        );
+      })
+    : [];
   const recommendedDates = mode === "HOME" ? dates.filter((date) => tourByDate.has(date.id)).slice(0, 3) : [];
   const scheduledInCity = activeTours.flatMap((tour) => publicBookingTourAppointments[tour.id] ?? []).filter((appointment) => normalizeLocation(appointment.city) === normalizedCity).length;
   const mappedInCity = publicBookingMapClients.filter((client) => normalizeLocation(client.city) === normalizedCity).length;

@@ -6,10 +6,13 @@ import {
   computeTravelFee,
   findMatchingZone,
   findServiceById,
+  intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
+  minutesToTime,
   passesMinimumFillTime,
   publicBookingCoreSchema,
+  timeToMinutes,
   MIN_FORM_FILL_MS,
 } from "../src/lib/booking-validation";
 import type { PublicService, PublicZone } from "../src/data/public-booking";
@@ -169,4 +172,44 @@ test("publicBookingCoreSchema rejects a malformed time", () => {
     animalName: "Luna",
   });
   assert.equal(result.success, false);
+});
+
+test("timeToMinutes converts HH:MM to minutes since midnight", () => {
+  assert.equal(timeToMinutes("00:00"), 0);
+  assert.equal(timeToMinutes("09:30"), 570);
+  assert.equal(timeToMinutes("23:59"), 1439);
+});
+
+test("minutesToTime is the inverse of timeToMinutes", () => {
+  assert.equal(minutesToTime(0), "00:00");
+  assert.equal(minutesToTime(570), "09:30");
+  assert.equal(minutesToTime(1439), "23:59");
+});
+
+test("intervalsOverlap detects a partial overlap regardless of which interval starts first", () => {
+  // 09:00-10:00 (60 min) vs 09:30-10:30 (60 min) : se chevauchent
+  assert.equal(intervalsOverlap(540, 60, 570, 60), true);
+  assert.equal(intervalsOverlap(570, 60, 540, 60), true);
+});
+
+test("intervalsOverlap treats back-to-back intervals as non-overlapping", () => {
+  // 09:00-10:00 (60 min) puis 10:00-11:00 (60 min) : bord à bord, pas de chevauchement
+  assert.equal(intervalsOverlap(540, 60, 600, 60), false);
+});
+
+test("intervalsOverlap detects one interval fully containing another", () => {
+  // 09:00-11:00 (120 min) contient entièrement 09:30-10:00 (30 min)
+  assert.equal(intervalsOverlap(540, 120, 570, 30), true);
+});
+
+test("intervalsOverlap is false for clearly separate intervals", () => {
+  assert.equal(intervalsOverlap(540, 30, 900, 30), false);
+});
+
+test("intervalsOverlap reproduces the exact scenario from the audit (60 min at 09:00 blocks 09:30)", () => {
+  // Un soin de 60 min à 09:00 doit rendre 09:30 indisponible pour un
+  // deuxième soin, même de durée différente.
+  assert.equal(intervalsOverlap(timeToMinutes("09:00"), 60, timeToMinutes("09:30"), 45), true);
+  // Mais 10:00 doit rester libre.
+  assert.equal(intervalsOverlap(timeToMinutes("09:00"), 60, timeToMinutes("10:00"), 45), false);
 });

@@ -17,11 +17,14 @@ import { getPublicServices } from "@/lib/services-actions";
 import {
   computeTotalPrice,
   findServiceById,
+  intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
   passesMinimumFillTime,
   publicBookingCoreSchema,
+  timeToMinutes,
 } from "@/lib/booking-validation";
+import { Prisma } from "@/generated/prisma/client";
 
 const dbMode: Record<AppointmentMode, VisitMode> = { cabinet: "CABINET", home: "DOMICILE" };
 const modeLabel: Record<VisitMode, AppointmentMode> = { CABINET: "cabinet", DOMICILE: "home" };
@@ -57,23 +60,42 @@ function toAppointment(row: {
 }
 
 /**
- * Le cabinet et le domicile partagent un seul agenda : un créneau (même date,
- * même heure de départ) ne peut jamais être occupé par deux rendez-vous non
- * annulés à la fois, quel que soit le mode. Vérification best-effort (pas de
- * contrainte unique en base) : suffisante pour un praticien seul avec un
- * volume de réservations faible, mais laisse en théorie une fenêtre de
- * course en cas de deux écritures strictement simultanées.
+ * Le cabinet et le domicile partagent un seul agenda : un rendez-vous ne
+ * peut jamais chevaucher un autre rendez-vous non annulé, quel que soit le
+ * mode. Compare de vrais intervalles [start, start+duration) plutôt qu'une
+ * égalité stricte sur l'heure de départ — un soin de 60 min à 09:00 doit
+ * bloquer 09:30, pas seulement une nouvelle demande à 09:00 pile.
+ *
+ * Reste une vérification applicative (pas une contrainte SQL sur
+ * intervalles, disproportionnée ici) : la migration
+ * 20260828104850_add_appointment_slot_unique_constraint ajoute un filet de
+ * sécurité en base, mais seulement pour la duplication exacte d'un même
+ * horaire de départ — voir handlePotentialSlotConflict ci-dessous pour le
+ * cas où cette vérification applicative perdrait malgré tout la course.
  */
-async function hasConflict(dateId: string, start: string, excludeId?: string): Promise<boolean> {
-  const existing = await prisma.appointment.findFirst({
+async function hasConflict(dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
+  const sameDayAppointments = await prisma.appointment.findMany({
     where: {
       date: toDate(dateId),
-      start,
       status: { not: "CANCELLED" },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
+    select: { start: true, duration: true },
   });
-  return existing !== null;
+
+  const startMinutes = timeToMinutes(start);
+  return sameDayAppointments.some((appointment) => intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), appointment.duration));
+}
+
+/**
+ * P2002 (contrainte unique violée) ne peut venir que de l'index partiel sur
+ * (date, start) : c'est la même course que hasConflict() vérifie déjà en
+ * amont, juste perdue de justesse. Reconvertit cette erreur bas niveau en
+ * message utilisateur cohérent avec celui de hasConflict, plutôt que de
+ * laisser remonter une exception Prisma brute.
+ */
+function isSlotUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 export type SaveAppointmentInput = {
@@ -102,8 +124,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
 
-  if (await hasConflict(input.date, input.start, input.id)) {
-    return { ok: false, error: "Ce créneau est déjà occupé par un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
+  if (await hasConflict(input.date, input.start, input.duration, input.id)) {
+    return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
 
   const data = {
@@ -123,9 +145,17 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     notes: input.notes,
   };
 
-  const row = input.id
-    ? await prisma.appointment.update({ where: { id: input.id }, data, include: { animal: { select: { species: true } } } })
-    : await prisma.appointment.create({ data, include: { animal: { select: { species: true } } } });
+  let row;
+  try {
+    row = input.id
+      ? await prisma.appointment.update({ where: { id: input.id }, data, include: { animal: { select: { species: true } } } })
+      : await prisma.appointment.create({ data, include: { animal: { select: { species: true } } } });
+  } catch (error) {
+    if (isSlotUniqueConstraintError(error)) {
+      return { ok: false, error: "Ce créneau vient d’être pris par un autre rendez-vous. Choisissez une autre heure." };
+    }
+    throw error;
+  }
 
   await logAudit({
     userId: user.id,
@@ -144,7 +174,7 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
 
   if (status !== "cancelled") {
     const current = await prisma.appointment.findUnique({ where: { id } });
-    if (current && await hasConflict(current.date.toISOString().slice(0, 10), current.start, id)) {
+    if (current && await hasConflict(current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
       return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
     }
   }
@@ -403,16 +433,12 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
 
   // Fenêtre "aujourd'hui" en UTC : cohérent avec toDate() ci-dessus (ancrage
   // UTC minuit). Une normalisation explicite au fuseau du praticien
-  // (Europe/Paris) reste à faire à la Phase 2, en même temps que la
-  // génération des créneaux depuis les vraies disponibilités.
+  // (Europe/Paris) reste à faire — voir toLocalDateId ci-dessus et le
+  // commit dédié à la normalisation de fuseau horaire.
   const todayId = new Date().toISOString().slice(0, 10);
   const limitId = toLocalDateId(bookingLimitDate);
   if (!isBookingDateAcceptable(core.date, todayId, limitId)) {
     return { ok: false, error: "Cette date n’est plus disponible. Merci de choisir une date à venir." };
-  }
-
-  if (await hasConflict(core.date, core.start)) {
-    return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
 
   const services = await getPublicServices();
@@ -424,39 +450,51 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     return { ok: false, error: "Ce mode de consultation n’est plus proposé pour cette prestation." };
   }
 
+  if (await hasConflict(core.date, core.start, service.duration)) {
+    return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
+  }
+
   const geoFields = sanitizeGeoFields(input);
   const animalFields = sanitizeAnimalFields(input);
   const { clientId, animalId } = await findOrCreateClientAndAnimal(input);
 
   // Les zones (et donc les frais de déplacement en mode "zone") restent une
-  // donnée de démonstration statique tant que la Phase 2 ne les a pas
-  // branchées sur de vraies zones en base — voir AUDIT-FINDINGS.md §3.A.
+  // donnée de démonstration statique tant que les vraies zones ne sont pas
+  // branchées sur la base — voir AUDIT-FINDINGS.md §3.A.
   const zones = bookingProfessionals[0]?.zones ?? [];
   const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
 
-  const row = await prisma.appointment.create({
-    data: {
-      clientId,
-      animalId,
-      date: toDate(core.date),
-      start: core.start,
-      duration: service.duration,
-      clientName: core.clientName,
-      animalName: core.animalName,
-      animalSpecies: animalFields.species ?? null,
-      serviceName: service.name,
-      mode: dbMode[core.mode],
-      location: core.location,
-      postalCode: geoFields.postalCode ?? null,
-      city: geoFields.city ?? null,
-      inseeCode: geoFields.inseeCode ?? null,
-      latitude: geoFields.latitude ?? null,
-      longitude: geoFields.longitude ?? null,
-      price,
-      status: "PENDING",
-      notes: core.notes,
-    },
-  });
+  let row;
+  try {
+    row = await prisma.appointment.create({
+      data: {
+        clientId,
+        animalId,
+        date: toDate(core.date),
+        start: core.start,
+        duration: service.duration,
+        clientName: core.clientName,
+        animalName: core.animalName,
+        animalSpecies: animalFields.species ?? null,
+        serviceName: service.name,
+        mode: dbMode[core.mode],
+        location: core.location,
+        postalCode: geoFields.postalCode ?? null,
+        city: geoFields.city ?? null,
+        inseeCode: geoFields.inseeCode ?? null,
+        latitude: geoFields.latitude ?? null,
+        longitude: geoFields.longitude ?? null,
+        price,
+        status: "PENDING",
+        notes: core.notes,
+      },
+    });
+  } catch (error) {
+    if (isSlotUniqueConstraintError(error)) {
+      return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
+    }
+    throw error;
+  }
 
   await logAudit({ action: "APPOINTMENT_CREATED", entityType: "Appointment", entityId: row.id, metadata: { source: "public_booking" } });
   revalidatePath("/dashboard");
@@ -464,44 +502,36 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   return { ok: true, id: row.id };
 }
 
-function minutesToTime(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-}
-
-function timeToMinutes(value: string): number {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
+export type OccupiedInterval = { start: string; duration: number };
 
 /**
  * Lecture publique (sans session) des créneaux déjà occupés sur une période :
- * ne renvoie que date + heure, jamais l'identité du client, pour alimenter
- * le calendrier de réservation sans exposer de données personnelles. Les
- * créneaux bloqués par le praticien (BlockedSlot) sont inclus de la même
- * façon, en générant tous les repères de 15 min couverts par leur plage.
+ * ne renvoie que date + horaire + durée, jamais l'identité du client, pour
+ * alimenter le calendrier de réservation sans exposer de données
+ * personnelles. Renvoie de vrais intervalles (pas seulement l'heure de
+ * départ) pour que le client puisse calculer les mêmes recouvrements que
+ * hasConflict() côté serveur, plutôt qu'une égalité stricte sur l'heure de
+ * départ — voir intervalsOverlap (src/lib/booking-validation.ts). Les
+ * créneaux bloqués par le praticien (BlockedSlot) sont inclus comme un seul
+ * intervalle par plage, plutôt que découpés en repères de 15 min.
  */
-export async function getOccupiedSlotsAction(fromDateId: string, toDateId: string): Promise<Record<string, string[]>> {
+export async function getOccupiedSlotsAction(fromDateId: string, toDateId: string): Promise<Record<string, OccupiedInterval[]>> {
   const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
 
   const [appointmentRows, blockedRows] = await Promise.all([
-    prisma.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true } }),
+    prisma.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true, duration: true } }),
     prisma.blockedSlot.findMany({ where: { date: range }, select: { date: true, startTime: true, endTime: true } }),
   ]);
 
-  const result: Record<string, string[]> = {};
+  const result: Record<string, OccupiedInterval[]> = {};
   for (const row of appointmentRows) {
     const id = row.date.toISOString().slice(0, 10);
-    (result[id] ??= []).push(row.start);
+    (result[id] ??= []).push({ start: row.start, duration: row.duration });
   }
   for (const row of blockedRows) {
     const id = row.date.toISOString().slice(0, 10);
-    const startMinutes = timeToMinutes(row.startTime);
-    const endMinutes = timeToMinutes(row.endTime);
-    for (let minutes = startMinutes; minutes < endMinutes; minutes += 15) {
-      (result[id] ??= []).push(minutesToTime(minutes));
-    }
+    const duration = timeToMinutes(row.endTime) - timeToMinutes(row.startTime);
+    (result[id] ??= []).push({ start: row.startTime, duration });
   }
   return result;
 }

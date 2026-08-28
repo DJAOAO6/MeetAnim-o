@@ -80,6 +80,33 @@ export function computeTotalPrice(service: PublicService, mode: "cabinet" | "hom
 }
 
 /**
+ * Conversions et comparaison d'intervalles horaires, partagées entre la
+ * détection de conflit côté serveur (hasConflict) et le filtrage des
+ * créneaux affichés côté client (schedule-step.tsx) : les deux doivent
+ * appliquer exactement la même règle de recouvrement, pas juste l'égalité
+ * stricte d'un horaire de départ.
+ */
+export function timeToMinutes(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+export function minutesToTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * Deux intervalles [startA, startA+durationA) et [startB, startB+durationB)
+ * se recouvrent dès que l'un commence avant que l'autre ne se termine, dans
+ * les deux sens — condition standard de recouvrement d'intervalles.
+ */
+export function intervalsOverlap(startA: number, durationA: number, startB: number, durationB: number): boolean {
+  return startA < startB + durationB && startB < startA + durationA;
+}
+
+/**
  * Piège anti-bot discret : un envoi plus rapide que le temps humain minimum
  * plausible pour remplir le tunnel est très probablement automatisé. Le
  * timestamp de départ vient du client (mount du tunnel) : ce n'est pas une
