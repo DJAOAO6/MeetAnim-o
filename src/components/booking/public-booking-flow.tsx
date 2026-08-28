@@ -373,11 +373,13 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
               onNext={() => setScreen("details")}
             />
           ) : null}
-          {screen === "details" && mode && service ? (
+          {screen === "details" && mode && service && dateId && time ? (
             <DetailsStep
               professional={professional}
               mode={mode}
               service={service}
+              dateId={dateId}
+              time={time}
               owner={owner}
               onOwnerChange={setOwner}
               address={address}

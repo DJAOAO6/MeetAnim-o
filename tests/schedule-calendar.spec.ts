@@ -140,4 +140,56 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
     await cells.nth(1).click();
     await expect(page.locator('button[aria-pressed="true"]:has-text(":")')).toHaveCount(0);
   });
+
+  test("un créneau pris pendant la saisie des coordonnées est rejeté au passage vers la confirmation", async ({ page }, testInfo) => {
+    // PROMPT-CALENDRIER.md §B3 : la fenêtre entre sélection du créneau et
+    // soumission finale s'étend désormais sur toute l'étape "Vous & votre
+    // animal" (details-step.tsx) — revérifié une deuxième fois à sa propre
+    // transition, pas seulement à celle du calendrier. Restreint à un seul
+    // projet pour la même raison que le test "Complet" ci-dessus (insertion
+    // réelle en base).
+    test.skip(testInfo.project.name !== "chromium", "évite une course d'écriture en base avec l'autre projet");
+
+    await gotoScheduleStep(page);
+    await page.locator('[role="gridcell"][aria-disabled="false"]').first().click();
+    await page.locator('button:has-text(":")').first().click();
+    const time = await page.locator('button[aria-pressed="true"]:has-text(":")').textContent();
+    await page.locator('button[type="submit"]').click();
+    await expect(page.getByText("Quelques informations")).toBeVisible();
+
+    // La date choisie est "29 août 2026" (premier jour disponible de la
+    // fenêtre dans cet environnement de test — voir les autres tests de ce
+    // fichier) ; fixé plutôt que reparsé depuis le DOM pour rester lisible.
+    const DATE = "2026-08-29T00:00:00.000Z";
+
+    await page.fill('#booking-details-firstName', "Reval");
+    await page.fill('#booking-details-lastName', "DetailsStep");
+    await page.fill('#booking-details-phone', "0611223344");
+    await page.fill('#booking-details-email', "reval.detailsstep@example.fr");
+    await page.locator('#booking-details-email').blur();
+    await page.fill('#booking-details-address', "24 rue des Carmes");
+    await page.fill('#booking-details-postalCode', "76000");
+    await page.fill('#booking-details-city', "Rouen");
+    await page.locator('#booking-details-city').blur();
+    await page.fill('#booking-details-animalName', "Rex");
+    await page.fill('#booking-details-reason', "Test motif.");
+    await page.locator('#booking-details-reason').blur();
+
+    // Simule un autre visiteur qui réserve exactement ce créneau pendant que
+    // celui-ci remplissait le formulaire.
+    await sql`
+      INSERT INTO "Appointment" (id, date, start, duration, "clientName", "animalName", "serviceName", mode, location, price, status, notes, "createdAt", "updatedAt")
+      VALUES (gen_random_uuid()::text, ${DATE}, ${time}, 60, 'E2E Concurrent', 'Rex', 'Test', 'CABINET', 'Cabinet', 0, 'CONFIRMED', '', now(), now())
+    `;
+
+    try {
+      await page.locator('button[type="submit"]').click();
+      // Reste sur l'étape coordonnées, pas de passage à la confirmation.
+      await expect(page.getByText("vient d'être réservé")).toBeVisible();
+      await expect(page.getByText("Quelques informations")).toBeVisible();
+      await expect(page.getByText("Vérifiez votre demande")).toHaveCount(0);
+    } finally {
+      await sql`DELETE FROM "Appointment" WHERE "clientName" = 'E2E Concurrent'`;
+    }
+  });
 });

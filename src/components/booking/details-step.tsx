@@ -8,6 +8,8 @@ import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { computeAgeLabel } from "@/lib/animal-age";
+import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
+import { intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicAnimalType, PublicProfessional, PublicService } from "@/data/public-booking";
 
 const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
@@ -60,6 +62,8 @@ type DetailsStepProps = {
   professional: PublicProfessional;
   mode: BookingMode;
   service: PublicService;
+  dateId: string;
+  time: string;
   owner: OwnerInformation;
   onOwnerChange: (value: OwnerInformation) => void;
   address: BookingAddress;
@@ -72,9 +76,11 @@ type DetailsStepProps = {
   onNext: () => void;
 };
 
-export function DetailsStep({ professional, mode, service, owner, onOwnerChange, address, onAddressChange, zoneId, onZoneChange, animal, onAnimalChange, onBack, onNext }: DetailsStepProps) {
+export function DetailsStep({ professional, mode, service, dateId, time, owner, onOwnerChange, address, onAddressChange, zoneId, onZoneChange, animal, onAnimalChange, onBack, onNext }: DetailsStepProps) {
   const [touched, setTouched] = useState<Set<FieldKey>>(new Set());
   const [submitted, setSubmitted] = useState(false);
+  const [revalidating, setRevalidating] = useState(false);
+  const [revalidationError, setRevalidationError] = useState<string | null>(null);
   const fieldRefs = useRef<Partial<Record<FieldKey, HTMLElement | null>>>({});
   const groupContentRefs = useRef<Partial<Record<GroupKey, HTMLDivElement | null>>>({});
   const zone = professional.zones.find((item) => item.id === zoneId);
@@ -212,7 +218,13 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
     }
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  // Revérifie la disponibilité du créneau à cette deuxième transition
+  // (PROMPT-CALENDRIER.md §B3) : le créneau a été choisi à l'étape
+  // précédente, avant que l'utilisateur ne passe du temps à remplir ce
+  // formulaire — la fenêtre entre sélection et soumission finale s'étend
+  // sur les deux étapes, pas seulement la première (déjà revérifiée dans
+  // schedule-step.tsx, submit()).
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
     const firstInvalidGroup = groupOrder.find((group) => !isGroupValid(group));
@@ -220,7 +232,24 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
       setOpenGroup(firstInvalidGroup);
       return;
     }
-    onNext();
+
+    setRevalidationError(null);
+    setRevalidating(true);
+    try {
+      const freshOccupied = await getOccupiedSlotsAction(dateId, dateId);
+      const stillFree = !(freshOccupied[dateId] ?? []).some((occupied) =>
+        intervalsOverlap(timeToMinutes(time), service.duration, timeToMinutes(occupied.start), occupied.duration),
+      );
+      if (!stillFree) {
+        setRevalidationError("Ce créneau vient d'être réservé par quelqu'un d'autre. Revenez à l'étape précédente pour choisir un autre horaire.");
+        return;
+      }
+      onNext();
+    } catch {
+      setRevalidationError("Impossible de vérifier ce créneau pour le moment. Réessayez.");
+    } finally {
+      setRevalidating(false);
+    }
   }
 
   const showAddressDetails = activeAddress.address.trim().length > 0;
@@ -474,7 +503,8 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
         </AccordionGroup>
       </div>
 
-      <BookingActions onBack={onBack} />
+      {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{revalidationError}</p> : null}
+      <BookingActions onBack={onBack} loading={revalidating} />
     </form>
   );
 }
