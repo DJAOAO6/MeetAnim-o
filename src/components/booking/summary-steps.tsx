@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicBookingRequest, PublicProfessional, PublicService } from "@/data/public-booking";
-import { formatBookingDateLabels } from "@/lib/booking-validation";
+import { buildIcsContent, formatBookingDateLabels, formatBookingReference } from "@/lib/booking-validation";
 
 type BookingSummaryProps = {
   professional: PublicProfessional;
@@ -102,12 +102,30 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
 export function BookingSuccess({ professional, request, service, onReset }: { professional: PublicProfessional; request: PublicBookingRequest; service: PublicService; onReset: () => void }) {
   const date = formatBookingDateLabels(request.date);
   const lieu = request.mode === "CABINET" ? `${professional.cabinetAddress}, ${professional.cabinetCity}` : [request.address?.city, request.address?.postalCode].filter(Boolean).join(" · ");
+  const reference = formatBookingReference(request.id);
+
+  // Fichier .ics généré côté client (aucune requête serveur nécessaire) et
+  // proposé en data: URI plutôt qu'en Blob + URL.createObjectURL : un lien
+  // <a download> statique suffit ici et évite de gérer la révocation de
+  // l'URL objet.
+  const icsHref = `data:text/calendar;charset=utf-8,${encodeURIComponent(
+    buildIcsContent({
+      uid: `${request.id}@animeo.app`,
+      dateId: request.date,
+      start: request.time,
+      durationMinutes: service.duration,
+      summary: `${service.name} — ${request.animal.name}`,
+      description: `Rendez-vous avec ${professional.firstName} ${professional.lastName} (${professional.company}). Demande en attente de validation, référence ${reference}.`,
+      location: request.mode === "CABINET" ? lieu : (lieu || "À domicile"),
+    }),
+  )}`;
 
   return (
     <div role="status" aria-live="polite" className="py-4 text-center sm:py-8">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#e7f7f1] text-4xl text-[#278064]">✓</div>
       <span className="mt-5 inline-flex rounded-full bg-[#fff2dc] px-3 py-1.5 text-xs font-black text-[#a66a12]">En attente de validation</span>
       <h2 id="booking-step-heading" tabIndex={-1} className="mx-auto mt-4 max-w-xl rounded-md text-2xl font-black text-animeo-dark focus:outline-none focus:ring-2 focus:ring-animeo focus:ring-offset-2 sm:text-3xl">Demande envoyée à {professional.firstName}</h2>
+      <p className="mt-2 text-xs font-bold uppercase tracking-wide text-animeo-muted">Référence {reference}</p>
 
       <div className="mx-auto mt-6 max-w-md rounded-[18px] bg-animeo-soft p-5 text-left">
         <p className="text-lg font-black text-animeo-dark">{request.animal.name} · {service.name}</p>
@@ -115,7 +133,26 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
         <p className="mt-1 text-sm text-animeo-muted">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"}{lieu ? ` · ${lieu}` : ""}</p>
       </div>
 
-      <button type="button" onClick={onReset} className="mt-7 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-[#459e90] focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
+      <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+        <a
+          href={icsHref}
+          download={`rendez-vous-${reference}.ics`}
+          className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-6 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+        >
+          <CalendarPlusIcon />
+          Ajouter à mon calendrier
+        </a>
+        <button type="button" onClick={onReset} className="min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-[#459e90] focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
+      </div>
     </div>
+  );
+}
+
+function CalendarPlusIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M16 3v4M8 3v4M3 10h18M12 14v5M9.5 16.5h5" />
+    </svg>
   );
 }
