@@ -19,7 +19,7 @@ type ScheduleStepProps = {
   onNext: () => void;
 };
 
-const periodLabels = { morning: "Matin", afternoon: "Après-midi", evening: "Soir" } as const;
+const periodLabels = { morning: "Matin", afternoon: "Après-midi" } as const;
 
 export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
   const [bookingDates, setBookingDates] = useState<BookingDate[]>([]);
@@ -119,7 +119,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
       })
     : [];
   const groupedSlots = groupSlotsByPeriod(availableSlots);
-  const periodGroups = (["morning", "afternoon", "evening"] as const).filter((period) => groupedSlots[period].length > 0);
+  const periodGroups = (["morning", "afternoon"] as const).filter((period) => groupedSlots[period].length > 0);
 
   function selectDate(nextDateId: string) {
     onDateChange(nextDateId);

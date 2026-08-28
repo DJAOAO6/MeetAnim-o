@@ -198,23 +198,21 @@ export function fitsWithinOpenHours(hourly: Record<number, HourAvailability> | n
 }
 
 /**
- * Répartit des horaires de départ ("HH:MM") en Matin / Après-midi / Soir
- * pour l'affichage du calendrier (src/components/booking/schedule-step.tsx) :
- * Matin avant midi, Soir à partir de 18h, Après-midi entre les deux. Un
- * groupe vide est simplement un tableau vide — à l'appelant de ne pas
- * afficher son titre plutôt que de le laisser orphelin.
+ * Répartit des horaires de départ ("HH:MM") en Matin / Après-midi pour
+ * l'affichage du calendrier (src/components/booking/schedule-step.tsx) :
+ * bascule à midi, pas de groupe Soir distinct (les horaires du soir
+ * restent dans Après-midi — demande explicite, la distinction n'apportait
+ * rien pour ce cabinet). Un groupe vide est simplement un tableau vide — à
+ * l'appelant de ne pas afficher son titre plutôt que de le laisser orphelin.
  */
-export function groupSlotsByPeriod(slots: string[]): { morning: string[]; afternoon: string[]; evening: string[] } {
+export function groupSlotsByPeriod(slots: string[]): { morning: string[]; afternoon: string[] } {
   const morning: string[] = [];
   const afternoon: string[] = [];
-  const evening: string[] = [];
   for (const slot of slots) {
-    const minutes = timeToMinutes(slot);
-    if (minutes < 12 * 60) morning.push(slot);
-    else if (minutes < 18 * 60) afternoon.push(slot);
-    else evening.push(slot);
+    if (timeToMinutes(slot) < 12 * 60) morning.push(slot);
+    else afternoon.push(slot);
   }
-  return { morning, afternoon, evening };
+  return { morning, afternoon };
 }
 
 /**

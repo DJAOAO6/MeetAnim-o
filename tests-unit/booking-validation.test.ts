@@ -275,17 +275,16 @@ test("generateCandidateStarts returns an empty list when nothing fits", () => {
   assert.deepEqual(generateCandidateStarts(null, "cabinet", 30), []);
 });
 
-test("groupSlotsByPeriod splits morning/afternoon/evening at 12:00 and 18:00", () => {
+test("groupSlotsByPeriod splits morning/afternoon at 12:00, no separate evening group", () => {
   const result = groupSlotsByPeriod(["09:00", "11:30", "12:00", "17:30", "18:00", "19:30"]);
   assert.deepEqual(result, {
     morning: ["09:00", "11:30"],
-    afternoon: ["12:00", "17:30"],
-    evening: ["18:00", "19:30"],
+    afternoon: ["12:00", "17:30", "18:00", "19:30"],
   });
 });
 
 test("groupSlotsByPeriod returns empty arrays for empty groups rather than omitting keys", () => {
-  assert.deepEqual(groupSlotsByPeriod(["09:00"]), { morning: ["09:00"], afternoon: [], evening: [] });
+  assert.deepEqual(groupSlotsByPeriod(["09:00"]), { morning: ["09:00"], afternoon: [] });
 });
 
 test("addMonths advances within a year", () => {
