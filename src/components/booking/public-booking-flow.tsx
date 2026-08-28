@@ -37,6 +37,12 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
   const [request, setRequest] = useState<PublicBookingRequest | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Signal anti-bot best-effort : un envoi plus rapide que le temps humain
+  // plausible pour remplir le tunnel est suspect (voir MIN_FORM_FILL_MS,
+  // src/lib/booking-validation.ts). Pris une seule fois au montage, jamais
+  // réinitialisé par resetBooking() : recommencer une demande ne doit pas
+  // remettre le chronomètre à zéro.
+  const [bookingStartedAt] = useState(() => Date.now());
 
   const service = professional.services.find((item) => item.id === serviceId);
   const zone = professional.zones.find((item) => item.id === zoneId);
@@ -83,20 +89,19 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
       + (address.postalCode || address.city ? `, ${[address.postalCode, address.city].filter(Boolean).join(" ")}` : "");
 
     const result = await submitPublicBookingAction({
+      serviceId: service.id,
       date: dateId,
       start: time,
-      duration: service.duration,
       clientName: `${owner.firstName} ${owner.lastName}`.trim(),
       animalName: animal.name,
-      serviceName: service.name,
       mode: mode === "CABINET" ? "cabinet" : "home",
       location: mode === "CABINET" ? "Cabinet" : homeLocation,
+      bookingStartedAt,
       postalCode: mode === "HOME" ? address.postalCode || undefined : undefined,
       city: mode === "HOME" ? address.city || undefined : undefined,
       inseeCode: mode === "HOME" ? address.citycode : undefined,
       latitude: mode === "HOME" ? address.latitude : undefined,
       longitude: mode === "HOME" ? address.longitude : undefined,
-      price: consultationPrice + travelFee,
       notes: animal.notes || "Demande reçue depuis la page publique de réservation.",
       ownerFirstName: owner.firstName || undefined,
       ownerLastName: owner.lastName || undefined,
@@ -177,7 +182,7 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
           {screen === "success" && request && service ? <BookingSuccess professional={professional} request={request} service={service} onReset={resetBooking} /> : null}
         </section>
         <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 py-6 text-center text-xs font-bold text-animeo-muted">
-          <span>Propulsé par</span><AnimeoLogo size="footer" /><span>· Aucune donnée n’est envoyée pour cette démonstration</span>
+          <span>Propulsé par</span><AnimeoLogo size="footer" />
         </footer>
       </div>
     </main>

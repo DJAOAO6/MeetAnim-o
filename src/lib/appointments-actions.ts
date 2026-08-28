@@ -10,6 +10,15 @@ import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
 import { computeAgeLabel } from "@/lib/animal-age";
+import { bookingLimitDate, bookingProfessionals } from "@/data/public-booking";
+import { getPublicServices } from "@/lib/services-actions";
+import {
+  computeTotalPrice,
+  findServiceById,
+  isBookingDateAcceptable,
+  isModeAvailableForService,
+  publicBookingCoreSchema,
+} from "@/lib/booking-validation";
 
 const dbMode: Record<AppointmentMode, VisitMode> = { cabinet: "CABINET", home: "DOMICILE" };
 const modeLabel: Record<VisitMode, AppointmentMode> = { CABINET: "cabinet", DOMICILE: "home" };
@@ -145,16 +154,24 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
 }
 
 export type PublicBookingInput = {
+  // Référence vers une prestation existante : le prix, la durée et le nom
+  // affiché sont toujours relus depuis getPublicServices() côté serveur,
+  // jamais acceptés tels quels depuis le client (cf. doc Next.js sur les
+  // Server Actions : « send a reference, re-read the rest from a trusted
+  // source »). date/start/mode/serviceId/clientName/animalName sont validés
+  // par publicBookingCoreSchema (src/lib/booking-validation.ts).
+  serviceId: string;
   date: string;
   start: string;
-  duration: number;
   clientName: string;
   animalName: string;
-  serviceName: string;
   mode: AppointmentMode;
   location: string;
-  price: number;
   notes: string;
+  // Horodatage (Date.now() côté client) pris au montage du tunnel : sert de
+  // signal anti-bot best-effort (délai minimum de remplissage), combiné au
+  // rate limiting. Absent → traité comme suspect.
+  bookingStartedAt?: number;
   // Issues de l'autocomplétion d'adresse (Géoplateforme IGN) pour un
   // rendez-vous à domicile ; absentes pour le cabinet ou une saisie
   // manuelle. Toujours revalidées ci-dessous avant écriture : ce sont des
@@ -317,42 +334,87 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<{
   }
 }
 
+// bookingLimitDate est construit via new Date(year, month, day, 12) (heure
+// locale) : on relit ses composantes avec les mêmes accesseurs locaux pour
+// rester cohérent avec la génération de bookingDates côté client
+// (src/data/public-booking.ts), plutôt que de risquer un décalage via .toISOString().
+function toLocalDateId(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * Point d'entrée public (appelé depuis /reserver, sans session) : crée une
  * demande de rendez-vous PENDING directement en base, avec la même
  * vérification de conflit que côté dashboard, pour qu'un client ne puisse
  * jamais réserver un créneau déjà pris — cabinet ou domicile confondus.
+ *
+ * Comme le rappelle la documentation Next.js sur les Server Actions, ce
+ * point d'entrée est une route POST atteignable par quiconque peut envoyer
+ * la même requête, pas seulement par le tunnel de réservation : chaque champ
+ * est donc revalidé ici, et le prix n'est jamais accepté tel quel depuis le
+ * client — il est entièrement recalculé à partir de la prestation réelle.
  */
 export async function submitPublicBookingAction(input: PublicBookingInput): Promise<PublicBookingResult> {
-  if (await hasConflict(input.date, input.start)) {
+  const parsedCore = publicBookingCoreSchema.safeParse(input);
+  if (!parsedCore.success) {
+    return { ok: false, error: "Demande invalide. Merci de recommencer depuis le début du formulaire." };
+  }
+  const core = parsedCore.data;
+
+  // Fenêtre "aujourd'hui" en UTC : cohérent avec toDate() ci-dessus (ancrage
+  // UTC minuit). Une normalisation explicite au fuseau du praticien
+  // (Europe/Paris) reste à faire à la Phase 2, en même temps que la
+  // génération des créneaux depuis les vraies disponibilités.
+  const todayId = new Date().toISOString().slice(0, 10);
+  const limitId = toLocalDateId(bookingLimitDate);
+  if (!isBookingDateAcceptable(core.date, todayId, limitId)) {
+    return { ok: false, error: "Cette date n’est plus disponible. Merci de choisir une date à venir." };
+  }
+
+  if (await hasConflict(core.date, core.start)) {
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
+  }
+
+  const services = await getPublicServices();
+  const service = findServiceById(services, core.serviceId);
+  if (!service) {
+    return { ok: false, error: "Cette prestation n’est plus disponible. Merci de recommencer depuis le début du formulaire." };
+  }
+  if (!isModeAvailableForService(service, core.mode)) {
+    return { ok: false, error: "Ce mode de consultation n’est plus proposé pour cette prestation." };
   }
 
   const geoFields = sanitizeGeoFields(input);
   const animalFields = sanitizeAnimalFields(input);
   const { clientId, animalId } = await findOrCreateClientAndAnimal(input);
 
+  // Les zones (et donc les frais de déplacement en mode "zone") restent une
+  // donnée de démonstration statique tant que la Phase 2 ne les a pas
+  // branchées sur de vraies zones en base — voir AUDIT-FINDINGS.md §3.A.
+  const zones = bookingProfessionals[0]?.zones ?? [];
+  const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
+
   const row = await prisma.appointment.create({
     data: {
       clientId,
       animalId,
-      date: toDate(input.date),
-      start: input.start,
-      duration: input.duration,
-      clientName: input.clientName,
-      animalName: input.animalName,
+      date: toDate(core.date),
+      start: core.start,
+      duration: service.duration,
+      clientName: core.clientName,
+      animalName: core.animalName,
       animalSpecies: animalFields.species ?? null,
-      serviceName: input.serviceName,
-      mode: dbMode[input.mode],
-      location: input.location,
+      serviceName: service.name,
+      mode: dbMode[core.mode],
+      location: core.location,
       postalCode: geoFields.postalCode ?? null,
       city: geoFields.city ?? null,
       inseeCode: geoFields.inseeCode ?? null,
       latitude: geoFields.latitude ?? null,
       longitude: geoFields.longitude ?? null,
-      price: input.price,
+      price,
       status: "PENDING",
-      notes: input.notes,
+      notes: core.notes,
     },
   });
 

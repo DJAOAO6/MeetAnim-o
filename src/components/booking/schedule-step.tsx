@@ -47,6 +47,12 @@ function tourRunsOnDate(tour: Tour, date: BookingDate) {
 
 export function ScheduleStep({ professional, mode, service, clientAddress, zoneId, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
   const [occupiedSlots, setOccupiedSlots] = useState<Record<string, string[]>>({});
+  // Mesure palliative en attendant la Phase 2 (génération des créneaux à
+  // partir des vraies disponibilités, sur une fenêtre glissante) : bookingDates
+  // est une liste figée qui ne tient pas compte de la date du jour, elle
+  // proposerait sinon des dates déjà passées comme réservables.
+  const todayId = toDateId(new Date());
+  const futureBookingDates = bookingDates.filter((date) => date.id >= todayId);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +73,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const activeTourDays = new Set(activeTours.map((tour) => tour.day));
   const tourByDate = new Map<string, Tour>();
   if (mode === "HOME") {
-    for (const date of bookingDates) {
+    for (const date of futureBookingDates) {
       const matchingTour = activeTours.find((tour) => tourRunsOnDate(tour, date));
       if (matchingTour) tourByDate.set(date.id, matchingTour);
     }
@@ -80,7 +86,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
    * la même ville).
    */
   const dates = mode === "HOME"
-    ? [...bookingDates].sort((firstDate, secondDate) => {
+    ? [...futureBookingDates].sort((firstDate, secondDate) => {
         const firstTour = tourByDate.get(firstDate.id);
         const secondTour = tourByDate.get(secondDate.id);
         if (Boolean(firstTour) !== Boolean(secondTour)) return firstTour ? -1 : 1;
@@ -91,7 +97,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
         }
         return firstDate.id.localeCompare(secondDate.id);
       })
-    : bookingDates;
+    : futureBookingDates;
   const monthIds = [...new Set(dates.map((date) => date.id.slice(0, 7)))];
   const [selectedMonth, setSelectedMonth] = useState(monthIds[0] ?? "");
   const visibleDates = dates.filter((date) => date.id.startsWith(selectedMonth));
