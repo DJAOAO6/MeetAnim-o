@@ -7,6 +7,7 @@ import { RemindersTable } from "@/components/reminders/reminders-table";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { notify } from "@/lib/notify";
 import type { Reminder, ReminderClientOption, ReminderStatus } from "@/data/reminders";
 
 type PeriodFilter = "current" | "next" | "all";
@@ -64,7 +65,6 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [scheduleReminder, setScheduleReminder] = useState<Reminder | "new" | null>(null);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
 
   const filteredReminders = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -115,7 +115,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
     const dueCount = reminders.filter((reminder) => ids.includes(reminder.id) && reminder.status === "À relancer").length;
 
     if (dueCount === 0) {
-      setConfirmation("Aucun rappel arrivé à échéance parmi la sélection.");
+      notify.info("Aucun rappel arrivé à échéance parmi la sélection.");
       setSelectedIds(new Set());
       return;
     }
@@ -131,7 +131,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
       sent: current.sent + dueCount,
     }));
     setSelectedIds(new Set());
-    setConfirmation(`${dueCount} rappel${dueCount > 1 ? "s ont" : " a"} été envoyé${dueCount > 1 ? "s" : ""} en simulation locale.`);
+    notify.success(`${dueCount} rappel${dueCount > 1 ? "s ont" : " a"} été envoyé${dueCount > 1 ? "s" : ""} en simulation locale.`);
   }
 
   function sendSingleReminder(reminder: Reminder) {
@@ -151,7 +151,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
       next.delete(reminder.id);
       return next;
     });
-    setConfirmation(`Le rappel de ${reminder.animalName} a été ignoré localement.`);
+    notify.success(`Le rappel de ${reminder.animalName} a été ignoré localement.`);
   }
 
   function saveScheduledReminder(value: ReminderFormValue) {
@@ -181,7 +181,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
             }
           : reminder
       )));
-      setConfirmation(`Le rappel de ${animal.name} a été modifié localement.`);
+      notify.success(`Le rappel de ${animal.name} a été modifié localement.`);
     } else {
       const newReminder: Reminder = {
         id: `rappel-${animal.id}-${Date.now()}`,
@@ -203,18 +203,20 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
         due: calculatedStatus === "À relancer" ? current.due + 1 : current.due,
         upcoming: calculatedStatus === "À venir" ? current.upcoming + 1 : current.upcoming,
       }));
-      setConfirmation(`Le rappel de ${animal.name} a été programmé localement.`);
+      notify.success(`Le rappel de ${animal.name} a été programmé localement.`);
     }
 
     setScheduleReminder(null);
   }
 
+  // Pas de toast ici : le filtre et la sélection changent visiblement à
+  // l'écran (liste filtrée sur "À relancer", cases cochées), un message
+  // supplémentaire ferait doublon.
   function launchDueReminders() {
     const dueIds = reminders.filter((reminder) => reminder.status === "À relancer").map((reminder) => reminder.id);
     setPeriodFilter("all");
     setStatusFilter("À relancer");
     setSelectedIds(new Set(dueIds));
-    setConfirmation(`${dueIds.length} rappels arrivés à échéance sont prêts à être envoyés.`);
   }
 
   return (
@@ -282,13 +284,6 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
           + Programmer un rappel
         </button>
       </div>
-
-      {confirmation ? (
-        <div role="status" className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">
-          <span>{confirmation}</span>
-          <button type="button" onClick={() => setConfirmation(null)} aria-label="Fermer la confirmation" className="text-lg leading-none">×</button>
-        </div>
-      ) : null}
 
       {selectedIds.size > 0 ? (
         <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgba(24,59,69,0.22)] sm:flex-row sm:items-center sm:justify-between">

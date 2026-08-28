@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
 import { deleteClientAction } from "@/lib/clients-actions";
+import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 
 type ClientsListProps = {
@@ -34,7 +35,6 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("Tous");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Tous les statuts");
   const [sortBy, setSortBy] = useState<SortOption>("name");
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -60,7 +60,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
 
   function handleDeleted(clientId: string, label: string) {
     setLocalClients((current) => current.filter((client) => client.id !== clientId));
-    setFeedback(`${label} a été supprimé.`);
+    notify.success(`${label} a été supprimé.`);
     router.refresh();
   }
 
@@ -72,7 +72,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
         action={
           <button
             type="button"
-            onClick={() => setFeedback("Le formulaire Nouveau client sera ajouté lors d’une prochaine étape.")}
+            onClick={() => notify.info("Le formulaire Nouveau client sera ajouté lors d’une prochaine étape.")}
             className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
           >
             <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
@@ -80,13 +80,6 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
           </button>
         }
       />
-
-      {feedback ? (
-        <div role="status" className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">
-          <span>{feedback}</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer le message" className="text-lg leading-none">×</button>
-        </div>
-      ) : null}
 
       <Card className="mb-6 p-4 sm:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

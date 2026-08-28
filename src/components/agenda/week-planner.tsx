@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
 import { computeEventColumns } from "@/lib/event-layout";
+import { notify } from "@/lib/notify";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
 
@@ -34,7 +35,6 @@ type WeekPlannerProps = {
   onPendingAction: (action: string, event: CalendarEvent) => void;
   onSelectTour: (tourId: string, anchorRect: DOMRect) => void;
   onSelectBlockedSlot: (blockedSlotId: string, anchorRect: DOMRect) => void;
-  onFeedback?: (message: string) => void;
   appointmentEvents?: CalendarEvent[];
   tourEvents?: CalendarEvent[];
   blockedEvents?: CalendarEvent[];
@@ -112,7 +112,7 @@ type DragState =
   | { kind: "move"; event: CalendarEvent; originDay: number; originStartMinutes: number; grabOffsetMinutes: number; currentDay: number; currentStartMinutes: number }
   | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
 
-export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onFeedback, appointmentEvents = [], tourEvents = [], blockedEvents = [] }: WeekPlannerProps) {
+export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, appointmentEvents = [], tourEvents = [], blockedEvents = [] }: WeekPlannerProps) {
   const { appointments, saveAppointment } = useAppointments();
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -225,18 +225,21 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       const closed = !open || isHourClosed(hourly, Math.floor(state.currentStartMinutes / 60));
       const conflict = allEvents.some((event) => event.id !== state.event.id && event.day === state.currentDay && event.start === targetStart);
       if (closed || conflict) {
-        onFeedback?.("Ce créneau n’est pas disponible : choisissez un autre horaire.");
+        notify.error("Ce créneau n’est pas disponible : choisissez un autre horaire.");
         return;
       }
       const result = await saveAppointment({ ...original, date: dateIdOf(targetDate), start: targetStart });
-      if (!result.ok) { onFeedback?.(result.error ?? "Une erreur est survenue."); return; }
+      if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
       const label = dragDateFormatter.format(targetDate);
-      onFeedback?.(`Rendez-vous de ${original.animalName} déplacé au ${label.charAt(0).toLowerCase()}${label.slice(1)} à ${targetStart}.`);
+      // Le bloc se déplace visuellement, mais confirmer le jour/heure exact
+      // en texte reste utile — un agenda chargé rend le nouvel emplacement
+      // moins évident qu'il n'y paraît.
+      notify.success(`Rendez-vous de ${original.animalName} déplacé au ${label.charAt(0).toLowerCase()}${label.slice(1)} à ${targetStart}.`);
     } else {
       if (state.currentDuration === state.originDuration) return;
       const result = await saveAppointment({ ...original, duration: state.currentDuration });
-      if (!result.ok) { onFeedback?.(result.error ?? "Une erreur est survenue."); return; }
-      onFeedback?.(`Durée du rendez-vous de ${original.animalName} mise à jour (${state.currentDuration} min).`);
+      if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
+      notify.success(`Durée du rendez-vous de ${original.animalName} mise à jour (${state.currentDuration} min).`);
     }
   }
 

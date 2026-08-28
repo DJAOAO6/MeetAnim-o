@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { hasPermission } from "@/lib/auth/permissions";
 import { deleteAnimalAction, deleteClientAction } from "@/lib/clients-actions";
+import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 
 type ClientProfileProps = {
@@ -32,7 +33,6 @@ export function ClientProfile({ client }: ClientProfileProps) {
   const canDelete = hasPermission(currentUser, "DELETE_CLIENTS");
   const [animals, setAnimals] = useState(client.animals);
   const [selectedAnimalId, setSelectedAnimalId] = useState(client.animals[0]?.id ?? "");
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [animalPhotos, setAnimalPhotos] = useState<Record<string, string>>({});
   const [deletingClient, startDeletingClient] = useTransition();
   const selectedAnimal = animals.find((animal) => animal.id === selectedAnimalId) ?? animals[0];
@@ -56,8 +56,8 @@ export function ClientProfile({ client }: ClientProfileProps) {
     };
   }, []);
 
-  function showFeedback(message: string) {
-    setFeedback(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
+  function showStubFeedback(message: string) {
+    notify.info(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
   }
 
   function deleteClient() {
@@ -65,7 +65,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
     startDeletingClient(async () => {
       const result = await deleteClientAction(client.id);
       if (!result.ok) {
-        setFeedback(result.error);
+        notify.error(result.error);
         return;
       }
       router.push("/dashboard/clients");
@@ -84,7 +84,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
 
   function handleAnimalUpdated(updated: Animal) {
     setAnimals((current) => current.map((animal) => (animal.id === updated.id ? updated : animal)));
-    setFeedback(`Fiche de ${updated.name} mise à jour.`);
+    notify.success(`Fiche de ${updated.name} mise à jour.`);
     router.refresh();
   }
 
@@ -97,10 +97,14 @@ export function ClientProfile({ client }: ClientProfileProps) {
 
       try {
         window.localStorage.setItem(animalPhotosStorageKey, JSON.stringify(next));
-        setFeedback(photo ? "Photo de l’animal enregistrée dans ce navigateur." : "Photo supprimée. Le pictogramme par défaut est de nouveau utilisé.");
+        // Le message précise "dans ce navigateur" — une information que le
+        // simple changement visuel de la vignette ne transmet pas (la
+        // photo n'est pas persistée côté serveur, contrairement au reste
+        // de la fiche).
+        notify.success(photo ? "Photo de l’animal enregistrée dans ce navigateur." : "Photo supprimée. Le pictogramme par défaut est de nouveau utilisé.");
         return next;
       } catch {
-        setFeedback("La photo est trop volumineuse pour être enregistrée dans ce navigateur.");
+        notify.error("La photo est trop volumineuse pour être enregistrée dans ce navigateur.");
         return current;
       }
     });
@@ -141,8 +145,8 @@ export function ClientProfile({ client }: ClientProfileProps) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <ActionButton label="Modifier" onClick={() => showFeedback("La modification du client sera ajoutée ici")} />
-            <ActionButton label="Ajouter un animal" onClick={() => showFeedback("Le formulaire Ajouter un animal sera ajouté ici")} />
+            <ActionButton label="Modifier" onClick={() => showStubFeedback("La modification du client sera ajoutée ici")} />
+            <ActionButton label="Ajouter un animal" onClick={() => showStubFeedback("Le formulaire Ajouter un animal sera ajouté ici")} />
             <button
               type="button"
               onClick={openNewAppointment}
@@ -165,13 +169,6 @@ export function ClientProfile({ client }: ClientProfileProps) {
         </div>
       </Card>
 
-      {feedback ? (
-        <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">
-          <span>{feedback}</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer le message" className="text-lg leading-none">×</button>
-        </div>
-      ) : null}
-
       {selectedAnimal ? (
         <div className="grid items-start gap-6 2xl:grid-cols-[260px_minmax(0,1fr)_300px]">
           <AnimalSelector
@@ -189,7 +186,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}
           />
-          <AnimalSideCards animal={selectedAnimal} onAction={showFeedback} />
+          <AnimalSideCards animal={selectedAnimal} onAction={showStubFeedback} />
         </div>
       ) : (
         <Card className="p-10 text-center">

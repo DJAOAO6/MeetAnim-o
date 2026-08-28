@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
+import { notify } from "@/lib/notify";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
@@ -123,7 +124,6 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
   const [yearOffset, setYearOffset] = useState(0);
   const [filter, setFilter] = useState<MonthFilter>("all");
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>(initialBlockedSlots);
   const [blockedSlotModalDate, setBlockedSlotModalDate] = useState<string | null>(null);
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
@@ -190,10 +190,6 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
       }));
   });
 
-  function showFeedback(message: string) {
-    setFeedback(`${message}.`);
-  }
-
   function openBlockSlotModal() {
     setBlockedSlotModalDate(dateId(view === "day" ? activeDates[0] : weekDates[0]));
   }
@@ -202,7 +198,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     const result = await createBlockedSlotAction(input);
     if (!result.ok) return { ok: false, error: result.error };
     setBlockedSlots((current) => [...current, result.slot]);
-    setFeedback(`Créneau bloqué le ${formatDayLabel(new Date(`${result.slot.date}T12:00:00`)).toLocaleLowerCase("fr-FR")} de ${result.slot.startTime} à ${result.slot.endTime}.`);
+    notify.success(`Créneau bloqué le ${formatDayLabel(new Date(`${result.slot.date}T12:00:00`)).toLocaleLowerCase("fr-FR")} de ${result.slot.startTime} à ${result.slot.endTime}.`);
     return { ok: true };
   }
 
@@ -210,7 +206,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     const result = await deleteBlockedSlotAction(id);
     if (!result.ok) return { ok: false, error: result.error };
     setBlockedSlots((current) => current.filter((slot) => slot.id !== id));
-    showFeedback("Le créneau a été débloqué");
+    notify.success("Le créneau a été débloqué.");
     return { ok: true };
   }
 
@@ -265,15 +261,17 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     if (!event.appointmentId) return;
     if (action === "Décalage demandé") {
       openManager(event.appointmentId);
-      setFeedback(`Modifiez la date ou l’heure du rendez-vous de ${event.animal ?? "l’animal"}.`);
+      notify.info(`Modifiez la date ou l’heure du rendez-vous de ${event.animal ?? "l’animal"}.`);
       return;
     }
     const result = await updateAppointmentStatus(event.appointmentId, action === "Accepté" ? "confirmed" : "cancelled");
     if (!result.ok) {
-      setFeedback(result.error ?? "Une erreur est survenue.");
+      notify.error(result.error ?? "Une erreur est survenue.");
       return;
     }
-    showFeedback(`${action} pour le rendez-vous de ${event.animal ?? "l’animal"}`);
+    // Pas de toast de succès ici : le statut change visiblement dans la
+    // liste des demandes en attente (la carte en disparaît), un toast
+    // ferait doublon avec ce qui est déjà visible à l'écran.
   }
 
   return (
@@ -359,12 +357,6 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
           </div>
         ) : null}
 
-        {feedback ? (
-          <div role="status" className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-[#f4d99e] bg-[#fff9ec] px-4 py-2.5 text-sm font-bold text-[#8c6118]">
-            <span>{feedback}</span>
-            <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer le message" className="text-lg leading-none">×</button>
-          </div>
-        ) : null}
       </Card>
 
       {view === "day" || view === "week" ? (
@@ -382,7 +374,6 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
               onPendingAction={handlePendingAction}
               onSelectTour={handleSelectTour}
               onSelectBlockedSlot={handleSelectBlockedSlot}
-              onFeedback={setFeedback}
             />
             <AgendaSidePanel weekDates={weekDates} tours={tours} tourAppointments={tourAppointments} />
           </div>
@@ -450,7 +441,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
             zone={zones.find((zone) => zone.id === tour.zoneId)}
             appointments={tourAppointments[tour.id] ?? []}
             onClose={() => setSelectedTourId(null)}
-            onRoute={() => setFeedback("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
+            onRoute={() => notify.info("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
           />
         );
       })() : null}

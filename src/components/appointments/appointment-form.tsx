@@ -8,6 +8,7 @@ import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
+import { notify } from "@/lib/notify";
 
 export function AppointmentForm({ appointment, clients, onSave, onBack, backLabel = "Tous les rendez-vous" }: {
   appointment?: Appointment;
@@ -38,7 +39,6 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
   const [city, setCity] = useState("");
   const [animalMode, setAnimalMode] = useState<"existing" | "freeform">(appointment?.animalId ? "existing" : "freeform");
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -111,7 +111,6 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setFeedback(null);
     setPending(true);
     const result = await onSave({
       id: appointment?.id,
@@ -135,7 +134,7 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
       setError(result.error ?? "Une erreur est survenue.");
       return;
     }
-    setFeedback("Rendez-vous enregistré");
+    notify.success(appointment ? "Rendez-vous modifié" : "Rendez-vous créé");
   }
 
   return (
@@ -145,7 +144,6 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
         <h3 className="text-xl font-black text-animeo-dark">{appointment ? `Modifier le rendez-vous de ${appointment.animalName}` : "Nouveau rendez-vous"}</h3>
         <p className="mt-1 text-sm text-animeo-muted">Le cabinet et le domicile partagent un seul agenda : un créneau déjà pris ne peut pas être réutilisé.</p>
 
-        {feedback ? <div role="status" className="mt-4 rounded-xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark">✓ {feedback}</div> : null}
         {error ? <div role="alert" className="mt-4 rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</div> : null}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -241,7 +239,7 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
       </div>
 
       <div className="flex flex-col-reverse gap-2 border-t border-[#dce8e5] bg-white p-4 sm:flex-row sm:justify-between sm:p-5">
-        {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); setFeedback("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-[#fff0eb] px-4 py-2.5 text-sm font-extrabold text-[#a9573b]">Annuler le rendez-vous</button> : <span />}
+        {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); notify.info("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-[#fff0eb] px-4 py-2.5 text-sm font-extrabold text-[#a9573b]">Annuler le rendez-vous</button> : <span />}
         <button type="submit" disabled={pending} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{pending ? "Enregistrement…" : "Enregistrer les modifications"}</button>
       </div>
     </form>

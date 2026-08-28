@@ -9,6 +9,7 @@ import { ZoneModal, type ZoneFormValue } from "@/components/tours/zone-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { notify } from "@/lib/notify";
 import type { MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type ToursViewProps = {
@@ -33,7 +34,6 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const [tourModal, setTourModal] = useState<Tour | "new" | null>(null);
   const [zoneModal, setZoneModal] = useState<Zone | "new" | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const selectedTour = tours.find((tour) => tour.id === selectedTourId);
 
   function saveTour(value: TourFormValue) {
@@ -41,7 +41,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
       setTours((current) => current.map((tour) => (
         tour.id === value.id ? { ...tour, ...value } : tour
       )));
-      setFeedback(`${value.name} a été modifiée localement.`);
+      notify.success(`${value.name} a été modifiée localement.`);
     } else {
       const newTour: Tour = {
         ...value,
@@ -52,7 +52,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
         consultationHours: "0h",
       };
       setTours((current) => [newTour, ...current]);
-      setFeedback(`${value.name} a été créée localement.`);
+      notify.success(`${value.name} a été créée localement.`);
     }
     setTourModal(null);
   }
@@ -62,34 +62,33 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
     setTours((current) => current.map((item) => (
       item.id === tour.id ? { ...item, status: nextStatus } : item
     )));
-    setFeedback(`${tour.name} est maintenant ${nextStatus.toLocaleLowerCase("fr-FR")}.`);
+    notify.success(`${tour.name} est maintenant ${nextStatus.toLocaleLowerCase("fr-FR")}.`);
   }
 
   function saveZone(value: ZoneFormValue) {
     if (value.id) {
       const updatedZone: Zone = { ...value, id: value.id };
       setZones((current) => current.map((zone) => zone.id === value.id ? updatedZone : zone));
-      setFeedback(`${value.name} a été modifiée localement.`);
+      notify.success(`${value.name} a été modifiée localement.`);
     } else {
       setZones((current) => [{ ...value, id: `zone-${Date.now()}` }, ...current]);
-      setFeedback(`${value.name} a été créée localement.`);
+      notify.success(`${value.name} a été créée localement.`);
     }
     setZoneModal(null);
   }
 
   function deleteZone(zone: Zone) {
     if (tours.some((tour) => tour.zoneId === zone.id)) {
-      setFeedback(`${zone.name} est utilisée par une tournée et ne peut pas être supprimée.`);
+      notify.error(`${zone.name} est utilisée par une tournée et ne peut pas être supprimée.`);
       return;
     }
     setZones((current) => current.filter((item) => item.id !== zone.id));
-    setFeedback(`${zone.name} a été supprimée localement.`);
+    notify.success(`${zone.name} a été supprimée localement.`);
   }
 
   function changeTab(tab: "tours" | "map") {
     setActiveTab(tab);
     setSelectedTourId(null);
-    setFeedback(null);
   }
 
   return (
@@ -111,13 +110,6 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
         <TabButton active={activeTab === "tours"} label="Tournées" icon="tournees" onClick={() => changeTab("tours")} />
         <TabButton active={activeTab === "map"} label="Carte clients" icon="map" onClick={() => changeTab("map")} />
       </Card>
-
-      {feedback ? (
-        <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">
-          <span>{feedback} Aucune donnée externe n’a été modifiée.</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer le message" className="text-lg leading-none">×</button>
-        </div>
-      ) : null}
 
       {activeTab === "tours" ? (
         <>
@@ -143,7 +135,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
               zone={zones.find((zone) => zone.id === selectedTour.zoneId)}
               appointments={appointments[selectedTour.id] ?? []}
               onBack={() => setSelectedTourId(null)}
-              onRoute={() => setFeedback("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
+              onRoute={() => notify.info("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
             />
           ) : (
             <ToursOverview

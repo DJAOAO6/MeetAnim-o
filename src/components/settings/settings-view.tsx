@@ -16,6 +16,7 @@ import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ServiceSettings, type SettingsState } from "@/data/settings";
 import { updateAvailabilityAction, updateBusinessProfileAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
+import { notify } from "@/lib/notify";
 import type { Tour, Zone } from "@/data/tours";
 
 type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization";
@@ -51,7 +52,6 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
     availability,
   }));
   const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable"> = { cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable };
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   function updateSettings<K extends keyof SettingsState>(key: K, value: SettingsState[K], message = "Modifications enregistrées") {
@@ -60,7 +60,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
       sessionSettings = next;
       return next;
     });
-    setFeedback(message);
+    notify.success(message);
   }
 
   async function saveProfile(profile: ProfileSettings, publicColor: string, message: string) {
@@ -69,7 +69,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
     setSaving(false);
 
     if (!result.ok) {
-      setFeedback(result.error);
+      notify.error(result.error);
       return;
     }
 
@@ -78,7 +78,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
       sessionSettings = next;
       return next;
     });
-    setFeedback(message);
+    notify.success(message);
   }
 
   async function saveTheme(draft: ThemeDraft) {
@@ -92,7 +92,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
     setSaving(false);
 
     if (!result.ok) {
-      setFeedback(result.error);
+      notify.error(result.error);
       return;
     }
 
@@ -112,7 +112,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
             <button
               key={tab.id}
               type="button"
-              onClick={() => { setActiveTab(tab.id); setFeedback(null); }}
+              onClick={() => setActiveTab(tab.id)}
               aria-pressed={activeTab === tab.id}
               className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-extrabold transition ${activeTab === tab.id ? "bg-animeo text-white shadow-sm" : "text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}
             >
@@ -123,17 +123,10 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
         </nav>
       </Card>
 
-      {feedback ? (
-        <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark">
-          <span>{feedback.startsWith("Le lien") || feedback.startsWith("Ce lien") ? feedback : `✓ ${feedback}`}</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer la notification" className="text-xl leading-none">×</button>
-        </div>
-      ) : null}
-
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} /> : null}
-      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} onNotify={setFeedback} /> : null}
+      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} /> : null}
       {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={(value) => updateSettings("reminders", value)} /> : null}
       {activeTab === "customization" ? (
         <PersonalizationView

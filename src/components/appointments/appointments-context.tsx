@@ -44,6 +44,13 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     setCreatingAppointment(false);
   }
 
+  // Ne notifie jamais elle-même (ni succès ni erreur) : partagée par des
+  // appelants aux besoins différents — la modale (GlobalAppointmentsManager)
+  // affiche déjà son erreur en ligne (role="alert", un conflit de créneau
+  // doit rester dans le formulaire pour en choisir un autre) et toaste son
+  // propre succès générique ; le glisser-déposer (week-planner.tsx) toaste
+  // un message plus précis (jour/heure exacts). Router la notification ici
+  // empêcherait ces deux appelants de personnaliser leur message.
   async function saveAppointment(input: SaveAppointmentInput): Promise<ActionOutcome> {
     const result = await saveAppointmentAction(input);
     if (!result.ok) return { ok: false, error: result.error };

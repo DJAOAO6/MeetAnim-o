@@ -7,6 +7,7 @@ import { Toggle } from "@/components/settings/settings-fields";
 import { Card } from "@/components/ui/card";
 import { initialSettings, type ServiceSettings } from "@/data/settings";
 import { deleteServiceAction, saveServiceAction } from "@/lib/services-actions";
+import { notify } from "@/lib/notify";
 
 type ServicesViewProps = {
   initialServices: ServiceSettings[];
@@ -20,7 +21,6 @@ let sessionKilometricFeesEnabled = initialSettings.kilometricFeesEnabled;
 export function ServicesView({ initialServices }: ServicesViewProps) {
   const [services, setServices] = useState<ServiceSettings[]>(initialServices);
   const [kilometricFeesEnabled, setKilometricFeesEnabled] = useState(() => sessionKilometricFeesEnabled);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function saveService(service: ServiceSettings) {
@@ -30,7 +30,7 @@ export function ServicesView({ initialServices }: ServicesViewProps) {
     setSaving(false);
 
     if (!result.ok) {
-      setFeedback(result.error);
+      notify.error(result.error);
       return;
     }
 
@@ -38,33 +38,33 @@ export function ServicesView({ initialServices }: ServicesViewProps) {
       const exists = current.some((item) => item.id === result.service.id);
       return exists ? current.map((item) => (item.id === result.service.id ? result.service : item)) : [result.service, ...current];
     });
-    setFeedback(isNew ? "Prestation créée" : "Prestation modifiée");
+    notify.success(isNew ? "Prestation créée" : "Prestation modifiée");
   }
 
   async function toggleService(service: ServiceSettings) {
     const result = await saveServiceAction({ ...service, active: !service.active });
     if (!result.ok) {
-      setFeedback(result.error);
+      notify.error(result.error);
       return;
     }
     setServices((current) => current.map((item) => (item.id === result.service.id ? result.service : item)));
-    setFeedback(service.active ? "Prestation désactivée" : "Prestation activée");
+    notify.success(service.active ? "Prestation désactivée" : "Prestation activée");
   }
 
   async function removeService(service: ServiceSettings) {
     const result = await deleteServiceAction(service.id);
     if (!result.ok) {
-      setFeedback(result.error);
+      notify.error(result.error);
       return;
     }
     setServices((current) => current.filter((item) => item.id !== service.id));
-    setFeedback("Prestation supprimée");
+    notify.success("Prestation supprimée");
   }
 
   function updateKilometricFeesEnabled(value: boolean) {
     sessionKilometricFeesEnabled = value;
     setKilometricFeesEnabled(value);
-    setFeedback(value ? "Frais kilométriques activés" : "Frais kilométriques désactivés");
+    notify.success(value ? "Frais kilométriques activés" : "Frais kilométriques désactivés");
   }
 
   const activeServices = services.filter((service) => service.active).length;
@@ -84,13 +84,6 @@ export function ServicesView({ initialServices }: ServicesViewProps) {
         <SummaryCard label="Au cabinet" value={cabinetServices} detail="prestations actives" />
         <SummaryCard label="À domicile" value={homeServices} detail="prestations actives" accent />
       </section>
-
-      {feedback ? (
-        <div role="status" className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark">
-          <span>✓ {feedback}</span>
-          <button type="button" onClick={() => setFeedback(null)} aria-label="Fermer la notification" className="text-xl leading-none">×</button>
-        </div>
-      ) : null}
 
       <Card className="mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>

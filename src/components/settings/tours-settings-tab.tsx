@@ -4,21 +4,21 @@ import Link from "next/link";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, inputClassName } from "@/components/settings/settings-fields";
+import { notify } from "@/lib/notify";
 import type { Tour, Zone } from "@/data/tours";
 
 type ToursSettingsTabProps = {
   initialTours: Tour[];
   zones: Zone[];
-  onNotify: (message: string) => void;
 };
 
-export function ToursSettingsTab({ initialTours, zones, onNotify }: ToursSettingsTabProps) {
+export function ToursSettingsTab({ initialTours, zones }: ToursSettingsTabProps) {
   const [tours, setTours] = useState(initialTours);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   function updateTours(next: Tour[], message: string) {
     setTours(next);
-    onNotify(message);
+    notify.success(message);
   }
 
   function updateTour(id: string, key: keyof Tour, value: string) {
@@ -48,7 +48,7 @@ export function ToursSettingsTab({ initialTours, zones, onNotify }: ToursSetting
                   )}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <button type="button" onClick={() => { if (editing) { onNotify("Tournée modifiée localement"); } setEditingId(editing ? null : tour.id); }} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">{editing ? "Enregistrer" : "Modifier"}</button>
+                  <button type="button" onClick={() => { if (editing) { notify.success("Tournée modifiée localement"); } setEditingId(editing ? null : tour.id); }} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">{editing ? "Enregistrer" : "Modifier"}</button>
                   <button type="button" onClick={() => updateTours(tours.map((item) => item.id === tour.id ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" } : item), tour.status === "Active" ? "Tournée désactivée" : "Tournée activée")} className="rounded-xl bg-animeo-bg px-4 py-2.5 text-xs font-extrabold text-animeo-muted">{tour.status === "Active" ? "Désactiver" : "Activer"}</button>
                 </div>
               </div>
