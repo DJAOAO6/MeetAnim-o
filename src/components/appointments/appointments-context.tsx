@@ -22,6 +22,17 @@ const AppointmentsContext = createContext<AppointmentsContextValue | null>(null)
 
 export function AppointmentsProvider({ children, initialAppointments }: { children: ReactNode; initialAppointments: Appointment[] }) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
+  // Ajustement pendant le rendu plutôt que dans un effet (pattern React
+  // recommandé pour resynchroniser un état sur une prop qui change) : c'est
+  // ce qui permet à une demande de rendez-vous arrivée par la page publique
+  // d'apparaître dans la cloche de notifications dès le prochain
+  // router.refresh() périodique (voir DashboardRealtimeRefresh), sans
+  // rechargement manuel.
+  const [syncedInitialAppointments, setSyncedInitialAppointments] = useState(initialAppointments);
+  if (initialAppointments !== syncedInitialAppointments) {
+    setSyncedInitialAppointments(initialAppointments);
+    setAppointments(initialAppointments);
+  }
   const [managerOpen, setManagerOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
