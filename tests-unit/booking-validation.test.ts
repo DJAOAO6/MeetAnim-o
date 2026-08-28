@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  addMonths,
   computeConsultationPrice,
   computeTotalPrice,
   computeTravelFee,
@@ -8,6 +9,8 @@ import {
   findServiceById,
   fitsWithinOpenHours,
   generateCandidateStarts,
+  getMonthGridDays,
+  groupSlotsByPeriod,
   intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
@@ -270,4 +273,45 @@ test("generateCandidateStarts returns only starts whose full duration fits withi
 
 test("generateCandidateStarts returns an empty list when nothing fits", () => {
   assert.deepEqual(generateCandidateStarts(null, "cabinet", 30), []);
+});
+
+test("groupSlotsByPeriod splits morning/afternoon/evening at 12:00 and 18:00", () => {
+  const result = groupSlotsByPeriod(["09:00", "11:30", "12:00", "17:30", "18:00", "19:30"]);
+  assert.deepEqual(result, {
+    morning: ["09:00", "11:30"],
+    afternoon: ["12:00", "17:30"],
+    evening: ["18:00", "19:30"],
+  });
+});
+
+test("groupSlotsByPeriod returns empty arrays for empty groups rather than omitting keys", () => {
+  assert.deepEqual(groupSlotsByPeriod(["09:00"]), { morning: ["09:00"], afternoon: [], evening: [] });
+});
+
+test("addMonths advances within a year", () => {
+  assert.equal(addMonths("2026-08", 1), "2026-09");
+});
+
+test("addMonths rolls over to the next year", () => {
+  assert.equal(addMonths("2026-11", 2), "2027-01");
+});
+
+test("addMonths rolls back over the previous year with a negative delta", () => {
+  assert.equal(addMonths("2026-01", -1), "2025-12");
+});
+
+test("getMonthGridDays lists every day of the month with the correct Monday-first leading offset", () => {
+  // Août 2026 commence un samedi -> 5 cellules vides (lun-ven) avant le 1er.
+  const result = getMonthGridDays("2026-08");
+  assert.equal(result.leadingBlanks, 5);
+  assert.equal(result.dateIds.length, 31);
+  assert.equal(result.dateIds[0], "2026-08-01");
+  assert.equal(result.dateIds[30], "2026-08-31");
+});
+
+test("getMonthGridDays has zero leading blanks when the month starts on a Monday", () => {
+  // Juin 2026 commence un lundi.
+  const result = getMonthGridDays("2026-06");
+  assert.equal(result.leadingBlanks, 0);
+  assert.equal(result.dateIds.length, 30);
 });

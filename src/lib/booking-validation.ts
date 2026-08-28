@@ -197,6 +197,56 @@ export function fitsWithinOpenHours(hourly: Record<number, HourAvailability> | n
   return true;
 }
 
+/**
+ * Répartit des horaires de départ ("HH:MM") en Matin / Après-midi / Soir
+ * pour l'affichage du calendrier (src/components/booking/schedule-step.tsx) :
+ * Matin avant midi, Soir à partir de 18h, Après-midi entre les deux. Un
+ * groupe vide est simplement un tableau vide — à l'appelant de ne pas
+ * afficher son titre plutôt que de le laisser orphelin.
+ */
+export function groupSlotsByPeriod(slots: string[]): { morning: string[]; afternoon: string[]; evening: string[] } {
+  const morning: string[] = [];
+  const afternoon: string[] = [];
+  const evening: string[] = [];
+  for (const slot of slots) {
+    const minutes = timeToMinutes(slot);
+    if (minutes < 12 * 60) morning.push(slot);
+    else if (minutes < 18 * 60) afternoon.push(slot);
+    else evening.push(slot);
+  }
+  return { morning, afternoon, evening };
+}
+
+/**
+ * Décale un identifiant de mois "YYYY-MM" de `delta` mois (positif ou
+ * négatif), en passant par un objet Date pour que le report d'année soit
+ * géré par le moteur JS plutôt que recalculé à la main.
+ */
+export function addMonths(monthId: string, delta: number): string {
+  const [year, month] = monthId.split("-").map(Number);
+  const date = new Date(year, month - 1 + delta, 1, 12);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Liste tous les identifiants de date ("YYYY-MM-DD") d'un mois calendaire
+ * complet, avec le nombre de cellules vides à laisser avant le 1er pour
+ * aligner les jours sur la bonne colonne d'une grille semaine-lundi-first
+ * (LUN MAR MER JEU VEN SAM DIM). Le calendrier a besoin de tous les jours du
+ * mois, pas seulement de ceux qui ont des créneaux — voir
+ * PROMPT-CALENDRIER.md §A2.
+ */
+export function getMonthGridDays(monthId: string): { leadingBlanks: number; dateIds: string[] } {
+  const [year, month] = monthId.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const firstWeekday = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+  const dateIds = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  });
+  return { leadingBlanks: firstWeekday, dateIds };
+}
+
 export const SLOT_GRANULARITY_MINUTES = 30;
 
 /**
