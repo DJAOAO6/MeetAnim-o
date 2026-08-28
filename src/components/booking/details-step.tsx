@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
 import { BirthDatePicker } from "@/components/booking/birth-date-picker";
 import { BreedCombobox } from "@/components/booking/breed-combobox";
-import { BookingActions, BookingField, StepHeading, bookingErrorInputClassName, bookingInputClassName, bookingTextareaClassName } from "@/components/booking/booking-ui";
+import { BookingActions, BookingField, StepHeading, bookingErrorInputClassName, bookingFieldDescribedBy, bookingInputClassName, bookingTextareaClassName } from "@/components/booking/booking-ui";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
@@ -92,9 +92,20 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
   }
 
   const [openGroup, setOpenGroup] = useState<GroupKey | null>(() => groupOrder.find((group) => !isGroupValid(group)) ?? null);
+  // "unset" au tout premier rendu : le groupe déjà ouvert au montage de
+  // l'étape ne doit pas voler le focus au titre de l'étape (voir l'effet
+  // sur `screen` dans PublicBookingFlow) en le donnant plutôt au premier
+  // champ. Comparer à la valeur précédente (mise à jour uniquement dans cet
+  // effet, jamais dans un handler) distingue un vrai changement de groupe
+  // d'un simple second passage causé par le double-appel des effets de
+  // Strict Mode en dev — les deux passages du montage initial voient la
+  // même valeur, donc aucun des deux ne déclenche le focus.
+  const previousOpenGroupRef = useRef<GroupKey | null | "unset">("unset");
 
   useEffect(() => {
-    if (!openGroup) return;
+    const previousOpenGroup = previousOpenGroupRef.current;
+    previousOpenGroupRef.current = openGroup;
+    if (previousOpenGroup === "unset" || previousOpenGroup === openGroup || !openGroup) return;
     const container = groupContentRefs.current[openGroup];
     if (!container) return;
     const frame = requestAnimationFrame(() => {
@@ -237,8 +248,9 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
           contentRef={(node) => { groupContentRefs.current.contact = node; }}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <BookingField label="Prénom" required error={fieldError("firstName")}>
+            <BookingField id="booking-details-firstName" label="Prénom" required error={fieldError("firstName")}>
               <input
+                id="booking-details-firstName"
                 ref={(node) => { fieldRefs.current.firstName = node; }}
                 value={owner.firstName}
                 onChange={(event) => updateOwner("firstName", event.target.value)}
@@ -246,10 +258,13 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                 onKeyDown={commitOnEnter("firstName", "contact")}
                 className={`${bookingInputClassName} ${fieldError("firstName") ? bookingErrorInputClassName : ""}`}
                 autoComplete="given-name"
+                aria-invalid={Boolean(fieldError("firstName"))}
+                aria-describedby={bookingFieldDescribedBy("booking-details-firstName", { hasError: Boolean(fieldError("firstName")) })}
               />
             </BookingField>
-            <BookingField label="Nom" required error={fieldError("lastName")}>
+            <BookingField id="booking-details-lastName" label="Nom" required error={fieldError("lastName")}>
               <input
+                id="booking-details-lastName"
                 ref={(node) => { fieldRefs.current.lastName = node; }}
                 value={owner.lastName}
                 onChange={(event) => updateOwner("lastName", event.target.value)}
@@ -257,10 +272,13 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                 onKeyDown={commitOnEnter("lastName", "contact")}
                 className={`${bookingInputClassName} ${fieldError("lastName") ? bookingErrorInputClassName : ""}`}
                 autoComplete="family-name"
+                aria-invalid={Boolean(fieldError("lastName"))}
+                aria-describedby={bookingFieldDescribedBy("booking-details-lastName", { hasError: Boolean(fieldError("lastName")) })}
               />
             </BookingField>
-            <BookingField label="Téléphone" required error={fieldError("phone")}>
+            <BookingField id="booking-details-phone" label="Téléphone" required error={fieldError("phone")}>
               <input
+                id="booking-details-phone"
                 ref={(node) => { fieldRefs.current.phone = node; }}
                 type="tel"
                 value={owner.phone}
@@ -270,10 +288,13 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                 className={`${bookingInputClassName} ${fieldError("phone") ? bookingErrorInputClassName : ""}`}
                 autoComplete="tel"
                 placeholder="06 12 34 56 78"
+                aria-invalid={Boolean(fieldError("phone"))}
+                aria-describedby={bookingFieldDescribedBy("booking-details-phone", { hasError: Boolean(fieldError("phone")) })}
               />
             </BookingField>
-            <BookingField label="Email" required error={fieldError("email")}>
+            <BookingField id="booking-details-email" label="Email" required error={fieldError("email")}>
               <input
+                id="booking-details-email"
                 ref={(node) => { fieldRefs.current.email = node; }}
                 type="email"
                 value={owner.email}
@@ -284,6 +305,8 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                 autoComplete="email"
                 spellCheck={false}
                 placeholder="vous@exemple.fr"
+                aria-invalid={Boolean(fieldError("email"))}
+                aria-describedby={bookingFieldDescribedBy("booking-details-email", { hasError: Boolean(fieldError("email")) })}
               />
             </BookingField>
           </div>
@@ -299,17 +322,28 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
           onToggle={() => toggleGroup("address")}
           contentRef={(node) => { groupContentRefs.current.address = node; }}
         >
-          <BookingField label="Adresse" required error={fieldError("address")}>
+          <BookingField id="booking-details-address" label="Adresse" required error={fieldError("address")}>
             {mode === "HOME" ? (
-              <AddressAutocomplete value={address.address} onQueryChange={updateAddressQuery} onSelect={applySelectedAddress} placeholder="12 rue Exemple" />
+              <AddressAutocomplete
+                id="booking-details-address"
+                value={address.address}
+                onQueryChange={updateAddressQuery}
+                onSelect={applySelectedAddress}
+                placeholder="12 rue Exemple"
+                ariaInvalid={Boolean(fieldError("address"))}
+                ariaDescribedBy={bookingFieldDescribedBy("booking-details-address", { hasError: Boolean(fieldError("address")) })}
+              />
             ) : (
               <input
+                id="booking-details-address"
                 ref={(node) => { fieldRefs.current.address = node; }}
                 value={owner.address}
                 onChange={(event) => updateOwner("address", event.target.value)}
                 onBlur={() => touch("address")}
                 className={`${bookingInputClassName} ${fieldError("address") ? bookingErrorInputClassName : ""}`}
                 autoComplete="street-address"
+                aria-invalid={Boolean(fieldError("address"))}
+                aria-describedby={bookingFieldDescribedBy("booking-details-address", { hasError: Boolean(fieldError("address")) })}
               />
             )}
           </BookingField>
@@ -317,10 +351,22 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
           <DynamicReveal show={showAddressDetails}>
             <div className="grid gap-4 sm:grid-cols-2">
               {mode === "HOME" ? (
-                <div className="sm:col-span-2"><BookingField label="Complément d’adresse" hint="Facultatif"><input value={address.addressExtra} onChange={(event) => updateAddress("addressExtra", event.target.value)} className={bookingInputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></BookingField></div>
+                <div className="sm:col-span-2">
+                  <BookingField id="booking-details-addressExtra" label="Complément d’adresse" hint="Facultatif">
+                    <input
+                      id="booking-details-addressExtra"
+                      value={address.addressExtra}
+                      onChange={(event) => updateAddress("addressExtra", event.target.value)}
+                      className={bookingInputClassName}
+                      placeholder="Bâtiment, étage, lieu-dit…"
+                      aria-describedby={bookingFieldDescribedBy("booking-details-addressExtra", { hasHint: true })}
+                    />
+                  </BookingField>
+                </div>
               ) : null}
-              <BookingField label="Code postal" required error={fieldError("postalCode")}>
+              <BookingField id="booking-details-postalCode" label="Code postal" required error={fieldError("postalCode")}>
                 <input
+                  id="booking-details-postalCode"
                   ref={(node) => { fieldRefs.current.postalCode = node; }}
                   value={activeAddress.postalCode}
                   onChange={(event) => (mode === "HOME" ? updateAddress : updateOwner)("postalCode", event.target.value.replace(/\D/g, "").slice(0, 5))}
@@ -331,10 +377,13 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                   maxLength={5}
                   autoComplete="postal-code"
                   placeholder="76000"
+                  aria-invalid={Boolean(fieldError("postalCode"))}
+                  aria-describedby={bookingFieldDescribedBy("booking-details-postalCode", { hasError: Boolean(fieldError("postalCode")) })}
                 />
               </BookingField>
-              <BookingField label="Ville" required error={fieldError("city")}>
+              <BookingField id="booking-details-city" label="Ville" required error={fieldError("city")}>
                 <input
+                  id="booking-details-city"
                   ref={(node) => { fieldRefs.current.city = node; }}
                   value={activeAddress.city}
                   onChange={(event) => (mode === "HOME" ? updateAddress : updateOwner)("city", event.target.value)}
@@ -343,6 +392,8 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
                   className={`${bookingInputClassName} ${fieldError("city") ? bookingErrorInputClassName : ""}`}
                   autoComplete="address-level2"
                   placeholder="Rouen"
+                  aria-invalid={Boolean(fieldError("city"))}
+                  aria-describedby={bookingFieldDescribedBy("booking-details-city", { hasError: Boolean(fieldError("city")) })}
                 />
               </BookingField>
             </div>
@@ -366,40 +417,55 @@ export function DetailsStep({ professional, mode, service, owner, onOwnerChange,
           contentRef={(node) => { groupContentRefs.current.animal = node; }}
         >
           <div className="grid gap-4 sm:grid-cols-2">
-            <BookingField label="Nom de l’animal" required error={fieldError("animalName")}>
+            <BookingField id="booking-details-animalName" label="Nom de l’animal" required error={fieldError("animalName")}>
               <input
+                id="booking-details-animalName"
                 ref={(node) => { fieldRefs.current.animalName = node; }}
                 value={animal.name}
                 onChange={(event) => updateAnimal("name", event.target.value)}
                 onBlur={() => touch("animalName")}
                 className={`${bookingInputClassName} ${fieldError("animalName") ? bookingErrorInputClassName : ""}`}
                 placeholder="Luna"
+                aria-invalid={Boolean(fieldError("animalName"))}
+                aria-describedby={bookingFieldDescribedBy("booking-details-animalName", { hasError: Boolean(fieldError("animalName")) })}
               />
             </BookingField>
-            <BookingField label="Espèce" required>
-              <select value={animal.species} onChange={(event) => updateAnimal("species", event.target.value as PublicAnimalType)} className={bookingInputClassName}>
+            <BookingField id="booking-details-species" label="Espèce" required>
+              <select id="booking-details-species" value={animal.species} onChange={(event) => updateAnimal("species", event.target.value as PublicAnimalType)} className={bookingInputClassName}>
                 {species.filter((item) => service.animalTypes.includes(item)).map((item) => <option key={item}>{item}</option>)}
               </select>
             </BookingField>
-            <BookingField label={breedFieldLabel[animal.species]} hint="Facultatif">
-              <BreedCombobox species={animal.species} value={animal.breed} onChange={(value) => updateAnimal("breed", value)} placeholder="Commencez à taper…" />
+            <BookingField id="booking-details-breed" label={breedFieldLabel[animal.species]} hint="Facultatif">
+              <BreedCombobox
+                id="booking-details-breed"
+                species={animal.species}
+                value={animal.breed}
+                onChange={(value) => updateAnimal("breed", value)}
+                placeholder="Commencez à taper…"
+                ariaDescribedBy={bookingFieldDescribedBy("booking-details-breed", { hasHint: true })}
+              />
             </BookingField>
-            <BookingField label="Date de naissance" hint="Facultatif">
+            <BookingField id="booking-details-birthDate" label="Date de naissance" hint="Facultatif">
               <BirthDatePicker
+                id="booking-details-birthDate"
                 value={{ date: animal.birthDate, approximate: animal.birthDateApproximate }}
                 onChange={(value) => onAnimalChange({ ...animal, birthDate: value.date, birthDateApproximate: value.approximate })}
+                ariaDescribedBy={bookingFieldDescribedBy("booking-details-birthDate", { hasHint: true })}
               />
               {ageLabel ? <p className="mt-1.5 text-xs font-semibold text-animeo-muted">{ageLabel}</p> : null}
             </BookingField>
             <div className="sm:col-span-2">
-              <BookingField label="Motif de consultation" required error={fieldError("reason")}>
+              <BookingField id="booking-details-reason" label="Motif de consultation" required error={fieldError("reason")}>
                 <textarea
+                  id="booking-details-reason"
                   ref={(node) => { fieldRefs.current.reason = node; }}
                   value={animal.notes}
                   onChange={(event) => updateAnimal("notes", limitWords(event.target.value, REASON_MAX_WORDS))}
                   onBlur={() => touch("reason")}
                   className={`${bookingTextareaClassName} ${fieldError("reason") ? bookingErrorInputClassName : ""}`}
                   placeholder="Ex. Boiterie depuis quelques jours…"
+                  aria-invalid={Boolean(fieldError("reason"))}
+                  aria-describedby={bookingFieldDescribedBy("booking-details-reason", { hasError: Boolean(fieldError("reason")) })}
                 />
                 <p className="mt-1 text-right text-xs text-animeo-muted">{countWords(animal.notes)} / {REASON_MAX_WORDS} mots</p>
               </BookingField>

@@ -4,21 +4,38 @@ export const bookingInputClassName = "h-12 w-full rounded-xl border border-[#d7e
 export const bookingTextareaClassName = `${bookingInputClassName} h-auto min-h-28 resize-y py-3`;
 export const bookingErrorInputClassName = "border-[#dba79b] focus:border-[#c2503f] focus:ring-[#c2503f]/15";
 
-export function BookingField({ label, required, hint, error, children }: { label: string; required?: boolean; hint?: string; error?: string | null; children: ReactNode }) {
+/**
+ * Identifiant de la description (indice ou erreur) associée au champ `id`,
+ * à passer en aria-describedby sur le contrôle réel rendu dans `children`.
+ * BookingField ne peut pas l'injecter automatiquement (children est
+ * opaque — simple <input>, ou composant composite comme BreedCombobox) :
+ * chaque site d'appel doit donc le calculer avec cette même fonction et le
+ * poser lui-même sur son contrôle, avec le même `id`.
+ */
+export function bookingFieldDescribedBy(id: string, options: { hasHint?: boolean; hasError?: boolean }): string | undefined {
+  if (options.hasError) return `${id}-error`;
+  if (options.hasHint) return `${id}-hint`;
+  return undefined;
+}
+
+export function BookingField({ id, label, required, hint, error, children }: { id: string; label: string; required?: boolean; hint?: string; error?: string | null; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="mb-2 flex items-center justify-between gap-2 text-sm font-extrabold text-animeo-dark">
-        <span>{label}{required ? <span className="ml-1 text-[#b65f43]">*</span> : null}</span>
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-2 text-sm font-extrabold text-animeo-dark">
+        <label htmlFor={id}>
+          {label}
+          {required ? <span className="ml-1 text-[#b65f43]" aria-hidden="true">*</span> : null}
+        </label>
         {error ? (
-          <span className="flex items-center gap-1 text-xs font-bold text-[#c2503f]" role="alert">
+          <span id={`${id}-error`} className="flex items-center gap-1 text-xs font-bold text-[#c2503f]" role="alert">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0"><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg>
             {error}
           </span>
         ) : null}
-      </span>
+      </div>
       {children}
-      {hint && !error ? <span className="mt-1.5 block text-xs text-animeo-muted">{hint}</span> : null}
-    </label>
+      {hint && !error ? <span id={`${id}-hint`} className="mt-1.5 block text-xs text-animeo-muted">{hint}</span> : null}
+    </div>
   );
 }
 
@@ -34,11 +51,15 @@ export function BookingActions({ onBack, nextLabel = "Continuer", nextDisabled =
   );
 }
 
+// id + tabIndex={-1} : cible du déplacement de focus programmatique à
+// chaque changement d'étape (voir l'effet dans PublicBookingFlow), pour que
+// les utilisateurs au clavier/lecteur d'écran soient notifiés du nouvel
+// écran plutôt que de garder le focus sur un bouton disparu.
 export function StepHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
   return (
     <div className="mb-6">
       <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">{eyebrow}</p>
-      <h2 className="mt-2 text-2xl font-black leading-tight text-animeo-dark sm:text-3xl">{title}</h2>
+      <h2 id="booking-step-heading" tabIndex={-1} className="mt-2 rounded-md text-2xl font-black leading-tight text-animeo-dark focus:outline-none focus:ring-2 focus:ring-animeo focus:ring-offset-2 sm:text-3xl">{title}</h2>
       {description ? <p className="mt-2 text-sm leading-6 text-animeo-muted sm:text-base">{description}</p> : null}
     </div>
   );

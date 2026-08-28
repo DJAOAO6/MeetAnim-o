@@ -5,9 +5,11 @@ import { bookingInputClassName } from "@/components/booking/booking-ui";
 import type { BirthDateValue } from "@/lib/animal-age";
 
 type BirthDatePickerProps = {
+  id?: string;
   value: BirthDateValue;
   onChange: (value: BirthDateValue) => void;
   inputRef?: (node: HTMLInputElement | null) => void;
+  ariaDescribedBy?: string;
 };
 
 type Level = "day" | "month" | "year";
@@ -58,7 +60,7 @@ function maskTyping(raw: string, previous: string): string {
   return out;
 }
 
-export function BirthDatePicker({ value, onChange, inputRef }: BirthDatePickerProps) {
+export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy }: BirthDatePickerProps) {
   const [open, setOpen] = useState(false);
   const [level, setLevel] = useState<Level>("day");
   const [yearOnlyMode, setYearOnlyMode] = useState(false);
@@ -166,6 +168,7 @@ export function BirthDatePicker({ value, onChange, inputRef }: BirthDatePickerPr
     >
       <div className="relative">
         <input
+          id={id}
           ref={inputRef}
           value={typed}
           onChange={(event) => handleTypedChange(event.target.value)}
@@ -176,6 +179,7 @@ export function BirthDatePicker({ value, onChange, inputRef }: BirthDatePickerPr
           placeholder="JJ/MM/AAAA"
           inputMode="numeric"
           autoComplete="off"
+          aria-describedby={ariaDescribedBy}
         />
         <button
           type="button"

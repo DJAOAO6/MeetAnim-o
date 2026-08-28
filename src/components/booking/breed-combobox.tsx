@@ -6,15 +6,17 @@ import { isKnownBreed, searchBreeds } from "@/data/breeds";
 import type { PublicAnimalType } from "@/data/public-booking";
 
 type BreedComboboxProps = {
+  id?: string;
   species: PublicAnimalType;
   value: string;
   onChange: (value: string) => void;
   onCommit?: () => void;
   placeholder?: string;
   inputRef?: (node: HTMLInputElement | null) => void;
+  ariaDescribedBy?: string;
 };
 
-export function BreedCombobox({ species, value, onChange, onCommit, placeholder, inputRef }: BreedComboboxProps) {
+export function BreedCombobox({ id, species, value, onChange, onCommit, placeholder, inputRef, ariaDescribedBy }: BreedComboboxProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function BreedCombobox({ species, value, onChange, onCommit, placeholder,
   return (
     <div ref={containerRef} className="relative">
       <input
+        id={id}
         ref={inputRef}
         type="text"
         role="combobox"
@@ -68,6 +71,7 @@ export function BreedCombobox({ species, value, onChange, onCommit, placeholder,
         aria-controls={listboxId}
         aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
         aria-autocomplete="list"
+        aria-describedby={ariaDescribedBy}
         autoComplete="off"
         value={value}
         onChange={(event) => { onChange(event.target.value); setOpen(true); setActiveIndex(-1); }}

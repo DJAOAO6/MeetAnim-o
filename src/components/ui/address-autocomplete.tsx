@@ -15,12 +15,17 @@ type AddressAutocompleteProps = {
   // de réutiliser ce composant avec leur propre style d'input plutôt que
   // celui de la page de réservation.
   inputClassName?: string;
+  // Relié par l'appelant à son propre message d'indice/erreur (voir
+  // bookingFieldDescribedBy, src/components/booking/booking-ui.tsx) : ce
+  // composant ne connaît pas ce contexte lui-même.
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
 };
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 300;
 
-export function AddressAutocomplete({ id, value, placeholder, required, onQueryChange, onSelect, inputClassName = bookingInputClassName }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ id, value, placeholder, required, onQueryChange, onSelect, inputClassName = bookingInputClassName, ariaDescribedBy, ariaInvalid }: AddressAutocompleteProps) {
   const [results, setResults] = useState<GeocodedAddress[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -133,6 +138,8 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
           aria-controls={listboxId}
           aria-activedescendant={activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined}
           aria-autocomplete="list"
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid || undefined}
           autoComplete="off"
           value={value}
           onChange={(event) => onQueryChange(event.target.value)}
