@@ -15,10 +15,15 @@ import { computeAgeLabel } from "@/lib/animal-age";
 import { bookingProfessionals } from "@/data/public-booking";
 import { getPublicServices } from "@/lib/services-actions";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
+import { getEmailProvider } from "@/lib/email/provider";
+import { bookingRequestClientTemplate, bookingRequestProfessionalTemplate } from "@/lib/email/templates";
 import {
   BOOKING_WINDOW_DAYS,
   computeTotalPrice,
   findServiceById,
+  formatBookingDateLabels,
+  formatBookingReference,
   intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
@@ -497,6 +502,58 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
 
   await logAudit({ action: "APPOINTMENT_CREATED", entityType: "Appointment", entityId: row.id, metadata: { source: "public_booking" } });
   revalidatePath("/dashboard");
+
+  // Best-effort : la demande est déjà enregistrée en base à ce stade, un
+  // échec d'envoi ne doit jamais faire échouer la réponse à l'utilisateur.
+  // Les deux emails sont indépendants l'un de l'autre, envoyés en parallèle
+  // plutôt que l'un après l'autre.
+  const professional = await getBusinessProfile();
+  const dateLabel = formatBookingDateLabels(core.date).fullLabel;
+  const modeLabelText = core.mode === "cabinet" ? "Au cabinet" : "À domicile";
+  const locationLabel = core.mode === "home" ? core.location : "";
+  const reference = formatBookingReference(row.id);
+
+  const emailResults = await Promise.allSettled([
+    input.ownerEmail
+      ? getEmailProvider().send({
+          to: input.ownerEmail,
+          ...bookingRequestClientTemplate({
+            clientFirstName: input.ownerFirstName?.trim() || core.clientName,
+            animalName: core.animalName,
+            serviceName: service.name,
+            dateLabel,
+            time: core.start,
+            modeLabel: modeLabelText,
+            locationLabel,
+            professionalFirstName: professional.firstName,
+            professionalCompany: professional.company,
+            professionalPhone: professional.phone,
+            totalPrice: price,
+            reference,
+          }),
+        })
+      : Promise.resolve(),
+    getEmailProvider().send({
+      to: professional.email,
+      ...bookingRequestProfessionalTemplate({
+        professionalFirstName: professional.firstName,
+        clientName: core.clientName,
+        clientPhone: input.ownerPhone ?? "",
+        clientEmail: input.ownerEmail ?? "",
+        animalName: core.animalName,
+        animalSpecies: animalFields.species ?? "",
+        serviceName: service.name,
+        dateLabel,
+        time: core.start,
+        modeLabel: modeLabelText,
+        locationLabel,
+        notes: core.notes,
+      }),
+    }),
+  ]);
+  for (const result of emailResults) {
+    if (result.status === "rejected") console.error("Échec de l'envoi d'un email de confirmation de réservation :", result.reason);
+  }
 
   return { ok: true, id: row.id };
 }
