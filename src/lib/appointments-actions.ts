@@ -1,10 +1,12 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
+import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
@@ -17,6 +19,7 @@ import {
   findServiceById,
   isBookingDateAcceptable,
   isModeAvailableForService,
+  passesMinimumFillTime,
   publicBookingCoreSchema,
 } from "@/lib/booking-validation";
 
@@ -342,6 +345,22 @@ function toLocalDateId(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+async function requestIp(): Promise<string> {
+  const headerList = await headers();
+  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+}
+
+// Une demande de rendez-vous n'est pas un geste anodin qu'on répète des
+// dizaines de fois par minute : ces limites laissent large place à un
+// visiteur qui recommence après un créneau pris entre-temps, tout en
+// bornant fortement le débit d'un script. Même schéma que le login
+// (src/lib/auth/actions.ts) : clé par IP en plus de la clé par email, pour
+// ne pas dépendre uniquement d'un champ que le client contrôle.
+const bookingIpMaxAttempts = 8;
+const bookingIpWindowMs = 15 * 60 * 1000;
+const bookingEmailMaxAttempts = 5;
+const bookingEmailWindowMs = 60 * 60 * 1000;
+
 /**
  * Point d'entrée public (appelé depuis /reserver, sans session) : crée une
  * demande de rendez-vous PENDING directement en base, avec la même
@@ -355,6 +374,27 @@ function toLocalDateId(date: Date): string {
  * client — il est entièrement recalculé à partir de la prestation réelle.
  */
 export async function submitPublicBookingAction(input: PublicBookingInput): Promise<PublicBookingResult> {
+  const genericRetryError = "Impossible de traiter cette demande pour le moment. Merci de réessayer dans quelques instants.";
+
+  const ip = await requestIp();
+  const emailKey = (input.ownerEmail ?? "").trim().toLowerCase();
+  if (
+    await isRateLimited(`public-booking:ip:${ip}`, bookingIpMaxAttempts, bookingIpWindowMs)
+    || (emailKey && await isRateLimited(`public-booking:email:${emailKey}`, bookingEmailMaxAttempts, bookingEmailWindowMs))
+  ) {
+    return { ok: false, error: "Trop de demandes envoyées récemment. Merci de réessayer dans quelques minutes." };
+  }
+  await recordAttempt(`public-booking:ip:${ip}`);
+  if (emailKey) await recordAttempt(`public-booking:email:${emailKey}`);
+
+  // Signal anti-bot best-effort : un envoi plus rapide que le temps humain
+  // plausible pour remplir le tunnel est traité comme suspect, avec un
+  // message générique plutôt qu'une explication qui renseignerait un bot sur
+  // la défense en place.
+  if (!passesMinimumFillTime(input.bookingStartedAt, Date.now())) {
+    return { ok: false, error: genericRetryError };
+  }
+
   const parsedCore = publicBookingCoreSchema.safeParse(input);
   if (!parsedCore.success) {
     return { ok: false, error: "Demande invalide. Merci de recommencer depuis le début du formulaire." };
