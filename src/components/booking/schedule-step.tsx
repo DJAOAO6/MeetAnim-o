@@ -2,24 +2,12 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
-import {
-  bookingDates,
-  bookingLimitDate,
-  bookingStartDate,
-  type BookingAddress,
-  type BookingDate,
-  type BookingMode,
-  type PublicProfessional,
-  type PublicService,
-} from "@/data/public-booking";
+import type { BookingAddress, BookingDate, BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
 import { publicBookingMapClients, publicBookingTourAppointments, publicBookingTours } from "@/data/public-booking-tours";
 import { getOccupiedSlotsAction, type OccupiedInterval } from "@/lib/appointments-actions";
+import { getPublicScheduleAction } from "@/lib/public-schedule";
 import { intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
 import type { Tour } from "@/data/tours";
-
-function toDateId(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
 
 type ScheduleStepProps = {
   professional: PublicProfessional;
@@ -47,24 +35,52 @@ function tourRunsOnDate(tour: Tour, date: BookingDate) {
 }
 
 export function ScheduleStep({ professional, mode, service, clientAddress, zoneId, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
+  const [bookingDates, setBookingDates] = useState<BookingDate[]>([]);
+  const [loadingDates, setLoadingDates] = useState(true);
   const [occupiedSlots, setOccupiedSlots] = useState<Record<string, OccupiedInterval[]>>({});
-  // Mesure palliative en attendant la Phase 2 (génération des créneaux à
-  // partir des vraies disponibilités, sur une fenêtre glissante) : bookingDates
-  // est une liste figée qui ne tient pas compte de la date du jour, elle
-  // proposerait sinon des dates déjà passées comme réservables.
-  const todayId = toDateId(new Date());
-  const futureBookingDates = bookingDates.filter((date) => date.id >= todayId);
+  const [selectedMonth, setSelectedMonth] = useState("");
 
+  // Générées depuis les vraies disponibilités du praticien (horaires,
+  // vacances, fermetures exceptionnelles), sur une fenêtre glissante
+  // J+1 → J+90 — voir src/lib/public-schedule.ts. Dépend de la durée de la
+  // prestation : une prestation plus longue peut ne pas tenir dans un
+  // créneau où une prestation plus courte tiendrait.
   useEffect(() => {
     let cancelled = false;
-    getOccupiedSlotsAction(toDateId(bookingStartDate), toDateId(bookingLimitDate))
+    // queueMicrotask : évite d'appeler setState de façon synchrone au corps
+    // de l'effet (même convention que src/components/availability/manual-availability.ts).
+    queueMicrotask(() => { if (!cancelled) setLoadingDates(true); });
+    getPublicScheduleAction(mode === "CABINET" ? "cabinet" : "home", service.duration)
+      .then((result) => { if (!cancelled) setBookingDates(result); })
+      .catch(() => { if (!cancelled) setBookingDates([]); })
+      .finally(() => { if (!cancelled) setLoadingDates(false); });
+    return () => { cancelled = true; };
+  }, [mode, service.duration]);
+
+  // Recale le mois sélectionné dès que la liste de dates change (premier
+  // chargement, ou changement de mode/prestation qui invalide le mois
+  // précédemment sélectionné).
+  useEffect(() => {
+    if (bookingDates.length > 0 && !bookingDates.some((date) => date.id.startsWith(selectedMonth))) {
+      const firstMonth = bookingDates[0].id.slice(0, 7);
+      queueMicrotask(() => setSelectedMonth(firstMonth));
+    }
+  }, [bookingDates, selectedMonth]);
+
+  useEffect(() => {
+    if (bookingDates.length === 0) {
+      queueMicrotask(() => setOccupiedSlots({}));
+      return;
+    }
+    let cancelled = false;
+    getOccupiedSlotsAction(bookingDates[0].id, bookingDates[bookingDates.length - 1].id)
       .then((slots) => { if (!cancelled) setOccupiedSlots(slots); })
       .catch(() => {
         // En cas d'échec réseau, aucun créneau n'est masqué : la vérification
         // définitive reste faite côté serveur au moment de la soumission.
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [bookingDates]);
 
   const zone = professional.zones.find((item) => item.id === zoneId);
   const normalizedCity = normalizeLocation(clientAddress.city);
@@ -74,7 +90,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
   const activeTourDays = new Set(activeTours.map((tour) => tour.day));
   const tourByDate = new Map<string, Tour>();
   if (mode === "HOME") {
-    for (const date of futureBookingDates) {
+    for (const date of bookingDates) {
       const matchingTour = activeTours.find((tour) => tourRunsOnDate(tour, date));
       if (matchingTour) tourByDate.set(date.id, matchingTour);
     }
@@ -87,7 +103,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
    * la même ville).
    */
   const dates = mode === "HOME"
-    ? [...futureBookingDates].sort((firstDate, secondDate) => {
+    ? [...bookingDates].sort((firstDate, secondDate) => {
         const firstTour = tourByDate.get(firstDate.id);
         const secondTour = tourByDate.get(secondDate.id);
         if (Boolean(firstTour) !== Boolean(secondTour)) return firstTour ? -1 : 1;
@@ -98,9 +114,8 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
         }
         return firstDate.id.localeCompare(secondDate.id);
       })
-    : futureBookingDates;
+    : bookingDates;
   const monthIds = [...new Set(dates.map((date) => date.id.slice(0, 7)))];
-  const [selectedMonth, setSelectedMonth] = useState(monthIds[0] ?? "");
   const visibleDates = dates.filter((date) => date.id.startsWith(selectedMonth));
   const selectedDate = dates.find((date) => date.id === dateId);
   // Un créneau n'est proposé que si [début, début+durée) ne recouvre aucun
@@ -223,7 +238,14 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
         </div>
       ) : null}
 
-      {dates.length === 0 ? <p className="mt-5 rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Aucun créneau n’est disponible pour le moment. Revenez à l’étape précédente ou contactez directement le professionnel.</p> : null}
+      {loadingDates ? (
+        <p className="mt-5 flex items-center gap-2 text-sm font-bold text-animeo-muted">
+          <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-animeo/25 border-t-animeo" />
+          Recherche des prochaines disponibilités…
+        </p>
+      ) : dates.length === 0 ? (
+        <p className="mt-5 rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Aucun créneau n’est disponible pour le moment. Revenez à l’étape précédente ou contactez directement le professionnel.</p>
+      ) : null}
       <BookingActions onBack={onBack} nextDisabled={!dateId || !time} />
     </form>
   );

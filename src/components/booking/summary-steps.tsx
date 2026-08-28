@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
-import { bookingDates, type AnimalInformation, type BookingAddress, type BookingMode, type OwnerInformation, type PublicBookingRequest, type PublicProfessional, type PublicService } from "@/data/public-booking";
+import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicBookingRequest, PublicProfessional, PublicService } from "@/data/public-booking";
+import { formatBookingDateLabels } from "@/lib/booking-validation";
 
 type BookingSummaryProps = {
   professional: PublicProfessional;
@@ -29,7 +30,7 @@ function addMinutes(time: string, minutes: number) {
 
 export function BookingSummary({ professional, mode, service, address, dateId, time, owner, animal, consultationPrice, travelFee, submitting = false, submitError, onBack, onSubmit }: BookingSummaryProps) {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const date = bookingDates.find((item) => item.id === dateId);
+  const date = formatBookingDateLabels(dateId);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +50,7 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
         <div className="grid gap-0 bg-white sm:grid-cols-2">
           <SummarySection title="Date et lieu">
             <SummaryLine label="Mode" value={mode === "CABINET" ? "Au cabinet" : "À domicile"} />
-            <SummaryLine label="Date" value={date?.fullLabel ?? dateId} />
+            <SummaryLine label="Date" value={date.fullLabel} />
             <SummaryLine label="Horaire" value={`${time} – ${addMinutes(time, service.duration)}`} />
             <div className="mt-3 rounded-xl bg-animeo-bg p-3 text-sm font-bold leading-5 text-animeo-dark">
               {mode === "HOME" ? <>{address.address}{address.addressExtra ? <><br />{address.addressExtra}</> : null}<br />{address.postalCode} {address.city}</> : <>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>}
@@ -89,7 +90,7 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
 }
 
 export function BookingSuccess({ professional, request, service, onReset }: { professional: PublicProfessional; request: PublicBookingRequest; service: PublicService; onReset: () => void }) {
-  const date = bookingDates.find((item) => item.id === request.date);
+  const date = formatBookingDateLabels(request.date);
   const lieu = request.mode === "CABINET" ? `${professional.cabinetAddress}, ${professional.cabinetCity}` : [request.address?.city, request.address?.postalCode].filter(Boolean).join(" · ");
 
   return (
@@ -100,7 +101,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
 
       <div className="mx-auto mt-6 max-w-md rounded-[18px] bg-animeo-soft p-5 text-left">
         <p className="text-lg font-black text-animeo-dark">{request.animal.name} · {service.name}</p>
-        <p className="mt-2 text-sm font-extrabold text-animeo-dark">{date?.fullLabel ?? request.date} à {request.time}</p>
+        <p className="mt-2 text-sm font-extrabold text-animeo-dark">{date.fullLabel} à {request.time}</p>
         <p className="mt-1 text-sm text-animeo-muted">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"}{lieu ? ` · ${lieu}` : ""}</p>
       </div>
 

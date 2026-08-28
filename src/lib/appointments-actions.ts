@@ -12,17 +12,21 @@ import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
 import { computeAgeLabel } from "@/lib/animal-age";
-import { bookingLimitDate, bookingProfessionals } from "@/data/public-booking";
+import { bookingProfessionals } from "@/data/public-booking";
 import { getPublicServices } from "@/lib/services-actions";
+import { getBookingWindowStartId } from "@/lib/public-schedule";
 import {
+  BOOKING_WINDOW_DAYS,
   computeTotalPrice,
   findServiceById,
   intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
+  parseDateIdToLocalNoon,
   passesMinimumFillTime,
   publicBookingCoreSchema,
   timeToMinutes,
+  toLocalDateId,
 } from "@/lib/booking-validation";
 import { Prisma } from "@/generated/prisma/client";
 
@@ -367,14 +371,6 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<{
   }
 }
 
-// bookingLimitDate est construit via new Date(year, month, day, 12) (heure
-// locale) : on relit ses composantes avec les mêmes accesseurs locaux pour
-// rester cohérent avec la génération de bookingDates côté client
-// (src/data/public-booking.ts), plutôt que de risquer un décalage via .toISOString().
-function toLocalDateId(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 async function requestIp(): Promise<string> {
   const headerList = await headers();
   return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -431,13 +427,16 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   }
   const core = parsedCore.data;
 
-  // Fenêtre "aujourd'hui" en UTC : cohérent avec toDate() ci-dessus (ancrage
-  // UTC minuit). Une normalisation explicite au fuseau du praticien
-  // (Europe/Paris) reste à faire — voir toLocalDateId ci-dessus et le
-  // commit dédié à la normalisation de fuseau horaire.
-  const todayId = new Date().toISOString().slice(0, 10);
-  const limitId = toLocalDateId(bookingLimitDate);
-  if (!isBookingDateAcceptable(core.date, todayId, limitId)) {
+  // Même fenêtre que celle réellement proposée par getPublicScheduleAction
+  // (src/lib/public-schedule.ts) : demain (au fuseau du praticien, pas celui
+  // du serveur) jusqu'à 90 jours plus tard. Recalculée ici plutôt que
+  // transmise par le client, pour ne jamais faire confiance à une date de
+  // référence envoyée depuis le navigateur.
+  const startId = await getBookingWindowStartId();
+  const limitDate = parseDateIdToLocalNoon(startId);
+  limitDate.setDate(limitDate.getDate() + BOOKING_WINDOW_DAYS - 1);
+  const limitId = toLocalDateId(limitDate);
+  if (!isBookingDateAcceptable(core.date, startId, limitId)) {
     return { ok: false, error: "Cette date n’est plus disponible. Merci de choisir une date à venir." };
   }
 

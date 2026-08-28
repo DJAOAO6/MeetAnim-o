@@ -6,13 +6,18 @@ import {
   computeTravelFee,
   findMatchingZone,
   findServiceById,
+  fitsWithinOpenHours,
+  generateCandidateStarts,
   intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
   minutesToTime,
+  parseDateIdToLocalNoon,
   passesMinimumFillTime,
   publicBookingCoreSchema,
   timeToMinutes,
+  toLocalDateId,
+  todayIdInTimeZone,
   MIN_FORM_FILL_MS,
 } from "../src/lib/booking-validation";
 import type { PublicService, PublicZone } from "../src/data/public-booking";
@@ -212,4 +217,57 @@ test("intervalsOverlap reproduces the exact scenario from the audit (60 min at 0
   assert.equal(intervalsOverlap(timeToMinutes("09:00"), 60, timeToMinutes("09:30"), 45), true);
   // Mais 10:00 doit rester libre.
   assert.equal(intervalsOverlap(timeToMinutes("09:00"), 60, timeToMinutes("10:00"), 45), false);
+});
+
+test("todayIdInTimeZone resolves the correct calendar day per time zone, independent of server runtime", () => {
+  // 22:30 UTC un 28 août correspond à 00:30 le 29 août à Paris (UTC+2 en été).
+  const now = new Date("2026-08-28T22:30:00.000Z");
+  assert.equal(todayIdInTimeZone("UTC", now), "2026-08-28");
+  assert.equal(todayIdInTimeZone("Europe/Paris", now), "2026-08-29");
+});
+
+test("toLocalDateId and parseDateIdToLocalNoon round-trip correctly", () => {
+  const dateId = "2026-09-15";
+  assert.equal(toLocalDateId(parseDateIdToLocalNoon(dateId)), dateId);
+});
+
+test("fitsWithinOpenHours accepts a slot fully within a single open hour", () => {
+  const hourly = { 9: { cabinet: true, home: false } };
+  assert.equal(fitsWithinOpenHours(hourly, "cabinet", timeToMinutes("09:00"), 30), true);
+});
+
+test("fitsWithinOpenHours checks every hour a longer appointment touches, not just the start", () => {
+  // 09:30 pendant 60 min touche l'heure 9 (09:30-10:00) ET l'heure 10 (10:00-10:30).
+  const bothOpen = { 9: { cabinet: true, home: true }, 10: { cabinet: true, home: true } };
+  assert.equal(fitsWithinOpenHours(bothOpen, "cabinet", timeToMinutes("09:30"), 60), true);
+
+  const secondHourClosed = { 9: { cabinet: true, home: true }, 10: { cabinet: false, home: false } };
+  assert.equal(fitsWithinOpenHours(secondHourClosed, "cabinet", timeToMinutes("09:30"), 60), false);
+});
+
+test("fitsWithinOpenHours respects the mode (cabinet vs home can differ on the same hour)", () => {
+  const hourly = { 9: { cabinet: true, home: false } };
+  assert.equal(fitsWithinOpenHours(hourly, "cabinet", timeToMinutes("09:00"), 30), true);
+  assert.equal(fitsWithinOpenHours(hourly, "home", timeToMinutes("09:00"), 30), false);
+});
+
+test("fitsWithinOpenHours rejects a slot that would run past midnight", () => {
+  const hourly = { 23: { cabinet: true, home: true } };
+  assert.equal(fitsWithinOpenHours(hourly, "cabinet", timeToMinutes("23:30"), 60), false);
+});
+
+test("fitsWithinOpenHours is always false for a closed day (hourly null)", () => {
+  assert.equal(fitsWithinOpenHours(null, "cabinet", timeToMinutes("09:00"), 30), false);
+});
+
+test("generateCandidateStarts returns only starts whose full duration fits within open hours", () => {
+  // Une seule heure ouverte (9h-10h) : avec un pas de 30 min, seuls 09:00 et
+  // 09:30 permettent de caser une prestation de 30 min sans déborder.
+  const hourly = { 9: { cabinet: true, home: true } };
+  const starts = generateCandidateStarts(hourly, "cabinet", 30);
+  assert.deepEqual(starts, ["09:00", "09:30"]);
+});
+
+test("generateCandidateStarts returns an empty list when nothing fits", () => {
+  assert.deepEqual(generateCandidateStarts(null, "cabinet", 30), []);
 });

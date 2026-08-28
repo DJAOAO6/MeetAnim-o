@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { PublicService, PublicZone } from "@/data/public-booking";
+import type { HourAvailability } from "@/lib/availability";
 
 /**
  * Logique pure de validation et de tarification de la réservation publique.
@@ -118,4 +119,103 @@ export const MIN_FORM_FILL_MS = 3000;
 export function passesMinimumFillTime(startedAt: number | undefined, now: number): boolean {
   if (startedAt === undefined || !Number.isFinite(startedAt)) return false;
   return now - startedAt >= MIN_FORM_FILL_MS;
+}
+
+/**
+ * Fuseau du praticien (seul aujourd'hui, cabinet en France) : sert
+ * uniquement à déterminer "quel jour sommes-nous" pour l'ouverture de la
+ * fenêtre de réservation, indépendamment du fuseau du serveur d'exécution
+ * ou du navigateur du visiteur. Tout le reste (arithmétique de calendrier,
+ * lecture de getDayAvailability) reste ensuite en accesseurs Date locaux
+ * "au midi" — un intervalle sûr pour tout fuseau réel (aucun n'a un
+ * décalage ≥ 12h), donc cohérent quel que soit l'environnement d'exécution.
+ */
+export const PRACTITIONER_TIME_ZONE = "Europe/Paris";
+
+export function todayIdInTimeZone(timeZone: string, now: Date = new Date()): string {
+  // Le calendrier "en-CA" formate nativement en YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+/**
+ * Reconstruit un objet Date "au midi local" à partir d'un identifiant
+ * YYYY-MM-DD, pour ensuite l'utiliser avec des accesseurs locaux
+ * (getDay/getDate/...) sans risque de bascule de jour lié au fuseau
+ * d'exécution ou à un changement d'heure.
+ */
+export function parseDateIdToLocalNoon(dateId: string): Date {
+  const [year, month, day] = dateId.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+export function toLocalDateId(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function capitalizeFrench(value: string): string {
+  return value.charAt(0).toLocaleUpperCase("fr-FR") + value.slice(1);
+}
+
+const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long" });
+const shortDateFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
+const fullDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+/**
+ * Formatage français d'un identifiant de date, indépendant de toute liste
+ * générée à l'avance — utilisé aussi bien pour construire les créneaux
+ * proposés (src/lib/public-schedule.ts) que pour ré-afficher une date déjà
+ * choisie (résumé, écran de succès) sans dépendre d'une recherche dans une
+ * liste qui pourrait ne plus la contenir.
+ */
+export function formatBookingDateLabels(dateId: string): { weekday: string; shortLabel: string; fullLabel: string } {
+  const date = parseDateIdToLocalNoon(dateId);
+  return {
+    weekday: capitalizeFrench(weekdayFormatter.format(date)),
+    shortLabel: shortDateFormatter.format(date),
+    fullLabel: capitalizeFrench(fullDateFormatter.format(date)),
+  };
+}
+
+/**
+ * Un rendez-vous [startMinutes, startMinutes+durationMinutes) ne tient dans
+ * les disponibilités horaires (getDayAvailability) que si CHAQUE heure
+ * qu'il touche est ouverte pour le mode demandé — pas seulement son heure
+ * de départ. Par exemple 09:30 pendant 60 min touche l'heure 9 ET l'heure
+ * 10.
+ */
+export function fitsWithinOpenHours(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", startMinutes: number, durationMinutes: number): boolean {
+  if (!hourly) return false;
+  const endMinutes = startMinutes + durationMinutes;
+  if (endMinutes > 24 * 60) return false;
+
+  const firstHour = Math.floor(startMinutes / 60);
+  const lastHour = Math.floor((endMinutes - 1) / 60);
+  for (let hour = firstHour; hour <= lastHour; hour++) {
+    const hourInfo = hourly[hour];
+    if (!hourInfo || (mode === "cabinet" ? !hourInfo.cabinet : !hourInfo.home)) return false;
+  }
+  return true;
+}
+
+export const SLOT_GRANULARITY_MINUTES = 30;
+
+/**
+ * Fenêtre glissante de réservation : le lendemain (aucune réservation le
+ * jour même) jusqu'à 90 jours plus tard — voir src/lib/public-schedule.ts.
+ * Définie ici plutôt que dans ce fichier "use server" : un fichier "use
+ * server" ne peut exporter que des fonctions async, pas une constante.
+ */
+export const BOOKING_WINDOW_DAYS = 90;
+
+/**
+ * Génère les horaires de départ candidats (par pas de 30 min) qui tiennent
+ * entièrement dans les disponibilités réelles pour le mode et la durée
+ * demandés.
+ */
+export function generateCandidateStarts(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", durationMinutes: number): string[] {
+  const starts: string[] = [];
+  for (let minutes = 0; minutes < 24 * 60; minutes += SLOT_GRANULARITY_MINUTES) {
+    if (fitsWithinOpenHours(hourly, mode, minutes, durationMinutes)) starts.push(minutesToTime(minutes));
+  }
+  return starts;
 }
