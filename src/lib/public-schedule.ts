@@ -24,6 +24,17 @@ export async function getBookingWindowStartId(): Promise<string> {
   return toLocalDateId(tomorrow);
 }
 
+export type PublicSchedule = {
+  dates: BookingDate[];
+  // Bornes de la fenêtre de réservation ("YYYY-MM-DD") : le calendrier
+  // (CalendarMonth) en a besoin pour désactiver la navigation mois
+  // précédent/suivant une fois sorti de la fenêtre, y compris pour un mois
+  // qui n'a aucune date avec créneaux (donc absent de `dates`) mais reste
+  // partiellement dans la fenêtre.
+  windowStartId: string;
+  windowEndId: string;
+};
+
 /**
  * Génère les dates et créneaux réellement réservables pour un mode et une
  * durée de prestation donnés, à partir des vraies disponibilités du
@@ -32,7 +43,7 @@ export async function getBookingWindowStartId(): Promise<string> {
  * date n'apparaît que si au moins un horaire de départ permet à la
  * prestation entière de tenir dans une plage ouverte pour ce mode.
  */
-export async function getPublicScheduleAction(mode: "cabinet" | "home", durationMinutes: number): Promise<BookingDate[]> {
+export async function getPublicScheduleAction(mode: "cabinet" | "home", durationMinutes: number): Promise<PublicSchedule> {
   const availability = await getAvailability();
   const startId = await getBookingWindowStartId();
   const cursor = parseDateIdToLocalNoon(startId);
@@ -50,5 +61,8 @@ export async function getPublicScheduleAction(mode: "cabinet" | "home", duration
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  return dates;
+  const windowEnd = parseDateIdToLocalNoon(startId);
+  windowEnd.setDate(windowEnd.getDate() + BOOKING_WINDOW_DAYS - 1);
+
+  return { dates, windowStartId: startId, windowEndId: toLocalDateId(windowEnd) };
 }
