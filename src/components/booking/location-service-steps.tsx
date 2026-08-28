@@ -114,6 +114,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               title="Au cabinet"
               ariaLabel="Consultation au cabinet"
               detail={<>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>}
+              price={`${service.cabinetPrice} €`}
               selected={mode === "CABINET"}
               disabled={!cabinetOpen}
               disabledLabel={!service.cabinetEnabled ? `Non proposée au cabinet` : "Cabinet fermé pour le moment"}
@@ -124,6 +125,8 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               title="À domicile"
               ariaLabel="Consultation à domicile"
               detail="Selon votre secteur et les tournées en cours."
+              price={service.travelFeeMode === "none" ? `${service.homePrice} €` : `à partir de ${service.homePrice} €`}
+              priceNote={service.travelFeeMode === "none" ? undefined : "Des frais de déplacement peuvent s’ajouter selon votre secteur."}
               selected={mode === "HOME"}
               disabled={!homeOpen}
               disabledLabel={!service.homeEnabled ? "Proposée uniquement au cabinet" : "Domicile fermé pour le moment"}
@@ -155,12 +158,16 @@ function ClockIcon() {
   );
 }
 
-function ModeCard({ icon, title, ariaLabel, detail, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; ariaLabel: string; detail: React.ReactNode; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
+function ModeCard({ icon, title, ariaLabel, detail, price, priceNote, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; ariaLabel: string; detail: React.ReactNode; price: string; priceNote?: string; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} aria-label={ariaLabel} className={`touch-manipulation rounded-[18px] border-2 p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:p-5 ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
-      <span className={`flex h-11 w-11 items-center justify-center rounded-2xl text-xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
+      <span className="flex items-start justify-between gap-3">
+        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
+        {!disabled ? <span className="rounded-full bg-animeo-bg px-3 py-1.5 text-sm font-black text-animeo-dark">{price}</span> : null}
+      </span>
       <span className="mt-3 block text-lg font-black text-animeo-dark">{title}</span>
       <span className="mt-3 block rounded-2xl bg-white/80 p-3 text-sm font-bold leading-5 text-animeo-dark">{disabled ? disabledLabel : detail}</span>
+      {!disabled && priceNote ? <span className="mt-2 block text-xs leading-5 text-animeo-muted">{priceNote}</span> : null}
     </button>
   );
 }
