@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 import { AppointmentsProvider } from "@/components/appointments/appointments-context";
 import { GlobalAppointmentsManager } from "@/components/appointments/global-appointments-manager";
 import { CurrentUserProvider } from "@/components/auth/current-user-provider";
@@ -32,6 +33,23 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </main>
             <GlobalAppointmentsManager clients={clientOptions} />
             <DashboardFloatingActions />
+            {/* Un seul montage pour tout le dashboard (PROMPT-NOTIFICATIONS.md §A3) —
+                voir src/lib/notify.ts, jamais importé directement ailleurs. Habillé
+                avec les tokens du projet plutôt que le richColors intégré de Sonner
+                (sa propre palette, pas la nôtre). */}
+            <Toaster
+              position="top-right"
+              closeButton
+              toastOptions={{
+                classNames: {
+                  toast: "!rounded-2xl !border !shadow-[0_12px_32px_rgba(24,59,69,0.16)] !font-extrabold",
+                  success: "!bg-animeo-success !text-white !border-animeo-success",
+                  error: "!bg-animeo-error !text-white !border-animeo-error",
+                  info: "!bg-animeo-info !text-white !border-animeo-info",
+                  closeButton: "!bg-white/20 !border-white/40 !text-white",
+                },
+              }}
+            />
           </div>
         </AppointmentsProvider>
       </DashboardThemeProvider>
