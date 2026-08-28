@@ -179,14 +179,28 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
             <span className="rounded-full bg-animeo-soft px-3 py-1 text-xs font-black text-animeo">Trajet optimisé</span>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
-            {recommendedDates.map((date) => (
-              <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={dateId === date.id} className={`rounded-2xl border-2 p-4 text-left text-white shadow-[0_8px_22px_rgba(79,175,159,0.2)] transition ${dateId === date.id ? "border-animeo-dark bg-animeo-dark" : "border-animeo bg-animeo hover:border-animeo-dark hover:bg-animeo-dark"}`}>
-                <span className="block text-xs font-extrabold uppercase tracking-wide text-white/75">Tournée correspondante</span>
-                <span className="mt-1 block text-lg font-black capitalize">{date.weekday} {date.shortLabel}</span>
-                <span className="mt-2 block text-xs font-bold text-white/80">{tourByDate.get(date.id)?.name} · {nearbyLocationCount > 0 ? `regroupement à ${clientAddress.city}` : zone?.name}</span>
-                <span className="mt-3 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-black">Réserver ce jour</span>
-              </button>
-            ))}
+            {recommendedDates.map((date) => {
+              // text-white/75 et text-white/80 sur bg-animeo (fond clair) ne
+              // passent pas 4,5:1 même à pleine opacité (fond trop clair
+              // pour du texte blanc) : texte plein "animeo-dark" pour l'état
+              // non sélectionné, blanc réservé à l'état sélectionné dont le
+              // fond est bien plus sombre (bg-animeo-dark).
+              const isSelected = dateId === date.id;
+              return (
+                <button
+                  key={date.id}
+                  type="button"
+                  onClick={() => selectDate(date.id)}
+                  aria-pressed={isSelected}
+                  className={`rounded-2xl border-2 p-4 text-left shadow-[0_8px_22px_rgba(79,175,159,0.2)] transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : "border-animeo bg-animeo text-animeo-dark hover:border-animeo-dark hover:bg-animeo-dark hover:text-white"}`}
+                >
+                  <span className="block text-xs font-extrabold uppercase tracking-wide">Tournée correspondante</span>
+                  <span className="mt-1 block text-lg font-black capitalize">{date.weekday} {date.shortLabel}</span>
+                  <span className="mt-2 block text-xs font-bold">{tourByDate.get(date.id)?.name} · {nearbyLocationCount > 0 ? `regroupement à ${clientAddress.city}` : zone?.name}</span>
+                  <span className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ${isSelected ? "bg-white/20" : "bg-white/60"}`}>Réserver ce jour</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -205,7 +219,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
                   type="button"
                   aria-pressed={selectedMonth === monthId}
                   onClick={() => { setSelectedMonth(monthId); onDateChange(null); onTimeChange(null); }}
-                  className={`rounded-xl px-4 py-2.5 text-sm font-extrabold capitalize transition ${selectedMonth === monthId ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
+                  className={`rounded-xl px-4 py-2.5 text-sm font-extrabold capitalize transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${selectedMonth === monthId ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
                 >
                   {formatMonth(monthId)}
                 </button>
@@ -217,7 +231,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
               const matchingTour = tourByDate.get(date.id);
               const isSelected = dateId === date.id;
               return (
-                <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={isSelected} className={`min-h-24 rounded-2xl border-2 px-3 py-3 text-center transition ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : matchingTour ? "border-animeo bg-animeo-soft hover:bg-[#d8f1ea]" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
+                <button key={date.id} type="button" onClick={() => selectDate(date.id)} aria-pressed={isSelected} className={`min-h-24 rounded-2xl border-2 px-3 py-3 text-center transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${isSelected ? "border-animeo-dark bg-animeo-dark text-white" : matchingTour ? "border-animeo bg-animeo-soft hover:bg-[#d8f1ea]" : "border-[#dfe9e6] hover:border-[#aad5cd]"}`}>
                   {matchingTour ? <span className={`mb-1 block text-[10px] font-black uppercase tracking-wide ${isSelected ? "text-white/75" : "text-animeo"}`}>Tournée secteur</span> : null}
                   <span className={`block text-xs font-extrabold uppercase ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>{date.weekday}</span>
                   <span className={`mt-1 block font-black ${isSelected ? "text-white" : "text-animeo-dark"}`}>{date.shortLabel}</span>
@@ -232,7 +246,7 @@ export function ScheduleStep({ professional, mode, service, clientAddress, zoneI
         <div className="mt-6">
           <p className="mb-3 text-sm font-black text-animeo-dark">2. Choisissez une heure</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {availableSlots.map((slot) => <button key={slot} type="button" onClick={() => onTimeChange(slot)} aria-pressed={time === slot} className={`min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition ${time === slot ? "border-animeo bg-animeo text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}>{slot}</button>)}
+            {availableSlots.map((slot) => <button key={slot} type="button" onClick={() => onTimeChange(slot)} aria-pressed={time === slot} className={`min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo bg-animeo text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}>{slot}</button>)}
           </div>
           <p className="mt-3 text-xs leading-5 text-animeo-muted">Les heures déjà occupées sont retirées : les rendez-vous au cabinet et à domicile partagent un seul agenda.</p>
         </div>
