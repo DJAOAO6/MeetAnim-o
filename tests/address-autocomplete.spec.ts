@@ -55,8 +55,8 @@ async function gotoAddressStep(page: Page) {
   // n'était pas réellement libre — sans rapport avec l'objet de ces tests.
   // On boucle sur les horaires proposés jusqu'à ce qu'un passe la
   // revalidation, plutôt que de deviner un délai d'attente arbitraire.
-  await expect(page.getByText("Choisissez une date et une heure")).toBeVisible();
-  await page.locator(".grid.grid-cols-3.gap-2.md\\:grid-cols-5 button").first().click();
+  await expect(page.getByText("Choisissez votre créneau")).toBeVisible();
+  await page.locator('[role="gridcell"][aria-disabled="false"]').first().click();
   await expect(page.locator('button:has-text(":")').first()).toBeVisible();
   await page.locator('button:has-text(":")').first().click();
   await page.locator('button[type="submit"]').click();
