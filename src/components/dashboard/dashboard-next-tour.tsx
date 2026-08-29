@@ -66,7 +66,7 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
             <span>{nextTour.estimatedKm} km</span>
             <span>{nextTour.day} · {nextTour.startTime}</span>
           </div>
-          <SimulatedMap points={points} heightClassName="h-40" />
+          <SimulatedMap points={points} heightClassName="h-40" showLabels={false} />
           <Link href="/dashboard/tournees" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">
             Voir la tournée
           </Link>

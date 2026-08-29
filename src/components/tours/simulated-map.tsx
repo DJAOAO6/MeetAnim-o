@@ -15,6 +15,11 @@ type SimulatedMapProps = {
   onSelect?: (id: string) => void;
   heightClassName?: string;
   overlay?: ReactNode;
+  // Sur une carte compacte (ex. mini-carte du tableau de bord), les noms de
+  // ville sont trop rapprochés des puces de rendez-vous et finissent tronqués
+  // dessous — AUDIT_COMPLET.md P3-33. Les masquer en dessous de cette taille
+  // plutôt que tenter un évitement de collision générique, hors de portée ici.
+  showLabels?: boolean;
 };
 
 const accentStyles = {
@@ -23,7 +28,7 @@ const accentStyles = {
   purple: "bg-[#8067b0] text-white",
 };
 
-export function SimulatedMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay }: SimulatedMapProps) {
+export function SimulatedMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, showLabels = true }: SimulatedMapProps) {
   return (
     <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] bg-[#edf4ef] ${heightClassName}`}>
       <div className="absolute inset-y-0 left-[18%] w-[9%] -rotate-6 bg-[#dcecf1] opacity-90" />
@@ -34,10 +39,14 @@ export function SimulatedMap({ points, selectedId, onSelect, heightClassName = "
       <div className="absolute left-[8%] top-[68%] h-1.5 w-[85%] -rotate-3 rounded-full bg-[#d6e4dc]" />
       <div className="absolute left-[42%] top-[12%] h-1.5 w-[48%] rotate-[18deg] rounded-full bg-[#d6e4dc]" />
 
-      <MapLabel label="Le Havre" x="10%" y="38%" />
-      <MapLabel label="Dieppe" x="67%" y="10%" />
-      <MapLabel label="Rouen" x="64%" y="76%" />
-      <MapLabel label="Montivilliers" x="29%" y="25%" />
+      {showLabels ? (
+        <>
+          <MapLabel label="Le Havre" x="10%" y="38%" />
+          <MapLabel label="Dieppe" x="67%" y="10%" />
+          <MapLabel label="Rouen" x="64%" y="76%" />
+          <MapLabel label="Montivilliers" x="29%" y="25%" />
+        </>
+      ) : null}
 
       <div className="absolute left-3 top-3 z-20 rounded-xl border border-white/70 bg-white/90 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted shadow-sm backdrop-blur-sm">
         Carte simulée · aucune donnée Mapbox
