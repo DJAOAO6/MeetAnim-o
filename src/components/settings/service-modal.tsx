@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Field, ImagePicker, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { serviceZoneNames, type AnimalType, type ServiceSettings } from "@/data/settings";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { PublicAnimalType } from "@/data/public-booking";
@@ -41,6 +42,7 @@ export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, 
   const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
+  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
   const zoneFee = draft.zoneFees["Le Havre"] ?? 0;
   const feeSelection = draft.travelFeesEnabled ? draft.travelFeeMode : "none";
   // On garde l'option visible si une prestation existante l'utilise déjà,
@@ -80,7 +82,7 @@ export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Configuration locale</p><h2 id="service-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{service ? "Modifier la prestation" : "Nouvelle prestation"}</h2></div>
           <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>

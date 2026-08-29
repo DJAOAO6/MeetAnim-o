@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import type { Reminder } from "@/data/reminders";
 
 type ReminderModalProps = {
@@ -14,10 +15,11 @@ export function ReminderModal({ reminder, onClose, onSend }: ReminderModalProps)
   const [message, setMessage] = useState(
     `Bonjour ${reminder.clientFirstName},\n\nCela fait bientôt ${reminder.delay} depuis la dernière séance de ${reminder.animalName}.\n\nSi vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :\n\n[Lien de réservation]`,
   );
+  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
-      <section role="dialog" aria-modal="true" aria-labelledby="reminder-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reminder-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white">

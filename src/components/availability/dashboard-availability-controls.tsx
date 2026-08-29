@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useManualAvailability, type AvailabilityMode, type ClosureDuration, type ModeAvailability } from "@/components/availability/manual-availability";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 
 const durations: ClosureDuration[] = ["1 heure", "2 heures", "Demi-journée", "Journée entière", "Plusieurs jours", "Horaire personnalisé", "Jusqu’à réouverture manuelle"];
 
@@ -46,6 +47,7 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const label = mode === "cabinet" ? "Cabinet" : "Domicile";
+  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,7 +64,7 @@ function AvailabilityModal({ mode, value, onClose, onSave }: { mode: Availabilit
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="availability-title" className="w-full max-w-lg overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="availability-title" className="w-full max-w-lg overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="flex items-start justify-between border-b border-[#e1eae8] bg-animeo-soft p-5 sm:p-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Ouverture manuelle</p>

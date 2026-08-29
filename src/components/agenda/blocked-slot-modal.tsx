@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import type { CreateBlockedSlotInput } from "@/lib/blocked-slots-actions";
 
 type BlockedSlotModalProps = {
@@ -26,6 +27,7 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,7 +44,7 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
-      <section role="dialog" aria-modal="true" aria-labelledby="blocked-slot-dialog-title" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="blocked-slot-dialog-title" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo-dark text-white"><LockIcon /></div>

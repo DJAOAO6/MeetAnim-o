@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/icon";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import type { Tour, Zone } from "@/data/tours";
 
 export type TourFormValue = {
@@ -34,6 +35,7 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone }: TourMo
   const [endTime, setEndTime] = useState(tour?.endTime ?? "18:00");
   const [zoneId, setZoneId] = useState(tour?.zoneId ?? zones[0]?.id ?? "");
   const [status, setStatus] = useState<Tour["status"]>(tour?.status ?? "Active");
+  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,7 +44,7 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone }: TourMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
-      <section role="dialog" aria-modal="true" aria-labelledby="tour-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="tournees" className="h-6 w-6" /></div>

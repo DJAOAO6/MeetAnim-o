@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { inputClassName } from "@/components/settings/settings-fields";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { appointmentStatusLabels, type AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 
@@ -31,6 +32,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [actionError, setActionError] = useState<string | null>(null);
+  const dialogRef = useModalFocusTrap<HTMLElement>(closeManager, managerOpen);
 
   async function handleStatusChange(appointmentId: string, status: AppointmentStatus) {
     setActionError(null);
@@ -48,7 +50,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
     <>
       {managerOpen ? (
         <div className="fixed inset-0 z-50 bg-[#102f37]/55 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="appointments-manager-title" className="absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-animeo-bg shadow-[-20px_0_60px_rgba(12,39,47,0.25)]">
+          <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="appointments-manager-title" className="absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-animeo-bg shadow-[-20px_0_60px_rgba(12,39,47,0.25)] outline-none">
             <header className="flex items-start justify-between gap-4 border-b border-[#dce8e5] bg-white p-5 sm:p-6">
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Disponible sur tous les onglets</p>
