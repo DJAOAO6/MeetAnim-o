@@ -120,8 +120,16 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
     return () => cancelAnimationFrame(frame);
   }, [openGroup]);
 
+  // Ouvre toujours le groupe cliqué (jamais de fermeture par un second clic
+  // sur son propre en-tête). Avant, un clic direct sur l'en-tête d'une
+  // section pouvait la rouvrir puis la refermer aussitôt : le mousedown
+  // déclenche d'abord le blur du dernier champ de la section précédente
+  // (onBlur -> commit -> advanceFrom ouvre déjà la section ciblée), puis le
+  // click qui suit inversait cet état ("current === group" -> ferme). Sans
+  // bascule, les deux événements convergent vers le même résultat au lieu
+  // de s'annuler (AUDIT_COMPLET.md P1-10).
   function toggleGroup(group: GroupKey) {
-    setOpenGroup((current) => (current === group ? null : group));
+    setOpenGroup(group);
   }
 
   function advanceFrom(group: GroupKey) {
