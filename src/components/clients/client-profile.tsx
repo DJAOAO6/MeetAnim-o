@@ -6,13 +6,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { AnimalEditModal } from "@/components/clients/animal-edit-modal";
 import { AnimalRecord } from "@/components/clients/animal-record";
 import { AnimalSideCards } from "@/components/clients/animal-side-cards";
+import { ClientEditModal } from "@/components/clients/client-edit-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { hasPermission } from "@/lib/auth/permissions";
-import { deleteAnimalAction, deleteClientAction } from "@/lib/clients-actions";
+import { deleteAnimalAction, deleteClientAction, updateClientAction, type ClientContactInput } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 
@@ -31,10 +33,14 @@ export function ClientProfile({ client }: ClientProfileProps) {
   const router = useRouter();
   const currentUser = useCurrentUser();
   const canDelete = hasPermission(currentUser, "DELETE_CLIENTS");
+  const [clientInfo, setClientInfo] = useState(client);
   const [animals, setAnimals] = useState(client.animals);
   const [selectedAnimalId, setSelectedAnimalId] = useState(client.animals[0]?.id ?? "");
   const [animalPhotos, setAnimalPhotos] = useState<Record<string, string>>({});
   const [deletingClient, startDeletingClient] = useTransition();
+  const [editingClient, setEditingClient] = useState(false);
+  const [savingClient, setSavingClient] = useState(false);
+  const [addingAnimal, setAddingAnimal] = useState(false);
   const selectedAnimal = animals.find((animal) => animal.id === selectedAnimalId) ?? animals[0];
 
   useEffect(() => {
@@ -61,9 +67,9 @@ export function ClientProfile({ client }: ClientProfileProps) {
   }
 
   function deleteClient() {
-    if (!window.confirm(`Supprimer définitivement la fiche de ${client.firstName} ${client.lastName} et tous ses animaux ? Cette action est irréversible.`)) return;
+    if (!window.confirm(`Supprimer définitivement la fiche de ${clientInfo.firstName} ${clientInfo.lastName} et tous ses animaux ? Cette action est irréversible.`)) return;
     startDeletingClient(async () => {
-      const result = await deleteClientAction(client.id);
+      const result = await deleteClientAction(clientInfo.id);
       if (!result.ok) {
         notify.error(result.error);
         return;
@@ -71,6 +77,28 @@ export function ClientProfile({ client }: ClientProfileProps) {
       router.push("/dashboard/clients");
       router.refresh();
     });
+  }
+
+  async function saveClientInfo(input: ClientContactInput) {
+    setSavingClient(true);
+    const result = await updateClientAction(clientInfo.id, input);
+    setSavingClient(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setClientInfo((current) => ({ ...current, ...result.client, animals: current.animals }));
+    notify.success("Fiche client mise à jour.");
+    setEditingClient(false);
+    router.refresh();
+  }
+
+  function handleAnimalAdded(created: Animal) {
+    setAnimals((current) => [...current, created]);
+    setSelectedAnimalId(created.id);
+    notify.success(`${created.name} a été ajouté à la fiche.`);
+    setAddingAnimal(false);
+    router.refresh();
   }
 
   function handleAnimalDeleted(animalId: string) {
@@ -118,7 +146,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
       </Link>
 
       <PageHeader
-        title={`${client.firstName} ${client.lastName}`}
+        title={`${clientInfo.firstName} ${clientInfo.lastName}`}
         description={`${animals.length} animal${animals.length > 1 ? "aux" : ""} associé${animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
       />
 
@@ -126,27 +154,27 @@ export function ClientProfile({ client }: ClientProfileProps) {
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-animeo-soft text-xl font-black text-animeo-dark">
-              {client.initials}
+              {clientInfo.initials}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-black text-animeo-dark">{client.firstName} {client.lastName}</h2>
+                <h2 className="text-2xl font-black text-animeo-dark">{clientInfo.firstName} {clientInfo.lastName}</h2>
                 <span className="inline-flex items-center gap-2 rounded-full bg-[#e4f5ef] px-3 py-1 text-xs font-extrabold text-[#267668]">
                   <span className="h-2 w-2 rounded-full bg-animeo" />
                   Client actif
                 </span>
               </div>
               <div className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                <ContactItem icon={<PhoneIcon />} value={client.phone} />
-                <ContactItem icon={<MailIcon />} value={client.email} />
-                <ContactItem icon={<LocationIcon />} value={client.address} wide />
+                <ContactItem icon={<PhoneIcon />} value={clientInfo.phone} />
+                <ContactItem icon={<MailIcon />} value={clientInfo.email} />
+                <ContactItem icon={<LocationIcon />} value={clientInfo.address} wide />
               </div>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <ActionButton label="Modifier" onClick={() => showStubFeedback("La modification du client sera ajoutée ici")} />
-            <ActionButton label="Ajouter un animal" onClick={() => showStubFeedback("Le formulaire Ajouter un animal sera ajouté ici")} />
+            <ActionButton label="Modifier" onClick={() => setEditingClient(true)} />
+            <ActionButton label="Ajouter un animal" onClick={() => setAddingAnimal(true)} />
             <button
               type="button"
               onClick={openNewAppointment}
@@ -173,7 +201,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
         <div className="grid items-start gap-6 2xl:grid-cols-[260px_minmax(0,1fr)_300px]">
           <AnimalSelector
             animals={animals}
-            clientId={client.id}
+            clientId={clientInfo.id}
             animalPhotos={animalPhotos}
             selectedAnimalId={selectedAnimal.id}
             onSelect={setSelectedAnimalId}
@@ -182,7 +210,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
           />
           <AnimalRecord
             animal={selectedAnimal}
-            photo={animalPhotos[animalPhotoKey(client.id, selectedAnimal.id)] ?? selectedAnimal.photo}
+            photo={animalPhotos[animalPhotoKey(clientInfo.id, selectedAnimal.id)] ?? selectedAnimal.photo}
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}
           />
@@ -191,8 +219,19 @@ export function ClientProfile({ client }: ClientProfileProps) {
       ) : (
         <Card className="p-10 text-center">
           <p className="font-extrabold text-animeo-dark">Aucun animal associé à ce client.</p>
+          <div className="mt-4 flex justify-center">
+            <ActionButton label="Ajouter un animal" onClick={() => setAddingAnimal(true)} />
+          </div>
         </Card>
       )}
+
+      {editingClient ? (
+        <ClientEditModal client={clientInfo} saving={savingClient} onClose={() => setEditingClient(false)} onSave={saveClientInfo} />
+      ) : null}
+
+      {addingAnimal ? (
+        <AnimalEditModal clientId={clientInfo.id} onClose={() => setAddingAnimal(false)} onSaved={handleAnimalAdded} />
+      ) : null}
     </>
   );
 }

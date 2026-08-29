@@ -2,18 +2,34 @@
 
 import { useState, type FormEvent } from "react";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { animalSpeciesList } from "@/data/species";
-import { updateAnimalAction, type UpdateAnimalInput } from "@/lib/clients-actions";
+import { createAnimalAction, updateAnimalAction, type UpdateAnimalInput } from "@/lib/clients-actions";
 import type { Animal } from "@/data/clients";
 
+const emptyDraft: UpdateAnimalInput = {
+  name: "",
+  species: "Chien",
+  breed: "",
+  age: "",
+  weight: "",
+  sex: "",
+  history: "",
+  conditions: "",
+  treatments: "",
+  notes: "",
+};
+
 type AnimalEditModalProps = {
-  animal: Animal;
+  /** Absent = création d'un nouvel animal (nécessite alors clientId). */
+  animal?: Animal;
+  clientId?: string;
   onClose: () => void;
   onSaved: (animal: Animal) => void;
 };
 
-export function AnimalEditModal({ animal, onClose, onSaved }: AnimalEditModalProps) {
-  const [draft, setDraft] = useState<UpdateAnimalInput>({
+export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEditModalProps) {
+  const [draft, setDraft] = useState<UpdateAnimalInput>(animal ? {
     name: animal.name,
     species: animal.species,
     breed: animal.breed,
@@ -24,9 +40,10 @@ export function AnimalEditModal({ animal, onClose, onSaved }: AnimalEditModalPro
     conditions: animal.conditions,
     treatments: animal.treatments,
     notes: animal.notes,
-  });
+  } : emptyDraft);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
 
   function update<K extends keyof UpdateAnimalInput>(key: K, value: UpdateAnimalInput[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -36,24 +53,28 @@ export function AnimalEditModal({ animal, onClose, onSaved }: AnimalEditModalPro
     event.preventDefault();
     setError(null);
     setSaving(true);
-    const result = await updateAnimalAction(animal.id, draft);
-    setSaving(false);
 
-    if (!result.ok) {
-      setError(result.error);
+    if (animal) {
+      const result = await updateAnimalAction(animal.id, draft);
+      setSaving(false);
+      if (!result.ok) { setError(result.error); return; }
+      onSaved({ ...animal, ...draft });
       return;
     }
 
-    onSaved({ ...animal, ...draft });
+    const result = await createAnimalAction(clientId!, draft);
+    setSaving(false);
+    if (!result.ok) { setError(result.error); return; }
+    onSaved(result.animal);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="animal-edit-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="animal-edit-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="flex items-start justify-between gap-4 border-b border-[#e5eeeb] p-5 sm:p-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Fiche animal</p>
-            <h2 id="animal-edit-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">Modifier {animal.name}</h2>
+            <h2 id="animal-edit-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{animal ? `Modifier ${animal.name}` : "Ajouter un animal"}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
         </div>
@@ -87,7 +108,7 @@ export function AnimalEditModal({ animal, onClose, onSaved }: AnimalEditModalPro
           <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
             <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
             <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
-              {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+              {saving ? "Enregistrement…" : animal ? "Enregistrer les modifications" : "Ajouter l’animal"}
             </button>
           </div>
         </form>

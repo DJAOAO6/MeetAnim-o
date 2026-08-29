@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { ClientEditModal } from "@/components/clients/client-edit-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
-import { deleteClientAction } from "@/lib/clients-actions";
+import { createClientAction, deleteClientAction, type ClientContactInput } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 
@@ -35,6 +36,8 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("Tous");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Tous les statuts");
   const [sortBy, setSortBy] = useState<SortOption>("name");
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [savingClient, setSavingClient] = useState(false);
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -64,6 +67,20 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
     router.refresh();
   }
 
+  async function saveNewClient(input: ClientContactInput) {
+    setSavingClient(true);
+    const result = await createClientAction(input);
+    setSavingClient(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setLocalClients((current) => [result.client, ...current]);
+    notify.success(`${result.client.firstName} ${result.client.lastName} a été ajouté.`);
+    setCreatingClient(false);
+    router.refresh();
+  }
+
   return (
     <>
       <PageHeader
@@ -72,7 +89,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
         action={
           <button
             type="button"
-            onClick={() => notify.info("Le formulaire Nouveau client sera ajouté lors d’une prochaine étape.")}
+            onClick={() => setCreatingClient(true)}
             className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
           >
             <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
@@ -181,6 +198,10 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
           </div>
         )}
       </Card>
+
+      {creatingClient ? (
+        <ClientEditModal saving={savingClient} onClose={() => setCreatingClient(false)} onSave={saveNewClient} />
+      ) : null}
     </>
   );
 }

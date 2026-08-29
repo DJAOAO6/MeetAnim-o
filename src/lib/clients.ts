@@ -12,7 +12,7 @@ import type {
   Consultation as DbConsultation,
 } from "@/generated/prisma/client";
 
-const clientInclude = {
+export const clientInclude = {
   animals: {
     include: {
       consultations: { orderBy: { date: "desc" as const } },
@@ -46,7 +46,7 @@ function mapDocument(document: DbAnimalDocument): AnimalDocument {
   };
 }
 
-function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; documents: DbAnimalDocument[] }): Animal {
+export function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; documents: DbAnimalDocument[] }): Animal {
   return {
     id: animal.id,
     name: animal.name,
@@ -71,7 +71,7 @@ function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; documen
   };
 }
 
-function mapClient(client: DbClientWithAnimals): Client {
+export function mapClient(client: DbClientWithAnimals): Client {
   const consultationDates = client.animals.flatMap((animal) => animal.consultations.map((consultation) => consultation.date));
   const lastConsultation = consultationDates.length > 0 ? new Date(Math.max(...consultationDates.map((date) => date.getTime()))) : null;
 
