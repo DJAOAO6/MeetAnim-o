@@ -198,7 +198,7 @@ export const initialSettings: SettingsState = {
     appointmentReminderEnabled: true,
     appointmentReminderDelay: "24 heures avant",
   },
-  publicColor: "#4FAF9F",
+  publicColor: "#2F7A6E",
   kilometricFeesEnabled: false,
 };
 

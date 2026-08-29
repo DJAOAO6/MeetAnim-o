@@ -28,7 +28,10 @@ const DEFAULT_PROFILE: BusinessProfileData = {
   slug: "pauline-faucillon",
   photo: "PF",
   logo: "PF",
-  publicColor: "#4FAF9F",
+  // #4FAF9F échouait au contraste WCAG AA (2,63:1) là où cette couleur sert
+  // de texte sur la page de réservation publique (booking-header.tsx) —
+  // AUDIT_COMPLET.md P1-4. Même teinte assombrie qu'ailleurs dans l'appli.
+  publicColor: "#2F7A6E",
   cabinetAvailable: true,
   homeAvailable: true,
 };

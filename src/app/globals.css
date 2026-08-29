@@ -3,13 +3,18 @@
 :root {
   --background: #f7faf9;
   --foreground: #1f2933;
-  --theme-primary: #4faf9f;
+  /* #4faf9f (l'ancienne valeur) échoue au contraste WCAG AA en texte sur
+     fond clair (2,63:1) et en texte blanc sur fond bouton (2,34:1), contre
+     4,5:1 requis — AUDIT_COMPLET.md P1-4. #2f7a6e (même teinte, déjà défini
+     comme --theme-secondary, jamais utilisé ailleurs) atteint ~5,1:1 dans
+     les deux sens, sans introduire de nouvelle couleur au design system. */
+  --theme-primary: #2f7a6e;
   --theme-secondary: #2f7a6e;
   --theme-accent: #f4b860;
   --theme-background: #f7faf9;
   --theme-surface: #ffffff;
   --theme-sidebar: #183b45;
-  --theme-action: #4faf9f;
+  --theme-action: #2f7a6e;
   --theme-text: #1f2933;
   --theme-heading: #183b45;
   --theme-muted: #6b7780;

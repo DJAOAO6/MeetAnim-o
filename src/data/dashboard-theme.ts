@@ -59,15 +59,20 @@ export type DashboardThemeSettings = {
   speciesColors: Partial<Record<AnimalSpecies, string>>;
 };
 
+// AUDIT_COMPLET.md P1-4 : #59B9AA (primaryColor/actionColor du thème clair,
+// celui effectivement rendu par défaut) échoue au contraste WCAG AA — mesuré
+// à 2,35:1 en texte blanc sur fond bouton et ~2,6:1 en texte sur fond clair,
+// contre 4,5:1 requis. #2F7A6E (même teinte, déjà présent comme
+// secondaryColor du thème clair) atteint ~5,1:1 dans les deux sens.
 export const lightThemePreset: DashboardThemeSettings = {
   mode: "light",
-  primaryColor: "#59B9AA",
+  primaryColor: "#2F7A6E",
   secondaryColor: "#2F7A6E",
   accentColor: "#F4B860",
   backgroundColor: "#F6F8F7",
   surfaceColor: "#FFFFFF",
   sidebarColor: "#153F47",
-  actionColor: "#59B9AA",
+  actionColor: "#2F7A6E",
   displayOptions: defaultDisplayOptions,
   navigationAssets: {},
   speciesColors: {},
@@ -81,7 +86,11 @@ export const darkThemePreset: DashboardThemeSettings = {
   backgroundColor: "#101D22",
   surfaceColor: "#182B32",
   sidebarColor: "#0B171B",
-  actionColor: "#4FAF9F",
+  // Le bouton principal (texte blanc dessus) a besoin d'un fond assez foncé
+  // quel que soit le thème de la page — même correctif que actionColor du
+  // thème clair. primaryColor (texte sur fond sombre, direction opposée du
+  // contraste) n'a pas été mesuré par l'audit et n'est pas modifié ici.
+  actionColor: "#2F7A6E",
   displayOptions: defaultDisplayOptions,
   navigationAssets: {},
   speciesColors: {},
