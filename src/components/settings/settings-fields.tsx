@@ -14,9 +14,9 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export function Toggle({ checked, onChange, label, compact = false }: { checked: boolean; onChange: (checked: boolean) => void; label: string; compact?: boolean }) {
+export function Toggle({ checked, onChange, label, compact = false, disabled = false }: { checked: boolean; onChange: (checked: boolean) => void; label: string; compact?: boolean; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-[#f0f3f3] text-animeo-muted"}`}>
+    <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-[#f0f3f3] text-animeo-muted"}`}>
       <span className={`relative inline-flex h-5 w-9 rounded-full transition ${checked ? "bg-animeo" : "bg-[#b8c2c5]"}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition ${checked ? "left-[18px]" : "left-0.5"}`} />
       </span>

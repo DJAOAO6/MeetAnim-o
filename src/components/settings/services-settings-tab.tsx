@@ -11,12 +11,13 @@ type ServicesSettingsTabProps = {
   services: ServiceSettings[];
   kilometricFeesEnabled: boolean;
   saving: boolean;
+  canEdit?: boolean;
   onSave: (service: ServiceSettings) => Promise<void>;
   onToggle: (service: ServiceSettings) => void;
   onDelete: (service: ServiceSettings) => void;
 };
 
-export function ServicesSettingsTab({ services, kilometricFeesEnabled, saving, onSave, onToggle, onDelete }: ServicesSettingsTabProps) {
+export function ServicesSettingsTab({ services, kilometricFeesEnabled, saving, canEdit = true, onSave, onToggle, onDelete }: ServicesSettingsTabProps) {
   const [modal, setModal] = useState<ServiceSettings | "new" | null>(null);
 
   async function saveService(service: ServiceSettings) {
@@ -29,9 +30,14 @@ export function ServicesSettingsTab({ services, kilometricFeesEnabled, saving, o
       <SectionTitle
         title="Prestations"
         description="Définissez les animaux concernés, les lieux proposés et vos tarifs actuels."
-        action={<button type="button" onClick={() => setModal("new")} className="rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm">+ Nouvelle prestation</button>}
+        action={canEdit ? <button type="button" onClick={() => setModal("new")} className="rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm">+ Nouvelle prestation</button> : null}
       />
 
+      {!canEdit ? (
+        <div role="status" className="mb-5 rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">Vous n’avez pas la permission de modifier les prestations. Contactez un administrateur.</div>
+      ) : null}
+
+      <fieldset disabled={!canEdit} className="disabled:opacity-60">
       <div className="grid gap-5 xl:grid-cols-2">
         {services.map((service) => (
           <Card key={service.id} className={`overflow-hidden ${service.active ? "" : "opacity-70"}`}>
@@ -79,6 +85,7 @@ export function ServicesSettingsTab({ services, kilometricFeesEnabled, saving, o
           </Card>
         ))}
       </div>
+      </fieldset>
 
       <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-animeo-soft p-4 text-sm text-animeo-dark">Les changements de tarif concernent les futures réservations. Les prix des rendez-vous historiques restent inchangés.</p>
 
