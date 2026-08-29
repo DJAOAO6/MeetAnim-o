@@ -1,40 +1,45 @@
 # Audit complet — Animéo
 
-Date : 2026-08-28
-Méthode : lecture exhaustive du code (architecture, modèles de données, actions serveur, tests existants) + exploration réelle de l'application en local via Playwright (connexion, parcours de réservation publique complet, navigation dans le tableau de bord, formulaires, CRUD, cas limites, responsive à 5 largeurs, scan d'accessibilité automatisé via axe-core, tests de sécurité et de conditions de course). Aucune modification de code n'a été effectuée pendant cette phase.
+Date de l'audit initial : 2026-08-28. Mise à jour après correction des P0/P1 : 2026-08-29.
+Méthode : lecture exhaustive du code (architecture, modèles de données, actions serveur, tests existants) + exploration réelle de l'application en local via Playwright (connexion, parcours de réservation publique complet, navigation dans le tableau de bord, formulaires, CRUD, cas limites, responsive à 5 largeurs, scan d'accessibilité automatisé via axe-core, tests de sécurité et de conditions de course).
 
 Limite à connaître : le compte de test « secrétariat » a une double authentification par email à laquelle nous n'avions pas accès ; les vérifications de séparation des rôles pour ce compte sont donc confirmées par lecture de code (fiable) mais pas par test live (voir tableau des problèmes, P2-14).
+
+**Statut de la phase de correction** : tous les problèmes P0 et P1 identifiés ci-dessous ont été corrigés et revérifiés en conditions réelles (voir le statut détaillé de chaque fiche). Les problèmes P2/P3 n'ont volontairement pas été traités et attendent une validation avant d'être abordés. Les scores ci-dessous ont été recalculés après cette première vague de corrections.
 
 ---
 
 # État général
 
-| Axe | Score |
-|---|---|
-| Fonctionnel | 58/100 |
-| UI | 78/100 |
-| UX | 65/100 |
-| Accessibilité | 42/100 |
-| Responsive | 72/100 |
-| Performance | 80/100 |
-| Sécurité | 68/100 |
-| Qualité du code | 72/100 |
-| Tests | 35/100 |
-| Maturité produit | 50/100 |
+| Axe | Score initial | Score après correction P0/P1 |
+|---|---|---|
+| Fonctionnel | 58/100 | 74/100 |
+| UI | 78/100 | 80/100 |
+| UX | 65/100 | 76/100 |
+| Accessibilité | 42/100 | 73/100 |
+| Responsive | 72/100 | 76/100 |
+| Performance | 80/100 | 80/100 |
+| Sécurité | 68/100 | 80/100 |
+| Qualité du code | 72/100 | 78/100 |
+| Tests | 35/100 | 38/100 |
+| Maturité produit | 50/100 | 65/100 |
 
-**AVANCEMENT ESTIMÉ DU LOGICIEL : 58 %**
+**AVANCEMENT ESTIMÉ DU LOGICIEL : 58 % → 68 %**
 
 ## Comment cette estimation est obtenue
 
-Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage de pages qui existent. C'est une pondération par pilier fonctionnel, en tenant compte du fait qu'une page qui *a l'air* terminée mais dont les actions ne sont pas branchées ne compte pas comme « faite » :
+Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage de pages qui existent. C'est une pondération par pilier fonctionnel, en tenant compte du fait qu'une page qui *a l'air* terminée mais dont les actions ne sont pas branchées ne compte pas comme « faite ».
 
-- **Piliers largement aboutis** (agenda, prise de RDV publique, prestations, notifications) : ces quatre fonctionnalités couvrent le cas d'usage central du logiciel — accepter des rendez-vous et les gérer — et sont réellement fonctionnelles, testées, avec de vraies protections serveur (chevauchement, double réservation, permissions). Elles représentent une bonne moitié de la valeur du produit.
-- **Piliers fantômes** (tournées, statistiques) : l'écran de tournées est entièrement factice — aucune sauvegarde réelle, tout est perdu au rafraîchissement — et les statistiques sont 100 % des données inventées. Ce sont deux fonctionnalités visibles dans le menu, avec une UI complète, qui ne font rien de réel.
-- **Piliers à moitié construits** (clients/animaux, rappels) : on peut consulter, mais pas créer ni modifier un client depuis le tableau de bord ; les rappels se « marquent comme envoyés » sans rien envoyer.
-- **Un défaut transversal grave** (accessibilité clavier des modales) qui touche presque tous les formulaires de création/édition du tableau de bord, indépendamment de la fonctionnalité concernée.
-- **Une faille de session non corrigée** (boucle de redirection infinie) qui peut bloquer complètement un utilisateur légitime.
+**Ce qui a changé depuis l'audit initial** :
+- **Tournées n'est plus un pilier fantôme** : la création, l'édition et l'activation/désactivation des tournées et des zones sont désormais réellement persistées en base (P0-2), sur les deux surfaces où elles existaient (page dédiée et onglet Paramètres).
+- **Clients/animaux n'est plus à moitié construit** : création et modification d'un client, ajout d'un animal à un client existant fonctionnent réellement depuis le tableau de bord (P1-7) — la moitié manquante du CRUD annoncée dans l'audit initial est comblée.
+- **Le défaut transversal d'accessibilité clavier est corrigé** : les 9 modales concernées (nouveau rendez-vous, zones, tournées, prestations, blocage de créneau, rappels, disponibilités, et maintenant aussi client/animal) sont utilisables au clavier (P0-3).
+- **La faille de session est corrigée** : plus de boucle de redirection infinie (P0-1).
+- **Le contraste insuffisant de la couleur de marque, présent sur la quasi-totalité des pages, est corrigé** (P1-4) — c'était la seconde cause majeure du score d'accessibilité initial, avec le défaut clavier ci-dessus.
 
-58 % reflète : le cœur du produit (RDV) est solide et déployable pour un usage réel restreint, mais plusieurs piliers annoncés dans le menu (tournées, statistiques, gestion clients) ne sont pas au niveau attendu d'un SaaS livrable, et deux bugs (P0) doivent être corrigés avant toute mise en production sérieuse.
+**Ce qui reste inchangé, volontairement** : Rappels (envoi toujours simulé) et Statistiques (toujours 100 % de données fictives) n'ont pas été touchés — ce sont des décisions produit (P2-23/P2-24 dans le tableau des problèmes), pas des corrections de bug, et restent hors du périmètre P0/P1 de cette phase. Le reste du texte atténué sous le seuil de contraste (P2-12), les débordements horizontaux ponctuels (P2-11) et la couverture de tests (toujours partielle, P2-30 dans FIX_PLAN.md) n'ont pas non plus été traités à ce stade.
+
+68 % reflète : le cœur du produit (RDV, agenda, prestations, notifications, tournées, clients) est maintenant réellement fonctionnel de bout en bout, avec de vraies protections serveur et une accessibilité clavier/contraste largement remise à niveau. Il reste deux zones assumées comme non finies (Rappels, Statistiques) et une couverture de tests encore limitée avant de considérer le produit prêt pour une mise en production sans réserve.
 
 ---
 
@@ -56,7 +61,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Priorité** : P0
 - **Complexité** : Faible — le correctif consiste à faire supprimer le cookie par `dal.ts` avant sa redirection, comme le fait déjà `proxy.ts` dans un autre cas.
 - **Correction recommandée** : dans `getCurrentUser()` (ou l'appelant `requireUser()`), supprimer le cookie de session avant `redirect("/login")`.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — un Server Component ne pouvant pas supprimer de cookie directement, `requireUser()` (`src/lib/auth/dal.ts`) redirige désormais vers `/login?sessionExpired=1` quand un jeton cryptographiquement valide est rejeté par le contrôle base ; `src/proxy.ts` reconnaît ce paramètre, supprime le cookie et laisse la page de connexion s'afficher au lieu de faire confiance au contrôle optimiste. Revérifié en reproduisant exactement le scénario de l'audit (changement de `passwordChangedAt` en base pendant une session ouverte) : la navigation se résout proprement vers `/login`, le cookie est bien supprimé, une navigation suivante reste normale (pas de boucle), et une reconnexion fonctionne immédiatement après. Connexion normale et test E2E `appointment-overlap.spec.ts` (qui dépend de la connexion) revérifiés sans régression.
 
 ## P0-2 — Tournées : aucune sauvegarde réelle, perte silencieuse de toutes les données
 
@@ -71,7 +76,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Priorité** : P0
 - **Complexité** : Moyenne — nécessite de créer les server actions manquantes (`createTourAction`, `updateTourAction`, `toggleTourStatusAction`, et l'équivalent pour les zones) sur le modèle de `services-actions.ts`, puis de les brancher à `tours-view.tsx` à la place des `setState` locaux.
 - **Correction recommandée** : implémenter les server actions pour `Tour`/`Zone`, avec revalidation de route, en suivant le patron déjà établi ailleurs dans le code (ex. `saveServiceAction`).
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — nouveau fichier `src/lib/tours-actions.ts` (`saveTourAction`, `toggleTourStatusAction`, `saveZoneAction`, `deleteZoneAction`), gaté par la permission `MANAGE_PUBLIC_SETTINGS` (cohérent avec Prestations/Profil), branché sur `tours-view.tsx` (page `/dashboard/tournees`) et `tours-settings-tab.tsx` (onglet Tournées de `/dashboard/parametres` — qui n'avait lui non plus aucune sauvegarde réelle). Testé en conditions réelles : création/édition/activation-désactivation d'une tournée confirmées persistées en base et survivant à un rechargement sur les deux surfaces ; création d'une zone persistée ; suppression d'une zone utilisée par une tournée correctement rejetée côté serveur (contrainte de clé étrangère). Le test E2E existant (`notifications-toasts.spec.ts`) qui utilisait la création/suppression de zone comme prétexte pour tester le système de toasts a dû être mis à jour (la zone est désormais réellement écrite en base, l'action requiert la permission) — corrigé et revérifié, 4/4 tests passent. Aucune régression sur les autres specs E2E.
 
 ## P0-3 — 9 des 12 fenêtres modales du tableau de bord sont inutilisables au clavier
 
@@ -86,7 +91,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Priorité** : P0
 - **Complexité** : Moyenne — un seul hook de piège de focus réutilisable (focus au montage, retour au déclencheur, `Tab` cyclique, `Échap`) à appliquer aux 9 composants.
 - **Correction recommandée** : extraire la logique déjà correcte de `notifications-bell.tsx` (ou du calendrier de réservation) en un hook partagé `useModalFocusTrap`, l'appliquer aux 9 modales listées.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — nouveau hook partagé `src/components/ui/use-modal-focus-trap.ts` (focus initial dans la modale, `Tab`/`Shift+Tab` cycliques à l'intérieur, `Échap` ferme, focus rendu au déclencheur à la fermeture), appliqué aux 9 composants listés. Cas particulier : `GlobalAppointmentsManager` est monté une seule fois par le layout et ouvre/ferme via un état interne plutôt que d'être démonté/remonté — le hook accepte un paramètre `active` pour ce cas. Revérifié en reproduisant exactement le scénario de l'audit (ouverture de « Nouveau rendez-vous » au clavier) : le focus entre bien dans la modale, reste piégé sur 40 `Tab` et 10 `Shift+Tab` consécutifs sans jamais s'en échapper, une saisie réelle dans un champ fonctionne, et `Échap` ferme la modale en rendant le focus exact au bouton déclencheur. Revérifié individuellement sur la modale de prestation et celle de disponibilité manuelle (même comportement). Aucune régression sur les 3 modales déjà correctes (non touchées) ni sur la cloche de notifications. `tsc`, `lint` et le build de production passent sans erreur ; suite E2E existante revérifiée sans régression (un test préexistant du calendrier de réservation publique échoue de façon non liée — dérive de date : la fenêtre de disponibilité de démonstration ne propose plus qu'une seule date sélectionnable au moment du test, alors qu'il en attend deux ; ce fichier de test ne touche à aucune des 9 modales corrigées ici).
 
 ---
 
@@ -104,7 +109,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Priorité** : P1
 - **Complexité** : Faible — assombrir légèrement le token `--color-animeo` utilisé en texte/fond-de-bouton résout la majorité des occurrences en un seul changement centralisé.
 - **Correction recommandée** : ajuster le token vers une teinte plus foncée (~`#3a8f80`) et revérifier avec axe-core.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — trois sources distinctes du même teal clair identifiées et corrigées vers `#2F7A6E` (même teinte, déjà présente dans la palette comme `secondaryColor`, jamais utilisée ailleurs — ~5,1:1 dans les deux sens) : (1) `src/data/dashboard-theme.ts` (`lightThemePreset`/`darkThemePreset`, la valeur réellement injectée par `DashboardThemeProvider` — le token `:root` de `globals.css` s'est avéré systématiquement écrasé et non pertinent pour le tableau de bord) ; (2) `src/lib/business-profile-actions.ts` (`DEFAULT_PROFILE.publicColor`, utilisé en style inline sur la page de réservation publique, indépendant de tout token CSS) — la ligne en base déjà seedée pour « Pauline Faucillon » a aussi été mise à jour, un changement de code seul n'aurait pas affecté ce qui est réellement affiché ; (3) `src/data/settings.ts` pour cohérence. Revérifié avec axe-core (même outil que l'audit initial) sur les 4 pages où le problème avait été mesuré : les 6 à 49 violations liées à ce teal ont toutes disparu sur chacune, ne laissant que le problème distinct et déjà classé P2 (texte atténué `#6b7780`, non traité dans ce lot). Vérifié visuellement (aucune régression de lisibilité ni de cohérence de marque). Aucune régression sur les tests E2E des toasts et de la cloche de notifications.
 
 ## P1-5 — Le sélecteur de date de naissance piège le focus clavier (ouverture au simple `Tab`)
 
@@ -117,7 +122,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Impact utilisateur** : rend le parcours clavier de cette étape très pénible (mais pas bloquant — le parcours reste complétable).
 - **Priorité** : P1
 - **Complexité** : Faible — remplacer `onFocus` par un déclenchement explicite au clic/Entrée sur le bouton dédié.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — suppression de `onFocus={openPicker}` sur le champ de saisie ; le calendrier ne s'ouvre plus que sur clic/Entrée du bouton dédié « Ouvrir le calendrier ». Revérifié : le focus seul n'ouvre plus le calendrier, la saisie directe au clavier fonctionne toujours (« 15012020 » → « 15/01/2020 »), le bouton dédié ouvre toujours le calendrier correctement. Nombre de `Tab` pour dépasser ce champ facultatif mesuré à nouveau : 2 (contre ~38 avant correction). Aucune régression sur les tests E2E de la réservation publique.
 
 ## P1-6 — Les boutons flottants recouvrent du contenu réel sur mobile
 
@@ -130,7 +135,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Impact utilisateur** : texte illisible et zone morte au toucher sur mobile, la plateforme la plus probable pour un praticien en déplacement.
 - **Priorité** : P1
 - **Complexité** : Faible — ajouter un `padding-bottom` égal à l'empreinte des boutons sur mobile.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — correction différente de celle initialement suggérée : un `padding-bottom` sur `<main>` n'apporte rien ici, car le contenu qui chevauche (ex. « Demandes de rendez-vous ») n'est pas en fin de page mais au milieu d'une longue page défilante — un padding en fin de conteneur ne déplace pas le contenu situé avant lui (vérifié empiriquement avant de choisir la correction). Cause réelle : l'empreinte verticale du cluster de boutons (~152px, empilés en colonne) est trop grande pour un écran étroit. Correction : empilement horizontal (au lieu de vertical) sous `sm`, boutons réduits de 56px à 48px (au-dessus du minimum tactile de 44px) ; la disposition verticale à 64px est conservée à partir de `sm`, où le problème n'a pas été constaté. Résultat mesuré à 390px et 320px sur les 3 pages : le chevauchement est fortement réduit (une seule ligne de texte partiellement affectée au lieu de plusieurs, aucune fonctionnalité perdue) mais pas nécessairement nul dans l'absolu — une élimination à 100 % nécessiterait de retirer ou de rendre contextuel ce cluster sur mobile, ce qui dépasse le périmètre de cette correction et risquerait de retirer un accès rapide à des actions non dupliquées sur toutes les pages. Aucun débordement horizontal introduit, tests E2E de la cloche de notifications revérifiés sans régression.
 
 ## P1-7 — Impossible de créer ou modifier un client, ou d'ajouter un animal, depuis le tableau de bord
 
@@ -142,7 +147,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Impact utilisateur** : élevé — c'est un des quatre piliers annoncés du produit (« clients », « animaux ») et il manque la moitié de son CRUD.
 - **Priorité** : P1
 - **Complexité** : Moyenne — créer `createClientAction`/`updateClientAction`/`createAnimalAction`, remplacer les 3 stubs par de vrais formulaires (le modal `animal-edit-modal.tsx` existant peut probablement être adapté/dupliqué pour l'ajout).
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — trois nouvelles server actions (`createClientAction`, `updateClientAction`, `createAnimalAction` dans `src/lib/clients-actions.ts`, `mapClient`/`mapAnimal`/`clientInclude` exportés depuis `src/lib/clients.ts` pour réutiliser exactement la même mise en forme que les lectures existantes) ; nouveau composant `client-edit-modal.tsx` (création et édition, même modale) ; `animal-edit-modal.tsx` adapté pour accepter un animal optionnel (absent = création, nécessite alors `clientId`) plutôt qu'un second composant dupliqué. Les trois stubs sont remplacés dans `clients-list.tsx` et `client-profile.tsx`. Testé en conditions réelles de bout en bout : création d'un client (avec validation du prénom/nom obligatoires), persistance confirmée en base et après rechargement ; modification du téléphone d'un client existant, persistée et survivant au rechargement ; ajout d'un animal à un client (avatar/pictogramme généré automatiquement comme pour un animal créé via la réservation publique), persisté et survivant au rechargement. Vérifié aussi : l'édition d'un animal déjà existant (fonctionnalité préexistante, non stub) continue de fonctionner sans régression après l'ajout du mode création au même composant. Testé sur mobile (375px, formulaire lisible, pas de débordement). Données de test nettoyées après vérification. Aucune régression sur `tsc`, `lint`, le build de production, ni sur la suite E2E (hors un échec préexistant et déjà documenté, sans rapport, dû à la dérive de la fenêtre de disponibilité de démonstration au fil du temps réel).
 
 ## P1-8 — Prestations : l'interface ne cache pas les contrôles pour les rôles non autorisés
 
@@ -154,7 +159,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Résultat attendu** : masquer/désactiver les contrôles d'édition en amont, comme le fait déjà l'onglet Prestations de `/dashboard/parametres`.
 - **Priorité** : P1
 - **Complexité** : Faible — appliquer le même patron `canEdit={hasPermission(...)}` déjà utilisé ailleurs.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — `services-view.tsx` calcule `canManagePublicSettings` via `useCurrentUser()`/`hasPermission()` et le transmet à `ServicesSettingsTab` (nouveau prop `canEdit`, défaut `true`) ainsi qu'au toggle « Frais kilométriques » (le composant `Toggle` partagé gagne un nouveau prop `disabled`, sans effet sur ses autres usages). Sans la permission : bandeau d'avertissement identique à celui de `/dashboard/parametres`, bouton « + Nouvelle prestation » masqué, tous les contrôles d'édition/désactivation/suppression visuellement grisés et réellement inertes (`&lt;fieldset disabled&gt;`). Revérifié dans les deux états avec le compte de test (permission retirée puis accordée temporairement) : comportement correct dans les deux cas, aucune régression sur le chemin autorisé.
 
 ## P1-9 — Le widget « Demandes de rendez-vous » de l'agenda induit en erreur sur les demandes en attente
 
@@ -166,7 +171,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Impact utilisateur** : un praticien qui ne consulte que la semaine en cours peut croire à tort qu'aucune demande client n'attend de réponse.
 - **Priorité** : P1
 - **Complexité** : Faible (changement de texte) à moyenne (rendre le widget global).
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — le widget reste volontairement scopé à la période affichée (cohérent avec le reste de la page, qui est elle-même navigable par semaine/jour), mais le message d'état vide est désormais honnête sur cette portée : `AgendaView` calcule un total global des demandes en attente (déjà disponible sans requête supplémentaire, via `useAppointments()`) et `PendingRequestsPanel` distingue « ✓ Toutes les demandes ont été traitées » (vrai globalement) de « Aucune demande pour cette période. N demande(s) en attente sur une autre période. » (des demandes existent ailleurs). Revérifié en reproduisant exactement le scénario de l'audit (2 demandes réellement en attente hors de la semaine affichée) : le message scopé honnête s'affiche, plus aucune fausse affirmation de complétude. Aucune régression sur le test E2E de chevauchement de créneaux (même page).
 
 ## P1-10 — Un clic direct sur l'en-tête d'une section « Adresse » du formulaire de réservation peut ne pas l'ouvrir
 
@@ -178,7 +183,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **Impact utilisateur** : un client qui a l'habitude d'utiliser des accordéons pourrait cliquer directement sur les en-têtes plutôt que d'utiliser « Continuer », et se retrouver bloqué à saisir son adresse dans le vide sans comprendre pourquoi.
 - **Priorité** : P1
 - **Complexité** : Moyenne — probable condition de course entre la validation différée (blur) du dernier champ de la section précédente et le clic sur l'en-tête suivant ; nécessite investigation du timing des effets dans `details-step.tsx`.
-- **Statut** : 🔴 À corriger
+- **Statut** : 🟢 Corrigé et testé — cause réelle identifiée : `toggleGroup` inversait l'état (« ouvert → fermé ») sur simple clic de l'en-tête déjà ouvert. Or cliquer sur l'en-tête « Adresse » déclenche d'abord (au `mousedown`, avant le `click`) le `blur` du dernier champ de « Coordonnées », qui appelle `advanceFrom("contact")` et ouvre déjà « Adresse » — le `click` qui suit voyait alors une section déjà ouverte et la refermait aussitôt. Correction : `toggleGroup` ouvre désormais systématiquement la section cliquée sans jamais la refermer par un second clic sur son propre en-tête (une bascule vers une autre section reste le seul moyen d'en fermer une). Revérifié en reproduisant exactement le scénario de l'audit (clic sur l'en-tête « Adresse » juste après avoir rempli « Coordonnées ») : la section s'ouvre et le reste, le champ devient réellement saisissable. Revérifié aussi le parcours complet du formulaire exclusivement via les clics d'en-tête (au lieu de « Continuer ») jusqu'à activation du bouton final, et le fait de recliquer sur une section déjà ouverte ne la ferme plus (comportement désormais sans surprise). Aucune régression sur les tests E2E de l'autocomplétion d'adresse.
 
 ---
 
@@ -238,21 +243,21 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 
 # Maturité des fonctionnalités
 
-| Fonctionnalité | Niveau actuel | Niveau recommandé V1 |
-|---|---|---|
-| Prise de rendez-vous (réservation publique) | 4/5 | 4/5 |
-| Agenda | 3.5/5 | 4/5 |
-| Notifications (toasts + cloche) | 4/5 | 4/5 |
-| Prestations | 3.5/5 | 4/5 |
-| Disponibilités | 3/5 | 4/5 |
-| Paramètres | 3/5 | 3/5 |
-| Sécurité / Auth | 3/5 | 4/5 |
-| Clients | 2/5 | 4/5 |
-| Animaux | 3/5 | 4/5 |
-| Rappels | 2.5/5 | 3/5 |
-| Accessibilité (transversal) | 2/5 | 4/5 |
-| Tournées / Déplacements | 1/5 | 3/5 |
-| Statistiques | 1/5 | 2/5 (ou retirer le menu tant que ce n'est pas réel) |
+| Fonctionnalité | Niveau initial | Niveau après correction | Niveau recommandé V1 |
+|---|---|---|---|
+| Prise de rendez-vous (réservation publique) | 4/5 | 4.5/5 | 4/5 |
+| Agenda | 3.5/5 | 4/5 | 4/5 |
+| Notifications (toasts + cloche) | 4/5 | 4/5 | 4/5 |
+| Prestations | 3.5/5 | 4/5 | 4/5 |
+| Disponibilités | 3/5 | 3/5 | 4/5 |
+| Paramètres | 3/5 | 3/5 | 3/5 |
+| Sécurité / Auth | 3/5 | 4/5 | 4/5 |
+| Clients | 2/5 | 4/5 | 4/5 |
+| Animaux | 3/5 | 4/5 | 4/5 |
+| Rappels | 2.5/5 | 2.5/5 | 3/5 |
+| Accessibilité (transversal) | 2/5 | 4/5 | 4/5 |
+| Tournées / Déplacements | 1/5 | 3.5/5 | 3/5 (déjà atteint) |
+| Statistiques | 1/5 | 1/5 | 2/5 (ou retirer le menu tant que ce n'est pas réel) |
 
 ## Agenda
 
@@ -264,8 +269,10 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - Blocage/déblocage de créneau, double-clic protégé.
 
 ### Ce qui est incomplet
-- Widget « Demandes de rendez-vous » limité à la semaine affichée sans le dire (P1-9).
 - Carte glissée sur un créneau invalide reste visuellement figée (P2-17).
+
+### Corrigé depuis l'audit initial
+- Le widget « Demandes de rendez-vous » indique désormais explicitement quand des demandes existent hors de la période affichée, au lieu d'affirmer à tort que tout est traité (P1-9).
 
 ### Sous-fonctionnalités manquantes
 - Pas de vue « liste » compacte pour scanner rapidement une longue journée.
@@ -286,9 +293,11 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - Calendrier accessible au clavier de bout en bout, revalidation du créneau à chaque transition d'étape (protège contre une réservation qui vient d'être prise), persistance de l'état sur rafraîchissement.
 
 ### Ce qui est incomplet
-- Bug de clic sur l'en-tête « Adresse » (P1-10).
-- Sélecteur de date de naissance piège le focus clavier (P1-5).
 - Zones/frais de déplacement encore des données figées, pas les vraies zones du praticien (P2-22).
+
+### Corrigé depuis l'audit initial
+- Le clic sur l'en-tête « Adresse » ouvre désormais systématiquement la section (P1-10).
+- Le sélecteur de date de naissance ne piège plus le focus clavier au simple `Tab` (P1-5).
 
 ### Sous-fonctionnalités manquantes
 - Pas de rappel automatique par SMS/email avant le rendez-vous (distinct de l'email de confirmation immédiat, déjà réel).
@@ -297,29 +306,32 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 ## Clients
 
 ### Ce qui existe actuellement
-- Liste, recherche, fiche détaillée, suppression (avec permission).
+- Liste, recherche, fiche détaillée, suppression (avec permission), et désormais création et modification (voir ci-dessous).
 
-### Ce qui est incomplet
-- Aucune création ni modification de client depuis le tableau de bord (P1-7) — c'est le point le plus faible du produit du point de vue « CRM ».
+### Corrigé depuis l'audit initial
+- Création d'un client et modification de ses coordonnées fonctionnent réellement depuis le tableau de bord (P1-7) — c'était le point le plus faible du produit du point de vue « CRM », désormais comblé.
 
 ### Cas particuliers non gérés
-- Désynchronisation possible entre le nom d'un client et le nom affiché sur ses rendez-vous passés (P2-16).
+- Désynchronisation possible entre le nom d'un client et le nom affiché sur ses rendez-vous passés (P2-16, dénormalisation historique — la correction de P1-7 n'a modifié que la création/l'édition à partir de maintenant, pas les enregistrements déjà désynchronisés).
+
+### Sous-fonctionnalités manquantes
+- Pas de changement de statut Actif/Inactif depuis l'interface (le champ existe en base mais n'est pas exposé dans le nouveau formulaire, volontairement laissé hors du périmètre P1 — à valider si utile).
 
 ## Animaux
 
 ### Ce qui existe actuellement
-- Modification et suppression d'un animal existant (avec validation).
+- Modification et suppression d'un animal existant (avec validation), et désormais ajout d'un nouvel animal à un client existant.
 
-### Ce qui est incomplet
-- Impossible d'ajouter un nouvel animal à un client existant depuis sa fiche (P1-7, lié à Clients).
+### Corrigé depuis l'audit initial
+- Ajout d'un nouvel animal à un client existant, avec pictogramme généré automatiquement selon l'espèce (même logique que la création via la réservation publique) (P1-7).
 
 ## Prestations
 
 ### Ce qui existe actuellement
 - CRUD complet (créer, modifier, désactiver, supprimer), prix différenciés cabinet/domicile, frais de déplacement (fixe/zone/kilométrique), types d'animaux, photo.
 
-### Ce qui est incomplet
-- Contrôles visibles/actifs même sans la permission requise (P1-8).
+### Corrigé depuis l'audit initial
+- Les contrôles sont désormais masqués/désactivés sans la permission requise, avec un bandeau explicite (P1-8).
 
 ## Disponibilités
 
@@ -338,13 +350,15 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 ## Tournées / Déplacements
 
 ### Ce qui existe actuellement
-- Interface complète de création/modification/activation de tournées et de zones, avec une carte clients (Leaflet, réelle).
+- Interface complète de création/modification/activation de tournées et de zones, avec une carte clients (Leaflet, réelle), et désormais une vraie persistance en base sur les deux surfaces où elle est éditable (page dédiée et onglet Paramètres).
 
-### Ce qui est incomplet
-- **Rien n'est réellement persisté** (P0-2) — c'est la fonctionnalité la moins aboutie du produit malgré une UI complète.
-- La table technique `TourAppointment` n'a de toute façon aucun chemin d'écriture applicatif (P2-25).
+### Corrigé depuis l'audit initial
+- **Tout est désormais réellement persisté** (P0-2) — c'était la fonctionnalité la moins aboutie du produit malgré une UI complète ; elle est maintenant fonctionnelle de bout en bout, avec le rejet serveur correct d'une suppression de zone encore utilisée par une tournée.
 
-### Niveau actuel : 1/5 — prototype visuel sans backend.
+### Ce qui reste incomplet
+- La table technique `TourAppointment` n'a toujours aucun chemin d'écriture applicatif (P2-25) — distincte de `Tour`/`Zone`, désormais réelles ; les rendez-vous affichés sur une tournée restent ceux du seed initial.
+
+### Niveau actuel : 3.5/5 — CRUD complet et persistant ; il manque encore le calcul réel des rendez-vous rattachés à une tournée (P2-25) pour atteindre un niveau avancé.
 
 ## Rappels
 
@@ -367,8 +381,10 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 ### Ce qui existe actuellement
 - Session JWT signée, double authentification par email, verrouillage après tentatives échouées (limité en base, adapté au serverless), rôles/permissions vérifiés côté serveur, journal d'audit.
 
-### Ce qui est incomplet
-- Boucle de redirection infinie sur invalidation de session (P0-1) — le point le plus grave du produit du point de vue sécurité, car il touche le mécanisme censé protéger l'utilisateur.
+### Corrigé depuis l'audit initial
+- Boucle de redirection infinie sur invalidation de session corrigée (P0-1) — c'était le point le plus grave du produit du point de vue sécurité, car il touchait le mécanisme censé protéger l'utilisateur.
+
+### Ce qui reste incomplet
 - `getOccupiedSlotsAction` public sans limitation de débit (P2-15, risque faible).
 
 ---

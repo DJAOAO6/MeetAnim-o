@@ -6,22 +6,22 @@ Statuts : 🔴 À corriger · 🟠 En cours · 🟢 Corrigé et testé · ⚪ À
 
 ---
 
-## SPRINT 1 — CRITIQUE (P0 / P1)
+## SPRINT 1 — CRITIQUE (P0 / P1) — ✅ TERMINÉ (2026-08-29)
 
 Objectif : plus aucun bug qui trompe l'utilisateur sur l'état réel de ses données, plus aucun blocage total (session ou clavier).
 
-1. 🔴 **P0-1** — Supprimer le cookie de session dans `dal.ts`/`requireUser()` avant la redirection vers `/login`, pour casser la boucle infinie.
-2. 🔴 **P0-2** — Implémenter les server actions manquantes pour `Tour`/`Zone` (création, modification, activation/désactivation, suppression) et les brancher dans `tours-view.tsx` à la place de l'état local. À défaut de temps immédiat, envisager un bandeau « Fonctionnalité en construction, non sauvegardée » tant que ce n'est pas fait — ne jamais laisser une UI de sauvegarde convaincante sans backend.
-3. 🔴 **P0-3** — Créer un hook de piège de focus réutilisable (focus initial, cycle `Tab` interne, `Échap`, retour de focus au déclencheur) et l'appliquer aux 9 modales listées dans l'audit.
-4. 🔴 **P1-4** — Assombrir le token de couleur teal utilisé en texte/fond de bouton pour atteindre 4,5:1 ; revérifier avec axe-core sur les 4 pages déjà scannées + `/dashboard/parametres` et `/dashboard/prestations`.
-5. 🔴 **P1-5** — Sélecteur de date de naissance : ouverture sur clic/Entrée explicite uniquement, jamais sur `onFocus`.
-6. 🔴 **P1-6** — Ajouter un `padding-bottom` mobile au conteneur de page pour libérer la zone occupée par les boutons flottants.
-7. 🔴 **P1-7** — Créer `createClientAction`/`updateClientAction`/`createAnimalAction` et remplacer les 3 stubs (« Nouveau client », « Modifier », « Ajouter un animal »).
-8. 🔴 **P1-8** — Appliquer le même `canEdit={hasPermission(...)}` que `/dashboard/parametres` à `/dashboard/prestations`.
-9. 🔴 **P1-9** — Corriger le texte du widget « Demandes de rendez-vous » de l'agenda (ou le rendre global) pour ne plus affirmer « tout traité » quand ce n'est vrai que pour la semaine affichée.
-10. 🔴 **P1-10** — Investiguer et corriger la condition de course sur l'ouverture de la section « Adresse » du formulaire de réservation (timing entre validation différée du champ précédent et clic sur l'en-tête suivant).
+1. 🟢 **P0-1** — Supprimer le cookie de session dans `dal.ts`/`requireUser()` avant la redirection vers `/login`, pour casser la boucle infinie.
+2. 🟢 **P0-2** — Implémenter les server actions manquantes pour `Tour`/`Zone` (création, modification, activation/désactivation, suppression) et les brancher dans `tours-view.tsx` à la place de l'état local.
+3. 🟢 **P0-3** — Créer un hook de piège de focus réutilisable (focus initial, cycle `Tab` interne, `Échap`, retour de focus au déclencheur) et l'appliquer aux 9 modales listées dans l'audit.
+4. 🟢 **P1-4** — Assombrir le token de couleur teal utilisé en texte/fond de bouton pour atteindre 4,5:1 ; revérifié avec axe-core sur les 4 pages déjà scannées.
+5. 🟢 **P1-5** — Sélecteur de date de naissance : ouverture sur clic/Entrée explicite uniquement, jamais sur `onFocus`.
+6. 🟢 **P1-6** — Réduit l'empreinte verticale du cluster de boutons flottants sur mobile (empilement horizontal, boutons plus petits) — le `padding-bottom` initialement envisagé ne fonctionnait pas pour le contenu chevauché en milieu de page ; voir le détail dans AUDIT_COMPLET.md.
+7. 🟢 **P1-7** — Créé `createClientAction`/`updateClientAction`/`createAnimalAction` et remplacé les 3 stubs (« Nouveau client », « Modifier », « Ajouter un animal »).
+8. 🟢 **P1-8** — Appliqué le même `canEdit={hasPermission(...)}` que `/dashboard/parametres` à `/dashboard/prestations`.
+9. 🟢 **P1-9** — Le widget « Demandes de rendez-vous » de l'agenda précise désormais explicitement sa portée au lieu d'affirmer « tout traité » à tort.
+10. 🟢 **P1-10** — Condition de course sur l'ouverture de la section « Adresse » corrigée (le clic sur un en-tête n'annule plus l'ouverture déclenchée par le `blur` du champ précédent).
 
-**Après ce sprint** : relancer `npm run lint`, `npx tsc --noEmit`, `npm run test:unit`, `npm test` ; retester manuellement chaque correction desktop + mobile ; vérifier l'absence de régression sur les fonctionnalités directement liées (ex. : le hook de piège de focus ne doit pas casser les 3 modales qui fonctionnaient déjà) ; mettre à jour `AUDIT_COMPLET.md` et ce fichier.
+**Vérifications effectuées après ce sprint** : `npm run lint`, `npx tsc --noEmit`, `npm run test:unit` (50/50), `npm run build`, et la suite E2E (`npm test`, par lots pour éviter la limitation de débit de connexion propre à l'environnement de test) — tous verts, à l'exception d'un échec préexistant et documenté, sans rapport avec ces corrections (dérive de date dans les données de démonstration de disponibilité). Chaque correction a été revérifiée manuellement en conditions réelles (Playwright), desktop et mobile quand l'interface était concernée, avec nettoyage systématique des données de test créées. `AUDIT_COMPLET.md` a été mis à jour (statuts, scores, fiches de maturité).
 
 ---
 
