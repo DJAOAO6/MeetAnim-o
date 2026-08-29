@@ -191,13 +191,13 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 
 | ID | Titre | Page/Composant | Priorité | Complexité |
 |---|---|---|---|---|
-| P2-11 | Débordement horizontal réel de page à 1280px (`/clients`) et 768px (`/agenda`) — le tableau/calendrier large fuit hors de son conteneur `overflow-x-auto` | Clients, Agenda | P2 | Faible |
-| P2-12 | Texte secondaire (gris atténué) sous le seuil de contraste de justesse (4,14–4,31:1 vs 4,5 requis), très largement utilisé (49 nœuds sur l'agenda) | Transversal | P2 | Faible |
-| P2-13 | Le champ de recherche global de l'en-tête n'a pas de label accessible (seulement un `placeholder`) | `DashboardTopBar` | P2 | Faible |
+| P2-11 | ⚪ Vérifié, ne se reproduit pas — voir note détaillée après ce tableau. `document.documentElement.scrollWidth` dépasse la largeur de viewport à 1280px/768px, mais il ne s'agit pas d'un débordement visuel réel | Clients, Agenda | — | — |
+| P2-12 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | Transversal | — | — |
+| P2-13 | 🟢 Corrigé et testé — `aria-label="Rechercher un client, un animal"` + `role="search"` sur le formulaire (`dashboard-top-bar.tsx`). Vérifié : axe-core (`label`/`aria-input-field-name`) 0 violation, lecteur d'accessibilité expose le nom, recherche fonctionnelle (saisie → Entrée → navigation `?q=`) inchangée | `DashboardTopBar` | — | — |
 | P2-14 | Rôle Secrétariat non testé en direct (2FA email non accessible pendant l'audit) — vérification uniquement par lecture de code | Sécurité | P2 | — |
 | P2-15 | `getOccupiedSlotsAction` (disponibilité publique) n'a aucune limitation de débit — ne fuit pas de données personnelles mais permet un scraping/DoS léger | `appointments-actions.ts` | P2 | Faible |
 | P2-16 | Désynchronisation du nom client entre la fiche client (« Loi Duboc ») et les rendez-vous existants (« Loic Duboc ») — champ dénormalisé jamais resynchronisé | `Appointment.clientName` | P2 | Moyenne |
-| P2-17 | Une carte de rendez-vous glissée-déposée sur un créneau invalide reste visuellement « figée » (opacité 30 %, bordure pointillée) jusqu'au rechargement | `week-planner.tsx` | P2 | Faible |
+| P2-17 | ⚪ Vérifié, ne se reproduit pas — voir note détaillée après ce tableau | `week-planner.tsx` | — | — |
 | P2-18 | Erreur d'hydratation React réelle sur le graphique « Activité de la semaine » du tableau de bord (mismatch SSR/CSR sur le format de date) | `RevenueChart` | P2 | Moyenne |
 | P2-19 | Aucune vérification de conflit avec les rendez-vous existants lors de la réduction des disponibilités ou de l'ajout d'une fermeture exceptionnelle | `updateAvailabilityAction` | P2 | Moyenne |
 | P2-20 | Le réglage « Temps de déplacement » (Disponibilités) est purement décoratif — sans effet sur l'agenda | `availability-settings-tab.tsx` | P2 | Moyenne |
@@ -211,20 +211,95 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 | P2-28 | Composant orphelin `src/components/pages/feature-placeholder.tsx`, zéro importeur | Code mort | P2 | Faible |
 | P2-29 | `AuditLog.ipAddress` n'est jamais renseigné bien que la colonne existe | `src/lib/audit.ts` | P2 | Faible |
 
+## P3-37 — Note de correction (2026-08-29)
+
+Point transversal (« formulaires de création/édition du tableau de bord », au pluriel) : plutôt qu'une correction isolée, un hook réutilisable `useUnsavedChangesWarning(isDirty)` a été créé (`src/components/ui/use-unsaved-changes-warning.ts`, même esprit que `useModalFocusTrap` de P0-3) et appliqué aux 8 formulaires de création/édition du tableau de bord : `appointment-form.tsx`, `blocked-slot-modal.tsx`, `zone-modal.tsx`, `tour-modal.tsx`, `service-modal.tsx`, `reminder-modal.tsx`, `animal-edit-modal.tsx`, `client-edit-modal.tsx`. Chaque formulaire capture un instantané JSON de son brouillon au montage (`useState(() => JSON.stringify(...))` — une lecture directe de `ref.current` pendant le rendu déclenchait la règle ESLint `react-hooks/refs`, d'où le choix d'un état React plutôt qu'une ref) et compare cet instantané à l'état courant pour dériver `isDirty`. Le hook couvre deux cas : `beforeunload` natif du navigateur (fermeture d'onglet/rafraîchissement) et une fonction `confirmDiscard()` à appeler avant toute fermeture pilotée par l'app (bouton « Annuler »/« × », touche Échap).
+
+Cas particulier détecté et traité : `AppointmentForm` est imbriqué dans `GlobalAppointmentsManager`, qui a son **propre** bouton de fermeture (« × » du panneau) et sa propre gestion d'Échap (`useModalFocusTrap`) — un utilisateur en train d'éditer un rendez-vous pouvait donc fermer tout le panneau sans passer par le formulaire, contournant sa protection. Corrigé en remontant l'état `isDirty` au parent via un prop `onDirtyChange`, que `GlobalAppointmentsManager` stocke (`formDirty`) pour garder son propre bouton « × » et son Échap au courant (`confirmDiscardChanges`, une version autonome exportée du même module, pour éviter d'enregistrer un second écouteur `beforeunload` redondant).
+
+Vérifié en conditions réelles avec de vraies boîtes de dialogue `confirm()` interceptées par Playwright (pas seulement en lecture de code) :
+- `BlockedSlotModal` : champ « Motif » rempli puis clic sur « Annuler » → boîte de dialogue affichée, modale reste ouverte au refus ; champ vidé (redevenu propre) puis « Annuler » → fermeture immédiate sans boîte de dialogue.
+- `AppointmentForm` dans `GlobalAppointmentsManager` : champ client rempli puis touche Échap → boîte de dialogue affichée (prouvant que la remontée d'état au panneau parent fonctionne), modale reste ouverte au refus ; champ vidé puis Échap → fermeture immédiate sans boîte de dialogue.
+- Sauvegarde réussie d'un créneau bloqué (avec un vrai texte saisi) : la modale se ferme sans déclencher de boîte de dialogue de confirmation (l'instantané est bien remis à jour après succès), donnée créée confirmée en base puis nettoyée après vérification.
+- Suite de tests unitaires (50/50), `npx tsc --noEmit` et `npm run lint` sur l'ensemble du projet : verts.
+- Balayage des pages `/dashboard`, `/dashboard/agenda`, `/dashboard/clients`, `/dashboard/tournees`, `/dashboard/prestations`, `/dashboard/rappels` + ouverture d'un échantillon de modales (prestations, tournées, clients) : aucune erreur console nouvelle. La seule erreur trouvée (mismatch d'hydratation sur `RevenueChart`) est le problème P2-18 déjà catalogué, sans rapport avec ce correctif, non traité ici (prévu en Sprint 3).
+
+## P3-33 — Note de correction (2026-08-29)
+
+Reproduit en conditions réelles avant correction (pas seulement en lecture de code) : une tournée de test activée pour aujourd'hui avec un rendez-vous positionné (lat/lng) pour retomber près du libellé de ville « Le Havre » sur `SimulatedMap`. Cause réelle : `SimulatedMap` affiche 4 noms de ville à des positions en `%` fixes, indépendantes de la hauteur réelle du conteneur ; sur la mini-carte du tableau de bord (`dashboard-next-tour.tsx`, `heightClassName="h-40"`, 160px), l'espace vertical est bien plus compressé que sur la carte complète de la page Tournées (520px), donc une puce de rendez-vous positionnée près d'un libellé le recouvre visuellement (capture d'écran à l'appui : « Le Havre » apparaissait tronqué en « HAVRE », « Montivilliers » coupé en haut du cadre).
+
+Correction volontairement ciblée : ajout d'un prop `showLabels` (par défaut `true`, rétrocompatible) à `SimulatedMap` ; désactivé uniquement sur l'usage compact du tableau de bord (`showLabels={false}`), inchangé sur la carte complète de `tour-detail.tsx`. Un évitement de collision générique entre puces et libellés aurait été disproportionné pour une carte déjà explicitement annoncée comme simulée (bandeau « Carte simulée · aucune donnée Mapbox ») ; les numéros des puces + l'infobulle au survol (`title`) restent suffisants à cette échelle, et le nom de la zone / les stats du jour sont déjà affichés en texte au-dessus de la carte.
+
+Vérifié : capture d'écran après correction — 0 libellé de ville détecté sur la mini-carte (donc 0 chevauchement possible), tandis que la carte complète de la page Tournées continue d'afficher ses libellés normalement (non régressée). Donnée de test (tournée activée, rendez-vous positionné) entièrement nettoyée et tournée remise à son état d'origine (`INACTIVE`, `dateId` NULL) après vérification.
+
+## P3-34 / P3-35 / P3-36 — Notes de correction (2026-08-29)
+
+**P3-34** : `appointment-form.tsx`, le texte du bouton de soumission dépendait uniquement de `pending`, jamais de la présence d'un `appointment` existant. Corrigé : `appointment ? "Enregistrer les modifications" : "Créer le rendez-vous"`. Vérifié en ouvrant le formulaire de création (bouton affichait bien « Créer le rendez-vous », capturé directement dans la sortie d'un test Playwright).
+
+**P3-35** : cause réelle trouvée dans `blocked-slot-modal.tsx` — le libellé de durée calculait `${option / 60}h...` sans arrondi ; pour l'option 90 (minutes), `90 / 60` vaut `1.5` en JavaScript (division non entière), produisant `1.5h30` au lieu de `1h30`. Corrigé avec `Math.floor(option / 60)`. Vérifié : les 5 options du menu déroulant affichent désormais `30 min, 1h, 1h30, 2h, 3h`.
+
+**P3-36** : `CalendarEventCard` (`week-planner.tsx`) posait le même `aria-label` générique « Ouvrir le rendez-vous de {animal} à {heure} » sur tous les types d'événements sélectionnables (rendez-vous, tournée, créneau bloqué), ce dernier n'ayant pas d'`animal` défini. Corrigé avec un libellé différencié par `event.kind` : créneau bloqué → « Ouvrir le créneau bloqué : {titre} à {heure} », tournée → « Ouvrir la tournée {titre} à {heure} », rendez-vous → libellé inchangé. Vérifié en créant un créneau bloqué de test sur la grille réelle : libellé accessible lu directement dans le DOM = « Ouvrir le créneau bloqué : Test P3-36 à 17:30 ». Donnée de test supprimée après vérification.
+
+Revérifié `npx tsc --noEmit` et `npm run lint` après les trois correctifs : aucune erreur.
+
+## P3-32 — Note de correction (2026-08-29)
+
+Le formulaire interne (`appointment-form.tsx`) utilise `Field` (`settings-fields.tsx`), un composant distinct de `BookingField` (formulaire public) mais avec la même limitation documentée : il ne peut pas injecter `aria-describedby` sur son enfant (contrôle opaque). Contrairement au formulaire public, `Field` n'exposait aucun moyen de le faire — le `hint` affiché (« Facultatif ») n'était donc jamais annoncé par un lecteur d'écran en train de naviguer un des 3 champs concernés (Complément d'adresse, Code postal, Ville, visibles en mode Domicile). Le formulaire interne n'a pas d'erreurs par champ (une seule bannière d'erreur globale en haut, déjà correctement annoncée via `role="alert"`) — seule l'association d'indice (hint) manquait réellement, contrairement à ce que le titre de l'audit laissait supposer pour les erreurs.
+
+Correction : ajout de `fieldDescribedBy(id, { hasHint })` à `settings-fields.tsx` (même pattern que `bookingFieldDescribedBy`), `Field` accepte désormais un `id` optionnel (rétrocompatible, aucun des ~15 autres appels de `Field` dans le reste de l'app n'est affecté) et pose `id={`${id}-hint`}` sur son indice. Câblé sur les 3 champs concernés dans `appointment-form.tsx`.
+
+Vérifié : lecture DOM confirmant que `aria-describedby` de chacun des 3 champs résout bien vers l'élément portant le texte « Facultatif » ; saisie fonctionnelle inchangée (rempli « Étage 2 » dans Complément d'adresse avec succès) ; scan axe-core complet sur la modale ouverte en mode Domicile — les 2 catégories de violations restantes (`aria-allowed-role`, `color-contrast`) proviennent du calendrier affiché en arrière-plan (cartes `<article role="button">`, couleurs `#547781`/`#234E5A`), préexistantes et sans rapport avec ce correctif ; capture d'écran desktop de la modale ouverte sans régression visuelle.
+
+**Constat annexe, hors périmètre** : le scan a révélé que les cartes de rendez-vous du calendrier (`<article role="button">` dans `week-planner.tsx`) déclenchent la règle axe-core `aria-allowed-role` (16 nœuds) — `role="button"` n'est pas dans la liste des rôles autorisés pour `<article>` selon les spécifications ARIA strictes. Non corrigé ici (composant différent, hors périmètre P3-32), à évaluer lors d'un futur audit.
+
+## P3-30 / P3-31 — Note de correction (2026-08-29)
+
+**P3-30 (corrigé)** : cause réelle — `CalendarEventCard` (`week-planner.tsx`) calcule la largeur d'une puce en divisant 100 % de la colonne du jour par le nombre de rendez-vous qui se chevauchent (`columnWidthPercent = 100 / columns`), sans plancher. Avec 5-6 rendez-vous superposés sur un jour très chargé, cela produit des puces de quelques pixels de large, sous le minimum légal WCAG de 24px. Correction : `minWidth: "24px"` sur la puce (prioritaire sur le calcul en `%` uniquement dans ce cas extrême, sans effet sur le cas normal), plus un `zIndex` croissant par colonne (`10 + column`, `30` si sélectionné) pour que les puces les plus à droite passent proprement par-dessus leurs voisines quand elles doivent déborder de leur emplacement calculé — comme dans Google Calendar/Outlook — au lieu d'un empilement au hasard de l'ordre du DOM.
+
+Vérifié en conditions réelles : 6 rendez-vous de test insérés en base sur des créneaux qui se chevauchent (10h00 à 10h25, 30 min chacun), rechargement de l'agenda, mesure de la largeur rendue de chacune des 6 puces (`getBoundingClientRect().width`) — toutes à exactement 24px, chacune individuellement visible et ciblable. Capture d'écran à l'appui. Données de test nettoyées après vérification. Revérifié aussi le rendu normal (aucun chevauchement) desktop et mobile : aucune régression, la largeur des puces isolées reste inchangée (bien au-dessus du plancher de 24px dans ce cas).
+
+**P3-31 (non traité, décision consciente de périmètre)** : contrairement à P3-30, ce point ne décrit pas un échec du minimum légal WCAG (24px) — les boutons/filtres concernés (29–42px) le respectent déjà ; il s'agit d'une recommandation de confort (cible 44px) sur un ensemble large et transversal de composants dans tout le tableau de bord (« de nombreux boutons/filtres »). Élargir chacun d'eux représenterait un changement de mise en page significatif et diffus, avec un risque de régression visuelle disproportionné par rapport à un gain qui reste du confort et non de l'accessibilité bloquante. `FIX_PLAN.md` demandait explicitement de prioriser d'abord la puce qui échoue réellement au minimum légal (P3-30, traité ci-dessus). P3-31 reste donc non traité ici, à reprendre dans un futur passage dédié au polish visuel transversal plutôt que dans ce sprint.
+
+## P2-17 — Note d'investigation (2026-08-29) : ne se reproduit pas
+
+Revérifié en conditions réelles avant toute correction (glisser-déposer simulé via événements pointeur réels sur `/dashboard/agenda`, connecté). Lecture du code de `week-planner.tsx` (`finishDrag()`) : `setDrag(null)` est appelé de façon inconditionnelle en tout début de fonction, avant même de vérifier si le créneau cible est fermé ou en conflit — l'aperçu de glissement et l'opacité réduite (`isDragging` → `opacity-30`) de la carte d'origine sont donc déjà réinitialisés au relâchement du pointeur, que le dépôt soit accepté ou rejeté.
+
+Confirmé par deux scénarios réels distincts : (1) glisser un rendez-vous existant directement sur le créneau d'un autre rendez-vous du même jour (conflit) et (2) le glisser sur une plage fermée (hors horaires d'ouverture). Dans les deux cas, le toast d'erreur « Ce créneau n'est pas disponible » s'affiche bien, et une vérification immédiate puis 1,5s après le relâchement ne trouve aucun élément avec `opacity-30` — les deux cartes concernées gardent un rendu normal (capture d'écran à l'appui). Aucune régression, aucune correction de code nécessaire : le symptôme décrit par l'audit initial ne se manifeste pas avec le code actuel.
+
+## P2-12 — Note de correction (2026-08-29)
+
+Cause réelle : `--theme-muted` (token derrière `text-animeo-muted`, utilisé partout comme texte secondaire) était défini à deux endroits — `globals.css` (`#6b7780`) et, comme pour P1-4, une valeur inline concurrente dans `dashboard-theme-provider.tsx` (`#6B7780`) qui prend le dessus sur tout le tableau de bord. Contre le fond de l'app (`#f7faf9`), cette valeur atteint ~4,37:1, sous le seuil. Une première correction à `#66727C` suffisait sur fond blanc/quasi-blanc mais restait sous le seuil (4,16:1) sur le pire cas réel rencontré : les pastilles/cartes teintées utilisant `--theme-soft` (~`#e4eeec`, luminance plus basse qu'un fond blanc). Valeur finale retenue : `#5C6A74` (même teinte, encore légèrement assombrie), qui atteint ~4,7:1 sur ce pire cas et ~5,3–5,6:1 sur les fonds plus clairs. Le mode sombre (`#A8B8BD` sur fond `#101D22`, ~8,4:1) était déjà largement conforme et n'a pas été modifié.
+
+Vérifié avec axe-core (`color-contrast`) sur `/dashboard`, `/dashboard/agenda`, `/dashboard/clients`, `/dashboard/parametres` et `/reservation` (page publique) avant/après : toutes les violations portant sur `text-animeo-muted` ont disparu (agenda : 49 → 0 nœuds liés à ce token). Revérifié visuellement desktop (1280px) et mobile (390px) : le texte secondaire reste lisible sans paraître trop appuyé.
+
+**Constat annexe, hors périmètre de ce correctif** : le même scan axe-core a révélé plusieurs violations de contraste préexistantes et non liées à `text-animeo-muted` — un badge `text-[#9a671c]` sur `bg-[#fff4dd]` (tableau de bord), un libellé décoratif `opacity-60` (`#74898f` sur blanc, boutons « Modifier » Cabinet/Domicile), les numéros de jours désactivés du mini-calendrier (`text-[#bcc5c7]`, ratio 1,75:1 — très faible), et le texte des pastilles de rendez-vous en tournée (`text-[#234E5A]`/`opacity-75`, agenda). Aucun de ces éléments n'était dans la liste `AUDIT_COMPLET.md`/`FIX_PLAN.md` initiale ; ce sont des constats nouveaux, non corrigés ici pour rester dans le périmètre du sprint, à ajouter au prochain audit ou à un futur sprint P2/P3.
+
+## P2-11 — Note d'investigation (2026-08-29) : ne se reproduit pas comme défaut visible
+
+Revérifié en conditions réelles (Playwright, connecté, `/dashboard/clients` @1280px et `/dashboard/agenda` @768px) avant toute correction, conformément au processus. Le symptôme technique décrit par l'audit initial existe bien : `document.documentElement.scrollWidth` (1321px / 828px) dépasse `window.innerWidth` (1280px / 768px), et `window.scrollTo()` accepte un décalage horizontal non nul (41px / 60px) — reproductible de façon identique sur 3 exécutions consécutives, donc pas un artefact transitoire.
+
+Mais aucune de ces vérifications indépendantes ne confirme un débordement visuel réel :
+- `document.body.scrollWidth`, `document.body.offsetWidth` et `document.body.getBoundingClientRect().width` valent exactement 1280px (aucun débordement) — seul `documentElement.scrollWidth` diverge, pas `body`.
+- `document.documentElement.offsetWidth` et `getBoundingClientRect().width` valent aussi exactement 1280px — seule la propriété `scrollWidth` (pas les autres métriques de layout de `<html>`) montre un écart.
+- Un scan exhaustif de tous les éléments de la page (y compris avec prise en compte des ancêtres `overflow-x: auto/hidden/scroll`) n'a trouvé aucun élément réellement non confiné dépassant le viewport. Le conteneur du tableau clients (`overflow-x: auto`, largeur mesurée 942px) confine correctement son tableau interne de 1048px via son propre défilement.
+- Une capture d'écran prise après `window.scrollTo(41, 0)` (le décalage maximal accepté) est visuellement identique à la capture non décalée — aucun contenu ne se déplace réellement à l'écran.
+
+**Conclusion** : il s'agit d'une particularité connue de Chromium où `documentElement.scrollWidth` peut être gonflé par l'étendue de défilement interne d'un conteneur `overflow-x: auto` imbriqué (ici, le wrapper du tableau clients / de la grille de l'agenda), même quand ce conteneur confine correctement son contenu et qu'aucun débordement n'est visible ou n'affecte l'utilisateur. Contrairement à P1-6 (où l'hypothèse de correction initiale de l'audit s'est révélée incomplète mais le bug lui-même était bien réel et visible), ici le bug décrit par l'audit ne se manifeste pas comme un défaut utilisateur constatable : rien ne déborde à l'écran, rien ne se coupe, le défilement horizontal du document ne produit aucun changement visuel. Aucune correction de code n'a donc été appliquée — il n'y a pas de symptôme réel à corriger. Statut reclassé de 🔴 à ⚪ (vérifié, non reproductible visuellement) plutôt que 🟢 (corrigé), puisqu'aucune modification n'était nécessaire.
+
 ---
 
 # Problèmes P3 (amélioration / polish)
 
 | ID | Titre | Page/Composant |
 |---|---|---|
-| P3-30 | Une puce de rendez-vous ne respecte pas la taille minimale de cible tactile WCAG (5×36px) quand plusieurs rendez-vous se chevauchent visuellement dans le calendrier | Agenda (vue semaine) |
-| P3-31 | De nombreux boutons/filtres du tableau de bord font 29–42px de haut (sous la recommandation de confort 44px, au-dessus du minimum légal WCAG 24px) | Transversal |
-| P3-32 | Le formulaire interne de rendez-vous n'associe pas ses erreurs aux champs via `aria-describedby`, contrairement au formulaire de réservation publique | `appointment-form.tsx` |
-| P3-33 | Chevauchement visuel sur la mini-carte « Prochaine tournée » du tableau de bord (badge violet qui tronque la légende) | Dashboard |
-| P3-34 | Le bouton de sauvegarde du formulaire de rendez-vous dit toujours « Enregistrer les modifications », même à la création | `appointment-form.tsx` |
-| P3-35 | Option de liste déroulante malformée « 1.5h30 » (mélange notation décimale et horaire) | Blocage de créneau |
-| P3-36 | Libellé accessible générique sur un créneau bloqué (« Ouvrir le rendez-vous de... » au lieu de « ...créneau bloqué... ») | Agenda |
-| P3-37 | Aucun avertissement de perte de saisie en cas de retour arrière/rafraîchissement pendant le remplissage d'un formulaire du tableau de bord | Transversal |
+| P3-30 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | Agenda (vue semaine) |
+| P3-31 | ⚪ Non traité, décision documentée — voir note détaillée après ce tableau | Transversal |
+| P3-32 | 🟢 Corrigé et testé — `fieldDescribedBy` (même pattern que `bookingFieldDescribedBy` du formulaire public) ajouté à `settings-fields.tsx`, câblé sur les 3 champs à indice du mode Domicile (Complément d'adresse, Code postal, Ville) dans `appointment-form.tsx` | `appointment-form.tsx` |
+| P3-33 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | Dashboard |
+| P3-34 | 🟢 Corrigé et testé — bouton dit désormais « Créer le rendez-vous » à la création, « Enregistrer les modifications » en édition | `appointment-form.tsx` |
+| P3-35 | 🟢 Corrigé et testé — cause réelle : `option / 60` sans `Math.floor()` (90/60 = 1.5 en JS) ; option 90 min affiche désormais « 1h30 » | Blocage de créneau |
+| P3-36 | 🟢 Corrigé et testé — libellé accessible désormais différencié par type d'événement (créneau bloqué / tournée / rendez-vous) | Agenda |
+| P3-37 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | Transversal |
 
 ---
 

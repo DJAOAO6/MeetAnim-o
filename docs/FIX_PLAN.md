@@ -27,17 +27,17 @@ Objectif : plus aucun bug qui trompe l'utilisateur sur l'état réel de ses donn
 
 ## SPRINT 2 — EXPÉRIENCE UTILISATEUR (UX / UI / responsive / accessibilité)
 
-11. 🔴 **P2-11** — Corriger la fuite de débordement horizontal à 1280px/768px (le contenu large doit rester confiné à son propre défilement interne, pas remonter au document).
-12. 🔴 **P2-12** — Assombrir légèrement le token de texte atténué (gris secondaire) pour dépasser 4,5:1.
-13. 🔴 **P2-13** — Ajouter un `aria-label` ou un `<label>` masqué au champ de recherche global de l'en-tête.
-14. 🔴 **P2-17** — Réinitialiser l'état visuel (opacité/bordure) d'une carte de rendez-vous glissée quand le dépôt est rejeté, sans attendre un rechargement.
-15. 🔴 **P3-30 / P3-31** — Revoir la taille des puces de rendez-vous qui se chevauchent et des boutons/filtres sous 44px, en priorisant d'abord la puce qui échoue réellement au minimum légal WCAG (24px).
-16. 🔴 **P3-32** — Étendre l'association `aria-describedby` déjà utilisée sur le formulaire de réservation publique au formulaire interne de rendez-vous.
-17. 🔴 **P3-34 / P3-35 / P3-36** — Microcopie : libellé du bouton de sauvegarde selon création/édition, correction de « 1.5h30 », libellé accessible du créneau bloqué.
-18. 🔴 **P3-33** — Corriger le chevauchement du badge sur la mini-carte du tableau de bord.
-19. 🔴 **P3-37** — Ajouter un avertissement de perte de saisie (`beforeunload` ou confirmation) sur les formulaires de création/édition du tableau de bord.
+11. ⚪ **P2-11** — Vérifié le 2026-08-29, ne se reproduit pas comme défaut visible : `documentElement.scrollWidth` dépasse le viewport (particularité Chromium liée au conteneur `overflow-x:auto` imbriqué) mais `body`, `getBoundingClientRect()` et une capture d'écran après scroll forcé confirment l'absence de tout débordement visuel réel. Aucune correction de code nécessaire — voir la note détaillée dans AUDIT_COMPLET.md.
+12. 🟢 **P2-12** — `--theme-muted` assombri à `#5C6A74` (globals.css + valeur inline concurrente dans dashboard-theme-provider.tsx, même schéma que P1-4) ; vérifié avec axe-core sur 5 pages, 0 violation restante liée à ce token.
+13. 🟢 **P2-13** — `aria-label` + `role="search"` ajoutés au champ de recherche global de l'en-tête ; vérifié avec axe-core et test fonctionnel de bout en bout (saisie → navigation).
+14. ⚪ **P2-17** — Vérifié le 2026-08-29, ne se reproduit pas : `finishDrag()` réinitialise déjà l'état visuel de façon inconditionnelle avant toute validation. Testé sur un vrai conflit et un vrai créneau fermé, aucune carte ne reste figée. Aucune correction de code nécessaire — voir la note détaillée dans AUDIT_COMPLET.md.
+15. **P3-30 / P3-31** — 🟢 P3-30 : `minWidth: 24px` + z-index croissant par colonne sur les puces de rendez-vous chevauchantes ; vérifié avec 6 rendez-vous de test superposés, toutes les puces à 24px et individuellement ciblables. ⚪ P3-31 : non traité (déjà au-dessus du minimum légal, confort seulement, changement transversal risqué) — décision documentée dans AUDIT_COMPLET.md.
+16. 🟢 **P3-32** — `fieldDescribedBy` ajouté à `settings-fields.tsx` (même pattern que le formulaire public) et câblé sur les 3 champs à indice du formulaire de rendez-vous interne ; vérifié (résolution DOM, saisie fonctionnelle, axe-core).
+17. 🟢 **P3-34 / P3-35 / P3-36** — Bouton « Créer le rendez-vous »/« Enregistrer les modifications » selon le contexte ; « 1.5h30 » → « 1h30 » (`Math.floor` manquant) ; libellé accessible différencié par type d'événement sur le calendrier. Tous vérifiés en conditions réelles.
+18. 🟢 **P3-33** — Reproduit puis corrigé : libellés de ville masqués sur la mini-carte compacte (`showLabels={false}`), conservés sur la carte complète des tournées. Vérifié avec une tournée de test activée et un rendez-vous positionné pour recouvrir un libellé ; donnée nettoyée après coup.
+19. 🟢 **P3-37** — Hook réutilisable `useUnsavedChangesWarning` (`beforeunload` + `confirmDiscard()`) appliqué aux 8 formulaires de création/édition du tableau de bord, avec remontée d'état pour le cas imbriqué `AppointmentForm`/`GlobalAppointmentsManager`. Vérifié avec de vraies boîtes de dialogue interceptées (dirty → prompt, propre → fermeture directe, sauvegarde → pas de prompt résiduel).
 
-**Après ce sprint** : re-scanner avec axe-core les mêmes 4 pages + les pages touchées ; retester au clavier les parcours corrigés ; captures d'écran desktop (1440/1280) et mobile (390/320) ; mettre à jour les deux documents.
+**SPRINT 2 — ✅ TERMINÉ (2026-08-29)**. Bilan : P2-11 vérifié non reproductible (artefact technique sans conséquence visible) ; P2-12, P2-13, P3-30, P3-32 à P3-37 corrigés et testés ; P2-17 vérifié non reproductible (déjà corrigé structurellement) ; P3-31 non traité par choix conscient de périmètre (déjà conforme au minimum légal, confort seulement, changement transversal risqué — documenté dans AUDIT_COMPLET.md). Vérifications effectuées après ce sprint : `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (50/50), tous verts ; axe-core sur `/dashboard`, `/dashboard/agenda`, `/dashboard/clients`, `/dashboard/parametres`, `/reservation` ; captures d'écran desktop et mobile pour chaque correction visuelle ; nettoyage systématique de toutes les données de test créées pendant la vérification (appointments, blocked slots, tournée activée temporairement).
 
 ---
 
