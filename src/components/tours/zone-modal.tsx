@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { City, Zone } from "@/data/tours";
 
 export type ZoneFormValue = {
@@ -23,7 +24,13 @@ const initialEmptyCity: City = { id: "city-initial", name: "", postalCode: "" };
 export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
   const [name, setName] = useState(zone?.name ?? "");
   const [cities, setCities] = useState<City[]>(zone?.cities ?? [initialEmptyCity]);
-  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
+  const [initialSnapshot] = useState(() => JSON.stringify({ name, cities }));
+  const isDirty = JSON.stringify({ name, cities }) !== initialSnapshot;
+  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  function guardedClose() {
+    if (confirmDiscard()) onClose();
+  }
+  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   function updateCity(id: string, key: "name" | "postalCode", value: string) {
     setCities((current) => current.map((city) => city.id === id ? { ...city, [key]: value } : city));
@@ -54,7 +61,7 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
               <p className="mt-1 text-sm text-animeo-muted">Aucun rayon ni contour géographique n’est utilisé en V1.</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
+          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -89,7 +96,7 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
             <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">{zone ? "Enregistrer" : "Créer la zone"}</button>
           </div>
         </form>

@@ -4,12 +4,22 @@ import type { ChangeEvent, ReactNode } from "react";
 export const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa7ac] focus:border-animeo focus:bg-white";
 export const textareaClassName = `${inputClassName} h-auto min-h-28 resize-y py-3`;
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+/**
+ * Identifiant de l'indice associé au champ `id`, à passer en
+ * aria-describedby sur le contrôle réel rendu dans `children` — même
+ * limitation et même pattern que bookingFieldDescribedBy (booking-ui.tsx) :
+ * Field ne peut pas l'injecter automatiquement sur un enfant opaque.
+ */
+export function fieldDescribedBy(id: string, options: { hasHint?: boolean }): string | undefined {
+  return options.hasHint ? `${id}-hint` : undefined;
+}
+
+export function Field({ id, label, hint, children }: { id?: string; label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{label}</span>
       {children}
-      {hint ? <span className="mt-1.5 block text-xs text-animeo-muted">{hint}</span> : null}
+      {hint ? <span id={id ? `${id}-hint` : undefined} className="mt-1.5 block text-xs text-animeo-muted">{hint}</span> : null}
     </label>
   );
 }

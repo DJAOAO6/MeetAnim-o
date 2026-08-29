@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { animalSpeciesList } from "@/data/species";
 import { createAnimalAction, updateAnimalAction, type UpdateAnimalInput } from "@/lib/clients-actions";
 import type { Animal } from "@/data/clients";
@@ -43,7 +44,13 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
   } : emptyDraft);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
+  const [initialSnapshot] = useState(() => JSON.stringify(draft));
+  const isDirty = JSON.stringify(draft) !== initialSnapshot;
+  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  function guardedClose() {
+    if (confirmDiscard()) onClose();
+  }
+  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   function update<K extends keyof UpdateAnimalInput>(key: K, value: UpdateAnimalInput[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -76,7 +83,7 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Fiche animal</p>
             <h2 id="animal-edit-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{animal ? `Modifier ${animal.name}` : "Ajouter un animal"}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
+          <button type="button" onClick={guardedClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
         </div>
 
         <form onSubmit={submit}>
@@ -106,7 +113,7 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
             <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? "Enregistrement…" : animal ? "Enregistrer les modifications" : "Ajouter l’animal"}
             </button>

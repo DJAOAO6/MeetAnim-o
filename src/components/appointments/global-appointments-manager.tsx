@@ -5,6 +5,7 @@ import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { inputClassName } from "@/components/settings/settings-fields";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { confirmDiscardChanges } from "@/components/ui/use-unsaved-changes-warning";
 import { appointmentStatusLabels, type AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 
@@ -32,7 +33,14 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [actionError, setActionError] = useState<string | null>(null);
-  const dialogRef = useModalFocusTrap<HTMLElement>(closeManager, managerOpen);
+  const [formDirty, setFormDirty] = useState(false);
+
+  function guardedCloseManager() {
+    if (!confirmDiscardChanges(formDirty)) return;
+    closeManager();
+  }
+
+  const dialogRef = useModalFocusTrap<HTMLElement>(guardedCloseManager, managerOpen);
 
   async function handleStatusChange(appointmentId: string, status: AppointmentStatus) {
     setActionError(null);
@@ -57,7 +65,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                 <h2 id="appointments-manager-title" className="mt-1 text-2xl font-black text-animeo-dark">Gestion des rendez-vous</h2>
                 <p className="mt-1 text-sm text-animeo-muted">Consultez et modifiez votre agenda sans quitter la page en cours.</p>
               </div>
-              <button type="button" onClick={closeManager} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-2xl text-animeo-muted">×</button>
+              <button type="button" onClick={guardedCloseManager} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-2xl text-animeo-muted">×</button>
             </header>
 
             {creatingAppointment || selectedAppointment ? (
@@ -67,6 +75,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                 clients={clients}
                 onSave={saveAppointment}
                 onBack={() => openManager()}
+                onDirtyChange={setFormDirty}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">

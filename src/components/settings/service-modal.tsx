@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Field, ImagePicker, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { serviceZoneNames, type AnimalType, type ServiceSettings } from "@/data/settings";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { PublicAnimalType } from "@/data/public-booking";
@@ -42,7 +43,13 @@ export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, 
   const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
-  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
+  const [initialSnapshot] = useState(() => JSON.stringify(draft));
+  const isDirty = JSON.stringify(draft) !== initialSnapshot;
+  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  function guardedClose() {
+    if (confirmDiscard()) onClose();
+  }
+  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
   const zoneFee = draft.zoneFees["Le Havre"] ?? 0;
   const feeSelection = draft.travelFeesEnabled ? draft.travelFeeMode : "none";
   // On garde l'option visible si une prestation existante l'utilise déjà,
@@ -85,7 +92,7 @@ export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, 
       <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Configuration locale</p><h2 id="service-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{service ? "Modifier la prestation" : "Nouvelle prestation"}</h2></div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
+          <button type="button" onClick={guardedClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
         </div>
 
         <form onSubmit={submit}>
@@ -190,7 +197,7 @@ export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, 
           </div>
 
           <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-[#e5eeeb] bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
             <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{saving ? "Enregistrement…" : service ? "Enregistrer" : "Créer la prestation"}</button>
           </div>
         </form>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { Reminder } from "@/data/reminders";
 
 type ReminderModalProps = {
@@ -12,10 +13,14 @@ type ReminderModalProps = {
 };
 
 export function ReminderModal({ reminder, onClose, onSend }: ReminderModalProps) {
-  const [message, setMessage] = useState(
-    `Bonjour ${reminder.clientFirstName},\n\nCela fait bientôt ${reminder.delay} depuis la dernière séance de ${reminder.animalName}.\n\nSi vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :\n\n[Lien de réservation]`,
-  );
-  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
+  const initialMessage = `Bonjour ${reminder.clientFirstName},\n\nCela fait bientôt ${reminder.delay} depuis la dernière séance de ${reminder.animalName}.\n\nSi vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :\n\n[Lien de réservation]`;
+  const [message, setMessage] = useState(initialMessage);
+  const isDirty = message !== initialMessage;
+  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  function guardedClose() {
+    if (confirmDiscard()) onClose();
+  }
+  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
@@ -31,7 +36,7 @@ export function ReminderModal({ reminder, onClose, onSend }: ReminderModalProps)
               <p className="mt-1 text-sm text-animeo-muted">Aucun email ne sera réellement envoyé.</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm transition hover:text-animeo-dark">×</button>
+          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm transition hover:text-animeo-dark">×</button>
         </div>
 
         <div className="space-y-5 p-5 sm:p-6">
@@ -56,7 +61,7 @@ export function ReminderModal({ reminder, onClose, onSend }: ReminderModalProps)
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-          <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+          <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
           <button type="button" onClick={() => onSend(reminder)} disabled={!message.trim()} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">Envoyer le rappel</button>
         </div>
       </section>

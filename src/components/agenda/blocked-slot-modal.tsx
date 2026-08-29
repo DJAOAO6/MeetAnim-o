@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { CreateBlockedSlotInput } from "@/lib/blocked-slots-actions";
 
 type BlockedSlotModalProps = {
@@ -27,7 +28,13 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
+  const [initialSnapshot] = useState(() => JSON.stringify({ date, startTime, duration, reason }));
+  const isDirty = JSON.stringify({ date, startTime, duration, reason }) !== initialSnapshot;
+  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  function guardedClose() {
+    if (confirmDiscard()) onClose();
+  }
+  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,7 +61,7 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
               <p className="mt-1 text-sm text-animeo-muted">Ce créneau sera indisponible au cabinet et à domicile.</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
+          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -70,7 +77,7 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
               <Field label="Durée">
                 <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className={inputClassName}>
                   {durationOptions.map((option) => (
-                    <option key={option} value={option}>{option < 60 ? `${option} min` : `${option / 60}h${option % 60 ? String(option % 60).padStart(2, "0") : ""}`}</option>
+                    <option key={option} value={option}>{option < 60 ? `${option} min` : `${Math.floor(option / 60)}h${option % 60 ? String(option % 60).padStart(2, "0") : ""}`}</option>
                   ))}
                 </select>
               </Field>
@@ -93,7 +100,7 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
             <button type="submit" disabled={pending} className="rounded-xl bg-animeo-dark px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#12303a] disabled:cursor-not-allowed disabled:opacity-60">
               {pending ? "Blocage…" : "Bloquer ce créneau"}
             </button>

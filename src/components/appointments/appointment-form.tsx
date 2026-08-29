@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { useEffect, useState, type FormEvent } from "react";
+import { Field, fieldDescribedBy, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";
@@ -10,12 +11,13 @@ import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
 import { notify } from "@/lib/notify";
 
-export function AppointmentForm({ appointment, clients, onSave, onBack, backLabel = "Tous les rendez-vous" }: {
+export function AppointmentForm({ appointment, clients, onSave, onBack, backLabel = "Tous les rendez-vous", onDirtyChange }: {
   appointment?: Appointment;
   clients: ClientPickerOption[];
   onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string }>;
   onBack: () => void;
   backLabel?: string;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [draft, setDraft] = useState<Omit<Appointment, "id">>(() => appointment ?? {
     date: "2026-08-25",
@@ -41,6 +43,19 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const [initialSnapshot, setInitialSnapshot] = useState(() => JSON.stringify({ draft, addressLine, addressExtra, postalCode, city }));
+  const isDirty = JSON.stringify({ draft, addressLine, addressExtra, postalCode, city }) !== initialSnapshot;
+  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
+
+  function handleBack() {
+    if (!confirmDiscard()) return;
+    onBack();
+  }
 
   function update<K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -134,13 +149,14 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
       setError(result.error ?? "Une erreur est survenue.");
       return;
     }
+    setInitialSnapshot(JSON.stringify({ draft, addressLine, addressExtra, postalCode, city }));
     notify.success(appointment ? "Rendez-vous modifié" : "Rendez-vous créé");
   }
 
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <button type="button" onClick={onBack} className="mb-5 inline-flex items-center gap-1 text-sm font-extrabold text-animeo"><span aria-hidden="true">←</span> {backLabel}</button>
+        <button type="button" onClick={handleBack} className="mb-5 inline-flex items-center gap-1 text-sm font-extrabold text-animeo"><span aria-hidden="true">←</span> {backLabel}</button>
         <h3 className="text-xl font-black text-animeo-dark">{appointment ? `Modifier le rendez-vous de ${appointment.animalName}` : "Nouveau rendez-vous"}</h3>
         <p className="mt-1 text-sm text-animeo-muted">Le cabinet et le domicile partagent un seul agenda : un créneau déjà pris ne peut pas être réutilisé.</p>
 
@@ -228,9 +244,9 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
                   <AddressAutocomplete value={addressLine} onQueryChange={setAddressLine} onSelect={applySelectedAddress} inputClassName={inputClassName} placeholder="12 rue Exemple" required />
                 </Field>
               </div>
-              <div className="sm:col-span-2"><Field label="Complément d’adresse" hint="Facultatif"><input value={addressExtra} onChange={(event) => setAddressExtra(event.target.value)} className={inputClassName} placeholder="Bâtiment, étage, lieu-dit…" /></Field></div>
-              <Field label="Code postal" hint="Facultatif"><input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} className={inputClassName} inputMode="numeric" placeholder="76000" /></Field>
-              <Field label="Ville" hint="Facultatif"><input value={city} onChange={(event) => setCity(event.target.value)} className={inputClassName} placeholder="Rouen" /></Field>
+              <div className="sm:col-span-2"><Field id="appt-form-address-extra" label="Complément d’adresse" hint="Facultatif"><input value={addressExtra} onChange={(event) => setAddressExtra(event.target.value)} className={inputClassName} placeholder="Bâtiment, étage, lieu-dit…" aria-describedby={fieldDescribedBy("appt-form-address-extra", { hasHint: true })} /></Field></div>
+              <Field id="appt-form-postal-code" label="Code postal" hint="Facultatif"><input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} className={inputClassName} inputMode="numeric" placeholder="76000" aria-describedby={fieldDescribedBy("appt-form-postal-code", { hasHint: true })} /></Field>
+              <Field id="appt-form-city" label="Ville" hint="Facultatif"><input value={city} onChange={(event) => setCity(event.target.value)} className={inputClassName} placeholder="Rouen" aria-describedby={fieldDescribedBy("appt-form-city", { hasHint: true })} /></Field>
             </>
           ) : null}
 
@@ -240,7 +256,7 @@ export function AppointmentForm({ appointment, clients, onSave, onBack, backLabe
 
       <div className="flex flex-col-reverse gap-2 border-t border-[#dce8e5] bg-white p-4 sm:flex-row sm:justify-between sm:p-5">
         {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); notify.info("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-[#fff0eb] px-4 py-2.5 text-sm font-extrabold text-[#a9573b]">Annuler le rendez-vous</button> : <span />}
-        <button type="submit" disabled={pending} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{pending ? "Enregistrement…" : "Enregistrer les modifications"}</button>
+        <button type="submit" disabled={pending} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{pending ? "Enregistrement…" : appointment ? "Enregistrer les modifications" : "Créer le rendez-vous"}</button>
       </div>
     </form>
   );
