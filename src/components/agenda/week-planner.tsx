@@ -454,6 +454,11 @@ function CalendarEventCard({ event, columnLayout, isDragging, onPendingAction, o
   const isSelectable = Boolean(event.appointmentId || event.tourId || event.blockedSlotId);
   const isDraggable = Boolean(event.appointmentId);
   const position = getEventPosition(event.start, event.duration, isPending ? MIN_PENDING_HEIGHT : MIN_EVENT_HEIGHT);
+  const selectableLabel = isUnavailable
+    ? `Ouvrir le créneau bloqué : ${event.title ?? "Indisponible"} à ${event.start}`
+    : isTournee
+      ? `Ouvrir la tournée ${event.title ?? ""} à ${event.start}`
+      : `Ouvrir le rendez-vous de ${event.animal ?? "l’animal"} à ${event.start}`;
   const { column, columns } = columnLayout;
   const columnWidthPercent = 100 / columns;
 
@@ -489,15 +494,23 @@ function CalendarEventCard({ event, columnLayout, isDragging, onPendingAction, o
       onClick={isSelectable ? handleSelect : undefined}
       onKeyDown={isSelectable ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
-      aria-label={isSelectable ? `Ouvrir le rendez-vous de ${event.animal ?? "l’animal"} à ${event.start}` : undefined}
-      className={`group absolute z-10 overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgba(24,59,69,0.08)] transition ${eventStyles[event.kind]} ${
+      aria-label={isSelectable ? selectableLabel : undefined}
+      className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgba(24,59,69,0.08)] transition ${eventStyles[event.kind]} ${
         isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(24,59,69,0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
-      } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "z-20 -translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""}`}
+      } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "-translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""}`}
       style={{
         top: position.top + 3,
         height: position.height - 6,
         left: `calc(${column * columnWidthPercent}% + 3px)`,
         width: `calc(${columnWidthPercent}% - 6px)`,
+        // Cible tactile WCAG (24px) : sur des créneaux très chargés, la largeur
+        // calculée par colonne peut descendre bien en-dessous — AUDIT_COMPLET.md
+        // P3-30. minWidth prime sur width sans casser le calcul par pourcentage
+        // dans les cas normaux ; les puces les plus à droite passent visuellement
+        // par-dessus leurs voisines de gauche (index z croissant par colonne),
+        // comme dans Google Calendar/Outlook.
+        minWidth: "24px",
+        zIndex: isSelected ? 30 : 10 + column,
       }}
     >
       <p className="text-[10px] font-black">{event.start}</p>
