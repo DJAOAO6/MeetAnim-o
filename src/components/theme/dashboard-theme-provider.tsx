@@ -161,7 +161,7 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
     "--theme-action": theme.primaryColor,
     "--theme-text": dark ? "#E8F0EF" : "#1F2933",
     "--theme-heading": dark ? "#F7FBFA" : "#183B45",
-    "--theme-muted": dark ? "#A8B8BD" : "#6B7780",
+    "--theme-muted": dark ? "#A8B8BD" : "#5C6A74",
     "--theme-soft": "color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface))",
     "--theme-border": "color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface))",
     "--theme-card-radius": displayOptions.roundedCards ? "18px" : "8px",

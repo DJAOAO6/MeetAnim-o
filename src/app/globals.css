@@ -17,7 +17,13 @@
   --theme-action: #2f7a6e;
   --theme-text: #1f2933;
   --theme-heading: #183b45;
-  --theme-muted: #6b7780;
+  /* #6b7780 (l'ancienne valeur) échoue de justesse au contraste WCAG AA sur
+     le fond de l'app #f7faf9 (~4,37:1) — AUDIT_COMPLET.md P2-12. Le pire cas
+     réel est le fond des pastilles/cartes teintées (--theme-soft, ~#e4eeec,
+     luminance plus basse que le fond blanc) : #66727c y reste sous le seuil
+     (~4,16:1). #5c6a74 (même teinte, encore assombrie) atteint ~4,7:1 sur ce
+     fond et ~5,3-5,6:1 sur les fonds plus clairs. */
+  --theme-muted: #5c6a74;
   --theme-soft: color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface));
   --theme-border: color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface));
   --theme-card-radius: 18px;
