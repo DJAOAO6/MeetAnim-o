@@ -149,6 +149,11 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
       location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
     }));
   const pendingRequests = appointmentEvents.filter((event) => event.kind === "pending");
+  // Le panneau n'affiche que les demandes de la période visible (jour/semaine
+  // affichée) : ce total global sert uniquement à ne pas affirmer à tort
+  // « Toutes les demandes ont été traitées » quand il en reste ailleurs
+  // (AUDIT_COMPLET.md P1-9).
+  const totalPendingCount = appointments.filter((appointment) => appointment.status === "pending").length;
 
   function matchesFilter(kind: CalendarEvent["kind"]) {
     return filter === "all" || filter === kind;
@@ -361,7 +366,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
 
       {view === "day" || view === "week" ? (
         <>
-          <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} onAction={handlePendingAction} />
+          <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} totalPendingCount={totalPendingCount} onAction={handlePendingAction} />
 
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
             <WeekPlanner
@@ -464,9 +469,10 @@ function navLabel(view: AgendaViewMode, direction: "précédent" | "suivant") {
   return `Afficher ${unit} ${suffix}`;
 }
 
-function PendingRequestsPanel({ requests, weekDates, onAction }: {
+function PendingRequestsPanel({ requests, weekDates, totalPendingCount, onAction }: {
   requests: CalendarEvent[];
   weekDates: Date[];
+  totalPendingCount: number;
   onAction: (action: string, event: CalendarEvent) => void;
 }) {
   const dateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -506,8 +512,14 @@ function PendingRequestsPanel({ requests, weekDates, onAction }: {
             </article>
           ))}
         </div>
-      ) : (
+      ) : totalPendingCount === 0 ? (
         <div className="rounded-2xl bg-animeo-soft px-4 py-5 text-sm font-bold text-animeo-dark">✓ Toutes les demandes ont été traitées.</div>
+      ) : (
+        // Ne pas affirmer « tout est traité » : il reste des demandes en
+        // attente, simplement hors de la période actuellement affichée.
+        <div className="rounded-2xl bg-animeo-soft px-4 py-5 text-sm font-bold text-animeo-dark">
+          Aucune demande pour cette période. {totalPendingCount} demande{totalPendingCount > 1 ? "s" : ""} en attente sur une autre période.
+        </div>
       )}
     </Card>
   );
