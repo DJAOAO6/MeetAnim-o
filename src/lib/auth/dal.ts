@@ -41,8 +41,17 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  return user;
+  if (user) return user;
+
+  // Un Server Component ne peut pas supprimer de cookie (réservé aux Server
+  // Actions/Route Handlers) — si le jeton est cryptographiquement valide
+  // mais rejeté par le contrôle base (compte désactivé, mot de passe changé
+  // depuis), le contrôle optimiste du proxy le verrait comme valide et
+  // renverrait vers /dashboard, créant une boucle infinie avec cette
+  // redirection. Ce paramètre indique au proxy de supprimer le cookie au
+  // lieu de lui faire confiance.
+  const payload = await getSessionPayload();
+  redirect(payload?.userId ? "/login?sessionExpired=1" : "/login");
 }
 
 export async function requireAdmin(): Promise<CurrentUser> {

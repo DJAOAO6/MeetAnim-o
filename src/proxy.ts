@@ -24,6 +24,18 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Un Server Component ne pouvant pas supprimer de cookie, dal.ts signale
+  // ici qu'un jeton cryptographiquement valide a été rejeté par le contrôle
+  // base (compte désactivé, mot de passe changé depuis) via ce paramètre.
+  // Sans cette exception, le contrôle optimiste ci-dessous le verrait
+  // comme valide et renverrait vers /dashboard, qui le rejetterait à
+  // nouveau : boucle de redirection infinie entre /login et /dashboard.
+  if (pathname === loginPath && request.nextUrl.searchParams.get("sessionExpired") === "1") {
+    const response = NextResponse.next();
+    if (token) response.cookies.delete(sessionCookieName);
+    return response;
+  }
+
   if (pathname === loginPath && hasValidSession) {
     return NextResponse.redirect(new URL(protectedPrefix, request.url));
   }
