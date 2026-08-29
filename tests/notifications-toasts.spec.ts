@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { expect, test } from "@playwright/test";
+import { neon } from "@neondatabase/serverless";
 
 config({ path: ".env.local" });
 
@@ -9,20 +10,38 @@ config({ path: ".env.local" });
  * Les scénarios s'appuient sur des actions réelles de l'UI (comme le reste
  * de la suite E2E) plutôt que d'appeler notify.* directement, afin de tester
  * le comportement effectivement vu par l'utilisateur.
+ *
+ * Les zones/tournées sont réellement persistées en base (AUDIT_COMPLET.md
+ * P0-2) et leurs actions requièrent la permission MANAGE_PUBLIC_SETTINGS,
+ * que le compte de test n'a pas par défaut : elle est accordée temporairement
+ * pour les deux scénarios qui s'appuient sur des actions de zone.
  */
+
+const testEmail = "praticien-test@pf-osteo-animale.fr";
+
+async function grantPublicSettingsPermission() {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${testEmail}`;
+}
+
+async function revokePublicSettingsPermission() {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`UPDATE "User" SET permissions = ARRAY[]::text[] WHERE email = ${testEmail}`;
+}
 
 test.describe("Système de notifications (toasts)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/login");
-    await page.fill('input[type="email"]', "praticien-test@pf-osteo-animale.fr");
+    await page.fill('input[type="email"]', testEmail);
     await page.fill('input[type="password"]', "Praticien-Test-2026!");
     await page.click('button[type="submit"]');
     await page.waitForURL("**/dashboard**", { timeout: 10000 });
   });
 
   test("un toast de succès disparaît automatiquement après ~4s", async ({ page }) => {
-    // Création de zone : action purement locale (pas d'écriture en base),
-    // donc aucun nettoyage nécessaire après le test.
+    await grantPublicSettingsPermission();
+    const sql = neon(process.env.DATABASE_URL!);
+
     await page.goto("/dashboard/tournees");
     await page.getByRole("button", { name: "Nouvelle zone" }).click();
     const dialog = page.locator('[role="dialog"]').first();
@@ -33,7 +52,7 @@ test.describe("Système de notifications (toasts)", () => {
 
     const toast = page.locator('[data-sonner-toast][data-type="success"]');
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText("Zone E2E Toast a été créée localement.");
+    await expect(toast).toContainText("Zone E2E Toast a été créée.");
 
     // Toujours présent juste avant l'échéance des 4s...
     await page.waitForTimeout(3500);
@@ -42,11 +61,18 @@ test.describe("Système de notifications (toasts)", () => {
     // ...disparu après.
     await page.waitForTimeout(1500);
     await expect(toast).toHaveCount(0);
+
+    // La zone est désormais réellement écrite en base (P0-2) : nettoyage.
+    await sql`DELETE FROM "Zone" WHERE name = 'Zone E2E Toast'`;
+    await revokePublicSettingsPermission();
   });
 
   test("un toast d'erreur reste affiché jusqu'à fermeture manuelle", async ({ page }) => {
     // Zone Dieppe est utilisée par la tournée Dieppe des données de démo :
-    // sa suppression est rejetée côté client, ce qui déclenche notify.error.
+    // sa suppression est rejetée côté serveur (contrainte de clé étrangère),
+    // ce qui déclenche notify.error.
+    await grantPublicSettingsPermission();
+
     await page.goto("/dashboard/tournees");
     await page.locator('button:has-text("Supprimer")').first().click();
 
@@ -60,6 +86,8 @@ test.describe("Système de notifications (toasts)", () => {
 
     await toast.getByRole("button", { name: "Close toast" }).click();
     await expect(toast).toHaveCount(0);
+
+    await revokePublicSettingsPermission();
   });
 
   test("plusieurs actions rapides empilent les toasts sans perte", async ({ page }) => {

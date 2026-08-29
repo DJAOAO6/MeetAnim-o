@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { notify } from "@/lib/notify";
+import { deleteZoneAction, saveTourAction, saveZoneAction, toggleTourStatusAction } from "@/lib/tours-actions";
 import type { MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type ToursViewProps = {
@@ -36,54 +37,50 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
   const [zoneModal, setZoneModal] = useState<Zone | "new" | null>(null);
   const selectedTour = tours.find((tour) => tour.id === selectedTourId);
 
-  function saveTour(value: TourFormValue) {
-    if (value.id) {
-      setTours((current) => current.map((tour) => (
-        tour.id === value.id ? { ...tour, ...value } : tour
-      )));
-      notify.success(`${value.name} a été modifiée localement.`);
-    } else {
-      const newTour: Tour = {
-        ...value,
-        id: `tour-${Date.now()}`,
-        dateLabel: `${value.day} · prochaine occurrence`,
-        appointmentCount: 0,
-        estimatedKm: 0,
-        consultationHours: "0h",
-      };
-      setTours((current) => [newTour, ...current]);
-      notify.success(`${value.name} a été créée localement.`);
+  async function saveTour(value: TourFormValue) {
+    const result = await saveTourAction(value);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
     }
+    setTours((current) => current.some((tour) => tour.id === result.tour.id)
+      ? current.map((tour) => tour.id === result.tour.id ? result.tour : tour)
+      : [result.tour, ...current]);
+    notify.success(value.id ? `${result.tour.name} a été modifiée.` : `${result.tour.name} a été créée.`);
     setTourModal(null);
   }
 
-  function toggleTourStatus(tour: Tour) {
-    const nextStatus = tour.status === "Active" ? "Inactive" : "Active";
-    setTours((current) => current.map((item) => (
-      item.id === tour.id ? { ...item, status: nextStatus } : item
-    )));
-    notify.success(`${tour.name} est maintenant ${nextStatus.toLocaleLowerCase("fr-FR")}.`);
+  async function toggleTourStatus(tour: Tour) {
+    const result = await toggleTourStatusAction(tour.id);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setTours((current) => current.map((item) => item.id === result.tour.id ? result.tour : item));
+    notify.success(`${result.tour.name} est maintenant ${result.tour.status.toLocaleLowerCase("fr-FR")}.`);
   }
 
-  function saveZone(value: ZoneFormValue) {
-    if (value.id) {
-      const updatedZone: Zone = { ...value, id: value.id };
-      setZones((current) => current.map((zone) => zone.id === value.id ? updatedZone : zone));
-      notify.success(`${value.name} a été modifiée localement.`);
-    } else {
-      setZones((current) => [{ ...value, id: `zone-${Date.now()}` }, ...current]);
-      notify.success(`${value.name} a été créée localement.`);
+  async function saveZone(value: ZoneFormValue) {
+    const result = await saveZoneAction(value);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
     }
+    setZones((current) => current.some((zone) => zone.id === result.zone.id)
+      ? current.map((zone) => zone.id === result.zone.id ? result.zone : zone)
+      : [result.zone, ...current]);
+    notify.success(value.id ? `${result.zone.name} a été modifiée.` : `${result.zone.name} a été créée.`);
     setZoneModal(null);
   }
 
-  function deleteZone(zone: Zone) {
-    if (tours.some((tour) => tour.zoneId === zone.id)) {
-      notify.error(`${zone.name} est utilisée par une tournée et ne peut pas être supprimée.`);
+  async function deleteZone(zone: Zone) {
+    const result = await deleteZoneAction(zone.id);
+    if (!result.ok) {
+      notify.error(result.error);
       return;
     }
     setZones((current) => current.filter((item) => item.id !== zone.id));
-    notify.success(`${zone.name} a été supprimée localement.`);
+    notify.success(`${zone.name} a été supprimée.`);
   }
 
   function changeTab(tab: "tours" | "map") {

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, inputClassName } from "@/components/settings/settings-fields";
 import { notify } from "@/lib/notify";
+import { saveTourAction, toggleTourStatusAction } from "@/lib/tours-actions";
 import type { Tour, Zone } from "@/data/tours";
 
 type ToursSettingsTabProps = {
@@ -16,13 +17,37 @@ export function ToursSettingsTab({ initialTours, zones }: ToursSettingsTabProps)
   const [tours, setTours] = useState(initialTours);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  function updateTours(next: Tour[], message: string) {
-    setTours(next);
-    notify.success(message);
-  }
-
   function updateTour(id: string, key: keyof Tour, value: string) {
     setTours((current) => current.map((tour) => tour.id === id ? { ...tour, [key]: value } : tour));
+  }
+
+  async function commitEdit(tour: Tour) {
+    const result = await saveTourAction({
+      id: tour.id,
+      name: tour.name,
+      recurrence: tour.recurrence,
+      day: tour.day,
+      startTime: tour.startTime,
+      endTime: tour.endTime,
+      zoneId: tour.zoneId,
+      status: tour.status,
+    });
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setTours((current) => current.map((item) => item.id === result.tour.id ? result.tour : item));
+    notify.success("Tournée modifiée");
+  }
+
+  async function toggleStatus(tour: Tour) {
+    const result = await toggleTourStatusAction(tour.id);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setTours((current) => current.map((item) => item.id === result.tour.id ? result.tour : item));
+    notify.success(result.tour.status === "Active" ? "Tournée activée" : "Tournée désactivée");
   }
 
   return (
@@ -48,8 +73,8 @@ export function ToursSettingsTab({ initialTours, zones }: ToursSettingsTabProps)
                   )}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
-                  <button type="button" onClick={() => { if (editing) { notify.success("Tournée modifiée localement"); } setEditingId(editing ? null : tour.id); }} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">{editing ? "Enregistrer" : "Modifier"}</button>
-                  <button type="button" onClick={() => updateTours(tours.map((item) => item.id === tour.id ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" } : item), tour.status === "Active" ? "Tournée désactivée" : "Tournée activée")} className="rounded-xl bg-animeo-bg px-4 py-2.5 text-xs font-extrabold text-animeo-muted">{tour.status === "Active" ? "Désactiver" : "Activer"}</button>
+                  <button type="button" onClick={() => { if (editing) { commitEdit(tour); } setEditingId(editing ? null : tour.id); }} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">{editing ? "Enregistrer" : "Modifier"}</button>
+                  <button type="button" onClick={() => toggleStatus(tour)} className="rounded-xl bg-animeo-bg px-4 py-2.5 text-xs font-extrabold text-animeo-muted">{tour.status === "Active" ? "Désactiver" : "Activer"}</button>
                 </div>
               </div>
             </Card>
