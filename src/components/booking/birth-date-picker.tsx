@@ -173,7 +173,6 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
           value={typed}
           onChange={(event) => handleTypedChange(event.target.value)}
           onBlur={commitTyped}
-          onFocus={openPicker}
           onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(); setOpen(false); } }}
           className={`${bookingInputClassName} pr-11`}
           placeholder="JJ/MM/AAAA"
