@@ -288,6 +288,16 @@ test("generateCandidateStarts returns an empty list when nothing fits", () => {
   assert.deepEqual(generateCandidateStarts(null, "cabinet", 30), []);
 });
 
+test("generateCandidateStarts with a 0 slot interval chains starts on the appointment duration itself", () => {
+  // Pas "Désactivé" (0) : deux heures ouvertes (9h-11h), prestation de 45
+  // min — les créneaux s'enchaînent sans grille fixe (09:00, 09:45 ; 10:30
+  // déborderait sur 11h, non ouvert), pas de repli sur
+  // SLOT_GRANULARITY_MINUTES (30).
+  const hourly = { 9: { cabinet: true, home: true }, 10: { cabinet: true, home: true } };
+  const starts = generateCandidateStarts(hourly, "cabinet", 45, 0);
+  assert.deepEqual(starts, ["09:00", "09:45"]);
+});
+
 test("groupSlotsByPeriod splits morning/afternoon at 12:00, no separate evening group", () => {
   const result = groupSlotsByPeriod(["09:00", "11:30", "12:00", "17:30", "18:00", "19:30"]);
   assert.deepEqual(result, {

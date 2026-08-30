@@ -262,11 +262,14 @@ export const BOOKING_WINDOW_DAYS = 90;
  * Génère les horaires de départ candidats (par pas de `slotIntervalMinutes`,
  * réglable par le praticien dans Paramètres > Disponibilités — sinon
  * SLOT_GRANULARITY_MINUTES par défaut) qui tiennent entièrement dans les
- * disponibilités réelles pour le mode et la durée demandés.
+ * disponibilités réelles pour le mode et la durée demandés. Un pas à 0
+ * ("Désactivé" côté réglages) enchaîne les créneaux sur la durée de la
+ * prestation elle-même plutôt que sur une grille fixe.
  */
 export function generateCandidateStarts(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", durationMinutes: number, slotIntervalMinutes: number = SLOT_GRANULARITY_MINUTES): string[] {
+  const step = slotIntervalMinutes || durationMinutes;
   const starts: string[] = [];
-  for (let minutes = 0; minutes < 24 * 60; minutes += slotIntervalMinutes) {
+  for (let minutes = 0; minutes < 24 * 60; minutes += step) {
     if (fitsWithinOpenHours(hourly, mode, minutes, durationMinutes)) starts.push(minutesToTime(minutes));
   }
   return starts;

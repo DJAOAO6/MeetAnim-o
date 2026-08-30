@@ -84,6 +84,8 @@ export type AvailabilitySettings = {
   // Granularité de la grille horaire proposée (créneaux alignés sur ce pas,
   // ex. 9h00/9h15/9h30…), indépendamment de la durée de la prestation
   // choisie — utilisé par generateCandidateStarts (booking-validation.ts).
+  // 0 = "Désactivé" : les créneaux s'enchaînent sur la durée de la
+  // prestation elle-même plutôt que sur une grille fixe.
   slotInterval: number;
 };
 

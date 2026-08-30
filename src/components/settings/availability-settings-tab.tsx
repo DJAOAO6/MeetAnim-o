@@ -100,6 +100,7 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
           </Field>
           <Field label="Pas des créneaux proposés en ligne">
             <select value={draft.slotInterval} onChange={(event) => setDraft((current) => ({ ...current, slotInterval: Number(event.target.value) }))} className={inputClassName}>
+              <option value={0}>Désactivé (durée de la prestation)</option>
               {[10, 15, 20, 30].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
             </select>
           </Field>
