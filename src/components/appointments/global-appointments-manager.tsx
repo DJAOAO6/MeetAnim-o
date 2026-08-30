@@ -24,6 +24,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
     managerOpen,
     selectedAppointmentId,
     creatingAppointment,
+    newAppointmentDefaultDate,
     openManager,
     openNewAppointment,
     closeManager,
@@ -73,6 +74,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                 key={selectedAppointment?.id ?? "new-appointment"}
                 appointment={selectedAppointment}
                 clients={clients}
+                defaultDate={newAppointmentDefaultDate}
                 onSave={saveAppointment}
                 onBack={() => openManager()}
                 onDirtyChange={setFormDirty}
@@ -82,7 +84,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                 <div className="border-b border-[#dce8e5] bg-white p-4 sm:p-5">
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <input value={search} onChange={(event) => setSearch(event.target.value)} className={`${inputClassName} flex-1`} placeholder="Rechercher un client, un animal ou une prestation" />
-                    <button type="button" onClick={openNewAppointment} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white">+ Nouveau rendez-vous</button>
+                    <button type="button" onClick={() => openNewAppointment()} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white">+ Nouveau rendez-vous</button>
                   </div>
                   <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                     {(["all", "pending", "confirmed", "completed", "cancelled"] as StatusFilter[]).map((status) => (

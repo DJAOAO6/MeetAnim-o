@@ -12,6 +12,7 @@ type ServiceModalProps = {
   service?: ServiceSettings;
   zoneNames: string[];
   kilometricFeesEnabled: boolean;
+  defaultDuration: number;
   saving: boolean;
   onClose: () => void;
   onSave: (service: ServiceSettings) => void;
@@ -20,11 +21,10 @@ type ServiceModalProps = {
 const animals: AnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
 const standardDurations = [30, 45, 60, 90];
 
-const emptyService: ServiceSettings = {
+const emptyServiceBase: Omit<ServiceSettings, "duration"> = {
   id: "",
   name: "",
   description: "",
-  duration: 60,
   animals: ["Chien"],
   cabinetEnabled: true,
   cabinetPrice: 60,
@@ -40,8 +40,8 @@ const emptyService: ServiceSettings = {
   photoUrl: null,
 };
 
-export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, saving, onClose, onSave }: ServiceModalProps) {
-  const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
+export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaultDuration, saving, onClose, onSave }: ServiceModalProps) {
+  const [draft, setDraft] = useState<ServiceSettings>(service ?? { ...emptyServiceBase, duration: defaultDuration });
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
   const [initialSnapshot] = useState(() => JSON.stringify(draft));

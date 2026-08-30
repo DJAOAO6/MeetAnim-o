@@ -9,18 +9,23 @@ import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
+import { toLocalDateId } from "@/lib/booking-validation";
 import { notify } from "@/lib/notify";
 
-export function AppointmentForm({ appointment, clients, onSave, onBack, backLabel = "Tous les rendez-vous", onDirtyChange }: {
+export function AppointmentForm({ appointment, clients, defaultDate, onSave, onBack, backLabel = "Tous les rendez-vous", onDirtyChange }: {
   appointment?: Appointment;
   clients: ClientPickerOption[];
+  // Jour pré-sélectionné dans l'agenda au moment du clic sur "Nouveau
+  // rendez-vous" (vue Jour/Semaine/Mois/Année) — voir AgendaView. Ignoré en
+  // modification (la date existante du rendez-vous prime toujours).
+  defaultDate?: string;
   onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string }>;
   onBack: () => void;
   backLabel?: string;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [draft, setDraft] = useState<Omit<Appointment, "id">>(() => appointment ?? {
-    date: "2026-08-25",
+    date: defaultDate ?? toLocalDateId(new Date()),
     start: "09:00",
     duration: 60,
     clientId: undefined,

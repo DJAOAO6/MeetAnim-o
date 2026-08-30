@@ -177,7 +177,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
             <ActionButton label="Ajouter un animal" onClick={() => setAddingAnimal(true)} />
             <button
               type="button"
-              onClick={openNewAppointment}
+              onClick={() => openNewAppointment()}
               className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.18)] transition hover:bg-[#459e90]"
             >
               <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>

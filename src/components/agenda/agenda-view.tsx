@@ -198,8 +198,20 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
       }));
   });
 
+  // Jour proposé par défaut pour "Nouveau rendez-vous"/"Bloquer un créneau",
+  // selon la vue active : le jour affiché en Jour, le lundi de la semaine
+  // affichée en Semaine, le jour sélectionné (sinon le 1er) en Mois,
+  // aujourd'hui si l'année affichée est l'année courante sinon le 1er
+  // janvier en Année.
+  function smartDefaultDateId(): string {
+    if (view === "day" || view === "week") return dateId(activeDates[0]);
+    if (view === "month") return dateId(selectedDay ?? monthDate);
+    const today = new Date();
+    return yearValue === today.getFullYear() ? dateId(today) : dateId(new Date(yearValue, 0, 1, 12));
+  }
+
   function openBlockSlotModal() {
-    setBlockedSlotModalDate(dateId(view === "day" ? activeDates[0] : weekDates[0]));
+    setBlockedSlotModalDate(smartDefaultDateId());
   }
 
   async function saveBlockedSlot(input: Parameters<typeof createBlockedSlotAction>[0]) {
@@ -335,26 +347,22 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <AgendaViewSwitcher value={view} onChange={handleViewChange} />
 
-            {view === "day" || view === "week" ? (
-              <>
-                <button
-                  type="button"
-                  onClick={openBlockSlotModal}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-                >
-                  <LockIcon />
-                  Bloquer un créneau
-                </button>
-                <button
-                  type="button"
-                  onClick={openNewAppointment}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
-                >
-                  <span aria-hidden="true" className="text-xl leading-none">+</span>
-                  Nouveau rendez-vous
-                </button>
-              </>
-            ) : null}
+            <button
+              type="button"
+              onClick={openBlockSlotModal}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+            >
+              <LockIcon />
+              Bloquer un créneau
+            </button>
+            <button
+              type="button"
+              onClick={() => openNewAppointment(smartDefaultDateId())}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+            >
+              <span aria-hidden="true" className="text-xl leading-none">+</span>
+              Nouveau rendez-vous
+            </button>
           </div>
         </div>
 

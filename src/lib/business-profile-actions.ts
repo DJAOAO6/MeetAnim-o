@@ -81,8 +81,15 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
 
 export async function getAvailability(): Promise<AvailabilitySettings> {
   const row = await prisma.businessProfile.findFirst({ select: { availability: true } });
-  if (row?.availability) return row.availability as unknown as AvailabilitySettings;
-  return initialSettings.availability;
+  if (!row?.availability) return initialSettings.availability;
+  // Colonne Json : un profil enregistré avant l'ajout de
+  // defaultAppointmentDuration/slotInterval ne les a pas encore en base.
+  const stored = row.availability as unknown as AvailabilitySettings;
+  return {
+    ...stored,
+    defaultAppointmentDuration: stored.defaultAppointmentDuration || initialSettings.availability.defaultAppointmentDuration,
+    slotInterval: stored.slotInterval || initialSettings.availability.slotInterval,
+  };
 }
 
 export type AvailabilityConflict = { appointmentId: string; date: string; start: string; clientName: string; animalName: string };

@@ -11,8 +11,14 @@ type AppointmentsContextValue = {
   managerOpen: boolean;
   selectedAppointmentId: string | null;
   creatingAppointment: boolean;
+  // Pré-remplit la date du formulaire de création avec le jour pertinent
+  // pour la vue d'où le clic est parti (jour affiché, jour sélectionné dans
+  // le calendrier mois, aujourd'hui/1er janvier en année) — voir
+  // AgendaView.smartDefaultDateId. Absent (undefined) quand la création est
+  // ouverte sans contexte de date (ex. depuis le gestionnaire global).
+  newAppointmentDefaultDate: string | undefined;
   openManager: (appointmentId?: string) => void;
-  openNewAppointment: () => void;
+  openNewAppointment: (defaultDate?: string) => void;
   closeManager: () => void;
   saveAppointment: (input: SaveAppointmentInput) => Promise<ActionOutcome>;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => Promise<ActionOutcome>;
@@ -36,6 +42,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
   const [managerOpen, setManagerOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
+  const [newAppointmentDefaultDate, setNewAppointmentDefaultDate] = useState<string | undefined>(undefined);
 
   function openManager(appointmentId?: string) {
     setSelectedAppointmentId(appointmentId ?? null);
@@ -43,9 +50,10 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     setManagerOpen(true);
   }
 
-  function openNewAppointment() {
+  function openNewAppointment(defaultDate?: string) {
     setSelectedAppointmentId(null);
     setCreatingAppointment(true);
+    setNewAppointmentDefaultDate(defaultDate);
     setManagerOpen(true);
   }
 
@@ -53,6 +61,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     setManagerOpen(false);
     setSelectedAppointmentId(null);
     setCreatingAppointment(false);
+    setNewAppointmentDefaultDate(undefined);
   }
 
   // Ne notifie jamais elle-même (ni succès ni erreur) : partagée par des
@@ -87,6 +96,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     managerOpen,
     selectedAppointmentId,
     creatingAppointment,
+    newAppointmentDefaultDate,
     openManager,
     openNewAppointment,
     closeManager,

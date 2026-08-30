@@ -16,7 +16,7 @@ export function DashboardFloatingActions() {
     <div className="fixed bottom-6 right-6 z-40 flex flex-row-reverse items-center gap-3 sm:bottom-8 sm:right-8 sm:flex-col sm:gap-4">
       <button
         type="button"
-        onClick={openNewAppointment}
+        onClick={() => openNewAppointment()}
         aria-label="Créer un nouveau rendez-vous"
         className="flex h-12 w-12 items-center justify-center rounded-full bg-animeo text-white shadow-[0_10px_24px_rgba(79,175,159,0.35)] transition hover:-translate-y-0.5 hover:brightness-90 sm:h-16 sm:w-16"
       >

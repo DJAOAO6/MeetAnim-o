@@ -259,13 +259,14 @@ export const SLOT_GRANULARITY_MINUTES = 30;
 export const BOOKING_WINDOW_DAYS = 90;
 
 /**
- * Génère les horaires de départ candidats (par pas de 30 min) qui tiennent
- * entièrement dans les disponibilités réelles pour le mode et la durée
- * demandés.
+ * Génère les horaires de départ candidats (par pas de `slotIntervalMinutes`,
+ * réglable par le praticien dans Paramètres > Disponibilités — sinon
+ * SLOT_GRANULARITY_MINUTES par défaut) qui tiennent entièrement dans les
+ * disponibilités réelles pour le mode et la durée demandés.
  */
-export function generateCandidateStarts(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", durationMinutes: number): string[] {
+export function generateCandidateStarts(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", durationMinutes: number, slotIntervalMinutes: number = SLOT_GRANULARITY_MINUTES): string[] {
   const starts: string[] = [];
-  for (let minutes = 0; minutes < 24 * 60; minutes += SLOT_GRANULARITY_MINUTES) {
+  for (let minutes = 0; minutes < 24 * 60; minutes += slotIntervalMinutes) {
     if (fitsWithinOpenHours(hourly, mode, minutes, durationMinutes)) starts.push(minutesToTime(minutes));
   }
   return starts;

@@ -14,6 +14,7 @@ import { notify } from "@/lib/notify";
 type ServicesViewProps = {
   initialServices: ServiceSettings[];
   zoneNames: string[];
+  defaultDuration: number;
 };
 
 // Le calcul kilométrique reste une préférence d'affichage locale (pas encore
@@ -21,7 +22,7 @@ type ServicesViewProps = {
 // dans le formulaire d'une prestation, jamais les prix enregistrés.
 let sessionKilometricFeesEnabled = initialSettings.kilometricFeesEnabled;
 
-export function ServicesView({ initialServices, zoneNames }: ServicesViewProps) {
+export function ServicesView({ initialServices, zoneNames, defaultDuration }: ServicesViewProps) {
   const currentUser = useCurrentUser();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
   const [services, setServices] = useState<ServiceSettings[]>(initialServices);
@@ -98,7 +99,7 @@ export function ServicesView({ initialServices, zoneNames }: ServicesViewProps) 
         <Toggle checked={kilometricFeesEnabled} onChange={updateKilometricFeesEnabled} label={kilometricFeesEnabled ? "Activés" : "Désactivés"} disabled={!canManagePublicSettings} />
       </Card>
 
-      <ServicesSettingsTab services={services} zoneNames={zoneNames} kilometricFeesEnabled={kilometricFeesEnabled} saving={saving} canEdit={canManagePublicSettings} onSave={saveService} onToggle={toggleService} onDelete={removeService} />
+      <ServicesSettingsTab services={services} zoneNames={zoneNames} kilometricFeesEnabled={kilometricFeesEnabled} defaultDuration={defaultDuration} saving={saving} canEdit={canManagePublicSettings} onSave={saveService} onToggle={toggleService} onDelete={removeService} />
 
       <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-white p-4 text-sm leading-6 text-animeo-muted">
         Ces prestations sont enregistrées et apparaissent immédiatement sur votre page publique de réservation.

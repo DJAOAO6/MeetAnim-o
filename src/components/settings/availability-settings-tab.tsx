@@ -91,6 +91,22 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
       </Card>
 
       <Card className="p-5 sm:p-6">
+        <SectionTitle title="Durée des rendez-vous" description="Ces réglages pilotent la prise de rendez-vous en ligne et le formulaire de création de prestation — chaque rendez-vous ou prestation reste ensuite librement modifiable." />
+        <div className="grid gap-4 sm:max-w-xl sm:grid-cols-2">
+          <Field label="Durée par défaut d’une prestation">
+            <select value={draft.defaultAppointmentDuration} onChange={(event) => setDraft((current) => ({ ...current, defaultAppointmentDuration: Number(event.target.value) }))} className={inputClassName}>
+              {[15, 30, 45, 60, 90].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+            </select>
+          </Field>
+          <Field label="Pas des créneaux proposés en ligne">
+            <select value={draft.slotInterval} onChange={(event) => setDraft((current) => ({ ...current, slotInterval: Number(event.target.value) }))} className={inputClassName}>
+              {[10, 15, 20, 30].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+            </select>
+          </Field>
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
         <SectionTitle
           title="Fermetures exceptionnelles"
           description="Bloquez ponctuellement le Cabinet, le Domicile ou les deux."
