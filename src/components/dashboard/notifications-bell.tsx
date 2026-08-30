@@ -8,7 +8,9 @@ import { relativeDayLabel } from "@/components/dashboard/dashboard-date";
 import { useReminders } from "@/components/dashboard/reminders-context";
 import { Icon } from "@/components/ui/icon";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
+import type { Appointment } from "@/data/appointments";
 import { formatNotificationBadge } from "@/lib/format";
+import { notify } from "@/lib/notify";
 
 type NotificationsBellProps = {
   /** "surface" : bouton blanc sur fond clair (DashboardTopBar). "onDark" : bouton translucide sur le bandeau mobile de la sidebar. */
@@ -47,7 +49,7 @@ function persistStoredIds(key: string, ids: Set<string>) {
 
 export function NotificationsBell({ variant = "surface" }: NotificationsBellProps) {
   const { reminders } = useReminders();
-  const { appointments, openManager } = useAppointments();
+  const { appointments, openManager, updateAppointmentStatus } = useAppointments();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,6 +88,19 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
       persistStoredIds(HIDDEN_STORAGE_KEY, next);
       return next;
     });
+  }
+
+  // Valider/Refuser directement depuis la notification, sans repasser par
+  // l'agenda — la demande sort naturellement de pendingAppointments une fois
+  // son statut changé (le filtre status === "pending" ne la retient plus).
+  async function respondToRequest(appointment: Appointment, status: "confirmed" | "cancelled") {
+    markRead(`pending:${appointment.id}`);
+    const result = await updateAppointmentStatus(appointment.id, status);
+    if (!result.ok) {
+      notify.error(result.error ?? "Une erreur est survenue.");
+      return;
+    }
+    notify.success(status === "confirmed" ? `Rendez-vous de ${appointment.animalName} validé.` : `Demande de ${appointment.animalName} refusée.`);
   }
 
   const dueReminders = useMemo(
@@ -199,34 +214,55 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                     const key = `pending:${appointment.id}`;
                     const unread = !readIds.has(key);
                     return (
-                      <div key={appointment.id} className="group flex items-center gap-1 rounded-xl transition hover:bg-animeo-bg">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            markRead(key);
-                            close();
-                            openManager(appointment.id);
-                          }}
-                          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
-                        >
-                          {unread ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-animeo" /> : <span className="w-1.5 shrink-0" />}
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff4dd] text-[#b7791f]">
-                            <Icon name="agenda" className="h-4 w-4" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-extrabold text-animeo-dark">{appointment.animalName}</span>
-                            <span className="block truncate text-xs text-animeo-muted">{appointment.clientName}</span>
-                          </span>
-                          <span className="shrink-0 text-xs font-bold text-animeo-muted">{appointment.start}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => hideNotification(key)}
-                          aria-label={`Masquer la notification de ${appointment.animalName}`}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-animeo-muted transition hover:bg-white hover:text-animeo-dark mr-2"
-                        >
-                          ×
-                        </button>
+                      <div key={appointment.id} className="group rounded-xl transition hover:bg-animeo-bg">
+                        <div className="flex items-center gap-1">
+                          <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5">
+                            {unread ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-animeo" /> : <span className="w-1.5 shrink-0" />}
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff4dd] text-[#b7791f]">
+                              <Icon name="agenda" className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-extrabold text-animeo-dark">{appointment.animalName}</span>
+                              <span className="block truncate text-xs text-animeo-muted">{appointment.clientName}</span>
+                            </span>
+                            <span className="shrink-0 text-xs font-bold text-animeo-muted">{appointment.start}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => hideNotification(key)}
+                            aria-label={`Masquer la notification de ${appointment.animalName}`}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-animeo-muted transition hover:bg-white hover:text-animeo-dark mr-2"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 pb-2.5 pl-8">
+                          <button
+                            type="button"
+                            onClick={() => respondToRequest(appointment, "confirmed")}
+                            className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]"
+                          >
+                            Valider
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => respondToRequest(appointment, "cancelled")}
+                            className="rounded-lg bg-[#fff0eb] px-2.5 py-1.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]"
+                          >
+                            Refuser
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              markRead(key);
+                              close();
+                              openManager(appointment.id);
+                            }}
+                            className="ml-auto rounded-lg border border-[#d7e4e1] bg-white px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+                          >
+                            Voir plus
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
