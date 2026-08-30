@@ -72,7 +72,10 @@ export function findMatchingZone(zones: PublicZone[], postalCode: string | undef
 export function computeTravelFee(service: PublicService, mode: "cabinet" | "home", zones: PublicZone[], postalCode: string | undefined, city: string | undefined): number {
   if (mode !== "home") return 0;
   if (service.travelFeeMode === "fixed") return service.fixedTravelFee;
-  if (service.travelFeeMode === "zone") return findMatchingZone(zones, postalCode, city)?.travelFee ?? 0;
+  if (service.travelFeeMode === "zone") {
+    const zone = findMatchingZone(zones, postalCode, city);
+    return zone ? service.zoneFees[zone.name] ?? 0 : 0;
+  }
   return 0;
 }
 

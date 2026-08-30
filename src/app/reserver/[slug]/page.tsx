@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PublicBookingFlow } from "@/components/booking/public-booking-flow";
-import { bookingProfessionals, type PublicProfessional } from "@/data/public-booking";
+import type { PublicProfessional } from "@/data/public-booking";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { getPublicServices } from "@/lib/services-actions";
+import { getPublicZones } from "@/lib/tours";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +12,8 @@ async function loadProfessional(slug: string): Promise<PublicProfessional | null
   const profile = await getBusinessProfile();
   if (profile.slug !== slug) return null;
 
-  const base = bookingProfessionals[0];
-  const services = await getPublicServices();
+  const [services, zones] = await Promise.all([getPublicServices(), getPublicZones()]);
   return {
-    ...base,
     slug: profile.slug,
     firstName: profile.firstName,
     lastName: profile.lastName,
@@ -31,6 +30,7 @@ async function loadProfessional(slug: string): Promise<PublicProfessional | null
     cabinetAvailable: profile.cabinetAvailable,
     homeAvailable: profile.homeAvailable,
     services,
+    zones,
   };
 }
 

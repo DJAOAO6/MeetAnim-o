@@ -14,6 +14,11 @@ export type PublicService = {
   homePrice: number;
   travelFeeMode: TravelFeeMode;
   fixedTravelFee: number;
+  // Frais de déplacement par zone pour cette prestation (mode "zone"),
+  // clé = PublicZone.name — chaque prestation peut facturer différemment la
+  // même zone (AUDIT_COMPLET.md P2-22), donc ce n'est pas un champ de
+  // PublicZone.
+  zoneFees: Record<string, number>;
   // Photo uploadée par le professionnel ; absente si aucune photo n'a été
   // choisie, auquel cas l'étape "Consultation" affiche une photo générique
   // selon animalTypes[0].
@@ -25,7 +30,6 @@ export type PublicZone = {
   name: string;
   cities: string[];
   postalCodes: string[];
-  travelFee: number;
   tourDays: string[];
 };
 
@@ -108,98 +112,6 @@ export type PublicBookingRequest = {
   totalPrice: number;
   createdAt: string;
 };
-
-export const bookingProfessionals: PublicProfessional[] = [
-  {
-    slug: "pauline-faucillon",
-    firstName: "Pauline",
-    lastName: "Faucillon",
-    profession: "Ostéopathe animalier",
-    company: "PF Ostéo Animale",
-    bio: "J’accompagne chiens, chats, chevaux, NAC et petits ruminants grâce à une prise en charge adaptée à chaque animal.",
-    location: "Rouen et Normandie",
-    cabinetAddress: "12 rue Exemple",
-    cabinetPostalCode: "76000",
-    cabinetCity: "Rouen",
-    color: "#4FAF9F",
-    logo: "PF",
-    photo: "PF",
-    cabinetAvailable: true,
-    homeAvailable: true,
-    services: [
-      {
-        id: "osteo-canine",
-        name: "Ostéopathie canine",
-        description: "Bilan complet et séance adaptée à votre chien.",
-        duration: 60,
-        animalTypes: ["Chien"],
-        cabinetEnabled: true,
-        cabinetPrice: 60,
-        homeEnabled: true,
-        homePrice: 70,
-        travelFeeMode: "zone",
-        fixedTravelFee: 0,
-      },
-      {
-        id: "osteo-feline",
-        name: "Ostéopathie féline",
-        description: "Une prise en charge douce pour votre chat.",
-        duration: 45,
-        animalTypes: ["Chat"],
-        cabinetEnabled: true,
-        cabinetPrice: 55,
-        homeEnabled: true,
-        homePrice: 65,
-        travelFeeMode: "fixed",
-        fixedTravelFee: 10,
-      },
-      {
-        id: "osteo-equine",
-        name: "Ostéopathie équine",
-        description: "Consultation directement sur le lieu de vie du cheval.",
-        duration: 60,
-        animalTypes: ["Cheval"],
-        cabinetEnabled: false,
-        cabinetPrice: 0,
-        homeEnabled: true,
-        homePrice: 80,
-        travelFeeMode: "zone",
-        fixedTravelFee: 0,
-      },
-      {
-        id: "consultation-nac",
-        name: "Consultation NAC",
-        description: "Consultation pour les nouveaux animaux de compagnie.",
-        duration: 45,
-        animalTypes: ["NAC"],
-        cabinetEnabled: true,
-        cabinetPrice: 50,
-        homeEnabled: true,
-        homePrice: 60,
-        travelFeeMode: "none",
-        fixedTravelFee: 0,
-      },
-      {
-        id: "consultation-petit-ruminant",
-        name: "Consultation petit ruminant",
-        description: "Bilan et séance adaptés aux chèvres, moutons et autres petits ruminants.",
-        duration: 60,
-        animalTypes: ["Petit ruminant"],
-        cabinetEnabled: false,
-        cabinetPrice: 0,
-        homeEnabled: true,
-        homePrice: 75,
-        travelFeeMode: "zone",
-        fixedTravelFee: 0,
-      },
-    ],
-    zones: [
-      { id: "zone-rouen-nord", name: "Zone Rouen Nord", cities: ["Rouen", "Bois-Guillaume", "Mont-Saint-Aignan", "Bihorel"], postalCodes: ["76000", "76130", "76230", "76420"], travelFee: 0, tourDays: ["Mardi"] },
-      { id: "zone-le-havre", name: "Zone Le Havre", cities: ["Le Havre", "Montivilliers", "Harfleur", "Gonfreville-l’Orcher"], postalCodes: ["76290", "76600", "76700"], travelFee: 10, tourDays: ["Lundi"] },
-      { id: "zone-dieppe", name: "Zone Dieppe", cities: ["Dieppe", "Offranville", "Rouxmesnil-Bouteilles"], postalCodes: ["76200", "76370", "76550"], travelFee: 15, tourDays: ["Vendredi"] },
-    ],
-  },
-];
 
 // Les créneaux réellement proposés viennent désormais de
 // src/lib/public-schedule.ts (getPublicScheduleAction), généré à partir des

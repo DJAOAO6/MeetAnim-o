@@ -118,6 +118,7 @@ function toPublicService(service: ServiceSettings): PublicService {
     homePrice: service.homePrice,
     travelFeeMode: feeMode,
     fixedTravelFee: feeMode === "fixed" ? service.fixedTravelFee : 0,
+    zoneFees: feeMode === "zone" ? service.zoneFees : {},
     photoUrl: service.photoUrl ?? undefined,
   };
 }

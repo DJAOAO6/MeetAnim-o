@@ -5,6 +5,7 @@ import { coordinatesForCity } from "@/data/normandy-cities";
 import { jitterCoordinates, projectToPercent } from "@/lib/geo";
 import type { AnimalSpecies } from "@/data/species";
 import type { City, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
+import type { PublicZone } from "@/data/public-booking";
 import type { TourStatus as DbTourStatus } from "@/generated/prisma/client";
 
 const statusLabel: Record<DbTourStatus, Tour["status"]> = {
@@ -19,6 +20,31 @@ export async function getZones(): Promise<Zone[]> {
     id: zone.id,
     name: zone.name,
     cities: zone.cities.map((city): City => ({ id: city.id, name: city.name, postalCode: city.postalCode })),
+  }));
+}
+
+/**
+ * Zones réellement configurées par le praticien (Tournées/Zones), pour la
+ * page de réservation publique — AUDIT_COMPLET.md P2-22 : jusqu'ici les
+ * zones affichées côté public étaient des données de démonstration figées
+ * dans data/public-booking.ts, indépendantes de ce que le praticien
+ * configure réellement dans le tableau de bord. tourDays n'est
+ * qu'informatif (rassure le visiteur sur un passage régulier) : dérivé des
+ * tournées actives associées à chaque zone, pas utilisé pour le calcul de
+ * disponibilité. Le frais de déplacement par zone n'est plus porté ici
+ * (contrairement aux anciennes données de démonstration) : il dépend de la
+ * prestation choisie (ServiceSettings.zoneFees), calculé côté
+ * booking-validation.ts.
+ */
+export async function getPublicZones(): Promise<PublicZone[]> {
+  const [zones, tours] = await Promise.all([getZones(), getTours()]);
+
+  return zones.map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+    cities: zone.cities.map((city) => city.name),
+    postalCodes: zone.cities.map((city) => city.postalCode),
+    tourDays: [...new Set(tours.filter((tour) => tour.zoneId === zone.id && tour.status === "Active").map((tour) => tour.day))],
   }));
 }
 

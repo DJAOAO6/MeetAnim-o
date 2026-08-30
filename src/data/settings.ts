@@ -95,7 +95,11 @@ export type SettingsState = {
   kilometricFeesEnabled: boolean;
 };
 
-const defaultZoneFees = { Rouen: 0, "Le Havre": 10, Dieppe: 15 };
+// Plus de valeurs par défaut par nom de zone : les zones réelles sont
+// configurées dans Tournées, pas connues statiquement ici — AUDIT_COMPLET.md
+// P2-22. Une prestation en mode "zone" démarre donc sans frais tant que le
+// praticien ne les a pas saisis pour ses zones réelles dans ServiceModal.
+const defaultZoneFees: Record<string, number> = {};
 
 export const initialSettings: SettingsState = {
   profile: {
@@ -201,5 +205,3 @@ export const initialSettings: SettingsState = {
   publicColor: "#2F7A6E",
   kilometricFeesEnabled: false,
 };
-
-export const serviceZoneNames = ["Rouen", "Le Havre", "Dieppe"];

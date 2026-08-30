@@ -4,12 +4,13 @@ import { useState, type FormEvent } from "react";
 import { Field, ImagePicker, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
-import { serviceZoneNames, type AnimalType, type ServiceSettings } from "@/data/settings";
+import type { AnimalType, ServiceSettings } from "@/data/settings";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { PublicAnimalType } from "@/data/public-booking";
 
 type ServiceModalProps = {
   service?: ServiceSettings;
+  zoneNames: string[];
   kilometricFeesEnabled: boolean;
   saving: boolean;
   onClose: () => void;
@@ -39,7 +40,7 @@ const emptyService: ServiceSettings = {
   photoUrl: null,
 };
 
-export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, onSave }: ServiceModalProps) {
+export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, saving, onClose, onSave }: ServiceModalProps) {
   const [draft, setDraft] = useState<ServiceSettings>(service ?? emptyService);
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
@@ -156,9 +157,13 @@ export function ServiceModal({ service, kilometricFeesEnabled, saving, onClose, 
                     ) : null}
 
                     {feeSelection === "zone" ? (
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        {serviceZoneNames.map((zone) => <Field key={zone} label={zone}><PriceInput value={draft.zoneFees[zone] ?? 0} onChange={(value) => update("zoneFees", { ...draft.zoneFees, [zone]: value })} prefix="+" /></Field>)}
-                      </div>
+                      zoneNames.length > 0 ? (
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {zoneNames.map((zone) => <Field key={zone} label={zone}><PriceInput value={draft.zoneFees[zone] ?? 0} onChange={(value) => update("zoneFees", { ...draft.zoneFees, [zone]: value })} prefix="+" /></Field>)}
+                        </div>
+                      ) : (
+                        <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Aucune zone n’est configurée. Créez-en une dans Tournées avant d’utiliser ce mode de calcul.</p>
+                      )
                     ) : null}
 
                     {feeSelection === "kilometric" ? (

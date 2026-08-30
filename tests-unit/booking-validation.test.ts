@@ -38,6 +38,7 @@ const service: PublicService = {
   homePrice: 70,
   travelFeeMode: "zone",
   fixedTravelFee: 0,
+  zoneFees: { "Zone Rouen": 0, "Zone Le Havre": 10 },
 };
 
 const cabinetOnlyService: PublicService = { ...service, id: "svc-2", homeEnabled: false, homePrice: 0 };
@@ -45,8 +46,8 @@ const fixedFeeService: PublicService = { ...service, id: "svc-3", travelFeeMode:
 const noFeeService: PublicService = { ...service, id: "svc-4", travelFeeMode: "none" };
 
 const zones: PublicZone[] = [
-  { id: "zone-rouen", name: "Zone Rouen", cities: ["Rouen", "Bois-Guillaume"], postalCodes: ["76000", "76130"], travelFee: 0, tourDays: ["Mardi"] },
-  { id: "zone-le-havre", name: "Zone Le Havre", cities: ["Le Havre"], postalCodes: ["76600"], travelFee: 10, tourDays: ["Lundi"] },
+  { id: "zone-rouen", name: "Zone Rouen", cities: ["Rouen", "Bois-Guillaume"], postalCodes: ["76000", "76130"], tourDays: ["Mardi"] },
+  { id: "zone-le-havre", name: "Zone Le Havre", cities: ["Le Havre"], postalCodes: ["76600"], tourDays: ["Lundi"] },
 ];
 
 test("isBookingDateAcceptable rejects past dates", () => {
@@ -113,6 +114,17 @@ test("computeTravelFee falls back to 0 when zone mode has no matching zone (neve
 
 test("computeTravelFee is 0 for travelFeeMode 'none'", () => {
   assert.equal(computeTravelFee(noFeeService, "home", zones, "76600", undefined), 0);
+});
+
+test("computeTravelFee looks up the fee on the service, not the zone — the same zone can cost differently per service (AUDIT_COMPLET.md P2-22)", () => {
+  const otherService: PublicService = { ...service, id: "svc-5", zoneFees: { "Zone Rouen": 5, "Zone Le Havre": 25 } };
+  assert.equal(computeTravelFee(service, "home", zones, "76600", undefined), 10);
+  assert.equal(computeTravelFee(otherService, "home", zones, "76600", undefined), 25);
+});
+
+test("computeTravelFee falls back to 0 when the matched zone has no fee entry for this service", () => {
+  const serviceMissingZoneFee: PublicService = { ...service, id: "svc-6", zoneFees: {} };
+  assert.equal(computeTravelFee(serviceMissingZoneFee, "home", zones, "76600", undefined), 0);
 });
 
 test("computeTotalPrice sums consultation price and travel fee", () => {

@@ -222,7 +222,7 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
   const zone = professional.zones.find((item) => item.id === zoneId);
   const consultationPrice = service && mode ? (mode === "CABINET" ? service.cabinetPrice : service.homePrice) : 0;
   const travelFee = service && mode === "HOME"
-    ? service.travelFeeMode === "fixed" ? service.fixedTravelFee : service.travelFeeMode === "zone" ? zone?.travelFee ?? 0 : 0
+    ? service.travelFeeMode === "fixed" ? service.fixedTravelFee : service.travelFeeMode === "zone" ? (zone ? service.zoneFees[zone.name] ?? 0 : 0) : 0
     : 0;
 
   function resetBooking() {
