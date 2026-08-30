@@ -302,7 +302,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
                 </span>
               </button>
               {canDelete ? (
-                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#fff1f1] text-animeo-error transition hover:bg-[#ffe0e0] disabled:opacity-50">
+                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffe4e4] text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-[#ffd2d2] hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
                   <TrashIcon />
                 </button>
               ) : (

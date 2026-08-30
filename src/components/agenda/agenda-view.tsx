@@ -402,7 +402,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
               onSelectTour={handleSelectTour}
               onSelectBlockedSlot={handleSelectBlockedSlot}
             />
-            <AgendaSidePanel weekDates={weekDates} tours={tours} tourAppointments={tourAppointments} />
+            <AgendaSidePanel weekDates={weekDates} tours={tours} tourAppointments={tourAppointments} onSelectDate={jumpToDay} />
           </div>
         </>
       ) : view === "month" ? (

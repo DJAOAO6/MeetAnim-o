@@ -265,7 +265,7 @@ function ClientTableRow({ client, canDelete, onDeleted }: { client: Client; canD
       <td className="px-6 py-4">
         <div className="flex items-center justify-end gap-2">
           <ClientLink id={client.id} />
-          {canDelete ? <button type="button" disabled={pending} onClick={deleteClient} title="Supprimer ce client" aria-label="Supprimer ce client" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff1f1] text-animeo-error transition hover:bg-[#ffe0e0] disabled:opacity-50"><TrashIcon /></button> : null}
+          {canDelete ? <button type="button" disabled={pending} onClick={deleteClient} title="Supprimer ce client" aria-label="Supprimer ce client" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffe4e4] text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-[#ffd2d2] hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"><TrashIcon /></button> : null}
         </div>
         {error ? <p role="alert" className="mt-1.5 text-right text-[11px] font-bold text-animeo-error">{error}</p> : null}
       </td>
@@ -284,7 +284,7 @@ function ClientMobileCard({ client, canDelete, onDeleted }: { client: Client; ca
           <h3 className="truncate font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</h3>
           <p className="text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
         </div>
-        {canDelete ? <button type="button" disabled={pending} onClick={deleteClient} title="Supprimer ce client" aria-label="Supprimer ce client" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff1f1] text-animeo-error transition hover:bg-[#ffe0e0] disabled:opacity-50"><TrashIcon /></button> : null}
+        {canDelete ? <button type="button" disabled={pending} onClick={deleteClient} title="Supprimer ce client" aria-label="Supprimer ce client" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffe4e4] text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-[#ffd2d2] hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"><TrashIcon /></button> : null}
       </div>
       <dl className="mt-4 space-y-2 text-sm">
         <InfoLine label="Téléphone" value={client.phone} />

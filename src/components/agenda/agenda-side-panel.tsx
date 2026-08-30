@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,7 @@ type AgendaSidePanelProps = {
   weekDates: Date[];
   tours: Tour[];
   tourAppointments: Record<string, TourAppointment[]>;
+  onSelectDate: (date: Date) => void;
 };
 
 const weekDayLabels = ["L", "M", "M", "J", "V", "S", "D"];
@@ -35,30 +37,64 @@ function getCalendarDays(visibleDate: Date) {
   });
 }
 
-export function AgendaSidePanel({ weekDates, tours, tourAppointments }: AgendaSidePanelProps) {
+export function AgendaSidePanel({ weekDates, tours, tourAppointments, onSelectDate }: AgendaSidePanelProps) {
   return (
     <aside className="grid gap-6 sm:grid-cols-2 xl:sticky xl:top-6 xl:grid-cols-1" aria-label="Informations complémentaires de l’agenda">
-      <MiniCalendar weekDates={weekDates} />
+      <MiniCalendar weekDates={weekDates} onSelectDate={onSelectDate} />
       <NextAppointment />
       <TodayTour tours={tours} tourAppointments={tourAppointments} />
     </aside>
   );
 }
 
-function MiniCalendar({ weekDates }: { weekDates: Date[] }) {
-  const visibleDate = weekDates[3];
+function MiniCalendar({ weekDates, onSelectDate }: { weekDates: Date[]; onSelectDate: (date: Date) => void }) {
+  const referenceWeekDate = weekDates[3];
+  const referenceYear = referenceWeekDate.getFullYear();
+  const referenceMonth = referenceWeekDate.getMonth();
+  const [monthOffset, setMonthOffset] = useState(0);
+  // Synchronisation dans les deux sens : quand le planning principal change
+  // de semaine (navigation, "Aujourd'hui"), le mini calendrier doit suivre
+  // sans qu'il faille cliquer dessus — on annule alors tout parcours
+  // indépendant du mois fait via ses propres flèches. Ajustement pendant le
+  // rendu plutôt que dans un effet (évite un rendu supplémentaire) : voir
+  // « Adjusting state when a prop changes » dans la doc React.
+  const [prevReference, setPrevReference] = useState({ referenceYear, referenceMonth });
+  if (prevReference.referenceYear !== referenceYear || prevReference.referenceMonth !== referenceMonth) {
+    setPrevReference({ referenceYear, referenceMonth });
+    setMonthOffset(0);
+  }
+
+  const visibleDate = useMemo(
+    () => new Date(referenceYear, referenceMonth + monthOffset, 1, 12),
+    [referenceYear, referenceMonth, monthOffset],
+  );
   const days = getCalendarDays(visibleDate);
   const title = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(visibleDate);
 
   return (
     <Card className="p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Calendrier</p>
-          <h2 className="mt-1 font-extrabold capitalize text-animeo-dark">{title}</h2>
+          <h2 className="mt-1 truncate font-extrabold capitalize text-animeo-dark">{title}</h2>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">
-          <Icon name="calendar" className="h-5 w-5" />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setMonthOffset((current) => current - 1)}
+            aria-label="Mois précédent"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-animeo-dark transition hover:bg-animeo-bg"
+          >
+            <Icon name="arrow" className="h-4 w-4 rotate-180" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMonthOffset((current) => current + 1)}
+            aria-label="Mois suivant"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-animeo-dark transition hover:bg-animeo-bg"
+          >
+            <Icon name="arrow" className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
@@ -72,9 +108,12 @@ function MiniCalendar({ weekDates }: { weekDates: Date[] }) {
           const isToday = sameDay(date, new Date());
 
           return (
-            <span
+            <button
               key={date.toISOString()}
-              className={`mx-auto flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold ${
+              type="button"
+              onClick={() => onSelectDate(date)}
+              aria-label={new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date)}
+              className={`mx-auto flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition hover:bg-animeo hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-animeo-dark ${
                 isToday
                   ? "bg-animeo text-white"
                   : inSelectedWeek
@@ -85,7 +124,7 @@ function MiniCalendar({ weekDates }: { weekDates: Date[] }) {
               }`}
             >
               {date.getDate()}
-            </span>
+            </button>
           );
         })}
       </div>

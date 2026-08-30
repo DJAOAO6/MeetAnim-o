@@ -7,12 +7,43 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { relativeDayLabel } from "@/components/dashboard/dashboard-date";
 import { useReminders } from "@/components/dashboard/reminders-context";
 import { Icon } from "@/components/ui/icon";
+import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { formatNotificationBadge } from "@/lib/format";
 
 type NotificationsBellProps = {
   /** "surface" : bouton blanc sur fond clair (DashboardTopBar). "onDark" : bouton translucide sur le bandeau mobile de la sidebar. */
   variant?: "surface" | "onDark";
 };
+
+const HIDDEN_STORAGE_KEY = "animeo:notifications:hidden";
+const READ_STORAGE_KEY = "animeo:notifications:read";
+
+/**
+ * Il n'existe pas de table Notification en base : ce panneau dérive tout en
+ * direct des vraies demandes de rendez-vous en attente et des vrais rappels
+ * à relancer. « Lu » et « masqué » n'ont donc pas de pendant serveur — ce
+ * sont des préférences d'affichage purement locales (par appareil), qui ne
+ * touchent jamais le rendez-vous ou le rappel sous-jacent : le masquer ici
+ * ne le résout pas, il reste à traiter normalement depuis Agenda/Rappels.
+ */
+function readStoredIds(key: string): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? new Set(parsed.filter((item): item is string => typeof item === "string")) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function persistStoredIds(key: string, ids: Set<string>) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify([...ids]));
+  } catch {
+    // best-effort : une préférence d'affichage locale, jamais bloquant
+  }
+}
 
 export function NotificationsBell({ variant = "surface" }: NotificationsBellProps) {
   const { reminders } = useReminders();
@@ -23,23 +54,62 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // Démarre vide (identique au rendu serveur) puis se remplit depuis
+  // localStorage une fois l'hydratation passée (useHasMounted), pour ne
+  // jamais désaccorder le premier rendu client du rendu serveur — ajusté
+  // pendant le rendu plutôt que dans un effet, même motif que plus haut
+  // dans ce fichier (pas de setState direct dans un effet).
+  const hasMounted = useHasMounted();
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [storageLoaded, setStorageLoaded] = useState(false);
+  if (hasMounted && !storageLoaded) {
+    setStorageLoaded(true);
+    setHiddenIds(readStoredIds(HIDDEN_STORAGE_KEY));
+    setReadIds(readStoredIds(READ_STORAGE_KEY));
+  }
+
+  function markRead(key: string) {
+    setReadIds((current) => {
+      if (current.has(key)) return current;
+      const next = new Set(current);
+      next.add(key);
+      persistStoredIds(READ_STORAGE_KEY, next);
+      return next;
+    });
+  }
+
+  function hideNotification(key: string) {
+    setHiddenIds((current) => {
+      const next = new Set(current);
+      next.add(key);
+      persistStoredIds(HIDDEN_STORAGE_KEY, next);
+      return next;
+    });
+  }
 
   const dueReminders = useMemo(
-    () => reminders.filter((reminder) => reminder.status === "À relancer").sort((first, second) => first.dueDate.localeCompare(second.dueDate)),
-    [reminders],
+    () => reminders
+      .filter((reminder) => reminder.status === "À relancer" && !hiddenIds.has(`reminder:${reminder.id}`))
+      .sort((first, second) => first.dueDate.localeCompare(second.dueDate)),
+    [reminders, hiddenIds],
   );
   const pendingAppointments = useMemo(
     () =>
       appointments
-        .filter((appointment) => appointment.status === "pending")
+        .filter((appointment) => appointment.status === "pending" && !hiddenIds.has(`pending:${appointment.id}`))
         .sort((first, second) => `${first.date} ${first.start}`.localeCompare(`${second.date} ${second.start}`)),
-    [appointments],
+    [appointments, hiddenIds],
   );
   // Aucun troncage ici : la liste rendue ci-dessous est exhaustive (panneau
   // défilant), donc ce total correspond toujours à ce qui est réellement
-  // atteignable — plus de badge qui ment sur un .slice(0, 4) local.
+  // atteignable — plus de badge qui ment sur un .slice(0, 4) local. Le
+  // compteur ne reflète que les notifications non lues (une notification
+  // lue reste visible dans la liste, juste retirée du badge).
+  const unreadCount = dueReminders.filter((reminder) => !readIds.has(`reminder:${reminder.id}`)).length
+    + pendingAppointments.filter((appointment) => !readIds.has(`pending:${appointment.id}`)).length;
   const notificationCount = dueReminders.length + pendingAppointments.length;
-  const badgeLabel = formatNotificationBadge(notificationCount);
+  const badgeLabel = formatNotificationBadge(unreadCount);
 
   // Ferme le panneau à chaque changement de route, ajusté pendant le rendu
   // plutôt que dans un effet (pas de setState synchrone dans un effet).
@@ -89,13 +159,13 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label={`Notifications${notificationCount > 0 ? ` — ${notificationCount} importantes` : ""}`}
+        aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} non lues` : ""}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         className={triggerClassName}
       >
         <Icon name="bell" className="h-5 w-5" />
-        {notificationCount > 0 ? (
+        {unreadCount > 0 ? (
           <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#C1533C] px-1 text-xs font-black leading-none text-white ring-2 ring-white">
             {badgeLabel}
           </span>
@@ -104,7 +174,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
 
       {/* Discrète, hors flux visuel : signale le changement de compteur aux technologies d'assistance sans dépendre du focus. */}
       <span role="status" aria-live="polite" className="sr-only">
-        {notificationCount > 0 ? `${notificationCount} notification${notificationCount > 1 ? "s" : ""} importante${notificationCount > 1 ? "s" : ""}` : "Aucune notification importante"}
+        {unreadCount > 0 ? `${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""}` : "Aucune notification non lue"}
       </span>
 
       <div
@@ -125,44 +195,74 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
               {pendingAppointments.length > 0 ? (
                 <div className="mb-1">
                   <p className="px-3 pb-1 pt-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Demandes de rendez-vous</p>
-                  {pendingAppointments.map((appointment) => (
-                    <button
-                      key={appointment.id}
-                      type="button"
-                      onClick={() => {
-                        close();
-                        openManager(appointment.id);
-                      }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-animeo-bg"
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff4dd] text-[#b7791f]">
-                        <Icon name="agenda" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-extrabold text-animeo-dark">{appointment.animalName}</span>
-                        <span className="block truncate text-xs text-animeo-muted">{appointment.clientName}</span>
-                      </span>
-                      <span className="shrink-0 text-xs font-bold text-animeo-muted">{appointment.start}</span>
-                    </button>
-                  ))}
+                  {pendingAppointments.map((appointment) => {
+                    const key = `pending:${appointment.id}`;
+                    const unread = !readIds.has(key);
+                    return (
+                      <div key={appointment.id} className="group flex items-center gap-1 rounded-xl transition hover:bg-animeo-bg">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            markRead(key);
+                            close();
+                            openManager(appointment.id);
+                          }}
+                          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+                        >
+                          {unread ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-animeo" /> : <span className="w-1.5 shrink-0" />}
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff4dd] text-[#b7791f]">
+                            <Icon name="agenda" className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-extrabold text-animeo-dark">{appointment.animalName}</span>
+                            <span className="block truncate text-xs text-animeo-muted">{appointment.clientName}</span>
+                          </span>
+                          <span className="shrink-0 text-xs font-bold text-animeo-muted">{appointment.start}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => hideNotification(key)}
+                          aria-label={`Masquer la notification de ${appointment.animalName}`}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-animeo-muted transition hover:bg-white hover:text-animeo-dark mr-2"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
 
               {dueReminders.length > 0 ? (
                 <div>
                   <p className="px-3 pb-1 pt-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Rappels à relancer</p>
-                  {dueReminders.map((reminder) => (
-                    <Link key={reminder.id} href="/dashboard/rappels" onClick={close} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-animeo-bg">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-soft text-animeo-dark">
-                        <Icon name="paw" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-extrabold text-animeo-dark">{reminder.animalName}</span>
-                        <span className="block truncate text-xs text-animeo-muted">{reminder.clientName}</span>
-                      </span>
-                      <span className="shrink-0 text-xs font-bold text-animeo-muted">{relativeDayLabel(reminder.dueDate)}</span>
-                    </Link>
-                  ))}
+                  {dueReminders.map((reminder) => {
+                    const key = `reminder:${reminder.id}`;
+                    const unread = !readIds.has(key);
+                    return (
+                      <div key={reminder.id} className="group flex items-center gap-1 rounded-xl transition hover:bg-animeo-bg">
+                        <Link href="/dashboard/rappels" onClick={() => { markRead(key); close(); }} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5">
+                          {unread ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-animeo" /> : <span className="w-1.5 shrink-0" />}
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-soft text-animeo-dark">
+                            <Icon name="paw" className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-extrabold text-animeo-dark">{reminder.animalName}</span>
+                            <span className="block truncate text-xs text-animeo-muted">{reminder.clientName}</span>
+                          </span>
+                          <span className="shrink-0 text-xs font-bold text-animeo-muted">{relativeDayLabel(reminder.dueDate)}</span>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => hideNotification(key)}
+                          aria-label={`Masquer la notification de ${reminder.animalName}`}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-animeo-muted transition hover:bg-white hover:text-animeo-dark mr-2"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </>
