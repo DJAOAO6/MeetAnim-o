@@ -4,13 +4,21 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
+import { getTours } from "@/lib/tours";
 import type { City, Tour, Zone } from "@/data/tours";
 import type { Tour as DbTour, TourStatus as DbTourStatus } from "@/generated/prisma/client";
 
 const dbTourStatus: Record<Tour["status"], DbTourStatus> = { Active: "ACTIVE", Inactive: "INACTIVE" };
 const tourStatusLabel: Record<DbTourStatus, Tour["status"]> = { ACTIVE: "Active", INACTIVE: "Inactive" };
 
-function toTour(row: DbTour): Tour {
+/**
+ * appointmentCount/consultationHours ne sont plus des colonnes (P2-25) :
+ * recalculées depuis les vrais rendez-vous de la prochaine occurrence
+ * (getTours(), déjà appelé pour toute la liste) plutôt que dupliquées ici.
+ */
+async function toTour(row: DbTour): Promise<Tour> {
+  const tours = await getTours();
+  const computed = tours.find((tour) => tour.id === row.id);
   return {
     id: row.id,
     name: row.name,
@@ -22,9 +30,9 @@ function toTour(row: DbTour): Tour {
     endTime: row.endTime,
     zoneId: row.zoneId,
     status: tourStatusLabel[row.status],
-    appointmentCount: row.appointmentCount,
+    appointmentCount: computed?.appointmentCount ?? 0,
     estimatedKm: row.estimatedKm,
-    consultationHours: row.consultationHours,
+    consultationHours: computed?.consultationHours ?? "0h",
   };
 }
 
@@ -46,6 +54,7 @@ export type SaveTourInput = {
   endTime: string;
   zoneId: string;
   status: Tour["status"];
+  estimatedKm: number;
 };
 
 export async function saveTourAction(input: SaveTourInput): Promise<TourActionResult> {
@@ -68,16 +77,15 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
     endTime: input.endTime,
     zoneId: input.zoneId,
     status: dbTourStatus[input.status],
+    estimatedKm: Math.max(0, input.estimatedKm),
   };
 
   const row = input.id
     ? await prisma.tour.update({ where: { id: input.id }, data })
-    : await prisma.tour.create({
-        data: { ...data, dateLabel: `${input.day} · prochaine occurrence`, appointmentCount: 0, estimatedKm: 0, consultationHours: "0h" },
-      });
+    : await prisma.tour.create({ data: { ...data, dateLabel: `${input.day} · prochaine occurrence` } });
 
   await revalidateToursPages();
-  return { ok: true, tour: toTour(row) };
+  return { ok: true, tour: await toTour(row) };
 }
 
 export async function toggleTourStatusAction(id: string): Promise<TourActionResult> {
@@ -95,7 +103,7 @@ export async function toggleTourStatusAction(id: string): Promise<TourActionResu
   });
 
   await revalidateToursPages();
-  return { ok: true, tour: toTour(row) };
+  return { ok: true, tour: await toTour(row) };
 }
 
 export type ZoneActionResult = { ok: true; zone: Zone } | { ok: false; error: string };

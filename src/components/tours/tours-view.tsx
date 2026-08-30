@@ -19,19 +19,20 @@ type ToursViewProps = {
   initialZones: Zone[];
   appointments: Record<string, TourAppointment[]>;
   mapClients: MapClient[];
+  weeklyHomeAppointments: number;
 };
 
-const stats: Array<{ label: string; value: string; icon: IconName; color: string; background: string }> = [
-  { label: "Tournées actives", value: "3", icon: "tournees", color: "text-animeo", background: "bg-animeo-soft" },
-  { label: "RDV domicile cette semaine", value: "8", icon: "agenda", color: "text-animeo-dark", background: "bg-[#e8f1f4]" },
-  { label: "Kilomètres estimés", value: "186 km", icon: "map", color: "text-[#b7791f]", background: "bg-[#fff4dd]" },
-  { label: "Zones desservies", value: "4", icon: "map", color: "text-[#8067b0]", background: "bg-[#eeeaf8]" },
-];
-
-export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients }: ToursViewProps) {
+export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments }: ToursViewProps) {
   const [activeTab, setActiveTab] = useState<"tours" | "map">(initialTab);
   const [tours, setTours] = useState(initialTours);
   const [zones, setZones] = useState(initialZones);
+  const activeTours = tours.filter((tour) => tour.status === "Active");
+  const stats: Array<{ label: string; value: string; icon: IconName; color: string; background: string }> = [
+    { label: "Tournées actives", value: String(activeTours.length), icon: "tournees", color: "text-animeo", background: "bg-animeo-soft" },
+    { label: "RDV domicile cette semaine", value: String(weeklyHomeAppointments), icon: "agenda", color: "text-animeo-dark", background: "bg-[#e8f1f4]" },
+    { label: "Kilomètres estimés", value: `${activeTours.reduce((sum, tour) => sum + tour.estimatedKm, 0)} km`, icon: "map", color: "text-[#b7791f]", background: "bg-[#fff4dd]" },
+    { label: "Zones desservies", value: String(zones.length), icon: "map", color: "text-[#8067b0]", background: "bg-[#eeeaf8]" },
+  ];
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const [tourModal, setTourModal] = useState<Tour | "new" | null>(null);
   const [zoneModal, setZoneModal] = useState<Zone | "new" | null>(null);

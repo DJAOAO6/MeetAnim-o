@@ -341,40 +341,31 @@ model City {
   @@index([zoneId])
 }
 
+/**
+ * appointmentCount/consultationHours ne sont plus des colonnes stockées
+ * (AUDIT_COMPLET.md P2-25) : figées à 0/"0h" pour toute tournée créée via
+ * l'app réelle (jamais mises à jour), elles sont désormais calculées à la
+ * lecture depuis les vrais Appointment de la prochaine occurrence de la
+ * tournée (voir src/lib/tours.ts). estimatedKm reste une colonne : aucune
+ * coordonnée géocodée pour le cabinet lui-même n'existe en base pour la
+ * calculer réellement (même constat que Statistiques/P2-24) — c'est une
+ * estimation saisie à la main par la praticienne.
+ */
 model Tour {
-  id                String     @id @default(cuid())
-  name              String
-  recurrence        String
-  day               String
-  dateId            String?
-  dateLabel         String
-  startTime         String
-  endTime           String
-  zoneId            String
-  zone              Zone       @relation(fields: [zoneId], references: [id])
-  status            TourStatus @default(ACTIVE)
-  appointmentCount  Int        @default(0)
-  estimatedKm       Float      @default(0)
-  consultationHours String
-
-  tourAppointments TourAppointment[]
+  id          String     @id @default(cuid())
+  name        String
+  recurrence  String
+  day         String
+  dateId      String?
+  dateLabel   String
+  startTime   String
+  endTime     String
+  zoneId      String
+  zone        Zone       @relation(fields: [zoneId], references: [id])
+  status      TourStatus @default(ACTIVE)
+  estimatedKm Float      @default(0)
 
   @@index([zoneId])
-}
-
-model TourAppointment {
-  id         String @id @default(cuid())
-  tourId     String
-  tour       Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  time       String
-  animalName String
-  service    String
-  city       String
-  clientName String
-  lat        Float
-  lng        Float
-
-  @@index([tourId])
 }
 
 model BusinessProfile {

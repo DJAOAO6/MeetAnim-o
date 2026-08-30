@@ -3,7 +3,7 @@ import { AgendaView } from "@/components/agenda/agenda-view";
 import { getBlockedSlots } from "@/lib/blocked-slots-actions";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getClientPickerOptions } from "@/lib/clients";
-import { getTourAppointments, getTours, getZones } from "@/lib/tours";
+import { getTours, getTourStops, getZones } from "@/lib/tours";
 
 export const metadata: Metadata = { title: "Agenda" };
 
@@ -13,7 +13,7 @@ export default async function AgendaPage() {
     getAvailability(),
     getTours(),
     getZones(),
-    getTourAppointments(),
+    getTourStops(),
     getBlockedSlots(),
   ]);
 

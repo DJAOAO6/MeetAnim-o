@@ -205,7 +205,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 | P2-22 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `data/public-booking.ts` | — | — |
 | P2-23 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `reminders-view.tsx` | — | — |
 | P2-24 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `stats-view.tsx` | — | — |
-| P2-25 | La table `TourAppointment` n'a aucun chemin d'écriture applicatif — seul le script de seed peut la peupler | `src/lib/tours.ts` | P2 | Moyenne |
+| P2-25 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `src/lib/tours.ts` | — | — |
 | P2-26 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `src/lib/rate-limit.ts` etc. | — | — |
 | P2-27 | ⚪ Faux positif, vérifié — `AUTH_EMAIL`/`AUTH_PASSWORD_HASH_BASE64` sont bien référencées et fonctionnelles (voir note détaillée), rien retiré | `.env.local.example` | — | — |
 | P2-28 | 🟢 Corrigé et testé — `feature-placeholder.tsx` confirmé orphelin (0 importeur) puis supprimé | Code mort | — | — |
@@ -517,11 +517,12 @@ Mais aucune de ces vérifications indépendantes ne confirme un débordement vis
 
 ### Corrigé depuis l'audit initial
 - **Tout est désormais réellement persisté** (P0-2) — c'était la fonctionnalité la moins aboutie du produit malgré une UI complète ; elle est maintenant fonctionnelle de bout en bout, avec le rejet serveur correct d'une suppression de zone encore utilisée par une tournée.
+- Corrigé (2026-08-30, P2-25) : `TourAppointment` (table jamais alimentée par l'app réelle, seul le seed pouvait la peupler) supprimée — remplacée par un vrai calcul à la lecture des arrêts d'une tournée depuis les rendez-vous à domicile réels dont la ville/code postal correspond à sa zone, à sa prochaine occurrence (`nextOccurrenceDateId`, `src/lib/tour-schedule.ts`). Bug plus profond découvert en creusant P2-25 : `Tour.appointmentCount`/`consultationHours` étaient des colonnes figées à 0/« 0h » pour toute tournée créée via l'app réelle (jamais mises à jour) — désormais calculées à chaque lecture, plus stockées. Le bandeau de statistiques de `/dashboard/tournees` (Tournées actives, RDV domicile cette semaine, kilomètres estimés, zones desservies) était lui aussi entièrement codé en dur (`"3"`, `"8"`, `"186 km"`, `"4"`, jamais dérivé des props) — désormais réel. `estimatedKm` reste une estimation saisie à la main dans la modale de tournée (nouveau champ) : aucune coordonnée géocodée pour le cabinet lui-même n'existe en base pour la calculer réellement, même constat que Statistiques/P2-24.
 
 ### Ce qui reste incomplet
-- La table technique `TourAppointment` n'a toujours aucun chemin d'écriture applicatif (P2-25) — distincte de `Tour`/`Zone`, désormais réelles ; les rendez-vous affichés sur une tournée restent ceux du seed initial.
+- Les positions sur la mini-carte d'une tournée restent honnêtement labellisées « Simulation » (pas de vrai calcul d'itinéraire/trajet) — non concerné par P2-25, qui portait sur les arrêts eux-mêmes et leur nombre, pas sur le tracé.
 
-### Niveau actuel : 3.5/5 — CRUD complet et persistant ; il manque encore le calcul réel des rendez-vous rattachés à une tournée (P2-25) pour atteindre un niveau avancé.
+### Niveau actuel : 4.5/5 — CRUD complet, persistant, et les arrêts/compteurs d'une tournée reflètent désormais les vrais rendez-vous ; il ne manque qu'un vrai calcul de trajet (hors périmètre, nécessiterait un service de routage externe) pour un niveau avancé.
 
 ## Rappels
 

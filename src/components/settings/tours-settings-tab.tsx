@@ -31,6 +31,7 @@ export function ToursSettingsTab({ initialTours, zones }: ToursSettingsTabProps)
       endTime: tour.endTime,
       zoneId: tour.zoneId,
       status: tour.status,
+      estimatedKm: tour.estimatedKm,
     });
     if (!result.ok) {
       notify.error(result.error);

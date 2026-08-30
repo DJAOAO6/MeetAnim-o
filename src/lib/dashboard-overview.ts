@@ -1,7 +1,7 @@
 import "server-only";
 import { getClients } from "@/lib/clients";
 import { getReminders } from "@/lib/reminders";
-import { getTourAppointments, getTours, getZones } from "@/lib/tours";
+import { getTours, getTourStops, getZones } from "@/lib/tours";
 import type { Client } from "@/data/clients";
 import type { Reminder } from "@/data/reminders";
 import type { Tour, TourAppointment, Zone } from "@/data/tours";
@@ -19,7 +19,7 @@ export async function getDashboardOverviewData(): Promise<DashboardOverviewData>
     getClients(),
     getTours(),
     getZones(),
-    getTourAppointments(),
+    getTourStops(),
     getReminders(),
   ]);
 

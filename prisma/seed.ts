@@ -177,7 +177,6 @@ async function seedUsers() {
 
 async function resetDatabase() {
   await prisma.$transaction([
-    prisma.tourAppointment.deleteMany(),
     prisma.tour.deleteMany(),
     prisma.city.deleteMany(),
     prisma.zone.deleteMany(),
@@ -372,18 +371,23 @@ async function seedFakeClients(count: number) {
   }
 }
 
+/**
+ * Le nombre de rendez-vous et les heures de consultation ne sont plus des
+ * champs à peupler ici (AUDIT_COMPLET.md P2-25) : calculés à la lecture
+ * depuis les vrais Appointment domicile de la zone de la tournée
+ * (seedAgendaAppointments ci-dessous crée ces rendez-vous réels, avec de
+ * vraies coordonnées géographiques). estimatedKm reste une estimation
+ * saisie à la main, faute de coordonnées géocodées pour le cabinet lui-même.
+ */
 async function seedToursAndAppointments(zoneByName: Map<string, string>) {
   const tourDefinitions = [
-    { name: "Tournée Le Havre", zone: "Zone Le Havre", day: "Lundi", startTime: "09:00", endTime: "18:00", estimatedKm: 42, consultationHours: "5h" },
-    { name: "Tournée Rouen Nord", zone: "Zone Rouen Nord", day: "Mardi", startTime: "09:00", endTime: "17:00", estimatedKm: 28, consultationHours: "4h" },
-    { name: "Tournée Dieppe", zone: "Zone Dieppe", day: "Vendredi", startTime: "10:00", endTime: "16:00", estimatedKm: 64, consultationHours: "1h30" },
+    { name: "Tournée Le Havre", zone: "Zone Le Havre", day: "Lundi", startTime: "09:00", endTime: "18:00", estimatedKm: 42 },
+    { name: "Tournée Rouen Nord", zone: "Zone Rouen Nord", day: "Mardi", startTime: "09:00", endTime: "17:00", estimatedKm: 28 },
+    { name: "Tournée Dieppe", zone: "Zone Dieppe", day: "Vendredi", startTime: "10:00", endTime: "16:00", estimatedKm: 64 },
   ];
 
-  const clients = await prisma.client.findMany({ include: { animals: true } });
-
   for (const definition of tourDefinitions) {
-    const cityInZone = CITIES.filter((city) => city.zone === definition.zone);
-    const tour = await prisma.tour.create({
+    await prisma.tour.create({
       data: {
         name: definition.name,
         recurrence: "Toutes les semaines",
@@ -393,35 +397,9 @@ async function seedToursAndAppointments(zoneByName: Map<string, string>) {
         endTime: definition.endTime,
         zoneId: zoneByName.get(definition.zone)!,
         status: "ACTIVE",
-        appointmentCount: 0,
         estimatedKm: definition.estimatedKm,
-        consultationHours: definition.consultationHours,
       },
     });
-
-    const candidates = clients.filter((client) => cityInZone.some((city) => city.name === client.city));
-    const picks = candidates.slice(0, faker.number.int({ min: 2, max: Math.min(4, Math.max(candidates.length, 1)) }));
-
-    let hour = 9;
-    for (const client of picks) {
-      const animal = pick(client.animals.length ? client.animals : [{ name: "Animal", species: "Chien" }] as Array<{ name: string; species: string }>);
-      const city = cityInZone.find((c) => c.name === client.city) ?? cityInZone[0];
-      await prisma.tourAppointment.create({
-        data: {
-          tourId: tour.id,
-          time: `${String(hour).padStart(2, "0")}:00`,
-          animalName: animal.name,
-          service: SERVICES_BY_SPECIES[animal.species] ?? "Ostéopathie canine",
-          city: client.city,
-          clientName: `${client.firstName} ${client.lastName}`,
-          lat: city?.lat ?? 49.44,
-          lng: city?.lng ?? 1.1,
-        },
-      });
-      hour += 2;
-    }
-
-    await prisma.tour.update({ where: { id: tour.id }, data: { appointmentCount: picks.length } });
   }
 }
 
@@ -433,6 +411,10 @@ async function seedAgendaAppointments() {
     const animal = pick(client.animals);
     const date = faker.date.soon({ days: 10 });
     const mode: VisitMode = faker.datatype.boolean() ? "DOMICILE" : "CABINET";
+    // postalCode/city réels (pas seulement `location`, du texte libre) :
+    // nécessaires pour que les tournées retrouvent ce rendez-vous comme un
+    // arrêt réel de leur zone (findMatchingZone, cf. src/lib/tours.ts).
+    const cityMatch = mode === "DOMICILE" ? CITIES.find((city) => city.name === client.city) : undefined;
     await prisma.appointment.create({
       data: {
         clientId: client.id,
@@ -445,6 +427,10 @@ async function seedAgendaAppointments() {
         duration: pick([45, 60, 90]),
         mode,
         location: mode === "CABINET" ? "Cabinet" : client.city,
+        postalCode: cityMatch?.postalCode,
+        city: cityMatch?.name,
+        latitude: cityMatch?.lat,
+        longitude: cityMatch?.lng,
         price: faker.number.int({ min: 50, max: 95 }),
         status: pick(["PENDING", "CONFIRMED", "CONFIRMED", "CONFIRMED"] as const),
         notes: faker.lorem.sentence(),
