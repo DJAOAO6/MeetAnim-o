@@ -163,7 +163,7 @@ function NextAppointment() {
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs font-bold text-animeo-muted">Durée {appointment.duration} min</p>
-        <button type="button" onClick={() => openManager(appointment.id)} className="text-xs font-extrabold text-animeo">Modifier</button>
+        <button type="button" onClick={() => openManager(appointment.id)} className="text-xs font-extrabold text-animeo">Voir la fiche</button>
       </div>
     </Card>
   );

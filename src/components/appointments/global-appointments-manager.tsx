@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
+import { AppointmentSummary } from "@/components/appointments/appointment-summary";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { inputClassName } from "@/components/settings/settings-fields";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
@@ -35,6 +36,18 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [actionError, setActionError] = useState<string | null>(null);
   const [formDirty, setFormDirty] = useState(false);
+  // Atterrir sur la fiche récapitulative (lecture seule) avant le
+  // formulaire de modification, jamais directement dessus — sinon un champ
+  // peut être changé par mégarde rien qu'en cliquant "Modifier" dans la
+  // liste. Réinitialisé à "view" (ajusté pendant le rendu, jamais dans un
+  // effet) dès que la sélection change, pour ne jamais rouvrir un
+  // rendez-vous différent directement en édition.
+  const [detailMode, setDetailMode] = useState<"view" | "edit">("view");
+  const [lastSelectedAppointmentId, setLastSelectedAppointmentId] = useState(selectedAppointmentId);
+  if (selectedAppointmentId !== lastSelectedAppointmentId) {
+    setLastSelectedAppointmentId(selectedAppointmentId);
+    setDetailMode("view");
+  }
 
   function guardedCloseManager() {
     if (!confirmDiscardChanges(formDirty)) return;
@@ -47,6 +60,12 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
     setActionError(null);
     const result = await updateAppointmentStatus(appointmentId, status);
     if (!result.ok) setActionError(result.error ?? "Une erreur est survenue.");
+  }
+
+  async function saveExistingAppointment(input: Parameters<typeof saveAppointment>[0]) {
+    const result = await saveAppointment(input);
+    if (result.ok) setDetailMode("view");
+    return result;
   }
 
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedAppointmentId);
@@ -69,16 +88,34 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
               <button type="button" onClick={guardedCloseManager} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-2xl text-animeo-muted">×</button>
             </header>
 
-            {creatingAppointment || selectedAppointment ? (
+            {creatingAppointment ? (
               <AppointmentForm
-                key={selectedAppointment?.id ?? "new-appointment"}
-                appointment={selectedAppointment}
+                key="new-appointment"
                 clients={clients}
                 defaultDate={newAppointmentDefaultDate}
                 onSave={saveAppointment}
                 onBack={() => openManager()}
                 onDirtyChange={setFormDirty}
               />
+            ) : selectedAppointment ? (
+              detailMode === "edit" ? (
+                <AppointmentForm
+                  key={selectedAppointment.id}
+                  appointment={selectedAppointment}
+                  clients={clients}
+                  onSave={saveExistingAppointment}
+                  onBack={() => setDetailMode("view")}
+                  backLabel="Retour à la fiche"
+                  onDirtyChange={setFormDirty}
+                />
+              ) : (
+                <AppointmentSummary
+                  appointment={selectedAppointment}
+                  onEdit={() => setDetailMode("edit")}
+                  onBack={() => openManager()}
+                  backLabel="Tous les rendez-vous"
+                />
+              )
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="border-b border-[#dce8e5] bg-white p-4 sm:p-5">
@@ -115,7 +152,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                           <p className="text-sm font-bold text-animeo-muted">{appointment.clientName} · {appointment.serviceName}</p>
                           <p className="mt-1 text-xs text-animeo-muted">{appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`} · {appointment.duration} min · {formatPrice(appointment.price)}</p>
                         </div>
-                        <button type="button" onClick={() => openManager(appointment.id)} className="shrink-0 rounded-xl bg-animeo-soft px-3 py-2 text-xs font-extrabold text-animeo-dark">Modifier</button>
+                        <button type="button" onClick={() => openManager(appointment.id)} className="shrink-0 rounded-xl bg-animeo-soft px-3 py-2 text-xs font-extrabold text-animeo-dark">Voir la fiche</button>
                       </div>
 
                       {appointment.status === "pending" ? (
