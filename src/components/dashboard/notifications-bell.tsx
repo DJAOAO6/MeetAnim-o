@@ -13,7 +13,7 @@ import { formatNotificationBadge } from "@/lib/format";
 import { notify } from "@/lib/notify";
 
 type NotificationsBellProps = {
-  /** "surface" : bouton blanc sur fond clair (DashboardTopBar). "onDark" : bouton translucide sur le bandeau mobile de la sidebar. */
+  /** "surface" : bouton blanc sur fond clair (HeaderActions). "onDark" : bouton translucide sur le bandeau mobile de la sidebar. */
   variant?: "surface" | "onDark";
 };
 

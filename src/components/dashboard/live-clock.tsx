@@ -12,7 +12,7 @@ function formatDate(date: Date) {
 }
 
 /**
- * Date du jour + heure en direct, dans l'en-tête partagé (DashboardTopBar).
+ * Date du jour + heure en direct, dans l'en-tête partagé (HeaderActions).
  * Isolé dans son propre composant pour que la mise à jour minute par minute
  * ne re-rende que ce bloc, pas tout le reste de l'en-tête (recherche, avatar).
  * useHasMounted (plutôt qu'un setState direct dans un effet) évite tout

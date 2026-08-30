@@ -76,7 +76,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
         </Link>
         {/* Cloche + bouton menu regroupés dans un même conteneur fixe, pour
             ne pas empiler une seconde barre d'en-tête sous 768px : la cloche
-            de DashboardTopBar est masquée sur mobile et vit ici à la place
+            de HeaderActions est masquée sur mobile et vit ici à la place
             (PROMPT-NOTIFICATIONS.md §B2 bis, option 1). */}
         {/* Cloche placée après le bouton menu (dernier élément du groupe) :
             le panneau s'ancre en `right-0` sur son propre conteneur, donc la

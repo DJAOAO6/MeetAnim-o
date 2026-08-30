@@ -12,7 +12,7 @@ const RemindersContext = createContext<RemindersContextValue | null>(null);
 /**
  * Miroir en lecture seule des rappels, monté une fois dans le layout dashboard
  * (comme AppointmentsProvider) pour que la cloche de notifications y accède
- * sans faire transiter `reminders` en prop à travers DashboardTopBar. Les
+ * sans faire transiter `reminders` en prop à travers HeaderActions. Les
  * mutations (marquer envoyé, ignorer…) restent gérées localement par
  * reminders-view.tsx, qui a son propre état optimiste — ce contexte se
  * resynchronise simplement sur les données fraîches renvoyées par le serveur

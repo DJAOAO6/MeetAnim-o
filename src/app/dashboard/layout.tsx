@@ -5,7 +5,6 @@ import { GlobalAppointmentsManager } from "@/components/appointments/global-appo
 import { CurrentUserProvider } from "@/components/auth/current-user-provider";
 import { DashboardFloatingActions } from "@/components/dashboard/dashboard-floating-actions";
 import { DashboardRealtimeRefresh } from "@/components/dashboard/dashboard-realtime-refresh";
-import { DashboardTopBar } from "@/components/dashboard/dashboard-top-bar";
 import { RemindersProvider } from "@/components/dashboard/reminders-context";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provider";
@@ -34,7 +33,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <div className="min-h-screen bg-animeo-bg pt-16 text-animeo-text md:pl-64 md:pt-0">
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} />
               <main className="mx-auto min-h-screen max-w-[1600px] p-4 sm:p-7 lg:p-10">
-                <DashboardTopBar />
                 {children}
               </main>
               <GlobalAppointmentsManager clients={clientOptions} />
