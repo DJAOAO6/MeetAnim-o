@@ -77,16 +77,26 @@ export async function updateClientAction(clientId: string, input: ClientContactI
   const email = input.email.trim();
   if (email && !emailPattern.test(email)) return { ok: false, error: "Email invalide." };
 
-  const updated = await prisma.client.update({
-    where: { id: clientId },
-    data: { firstName, lastName, phone: input.phone.trim(), email, city: input.city.trim(), address: input.address.trim() },
-    include: clientInclude,
-  });
+  const fullName = `${firstName} ${lastName}`;
+  const [updated] = await prisma.$transaction([
+    prisma.client.update({
+      where: { id: clientId },
+      data: { firstName, lastName, phone: input.phone.trim(), email, city: input.city.trim(), address: input.address.trim() },
+      include: clientInclude,
+    }),
+    // Appointment.clientName est dénormalisé pour rester la seule source
+    // d'affichage des rendez-vous « volants » sans clientId (AUDIT_COMPLET.md
+    // P2-16) — donc pas remplaçable par une jointure, mais doit être
+    // resynchronisé à chaque modification du client source.
+    prisma.appointment.updateMany({ where: { clientId }, data: { clientName: fullName } }),
+  ]);
   await logAudit({ userId: user.id, action: "CLIENT_UPDATED", entityType: "Client", entityId: clientId });
 
   revalidatePath(`/dashboard/clients/${clientId}`);
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/carte");
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard");
 
   return { ok: true, client: mapClient(updated) };
 }
@@ -113,12 +123,17 @@ export async function updateAnimalAction(animalId: string, input: UpdateAnimalIn
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Le nom de l’animal est obligatoire." };
 
-  await prisma.animal.update({ where: { id: animalId }, data: { ...input, name } });
+  await prisma.$transaction([
+    prisma.animal.update({ where: { id: animalId }, data: { ...input, name } }),
+    prisma.appointment.updateMany({ where: { animalId }, data: { animalName: name } }),
+  ]);
   await logAudit({ userId: user.id, action: "ANIMAL_UPDATED", entityType: "Animal", entityId: animalId, metadata: { clientId: animal.clientId } });
 
   revalidatePath(`/dashboard/clients/${animal.clientId}`);
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/rappels");
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard");
 
   return { ok: true };
 }
