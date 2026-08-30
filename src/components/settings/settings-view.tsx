@@ -88,7 +88,14 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
 
   async function saveAvailability(value: AvailabilitySettings, message: string) {
     setSaving(true);
-    const result = await updateAvailabilityAction(value);
+    let result = await updateAvailabilityAction(value);
+
+    if (!result.ok && result.conflicts?.length) {
+      const preview = result.conflicts.slice(0, 5).map((conflict) => `- ${conflict.date} ${conflict.start} · ${conflict.animalName} (${conflict.clientName})`).join("\n");
+      const more = result.conflicts.length > 5 ? `\n… et ${result.conflicts.length - 5} autre(s).` : "";
+      const confirmed = window.confirm(`${result.error}\n\n${preview}${more}\n\nEnregistrer quand même ?`);
+      if (confirmed) result = await updateAvailabilityAction(value, true);
+    }
     setSaving(false);
 
     if (!result.ok) {

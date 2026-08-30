@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
+import { getDayAvailability } from "@/lib/availability";
+import { fitsWithinOpenHours, parseDateIdToLocalNoon, timeToMinutes } from "@/lib/booking-validation";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings } from "@/data/settings";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -83,10 +85,63 @@ export async function getAvailability(): Promise<AvailabilitySettings> {
   return initialSettings.availability;
 }
 
-export async function updateAvailabilityAction(input: AvailabilitySettings): Promise<BusinessProfileActionResult> {
+export type AvailabilityConflict = { appointmentId: string; date: string; start: string; clientName: string; animalName: string };
+export type UpdateAvailabilityResult = { ok: true } | { ok: false; error: string; conflicts?: AvailabilityConflict[] };
+
+/**
+ * Rendez-vous confirmés/en attente à venir qui ne tiendraient plus dans la
+ * nouvelle configuration de disponibilités (AUDIT_COMPLET.md P2-19) —
+ * réutilise fitsWithinOpenHours, déjà couvert par des tests unitaires pour
+ * le cas d'un rendez-vous qui chevauche plusieurs heures.
+ */
+async function findAvailabilityConflicts(newAvailability: AvailabilitySettings): Promise<AvailabilityConflict[]> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcoming = await prisma.appointment.findMany({
+    where: { status: { in: ["CONFIRMED", "PENDING"] }, date: { gte: today } },
+    select: { id: true, date: true, start: true, duration: true, mode: true, clientName: true, animalName: true },
+  });
+
+  const conflicts: AvailabilityConflict[] = [];
+  for (const appointment of upcoming) {
+    // appointment.date peut porter un horodatage non normalisé à minuit (bug
+    // de qualité de données préexistant côté seed) — reconstruire une date
+    // ancrée à midi heure locale à partir du jour calendaire UTC, pour que
+    // .getDay() (utilisé par getDayAvailability) reflète toujours le bon
+    // jour de la semaine, indépendamment du fuseau du serveur.
+    const dateId = appointment.date.toISOString().slice(0, 10);
+    const { hourly } = getDayAvailability(parseDateIdToLocalNoon(dateId), newAvailability);
+    const mode = appointment.mode === "CABINET" ? "cabinet" : "home";
+    const startMinutes = timeToMinutes(appointment.start);
+    if (!fitsWithinOpenHours(hourly, mode, startMinutes, appointment.duration)) {
+      conflicts.push({
+        appointmentId: appointment.id,
+        date: dateId,
+        start: appointment.start,
+        clientName: appointment.clientName,
+        animalName: appointment.animalName,
+      });
+    }
+  }
+  return conflicts;
+}
+
+export async function updateAvailabilityAction(input: AvailabilitySettings, force = false): Promise<UpdateAvailabilityResult> {
   const user = await requireUser();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les disponibilités." };
+  }
+
+  if (!force) {
+    const conflicts = await findAvailabilityConflicts(input);
+    if (conflicts.length > 0) {
+      return {
+        ok: false,
+        error: `${conflicts.length} rendez-vous confirmé${conflicts.length > 1 ? "s" : ""} ne serai${conflicts.length > 1 ? "ent" : "t"} plus dans une plage disponible avec ces horaires.`,
+        conflicts,
+      };
+    }
   }
 
   const existing = await prisma.businessProfile.findFirst({ select: { id: true } });
