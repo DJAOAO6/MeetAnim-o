@@ -95,6 +95,16 @@ function minutesBetween(start: string, end: string) {
   return (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
 }
 
+type PendingRequest = {
+  id: string;
+  appointmentId: string;
+  date: string;
+  start: string;
+  animal: string;
+  client: string;
+  location: string;
+};
+
 type AgendaViewProps = {
   clients: ClientPickerOption[];
   availability: AvailabilitySettings;
@@ -151,12 +161,22 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
       client: appointment.clientName,
       location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
     }));
-  const pendingRequests = appointmentEvents.filter((event) => event.kind === "pending");
-  // Le panneau n'affiche que les demandes de la période visible (jour/semaine
-  // affichée) : ce total global sert uniquement à ne pas affirmer à tort
-  // « Toutes les demandes ont été traitées » quand il en reste ailleurs
-  // (AUDIT_COMPLET.md P1-9).
-  const totalPendingCount = appointments.filter((appointment) => appointment.status === "pending").length;
+  // Indépendant de activeDates/view : une demande en attente doit rester
+  // visible même quand la période actuellement affichée dans le planning ne
+  // la contient pas (AUDIT_COMPLET.md P1-9 — corrige le fait que le panneau
+  // se limitait auparavant à la période affichée).
+  const pendingRequests: PendingRequest[] = appointments
+    .filter((appointment) => appointment.status === "pending")
+    .map((appointment) => ({
+      id: appointment.id,
+      appointmentId: appointment.id,
+      date: appointment.date,
+      start: appointment.start,
+      animal: appointment.animalName,
+      client: appointment.clientName,
+      location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
+    }))
+    .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
 
   function matchesFilter(kind: CalendarEvent["kind"]) {
     return filter === "all" || filter === kind;
@@ -288,7 +308,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     setView("month");
   }
 
-  async function handlePendingAction(action: string, event: CalendarEvent) {
+  async function handlePendingAction(action: string, event: CalendarEvent | PendingRequest) {
     if (!event.appointmentId) return;
     if (action === "Décalage demandé") {
       openManager(event.appointmentId);
@@ -394,7 +414,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
 
       {view === "day" || view === "week" ? (
         <>
-          <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} totalPendingCount={totalPendingCount} onAction={handlePendingAction} />
+          <PendingRequestsPanel requests={pendingRequests} onAction={handlePendingAction} />
 
           {toolbarCard}
 
@@ -415,6 +435,8 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
         </>
       ) : view === "month" ? (
         <>
+          <PendingRequestsPanel requests={pendingRequests} onAction={handlePendingAction} />
+
           {toolbarCard}
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
           <Card className="overflow-hidden p-4 sm:p-5">
@@ -450,6 +472,8 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
         </>
       ) : (
         <>
+          <PendingRequestsPanel requests={pendingRequests} onAction={handlePendingAction} />
+
           {toolbarCard}
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
           <div className="flex flex-col gap-4">
@@ -506,12 +530,12 @@ function navLabel(view: AgendaViewMode, direction: "précédent" | "suivant") {
   return `Afficher ${unit} ${suffix}`;
 }
 
-function PendingRequestsPanel({ requests, weekDates, totalPendingCount, onAction }: {
-  requests: CalendarEvent[];
-  weekDates: Date[];
-  totalPendingCount: number;
-  onAction: (action: string, event: CalendarEvent) => void;
+function PendingRequestsPanel({ requests, onAction }: {
+  requests: PendingRequest[];
+  onAction: (action: string, event: PendingRequest) => void;
 }) {
+  if (requests.length === 0) return null;
+
   const dateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
   return (
@@ -526,38 +550,28 @@ function PendingRequestsPanel({ requests, weekDates, totalPendingCount, onAction
         </div>
       </div>
 
-      {requests.length > 0 ? (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {requests.map((request) => (
-            <article key={request.id} className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-animeo-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#62420e]">En attente</span>
-                    <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(weekDates[request.day])} · {request.start}</span>
-                  </div>
-                  <h3 className="mt-2 text-lg font-black text-animeo-dark">{request.animal}</h3>
-                  <p className="text-sm font-bold text-animeo-muted">{request.client}</p>
-                  <p className="mt-1 text-xs text-animeo-muted">{request.location}</p>
+      <div className="grid gap-3 xl:grid-cols-2">
+        {requests.map((request) => (
+          <article key={request.id} className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-animeo-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#62420e]">En attente</span>
+                  <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>
                 </div>
-                <div className="grid shrink-0 grid-cols-3 gap-2 sm:flex">
-                  <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]">Accepter</button>
-                  <button type="button" onClick={() => onAction("Décalage demandé", request)} className="rounded-xl border border-[#d7e4e1] bg-white px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">Décaler</button>
-                  <button type="button" onClick={() => onAction("Refusé", request)} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]">Refuser</button>
-                </div>
+                <h3 className="mt-2 text-lg font-black text-animeo-dark">{request.animal}</h3>
+                <p className="text-sm font-bold text-animeo-muted">{request.client}</p>
+                <p className="mt-1 text-xs text-animeo-muted">{request.location}</p>
               </div>
-            </article>
-          ))}
-        </div>
-      ) : totalPendingCount === 0 ? (
-        <div className="rounded-2xl bg-animeo-soft px-4 py-5 text-sm font-bold text-animeo-dark">✓ Toutes les demandes ont été traitées.</div>
-      ) : (
-        // Ne pas affirmer « tout est traité » : il reste des demandes en
-        // attente, simplement hors de la période actuellement affichée.
-        <div className="rounded-2xl bg-animeo-soft px-4 py-5 text-sm font-bold text-animeo-dark">
-          Aucune demande pour cette période. {totalPendingCount} demande{totalPendingCount > 1 ? "s" : ""} en attente sur une autre période.
-        </div>
-      )}
+              <div className="grid shrink-0 grid-cols-3 gap-2 sm:flex">
+                <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]">Accepter</button>
+                <button type="button" onClick={() => onAction("Décalage demandé", request)} className="rounded-xl border border-[#d7e4e1] bg-white px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">Décaler</button>
+                <button type="button" onClick={() => onAction("Refusé", request)} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]">Refuser</button>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
     </Card>
   );
 }

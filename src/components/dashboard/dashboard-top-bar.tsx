@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { LiveClock } from "@/components/dashboard/live-clock";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { initialsFor } from "@/lib/format";
 
@@ -27,6 +28,8 @@ export function DashboardTopBar() {
 
   return (
     <div className="mb-6 hidden items-center justify-end gap-3 md:flex">
+      <LiveClock />
+
       <form onSubmit={submitSearch} role="search" className="relative hidden sm:block">
         <SearchIcon />
         <input
