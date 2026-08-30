@@ -1,4 +1,5 @@
 import "server-only";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -25,6 +26,14 @@ type AuditAction =
   | "ANIMAL_DELETED"
   | "ANIMAL_UPDATED";
 
+// AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
+// lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
+// des ~15 sites d'appel de logAudit() la passe explicitement.
+async function requestIp(): Promise<string | null> {
+  const headerList = await headers();
+  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+}
+
 export async function logAudit(entry: {
   userId?: string | null;
   action: AuditAction;
@@ -39,6 +48,7 @@ export async function logAudit(entry: {
       entityType: entry.entityType,
       entityId: entry.entityId,
       metadata: entry.metadata,
+      ipAddress: await requestIp(),
     },
   });
 }
