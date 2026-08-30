@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { RevenueChart } from "@/components/stats/stats-ui";
 import { dateId, referenceDate, startOfWeek, weekDatesFrom } from "@/components/dashboard/dashboard-date";
 
@@ -16,7 +17,18 @@ function capitalize(value: string) {
 export function DashboardActivityChart() {
   const { appointments } = useAppointments();
 
+  // referenceDate() lit l'horloge murale de l'environnement d'exécution :
+  // le rendu SSR (fuseau du serveur) et la première passe client (fuseau du
+  // navigateur de l'utilisateur) peuvent donc calculer des dates de semaine
+  // différentes près de minuit ou quand les fuseaux diffèrent, provoquant un
+  // vrai mismatch d'hydratation React — AUDIT_COMPLET.md P2-18. useHasMounted
+  // garantit que le HTML SSR et la première passe client affichent tous
+  // deux un graphique vide identique ; la vraie série n'est calculée
+  // qu'ensuite, une fois côté client.
+  const mounted = useHasMounted();
+
   const series = useMemo(() => {
+    if (!mounted) return [];
     const weekDates = weekDatesFrom(startOfWeek(referenceDate()));
     const active = appointments.filter((appointment) => appointment.status !== "cancelled");
 
@@ -25,7 +37,7 @@ export function DashboardActivityChart() {
       const value = active.filter((appointment) => appointment.date === id).length;
       return { label: capitalize(weekdayFormatter.format(date)), value };
     });
-  }, [appointments]);
+  }, [mounted, appointments]);
 
   return (
     <Card className="p-5 sm:p-6">
