@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDayAvailability } from "@/lib/availability";
 import { fitsWithinOpenHours, parseDateIdToLocalNoon, timeToMinutes } from "@/lib/booking-validation";
-import { initialSettings, type AvailabilitySettings, type ProfileSettings } from "@/data/settings";
+import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings } from "@/data/settings";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type BusinessProfileData = ProfileSettings & {
@@ -196,6 +196,38 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
   revalidatePath("/dashboard/agenda");
   revalidatePath("/dashboard/parametres");
   revalidatePath("/dashboard");
+
+  return { ok: true };
+}
+
+/**
+ * Avant ce chantier, l'onglet Paramètres > Rappels n'écrivait que dans une
+ * variable de module côté client (`sessionSettings`) : tout était perdu au
+ * rechargement, malgré le toast "Modifications enregistrées"
+ * (AUDIT-PRODUIT-2026-08-30.md, finding P0 §2). Même pattern Json que
+ * getAvailability/updateAvailabilityAction ci-dessus.
+ */
+export async function getReminderSettings(): Promise<ReminderSettings> {
+  const row = await prisma.businessProfile.findFirst({ select: { reminderSettings: true } });
+  if (!row?.reminderSettings) return initialSettings.reminders;
+  return row.reminderSettings as unknown as ReminderSettings;
+}
+
+export async function updateReminderSettingsAction(input: ReminderSettings): Promise<BusinessProfileActionResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de modifier les réglages de rappels." };
+  }
+
+  const existing = await prisma.businessProfile.findFirst({ select: { id: true } });
+  if (existing) {
+    await prisma.businessProfile.update({ where: { id: existing.id }, data: { reminderSettings: input as unknown as Prisma.InputJsonValue } });
+  } else {
+    await prisma.businessProfile.create({ data: { ...DEFAULT_PROFILE, reminderSettings: input as unknown as Prisma.InputJsonValue } });
+  }
+
+  revalidatePath("/dashboard/rappels");
+  revalidatePath("/dashboard/parametres");
 
   return { ok: true };
 }

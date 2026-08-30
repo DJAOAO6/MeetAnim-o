@@ -27,7 +27,7 @@ export function RemindersSettingsTab({ value, onSave }: { value: ReminderSetting
           <Field label="Modèle de message éditable"><textarea value={draft.messageTemplate} onChange={(event) => setDraft((current) => ({ ...current, messageTemplate: event.target.value }))} className={`${textareaClassName} min-h-64`} /></Field>
           <div><p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Aperçu du message</p><div className="min-h-64 whitespace-pre-wrap rounded-2xl bg-animeo-soft p-5 text-sm leading-6 text-animeo-dark">{preview}</div></div>
         </div>
-        <p className="mt-4 text-xs text-animeo-muted">Aucun message ou email réel ne sera envoyé pour le moment.</p>
+        <p className="mt-4 text-xs text-animeo-muted">Ce modèle pré-remplit le message proposé lors de l’envoi d’un rappel depuis Rappels clients — vous pourrez toujours l’ajuster avant chaque envoi.</p>
       </Card>
 
       <Card className="p-5 sm:p-6">

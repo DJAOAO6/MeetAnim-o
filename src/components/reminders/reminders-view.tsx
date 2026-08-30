@@ -25,6 +25,7 @@ type RemindersViewProps = {
   };
   clientOptions: ReminderClientOption[];
   professionalSlug: string;
+  messageTemplate: string;
 };
 
 function referenceDate() {
@@ -59,7 +60,7 @@ const statusFilters: Array<{ value: StatusFilter; label: string }> = [
   { value: "Ignoré", label: "Ignoré" },
 ];
 
-export function RemindersView({ initialReminders, initialStats, clientOptions, professionalSlug }: RemindersViewProps) {
+export function RemindersView({ initialReminders, initialStats, clientOptions, professionalSlug, messageTemplate }: RemindersViewProps) {
   const router = useRouter();
   // saveReminderAction/sendReminderAction/... recalculent le statut et
   // (à la création) l'antériorité réelle côté serveur — plutôt que de
@@ -296,7 +297,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
       />
 
       {activeReminder ? (
-        <ReminderModal reminder={activeReminder} professionalSlug={professionalSlug} sending={isSending} onClose={() => setActiveReminder(null)} onSend={sendSingleReminder} />
+        <ReminderModal reminder={activeReminder} professionalSlug={professionalSlug} messageTemplate={messageTemplate} sending={isSending} onClose={() => setActiveReminder(null)} onSend={sendSingleReminder} />
       ) : null}
 
       {scheduleReminder ? (

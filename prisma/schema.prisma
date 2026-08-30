@@ -388,6 +388,7 @@ model BusinessProfile {
   cabinetAvailable Boolean  @default(true)
   homeAvailable    Boolean  @default(true)
   availability     Json?
+  reminderSettings Json?
   updatedAt        DateTime @updatedAt
 }
 

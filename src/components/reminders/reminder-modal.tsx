@@ -9,15 +9,24 @@ import type { Reminder } from "@/data/reminders";
 type ReminderModalProps = {
   reminder: Reminder;
   professionalSlug: string;
+  // Modèle réglé dans Paramètres > Rappels (RemindersSettingsTab), avec les
+  // mêmes jetons [Prénom]/[Durée]/[Animal]/[Lien de réservation] que son
+  // aperçu — avant ce chantier, ce réglage n'avait aucun effet ici, ce
+  // formulaire construisait son propre texte figé en dur.
+  messageTemplate: string;
   sending: boolean;
   onClose: () => void;
   onSend: (reminder: Reminder, message: string) => void;
 };
 
-export function ReminderModal({ reminder, professionalSlug, sending, onClose, onSend }: ReminderModalProps) {
+export function ReminderModal({ reminder, professionalSlug, messageTemplate, sending, onClose, onSend }: ReminderModalProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const bookingUrl = `${appUrl}/reserver/${professionalSlug}`;
-  const initialMessage = `Bonjour ${reminder.clientFirstName},\n\nCela fait bientôt ${reminder.delay} depuis la dernière séance de ${reminder.animalName}.\n\nSi vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :\n\n${bookingUrl}`;
+  const initialMessage = messageTemplate
+    .replaceAll("[Prénom]", reminder.clientFirstName)
+    .replaceAll("[Durée]", reminder.delay)
+    .replaceAll("[Animal]", reminder.animalName)
+    .replaceAll("[Lien de réservation]", bookingUrl);
   const [message, setMessage] = useState(initialMessage);
   const isDirty = message !== initialMessage;
   const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
