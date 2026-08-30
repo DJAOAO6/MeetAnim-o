@@ -47,23 +47,30 @@ export function RemindersTable(props: RemindersTableProps) {
 
   return (
     <Card className="overflow-visible">
-      <div className="hidden 2xl:block">
-        <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-[#e5eeeb] bg-[#fbfdfc] px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
-          <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Sélectionner tous les rappels affichés" className="h-4 w-4 accent-[#4FAF9F]" />
-          <span>Client</span>
-          <span>Animal</span>
-          <span>Dernière consultation</span>
-          <span>Délai</span>
-          <span>Date du rappel</span>
-          <span>Statut</span>
-          <span className="text-right">Action</span>
-        </div>
-        <div className="divide-y divide-[#edf2f0]">
-          {reminders.map((reminder) => <DesktopRow key={reminder.id} reminder={reminder} {...props} />)}
+      {/* lg (pas 2xl) : même seuil desktop/mobile que clients-list.tsx —
+          overflow-x-auto + min-w permet un défilement horizontal plutôt que
+          de forcer 7 colonnes serrées dès 1024px, au lieu de retomber sur
+          les cartes mobiles jusqu'à 1536px (incohérence visuelle sur les
+          largeurs d'écran de portable les plus courantes, 1280-1440px). */}
+      <div className="hidden overflow-x-auto lg:block">
+        <div className="min-w-[1080px]">
+          <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-[#e5eeeb] bg-[#fbfdfc] px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
+            <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Sélectionner tous les rappels affichés" className="h-4 w-4 accent-[#4FAF9F]" />
+            <span>Client</span>
+            <span>Animal</span>
+            <span>Dernière consultation</span>
+            <span>Délai</span>
+            <span>Date du rappel</span>
+            <span>Statut</span>
+            <span className="text-right">Action</span>
+          </div>
+          <div className="divide-y divide-[#edf2f0]">
+            {reminders.map((reminder) => <DesktopRow key={reminder.id} reminder={reminder} {...props} />)}
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-4 p-4 sm:grid-cols-2 2xl:hidden">
+      <div className="grid gap-4 p-4 sm:grid-cols-2 lg:hidden">
         {reminders.map((reminder) => <MobileReminderCard key={reminder.id} reminder={reminder} {...props} />)}
       </div>
     </Card>

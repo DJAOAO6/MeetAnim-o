@@ -33,7 +33,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <RemindersProvider initialReminders={reminders}>
             <div className="min-h-screen bg-animeo-bg pt-16 text-animeo-text md:pl-64 md:pt-0">
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} />
-              <main className="mx-auto min-h-screen max-w-[1600px] p-4 sm:p-7 lg:p-10">
+              {/* xl:pr-28 : réserve un dégagement à droite pour le cluster de
+                  boutons flottants (DashboardFloatingActions, fixed
+                  bottom-right) — sans cette marge, la colonne de droite de la
+                  grille 2 colonnes (active à partir de xl) peut se retrouver
+                  recouverte par les boutons sur les hauteurs d'écran
+                  courantes (~720-800px), par exemple la carte « Prochaine
+                  tournée » du tableau de bord. */}
+              <main className="mx-auto min-h-screen max-w-[1600px] p-4 sm:p-7 lg:p-10 xl:pr-28">
                 <DashboardTopBar />
                 {children}
               </main>

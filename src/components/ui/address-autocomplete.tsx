@@ -35,59 +35,63 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
 
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const skipNextSearchRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reactId = useId();
   const listboxId = `${reactId}-listbox`;
 
-  useEffect(() => {
-    if (skipNextSearchRef.current) {
-      skipNextSearchRef.current = false;
+  // Déclenchée uniquement depuis handleChange (une vraie frappe utilisateur),
+  // jamais depuis un effet réagissant à `value` : une adresse déjà
+  // enregistrée (paramètres, étape de réservation revisitée) arrive ici
+  // comme `value` non vide dès le montage — un effet sur `value` la
+  // traiterait à tort comme une saisie et ouvrirait aussitôt les
+  // suggestions sans la moindre interaction.
+  function search(query: string) {
+    const trimmed = query.trim();
+
+    if (trimmed.length < MIN_CHARS) {
+      abortRef.current?.abort();
+      setResults([]);
+      setOpen(false);
+      setUnavailable(false);
+      setSearched(false);
+      setLoading(false);
       return;
     }
 
-    const trimmed = value.trim();
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
 
-    const timer = setTimeout(() => {
-      if (trimmed.length < MIN_CHARS) {
-        abortRef.current?.abort();
+    fetch(`/api/address-search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("address search request failed");
+        return response.json() as Promise<AddressSearchResponse>;
+      })
+      .then((data) => {
+        const results = Array.isArray(data?.results) ? data.results : [];
+        setResults(results);
+        setOpen(results.length > 0);
+        setActiveIndex(-1);
+        setUnavailable(results.length === 0 && "error" in data && Boolean(data.error));
+        setSearched(true);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setResults([]);
         setOpen(false);
-        setUnavailable(false);
-        setSearched(false);
-        setLoading(false);
-        return;
-      }
+        setUnavailable(true);
+        setSearched(true);
+      })
+      .finally(() => setLoading(false));
+  }
 
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setLoading(true);
-
-      fetch(`/api/address-search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
-        .then(async (response) => {
-          if (!response.ok) throw new Error("address search request failed");
-          return response.json() as Promise<AddressSearchResponse>;
-        })
-        .then((data) => {
-          const results = Array.isArray(data?.results) ? data.results : [];
-          setResults(results);
-          setOpen(results.length > 0);
-          setActiveIndex(-1);
-          setUnavailable(results.length === 0 && "error" in data && Boolean(data.error));
-          setSearched(true);
-        })
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-          setResults([]);
-          setOpen(false);
-          setUnavailable(true);
-          setSearched(true);
-        })
-        .finally(() => setLoading(false));
-    }, trimmed.length < MIN_CHARS ? 0 : DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [value]);
+    };
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -97,8 +101,17 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
+  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value;
+    onQueryChange(nextValue);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = nextValue.trim();
+    debounceRef.current = setTimeout(() => search(nextValue), trimmed.length < MIN_CHARS ? 0 : DEBOUNCE_MS);
+  }
+
   function handleSelect(result: GeocodedAddress) {
-    skipNextSearchRef.current = true;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     abortRef.current?.abort();
     setOpen(false);
     setResults([]);
@@ -142,7 +155,7 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
           aria-invalid={ariaInvalid || undefined}
           autoComplete="off"
           value={value}
-          onChange={(event) => onQueryChange(event.target.value)}
+          onChange={handleChange}
           onFocus={() => { if (results.length > 0) setOpen(true); }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder ? `${placeholder}…` : undefined}

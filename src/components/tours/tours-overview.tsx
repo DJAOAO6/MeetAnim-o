@@ -100,7 +100,7 @@ function ZoneCard({ zone, onEdit, onDelete }: { zone: Zone; onEdit: () => void; 
     <Card className="p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark"><Icon name="map" className="h-5 w-5" /></div>
-        <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-[10px] font-black text-animeo-muted">{zone.cities.length} villes</span>
+        <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-[10px] font-black text-animeo-muted">{zone.cities.length} ville{zone.cities.length > 1 ? "s" : ""}</span>
       </div>
       <h3 className="mt-4 font-black text-animeo-dark">{zone.name}</h3>
       <ul className="mt-3 space-y-2">

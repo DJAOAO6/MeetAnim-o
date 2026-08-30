@@ -71,11 +71,11 @@ test.describe("Rappels clients (réel, non simulé)", () => {
     expect(reminder.lastConsultation).toBeTruthy();
 
     // La table rend une version bureau (grille) et une version mobile
-    // (<article>) simultanément — seule la seconde est visible sous la
-    // largeur de viewport par défaut de Playwright (< breakpoint 2xl). On
-    // scope donc via <article>, seul conteneur mobile, pour éviter toute
-    // ambiguïté avec la copie bureau masquée en CSS.
-    const row = page.locator("article").filter({ has: page.getByLabel("Sélectionner le rappel de RappelE2E") });
+    // (<article>) simultanément, la CSS ne montrant que l'une des deux
+    // selon le viewport (breakpoint lg) — on scope via l'ancêtre commun aux
+    // deux structures pour rester correct quel que soit le viewport.
+    const visibleCheckbox = page.getByLabel("Sélectionner le rappel de RappelE2E").and(page.locator(":visible"));
+    const row = visibleCheckbox.locator("xpath=ancestor::*[self::article or contains(@class,'grid-cols-[38px')][1]");
     await expect(row).toBeVisible();
   });
 
@@ -85,7 +85,8 @@ test.describe("Rappels clients (réel, non simulé)", () => {
     await sql`INSERT INTO "Reminder" (id, "clientId", "animalId", "lastConsultation", delay, "dueDate", status, "updatedAt") VALUES ('tmp-reminder-send', ${testClientId}, ${testAnimalId}, now(), 'SIX_MONTHS', ${today}::date, 'DUE', now())`;
 
     await page.goto("/dashboard/rappels");
-    const row = page.locator("article").filter({ has: page.getByLabel("Sélectionner le rappel de RappelE2E") });
+    const visibleCheckbox = page.getByLabel("Sélectionner le rappel de RappelE2E").and(page.locator(":visible"));
+    const row = visibleCheckbox.locator("xpath=ancestor::*[self::article or contains(@class,'grid-cols-[38px')][1]");
     await expect(row).toBeVisible();
 
     await row.getByRole("button", { name: "Relancer" }).click();
@@ -107,7 +108,8 @@ test.describe("Rappels clients (réel, non simulé)", () => {
     await sql`INSERT INTO "Reminder" (id, "clientId", "animalId", "lastConsultation", delay, "dueDate", status, "updatedAt") VALUES ('tmp-reminder-ignore', ${testClientId}, ${testAnimalId}, now(), 'THREE_MONTHS', ${today}::date, 'DUE', now())`;
 
     await page.goto("/dashboard/rappels");
-    const row = page.locator("article").filter({ has: page.getByLabel("Sélectionner le rappel de RappelE2E") });
+    const visibleCheckbox = page.getByLabel("Sélectionner le rappel de RappelE2E").and(page.locator(":visible"));
+    const row = visibleCheckbox.locator("xpath=ancestor::*[self::article or contains(@class,'grid-cols-[38px')][1]");
     await expect(row).toBeVisible();
 
     await row.getByRole("button", { name: "Plus d’actions pour RappelE2E" }).click();
