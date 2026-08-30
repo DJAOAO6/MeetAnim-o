@@ -154,3 +154,128 @@ export function reminderEmailTemplate(params: { professionalCompany: string; mes
     html: `<p>${escapeHtml(message).replace(/\n/g, "<br>")}</p>`,
   };
 }
+
+/**
+ * Les quatre gabarits ci-dessous couvrent le suivi d'un rendez-vous après
+ * la demande initiale (AUDIT-PRODUIT-2026-08-30.md, finding P0 §3) : avant
+ * ce chantier, updateAppointmentStatusAction/saveAppointmentAction ne
+ * prévenaient jamais le client d'une confirmation, d'un refus, d'une
+ * annulation ou d'un déplacement. Toutes réutilisent la même mise en forme
+ * simple (liste à puces) que bookingRequestClientTemplate, pour rester
+ * cohérentes avec le premier email que le client a déjà reçu.
+ */
+export type AppointmentEmailParams = {
+  clientFirstName: string;
+  animalName: string;
+  serviceName: string;
+  dateLabel: string;
+  time: string;
+  modeLabel: string;
+  locationLabel: string;
+  professionalFirstName: string;
+  professionalCompany: string;
+  professionalPhone: string;
+  bookingUrl: string;
+};
+
+export function appointmentConfirmedClientTemplate(params: AppointmentEmailParams): Pick<EmailMessage, "subject" | "html" | "text"> {
+  const { clientFirstName, animalName, serviceName, dateLabel, time, modeLabel, locationLabel, professionalFirstName, professionalCompany, professionalPhone } = params;
+  return {
+    subject: `Rendez-vous confirmé — ${dateLabel} à ${time}`,
+    text: [
+      `Bonjour ${clientFirstName},`,
+      "",
+      `Votre rendez-vous pour ${animalName} avec ${professionalFirstName} (${professionalCompany}) est confirmé.`,
+      "",
+      `Prestation : ${serviceName}`,
+      `Date : ${dateLabel} à ${time}`,
+      `Mode : ${modeLabel}${locationLabel ? ` — ${locationLabel}` : ""}`,
+      "",
+      "Vous trouverez l’événement en pièce jointe pour l’ajouter à votre calendrier.",
+      `Pour toute question, contactez directement ${professionalFirstName} au ${professionalPhone}.`,
+    ].join("\n"),
+    html: `
+      <p>Bonjour ${escapeHtml(clientFirstName)},</p>
+      <p>Votre rendez-vous pour <strong>${escapeHtml(animalName)}</strong> avec ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}) est <strong>confirmé</strong>.</p>
+      <ul>
+        <li>Prestation : ${escapeHtml(serviceName)}</li>
+        <li>Date : ${dateLabel} à ${time}</li>
+        <li>Mode : ${modeLabel}${locationLabel ? ` — ${escapeHtml(locationLabel)}` : ""}</li>
+      </ul>
+      <p>Vous trouverez l’événement en pièce jointe pour l’ajouter à votre calendrier.</p>
+      <p>Pour toute question, contactez directement ${escapeHtml(professionalFirstName)} au ${escapeHtml(professionalPhone)}.</p>
+    `,
+  };
+}
+
+export function appointmentDeclinedClientTemplate(params: AppointmentEmailParams): Pick<EmailMessage, "subject" | "html" | "text"> {
+  const { clientFirstName, animalName, dateLabel, time, professionalFirstName, professionalCompany, professionalPhone, bookingUrl } = params;
+  return {
+    subject: `Votre demande de rendez-vous du ${dateLabel} n’a pas pu être acceptée`,
+    text: [
+      `Bonjour ${clientFirstName},`,
+      "",
+      `${professionalFirstName} (${professionalCompany}) ne peut malheureusement pas donner suite à votre demande de rendez-vous du ${dateLabel} à ${time} pour ${animalName}.`,
+      "",
+      `Vous pouvez proposer un autre horaire directement ici : ${bookingUrl}`,
+      `Ou contacter ${professionalFirstName} au ${professionalPhone}.`,
+    ].join("\n"),
+    html: `
+      <p>Bonjour ${escapeHtml(clientFirstName)},</p>
+      <p>${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}) ne peut malheureusement pas donner suite à votre demande de rendez-vous du ${dateLabel} à ${time} pour <strong>${escapeHtml(animalName)}</strong>.</p>
+      <p><a href="${bookingUrl}">Proposer un autre horaire</a></p>
+      <p>Ou contactez directement ${escapeHtml(professionalFirstName)} au ${escapeHtml(professionalPhone)}.</p>
+    `,
+  };
+}
+
+export function appointmentCancelledClientTemplate(params: AppointmentEmailParams): Pick<EmailMessage, "subject" | "html" | "text"> {
+  const { clientFirstName, animalName, dateLabel, time, professionalFirstName, professionalCompany, professionalPhone, bookingUrl } = params;
+  return {
+    subject: `Votre rendez-vous du ${dateLabel} a été annulé`,
+    text: [
+      `Bonjour ${clientFirstName},`,
+      "",
+      `${professionalFirstName} (${professionalCompany}) a dû annuler le rendez-vous du ${dateLabel} à ${time} pour ${animalName}. Toutes nos excuses pour la gêne occasionnée.`,
+      "",
+      `Vous pouvez reprendre un rendez-vous directement ici : ${bookingUrl}`,
+      `Ou contacter ${professionalFirstName} au ${professionalPhone}.`,
+    ].join("\n"),
+    html: `
+      <p>Bonjour ${escapeHtml(clientFirstName)},</p>
+      <p>${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}) a dû annuler le rendez-vous du ${dateLabel} à ${time} pour <strong>${escapeHtml(animalName)}</strong>. Toutes nos excuses pour la gêne occasionnée.</p>
+      <p><a href="${bookingUrl}">Reprendre un rendez-vous</a></p>
+      <p>Ou contactez directement ${escapeHtml(professionalFirstName)} au ${escapeHtml(professionalPhone)}.</p>
+    `,
+  };
+}
+
+export function appointmentRescheduledClientTemplate(params: AppointmentEmailParams): Pick<EmailMessage, "subject" | "html" | "text"> {
+  const { clientFirstName, animalName, serviceName, dateLabel, time, modeLabel, locationLabel, professionalFirstName, professionalCompany, professionalPhone } = params;
+  return {
+    subject: `Votre rendez-vous a été déplacé — nouvelle date le ${dateLabel}`,
+    text: [
+      `Bonjour ${clientFirstName},`,
+      "",
+      `Le rendez-vous pour ${animalName} avec ${professionalFirstName} (${professionalCompany}) a été déplacé.`,
+      "",
+      `Nouvelle date : ${dateLabel} à ${time}`,
+      `Prestation : ${serviceName}`,
+      `Mode : ${modeLabel}${locationLabel ? ` — ${locationLabel}` : ""}`,
+      "",
+      "Vous trouverez l’événement mis à jour en pièce jointe.",
+      `Pour toute question, contactez directement ${professionalFirstName} au ${professionalPhone}.`,
+    ].join("\n"),
+    html: `
+      <p>Bonjour ${escapeHtml(clientFirstName)},</p>
+      <p>Le rendez-vous pour <strong>${escapeHtml(animalName)}</strong> avec ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}) a été <strong>déplacé</strong>.</p>
+      <ul>
+        <li>Nouvelle date : ${dateLabel} à ${time}</li>
+        <li>Prestation : ${escapeHtml(serviceName)}</li>
+        <li>Mode : ${modeLabel}${locationLabel ? ` — ${escapeHtml(locationLabel)}` : ""}</li>
+      </ul>
+      <p>Vous trouverez l’événement mis à jour en pièce jointe.</p>
+      <p>Pour toute question, contactez directement ${escapeHtml(professionalFirstName)} au ${escapeHtml(professionalPhone)}.</p>
+    `,
+  };
+}

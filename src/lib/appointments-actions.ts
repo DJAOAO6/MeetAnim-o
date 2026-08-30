@@ -19,6 +19,13 @@ import { getAvailability, getBusinessProfile } from "@/lib/business-profile-acti
 import { getEmailProvider } from "@/lib/email/provider";
 import { bookingRequestClientTemplate, bookingRequestProfessionalTemplate } from "@/lib/email/templates";
 import {
+  notifyAppointmentCancelled,
+  notifyAppointmentConfirmed,
+  notifyAppointmentDeclined,
+  notifyAppointmentRescheduled,
+  type AppointmentEmailSnapshot,
+} from "@/lib/email/appointment-status-notifications";
+import {
   BOOKING_WINDOW_DAYS,
   computeTotalPrice,
   findServiceById,
@@ -66,6 +73,27 @@ function toAppointment(row: {
     status: statusLabel[row.status],
     notes: row.notes,
   };
+}
+
+/**
+ * Choisit le bon email de suivi (ou aucun) à partir de la transition de
+ * statut, partagée par updateAppointmentStatusAction (ne change jamais que
+ * le statut) et saveAppointmentAction (peut changer statut et/ou date/heure
+ * dans le même enregistrement). Une transition non couverte ci-dessous
+ * (ex. confirmed → completed) n'envoie rien : il n'existe pas de gabarit
+ * dédié pour ce cas, et "Consultation réalisée" n'est pas un événement dont
+ * le client a besoin d'être notifié par email.
+ */
+async function notifyAppointmentChange(clientId: string | null, previousStatus: AppointmentStatus, nextStatus: AppointmentStatus, dateOrTimeChanged: boolean, snapshot: AppointmentEmailSnapshot): Promise<void> {
+  if (previousStatus === "pending" && nextStatus === "confirmed") {
+    await notifyAppointmentConfirmed(clientId, snapshot);
+  } else if (previousStatus === "pending" && nextStatus === "cancelled") {
+    await notifyAppointmentDeclined(clientId, snapshot);
+  } else if (previousStatus === "confirmed" && nextStatus === "cancelled") {
+    await notifyAppointmentCancelled(clientId, snapshot);
+  } else if (previousStatus === nextStatus && nextStatus !== "cancelled" && dateOrTimeChanged) {
+    await notifyAppointmentRescheduled(clientId, snapshot);
+  }
 }
 
 /**
@@ -143,6 +171,12 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
 
+  // Chargé avant la mise à jour pour détecter un déplacement réel (date/
+  // heure changée) et une transition de statut dans le même enregistrement
+  // — ce formulaire modifie les deux à la fois, contrairement à
+  // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
+  const existing = input.id ? await prisma.appointment.findUnique({ where: { id: input.id } }) : null;
+
   if (await hasConflict(input.date, input.start, input.duration, input.id)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
@@ -184,6 +218,17 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   });
   revalidatePath("/dashboard");
 
+  // Email de suivi au client, best-effort — uniquement sur une édition d'un
+  // rendez-vous existant (jamais à la création), et seulement si le statut
+  // change réellement ou si la date/l'heure a été déplacée.
+  // AUDIT-PRODUIT-2026-08-30.md, finding P0 §3.
+  if (existing) {
+    const previousStatus = statusLabel[existing.status];
+    const dateOrTimeChanged = existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start;
+    const snapshot: AppointmentEmailSnapshot = { id: row.id, date: toAppointment(row).date, start: row.start, duration: row.duration, mode: modeLabel[row.mode], location: row.location, animalName: row.animalName, serviceName: row.serviceName };
+    await notifyAppointmentChange(existing.clientId, previousStatus, input.status, dateOrTimeChanged, snapshot);
+  }
+
   return { ok: true, appointment: toAppointment(row) };
 }
 
@@ -191,16 +236,21 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
 
-  if (status !== "cancelled") {
-    const current = await prisma.appointment.findUnique({ where: { id } });
-    if (current && await hasConflict(current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
-      return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
-    }
+  const current = await prisma.appointment.findUnique({ where: { id } });
+  if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
+
+  if (status !== "cancelled" && await hasConflict(current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
+    return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 
   const row = await prisma.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status } });
   revalidatePath("/dashboard");
+
+  // Email de suivi au client, best-effort. AUDIT-PRODUIT-2026-08-30.md,
+  // finding P0 §3.
+  const snapshot: AppointmentEmailSnapshot = { id: row.id, date: toAppointment(row).date, start: row.start, duration: row.duration, mode: modeLabel[row.mode], location: row.location, animalName: row.animalName, serviceName: row.serviceName };
+  await notifyAppointmentChange(current.clientId, statusLabel[current.status], status, false, snapshot);
 
   return { ok: true, appointment: toAppointment(row) };
 }

@@ -1,10 +1,20 @@
 import "server-only";
 
+export type EmailAttachment = {
+  filename: string;
+  contentType: string;
+  // Contenu déjà encodé en base64 — construit une fois à l'appel (ex.
+  // Buffer.from(icsText, "utf8").toString("base64")), jamais recalculé côté
+  // fournisseur.
+  base64Content: string;
+};
+
 export type EmailMessage = {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: EmailAttachment[];
 };
 
 export interface EmailProvider {
@@ -13,8 +23,9 @@ export interface EmailProvider {
 
 class ConsoleEmailProvider implements EmailProvider {
   async send(message: EmailMessage): Promise<void> {
+    const attachmentsLabel = message.attachments?.length ? ` [pièce(s) jointe(s) : ${message.attachments.map((item) => item.filename).join(", ")}]` : "";
     console.log(
-      `\n[email:dev] → ${message.to}\n[email:dev] Sujet : ${message.subject}\n${message.text}\n`,
+      `\n[email:dev] → ${message.to}\n[email:dev] Sujet : ${message.subject}${attachmentsLabel}\n${message.text}\n`,
     );
   }
 }
@@ -42,6 +53,9 @@ class MailjetEmailProvider implements EmailProvider {
             Subject: message.subject,
             TextPart: message.text,
             HTMLPart: message.html,
+            ...(message.attachments?.length
+              ? { Attachments: message.attachments.map((item) => ({ ContentType: item.contentType, Filename: item.filename, Base64Content: item.base64Content })) }
+              : {}),
           },
         ],
       }),
