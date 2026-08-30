@@ -11,13 +11,13 @@ import { DashboardRemindersCard } from "@/components/dashboard/dashboard-reminde
 import { DashboardStats } from "@/components/dashboard/dashboard-stats";
 import type { DashboardOverviewData } from "@/lib/dashboard-overview";
 
-export function DashboardView({ clients, tours, zones, tourAppointments, reminders }: DashboardOverviewData) {
+export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable }: DashboardOverviewData) {
   const dueReminders = useMemo(() => reminders.filter((reminder) => reminder.status === "À relancer").length, [reminders]);
 
   return (
     <>
       <DashboardHeader />
-      <DashboardAvailabilityControls />
+      <DashboardAvailabilityControls cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} />
       <DashboardStats clients={clients} dueReminders={dueReminders} />
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">

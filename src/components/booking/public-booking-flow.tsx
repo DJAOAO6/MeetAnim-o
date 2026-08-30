@@ -127,7 +127,7 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
     const saved = loadPersistedBooking(professional.slug);
     // queueMicrotask : évite d'appeler setState de façon synchrone au corps
     // de l'effet (même convention que schedule-step.tsx et
-    // src/components/availability/manual-availability.ts).
+    // src/components/clients/client-profile.tsx).
     queueMicrotask(() => {
       if (saved) {
         setScreen(saved.screen);

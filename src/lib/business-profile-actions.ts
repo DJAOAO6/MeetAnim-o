@@ -57,13 +57,20 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (!slug) return { ok: false, error: "Le lien public ne peut pas être vide." };
 
   const existing = await prisma.businessProfile.findFirst();
-  const data = { ...input, slug };
+  // cabinetAvailable/homeAvailable sont volontairement omis de `data` et
+  // gérés exclusivement par updateManualAvailabilityAction (badges du
+  // tableau de bord) : ce formulaire ne capture leur valeur qu'une fois au
+  // montage, un enregistrement de profil (bio, photo…) plus tard écraserait
+  // sinon un état de fermeture entre-temps changé depuis le tableau de bord
+  // avec une valeur périmée.
+  const { cabinetAvailable, homeAvailable, ...profileFields } = input;
+  const data = { ...profileFields, slug };
 
   try {
     if (existing) {
       await prisma.businessProfile.update({ where: { id: existing.id }, data });
     } else {
-      await prisma.businessProfile.create({ data });
+      await prisma.businessProfile.create({ data: { ...data, cabinetAvailable, homeAvailable } });
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {
@@ -76,6 +83,33 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (existing && existing.slug !== slug) revalidatePath(`/reserver/${existing.slug}`);
   revalidatePath("/dashboard/parametres");
 
+  return { ok: true };
+}
+
+/**
+ * Fermeture/réouverture manuelle Cabinet/Domicile, déclenchée depuis les
+ * badges du tableau de bord. Persistée en base (cabinetAvailable/
+ * homeAvailable, déjà lues côté serveur par /reserver/[slug] et
+ * submitPublicBookingAction) plutôt qu'en localStorage — un réglage qui ne
+ * survivait qu'au navigateur de la praticienne n'avait aucun effet réel sur
+ * la réservation publique (AUDIT-PRODUIT-2026-08-30.md, finding P0 en tête).
+ */
+export async function updateManualAvailabilityAction(cabinetAvailable: boolean, homeAvailable: boolean): Promise<BusinessProfileActionResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de modifier les disponibilités." };
+  }
+
+  const existing = await prisma.businessProfile.findFirst({ select: { id: true, slug: true } });
+  if (existing) {
+    await prisma.businessProfile.update({ where: { id: existing.id }, data: { cabinetAvailable, homeAvailable } });
+    revalidatePath(`/reserver/${existing.slug}`);
+  } else {
+    const created = await prisma.businessProfile.create({ data: { ...DEFAULT_PROFILE, cabinetAvailable, homeAvailable } });
+    revalidatePath(`/reserver/${created.slug}`);
+  }
+
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 

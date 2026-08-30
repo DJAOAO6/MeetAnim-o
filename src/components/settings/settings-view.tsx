@@ -51,6 +51,10 @@ export function SettingsView({ tours, zones, businessProfile, availability, serv
     publicColor: businessProfile.publicColor,
     availability,
   }));
+  // Valeur requise par le type BusinessProfileData mais ignorée par
+  // updateBusinessProfileAction sur la mise à jour : ces deux champs sont
+  // gérés exclusivement par les badges du tableau de bord
+  // (updateManualAvailabilityAction), jamais depuis ce formulaire.
   const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable"> = { cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable };
   const [saving, setSaving] = useState(false);
 

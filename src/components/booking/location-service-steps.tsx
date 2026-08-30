@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useEffect, useRef, type FormEvent } from "react";
-import { useManualAvailability } from "@/components/availability/manual-availability";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
@@ -23,7 +22,6 @@ function availabilityLabel(service: PublicService) {
 }
 
 export function ConsultationStep({ professional, serviceId, mode, onServiceChange, onModeChange, onNext }: ConsultationStepProps) {
-  const { availability } = useManualAvailability();
   const service = professional.services.find((item) => item.id === serviceId);
   const locationRef = useRef<HTMLDivElement>(null);
   const skipNextScroll = useRef(true);
@@ -48,8 +46,8 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
     onServiceChange(nextServiceId);
   }
 
-  const cabinetOpen = service ? professional.cabinetAvailable && availability.cabinet.open && service.cabinetEnabled : false;
-  const homeOpen = service ? professional.homeAvailable && availability.home.open && service.homeEnabled : false;
+  const cabinetOpen = service ? professional.cabinetAvailable && service.cabinetEnabled : false;
+  const homeOpen = service ? professional.homeAvailable && service.homeEnabled : false;
 
   return (
     <form onSubmit={submit}>

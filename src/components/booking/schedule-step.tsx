@@ -40,7 +40,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
   useEffect(() => {
     let cancelled = false;
     // queueMicrotask : évite d'appeler setState de façon synchrone au corps
-    // de l'effet (même convention que src/components/availability/manual-availability.ts).
+    // de l'effet (même convention que src/components/clients/client-profile.tsx).
     queueMicrotask(() => { if (!cancelled) setLoadingDates(true); });
     getPublicScheduleAction(mode === "CABINET" ? "cabinet" : "home", service.duration)
       .then((result) => {

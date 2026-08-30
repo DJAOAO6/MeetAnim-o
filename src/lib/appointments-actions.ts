@@ -487,6 +487,16 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     return { ok: false, error: "Ce mode de consultation n’est plus proposé pour cette prestation." };
   }
 
+  // Fermeture manuelle Cabinet/Domicile (badges du tableau de bord) :
+  // revérifiée ici, jamais seulement affichée côté client — c'est le point
+  // que submitPublicBookingAction ignorait avant ce correctif
+  // (AUDIT-PRODUIT-2026-08-30.md, finding P0 en tête).
+  const professional = await getBusinessProfile();
+  const modeIsManuallyOpen = core.mode === "cabinet" ? professional.cabinetAvailable : professional.homeAvailable;
+  if (!modeIsManuallyOpen) {
+    return { ok: false, error: "Ce mode de consultation est temporairement fermé aux réservations. Merci de choisir l’autre mode ou de réessayer plus tard." };
+  }
+
   if (await hasConflict(core.date, core.start, service.duration)) {
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
@@ -540,8 +550,8 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   // Best-effort : la demande est déjà enregistrée en base à ce stade, un
   // échec d'envoi ne doit jamais faire échouer la réponse à l'utilisateur.
   // Les deux emails sont indépendants l'un de l'autre, envoyés en parallèle
-  // plutôt que l'un après l'autre.
-  const professional = await getBusinessProfile();
+  // plutôt que l'un après l'autre. `professional` déjà chargé plus haut pour
+  // la vérification de fermeture manuelle.
   const dateLabel = formatBookingDateLabels(core.date).fullLabel;
   const modeLabelText = core.mode === "cabinet" ? "Au cabinet" : "À domicile";
   const locationLabel = core.mode === "home" ? core.location : "";

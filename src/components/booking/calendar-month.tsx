@@ -64,7 +64,7 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
       const nextFocused = monthDays[Math.min(day, monthDays.length) - 1] ?? monthDays[0];
       // queueMicrotask : évite d'appeler setState de façon synchrone au corps
       // de l'effet (même convention que schedule-step.tsx et
-      // src/components/availability/manual-availability.ts).
+      // src/components/clients/client-profile.tsx).
       queueMicrotask(() => setFocusedDateId(nextFocused));
     }
   }, [monthId, focusedDateId]);

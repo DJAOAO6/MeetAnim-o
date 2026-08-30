@@ -1,4 +1,5 @@
 import "server-only";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { getClients } from "@/lib/clients";
 import { getReminders } from "@/lib/reminders";
 import { getTours, getTourStops, getZones } from "@/lib/tours";
@@ -12,16 +13,19 @@ export type DashboardOverviewData = {
   zones: Zone[];
   tourAppointments: Record<string, TourAppointment[]>;
   reminders: Reminder[];
+  cabinetAvailable: boolean;
+  homeAvailable: boolean;
 };
 
 export async function getDashboardOverviewData(): Promise<DashboardOverviewData> {
-  const [clients, tours, zones, tourAppointments, reminders] = await Promise.all([
+  const [clients, tours, zones, tourAppointments, reminders, businessProfile] = await Promise.all([
     getClients(),
     getTours(),
     getZones(),
     getTourStops(),
     getReminders(),
+    getBusinessProfile(),
   ]);
 
-  return { clients, tours, zones, tourAppointments, reminders };
+  return { clients, tours, zones, tourAppointments, reminders, cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable };
 }
