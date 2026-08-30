@@ -98,6 +98,17 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
   }
 
   const [openGroup, setOpenGroup] = useState<GroupKey | null>(() => groupOrder.find((group) => !isGroupValid(group)) ?? null);
+  // Groupes déjà complétés une première fois : au-delà, rouvrir un groupe
+  // pour corriger une erreur ne doit plus jamais provoquer sa fermeture
+  // automatique au prochain blur (avant ce garde-fou, la moindre correction
+  // refermait aussitôt la section, la rendant quasi impossible à corriger).
+  // Seed avec les groupes déjà valides au montage (ex. retour depuis
+  // l'étape suivante) pour ne pas les traiter comme "première complétion".
+  // État plutôt que ref : un ref lu/écrit depuis des gestionnaires
+  // eux-mêmes construits pendant le rendu (commitOnEnter, appelé dans le
+  // JSX ci-dessous) déclenche react-hooks/refs, qui ne peut pas prouver
+  // statiquement que la fermeture retournée n'est invoquée qu'après coup.
+  const [completedGroups, setCompletedGroups] = useState<Set<GroupKey>>(() => new Set(groupOrder.filter((group) => isGroupValid(group))));
   // "unset" au tout premier rendu : le groupe déjà ouvert au montage de
   // l'étape ne doit pas voler le focus au titre de l'étape (voir l'effet
   // sur `screen` dans PublicBookingFlow) en le donnant plutôt au premier
@@ -133,10 +144,9 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
   }
 
   function advanceFrom(group: GroupKey) {
-    setOpenGroup((current) => {
-      if (current !== group || !isGroupValid(group)) return current;
-      return groupOrder[groupOrder.indexOf(group) + 1] ?? null;
-    });
+    if (openGroup !== group || !isGroupValid(group) || completedGroups.has(group)) return;
+    setCompletedGroups((current) => new Set(current).add(group));
+    setOpenGroup(groupOrder[groupOrder.indexOf(group) + 1] ?? null);
   }
 
   function updateOwner(key: keyof OwnerInformation, next: string) {
@@ -176,7 +186,8 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
     // valide donc ici directement sur l'objet fraîchement construit plutôt
     // que sur la prop encore périmée.
     const nextIsValid = nextAddress.address.trim().length > 0 && nextAddress.postalCode.trim().length === 5 && nextAddress.city.trim().length > 0;
-    if (nextIsValid) {
+    if (nextIsValid && !completedGroups.has("address")) {
+      setCompletedGroups((current) => new Set(current).add("address"));
       setOpenGroup((current) => (current === "address" ? groupOrder[groupOrder.indexOf("address") + 1] ?? null : current));
     }
   }
