@@ -35,6 +35,28 @@ function computeStatus(dueDateId: string): DbReminderStatus {
 }
 
 /**
+ * computeStatus ci-dessus ne s'exécute qu'à la création/modification d'un
+ * rappel (saveReminderAction) — un rappel programmé "À venir" restait donc
+ * affiché ainsi indéfiniment même une fois sa date de rappel passée, rien
+ * ne rejouait jamais ce calcul. Destinée à la tâche planifiée quotidienne
+ * (route /api/cron, AUDIT-PRODUIT-2026-08-30.md, finding P0 §5 — premier
+ * exemple concret de "tâche de fond" que cette route débloque), mais reste
+ * un utilitaire ordinaire : rejouable manuellement sans effet de bord si
+ * rien n'a expiré (updateMany sur un ensemble vide ne fait rien).
+ */
+export async function refreshUpcomingRemindersAction(): Promise<{ updated: number }> {
+  const result = await prisma.reminder.updateMany({
+    where: { status: "UPCOMING", dueDate: { lte: referenceDate() } },
+    data: { status: "DUE" },
+  });
+  if (result.count > 0) {
+    revalidatePath("/dashboard/rappels");
+    revalidatePath("/dashboard");
+  }
+  return { updated: result.count };
+}
+
+/**
  * Un rappel programmé doit référencer une antériorité réelle : reprend la
  * Consultation la plus récente de l'animal, ou à défaut son dernier
  * rendez-vous terminé (Appointment status COMPLETED). Aucun historique réel
