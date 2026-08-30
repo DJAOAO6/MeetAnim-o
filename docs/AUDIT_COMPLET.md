@@ -37,7 +37,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **La faille de session est corrigée** : plus de boucle de redirection infinie (P0-1).
 - **Le contraste insuffisant de la couleur de marque, présent sur la quasi-totalité des pages, est corrigé** (P1-4) — c'était la seconde cause majeure du score d'accessibilité initial, avec le défaut clavier ci-dessus.
 
-**Ce qui reste inchangé, volontairement** : Statistiques (toujours 100 % de données fictives, P2-24) n'a pas encore été touché — décision produit prise le 2026-08-30 (avec Rappels/P2-23, désormais réellement fonctionnel) de rendre les deux écrans réels plutôt que de les assumer comme des maquettes ; Statistiques reste à traiter. Le reste du texte atténué sous le seuil de contraste (P2-12), les débordements horizontaux ponctuels (P2-11) et la couverture de tests (toujours partielle, P2-30 dans FIX_PLAN.md) n'ont pas non plus été traités à ce stade.
+**Ce qui reste inchangé, volontairement** : le texte atténué sous le seuil de contraste (P2-12), les débordements horizontaux ponctuels (P2-11) et la couverture de tests (toujours partielle, P2-30 dans FIX_PLAN.md) n'ont pas été traités à ce stade. Rappels (P2-23) et Statistiques (P2-24) sont désormais tous les deux réellement fonctionnels (décision produit du 2026-08-30) — quelques sections de Statistiques sans aucune donnée réelle en base (avis clients, zones douloureuses, pathologies, stérilisation) ont été retirées plutôt que gardées fictives.
 
 68 % reflète : le cœur du produit (RDV, agenda, prestations, notifications, tournées, clients) est maintenant réellement fonctionnel de bout en bout, avec de vraies protections serveur et une accessibilité clavier/contraste largement remise à niveau. Il reste deux zones assumées comme non finies (Rappels, Statistiques) et une couverture de tests encore limitée avant de considérer le produit prêt pour une mise en production sans réserve.
 
@@ -204,7 +204,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 | P2-21 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `submitPublicBookingAction` | — | — |
 | P2-22 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `data/public-booking.ts` | — | — |
 | P2-23 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `reminders-view.tsx` | — | — |
-| P2-24 | `/dashboard/statistiques` est 100 % données fictives, derrière une permission réelle (`VIEW_FINANCES`) qui laisse penser à des chiffres fiables | `stats-view.tsx` | P2 | Forte |
+| P2-24 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `stats-view.tsx` | — | — |
 | P2-25 | La table `TourAppointment` n'a aucun chemin d'écriture applicatif — seul le script de seed peut la peupler | `src/lib/tours.ts` | P2 | Moyenne |
 | P2-26 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `src/lib/rate-limit.ts` etc. | — | — |
 | P2-27 | ⚪ Faux positif, vérifié — `AUTH_EMAIL`/`AUTH_PASSWORD_HASH_BASE64` sont bien référencées et fonctionnelles (voir note détaillée), rien retiré | `.env.local.example` | — | — |
@@ -537,10 +537,13 @@ Mais aucune de ces vérifications indépendantes ne confirme un débordement vis
 ## Statistiques
 
 ### Ce qui existe actuellement
-- Graphiques et indicateurs avec filtres période/prestation/espèce.
+- Graphiques et indicateurs avec filtres période/prestation/espèce, désormais réels.
+- Corrigé (2026-08-30, P2-24, décision produit utilisateur) : chaque section vient d'une vraie requête sur `Appointment`/`Animal`/`Reminder`/`Zone` (`src/lib/stats.ts`) — CA, consultations, nouveaux clients, mode cabinet/domicile, CA par prestation, répartition espèces/races/âge/sexe, fidélité clients, annulations, performance des rappels, activité par zone. Prestations chargées dynamiquement (`Service`), plus une liste figée de 4 entrées. La server action de relecture (`getStatsAction`) revérifie elle-même `VIEW_FINANCES`, pas seulement la page. Bug de fond découvert en vérifiant : aucune action de l'app ne fait jamais passer un rendez-vous au statut `COMPLETED` — baser les stats dessus les aurait laissées vides en permanence ; un `CONFIRMED` dont la date est passée compte donc comme réellement tenu. Une vraie erreur d'hydratation React trouvée et corrigée au passage (SVG `<title>` à enfants JSX multiples dans `stats-ui.tsx`, préexistante mais jamais déclenchée avant que ce composant ne reçoive de vraies données serveur).
 
 ### Ce qui est incomplet
-- 100 % de données fictives, aucune requête réelle sur les rendez-vous/clients (P2-24), derrière une vraie permission qui suggère des données fiables.
+- Sections retirées faute de toute donnée réelle en base (décision utilisateur 2026-08-30, plutôt que les garder fictives ou en exemple) : satisfaction client/avis (aucun système d'avis), zones douloureuses et pathologies (texte libre non structuré), stérilisation (champ `sex` libre, non fiable pour une catégorie de plus). Par cohérence, également retirés : le détail no-show (pas de statut distinct de l'annulation), les kilomètres parcourus (le cabinet lui-même n'est pas géocodé), et « Performance des tournées » (`TourAppointment` non alimenté par un vrai chemin d'écriture, cf. P2-25).
+
+### Niveau actuel : 4/5 — données 100 % réelles sur tout ce qui a une source fiable en base ; passera à un niveau avancé une fois P2-25 traité (tournées) et si un jour un vrai système d'avis clients est ajouté.
 
 ## Sécurité / Authentification
 

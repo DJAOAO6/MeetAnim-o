@@ -5,23 +5,34 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import {
   periodOptions,
-  serviceOptions,
   speciesOptions,
   type StatsPeriod,
-  type StatsService,
   type StatsSpecies,
-} from "@/data/stats-mock-data";
+} from "@/data/stats";
 
 const selectClassName = "h-11 w-full rounded-[12px] border border-[var(--theme-border)] bg-animeo-bg px-3 text-sm font-bold text-animeo-dark outline-none transition focus:border-animeo sm:min-w-48";
 
-export function StatsFilters({ period, service, species, startDate, endDate, onPeriodChange, onServiceChange, onSpeciesChange, onStartDateChange, onEndDateChange }: {
+/**
+ * Regroupement de milliers manuel plutôt que toLocaleString("fr-FR") : ce
+ * composant peut être rendu côté serveur (RevenueChart reçoit désormais des
+ * données réelles, cf. stats.ts) — le séparateur de milliers fr-FR exact
+ * (espace insécable étroite vs normale) peut différer entre l'ICU de Node
+ * et celui du navigateur, provoquant une vraie erreur d'hydratation
+ * (constatée en vérifiant sur /dashboard/statistiques).
+ */
+function formatThousands(value: number): string {
+  return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+export function StatsFilters({ period, serviceId, species, startDate, endDate, serviceOptions, onPeriodChange, onServiceChange, onSpeciesChange, onStartDateChange, onEndDateChange }: {
   period: StatsPeriod;
-  service: StatsService;
+  serviceId: string;
   species: StatsSpecies;
   startDate: string;
   endDate: string;
+  serviceOptions: Array<{ id: string; name: string }>;
   onPeriodChange: (value: StatsPeriod) => void;
-  onServiceChange: (value: StatsService) => void;
+  onServiceChange: (value: string) => void;
   onSpeciesChange: (value: StatsSpecies) => void;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
@@ -35,8 +46,9 @@ export function StatsFilters({ period, service, species, startDate, endDate, onP
           </select>
         </FilterField>
         <FilterField label="Prestation">
-          <select value={service} onChange={(event) => onServiceChange(event.target.value as StatsService)} className={selectClassName}>
-            {serviceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <select value={serviceId} onChange={(event) => onServiceChange(event.target.value)} className={selectClassName}>
+            <option value="all">Toutes les prestations</option>
+            {serviceOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
           </select>
         </FilterField>
         <FilterField label="Espèce">
@@ -138,7 +150,7 @@ export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d�
           return (
             <g key={ratio}>
               <line x1={left} x2={width - right} y1={y} y2={y} stroke="var(--theme-border)" strokeWidth="1" />
-              <text x={left - 8} y={y + 4} textAnchor="end" fill="var(--theme-muted)" fontSize="10">{Math.round(maxValue * ratio).toLocaleString("fr-FR")}{valueSuffix}</text>
+              <text x={left - 8} y={y + 4} textAnchor="end" fill="var(--theme-muted)" fontSize="10">{formatThousands(maxValue * ratio)}{valueSuffix}</text>
             </g>
           );
         })}
@@ -146,7 +158,7 @@ export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d�
         <polyline points={line} fill="none" stroke="var(--theme-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((point) => (
           <g key={point.label}>
-            <circle cx={point.x} cy={point.y} r="4.5" fill="var(--theme-surface)" stroke="var(--theme-primary)" strokeWidth="3"><title>{point.label} : {point.value.toLocaleString("fr-FR")}{valueSuffix}</title></circle>
+            <circle cx={point.x} cy={point.y} r="4.5" fill="var(--theme-surface)" stroke="var(--theme-primary)" strokeWidth="3"><title>{`${point.label} : ${formatThousands(point.value)}${valueSuffix}`}</title></circle>
             <text x={point.x} y={height - 12} textAnchor="middle" fill="var(--theme-muted)" fontSize="10" fontWeight="700">{point.label}</text>
           </g>
         ))}
