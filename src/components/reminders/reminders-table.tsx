@@ -16,8 +16,6 @@ type RemindersTableProps = {
   onIgnore: (reminder: Reminder) => void;
 };
 
-const knownClientIds = new Set(["marie-dupont", "thomas-martin", "julie-robert", "camille-leroy"]);
-
 const statusStyles: Record<ReminderStatus, string> = {
   "À relancer": "bg-[#fff4dd] text-[#a66d16]",
   "Rappel envoyé": "bg-[#e8f1f4] text-animeo-dark",
@@ -138,9 +136,7 @@ function StatusBadge({ status }: { status: ReminderStatus }) {
 
 function RowActions({ reminder, onRemind, onEdit, onIgnore }: Pick<RemindersTableProps, "onRemind" | "onEdit" | "onIgnore"> & { reminder: Reminder }) {
   const [open, setOpen] = useState(false);
-  const profileHref = knownClientIds.has(reminder.clientId)
-    ? `/dashboard/clients/${reminder.clientId}`
-    : "/dashboard/clients";
+  const profileHref = `/dashboard/clients/${reminder.clientId}`;
 
   return (
     <div className="relative flex items-center justify-end gap-2">

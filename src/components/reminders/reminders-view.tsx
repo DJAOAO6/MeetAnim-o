@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ReminderModal } from "@/components/reminders/reminder-modal";
 import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { RemindersTable } from "@/components/reminders/reminders-table";
@@ -8,6 +9,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { notify } from "@/lib/notify";
+import { ignoreReminderAction, saveReminderAction, sendReminderAction, sendRemindersBulkAction } from "@/lib/reminders-actions";
 import type { Reminder, ReminderClientOption, ReminderStatus } from "@/data/reminders";
 
 type PeriodFilter = "current" | "next" | "all";
@@ -22,6 +24,7 @@ type RemindersViewProps = {
     upcoming: number;
   };
   clientOptions: ReminderClientOption[];
+  professionalSlug: string;
 };
 
 function referenceDate() {
@@ -56,15 +59,24 @@ const statusFilters: Array<{ value: StatusFilter; label: string }> = [
   { value: "Ignoré", label: "Ignoré" },
 ];
 
-export function RemindersView({ initialReminders, initialStats, clientOptions }: RemindersViewProps) {
-  const [reminders, setReminders] = useState(initialReminders);
-  const [stats, setStats] = useState(initialStats);
+export function RemindersView({ initialReminders, initialStats, clientOptions, professionalSlug }: RemindersViewProps) {
+  const router = useRouter();
+  // saveReminderAction/sendReminderAction/... recalculent le statut et
+  // (à la création) l'antériorité réelle côté serveur — plutôt que de
+  // dupliquer cette logique côté client dans un état local, on affiche
+  // directement les props (fraîches après chaque router.refresh() suivant
+  // une mutation réussie, qui ré-exécute RappelsPage).
+  const reminders = initialReminders;
+  const stats = initialStats;
   const [query, setQuery] = useState("");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("current");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [scheduleReminder, setScheduleReminder] = useState<Reminder | "new" | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isBulkSending, setIsBulkSending] = useState(false);
 
   const filteredReminders = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -111,102 +123,75 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
     });
   }
 
-  function markAsSent(ids: string[]) {
-    const dueCount = reminders.filter((reminder) => ids.includes(reminder.id) && reminder.status === "À relancer").length;
+  async function markAsSent(ids: string[]) {
+    const dueIds = reminders.filter((reminder) => ids.includes(reminder.id) && reminder.status === "À relancer").map((reminder) => reminder.id);
 
-    if (dueCount === 0) {
+    if (dueIds.length === 0) {
       notify.info("Aucun rappel arrivé à échéance parmi la sélection.");
       setSelectedIds(new Set());
       return;
     }
 
-    setReminders((current) => current.map((reminder) => (
-      ids.includes(reminder.id) && reminder.status === "À relancer"
-        ? { ...reminder, status: "Rappel envoyé" as const }
-        : reminder
-    )));
-    setStats((current) => ({
-      ...current,
-      due: Math.max(0, current.due - dueCount),
-      sent: current.sent + dueCount,
-    }));
+    setIsBulkSending(true);
+    const result = await sendRemindersBulkAction(dueIds);
+    setIsBulkSending(false);
     setSelectedIds(new Set());
-    notify.success(`${dueCount} rappel${dueCount > 1 ? "s ont" : " a"} été envoyé${dueCount > 1 ? "s" : ""} en simulation locale.`);
-  }
 
-  function sendSingleReminder(reminder: Reminder) {
-    markAsSent([reminder.id]);
-    setActiveReminder(null);
-  }
-
-  function ignoreReminder(reminder: Reminder) {
-    setReminders((current) => current.map((item) => (
-      item.id === reminder.id ? { ...item, status: "Ignoré" as const } : item
-    )));
-    if (reminder.status === "À relancer") {
-      setStats((current) => ({ ...current, due: Math.max(0, current.due - 1) }));
+    if (result.sentIds.length > 0) {
+      notify.success(`${result.sentIds.length} rappel${result.sentIds.length > 1 ? "s ont" : " a"} été envoyé${result.sentIds.length > 1 ? "s" : ""}.`);
     }
+    if (result.failedNames.length > 0) {
+      notify.error(`Échec de l'envoi pour : ${result.failedNames.join(", ")}.`);
+    }
+    if (result.sentIds.length > 0) router.refresh();
+  }
+
+  async function sendSingleReminder(reminder: Reminder, message: string) {
+    setIsSending(true);
+    const result = await sendReminderAction(reminder.id, message);
+    setIsSending(false);
+
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+
+    notify.success(`Le rappel de ${reminder.animalName} a été envoyé à ${reminder.clientName}.`);
+    setActiveReminder(null);
+    router.refresh();
+  }
+
+  async function ignoreReminder(reminder: Reminder) {
     setSelectedIds((current) => {
       const next = new Set(current);
       next.delete(reminder.id);
       return next;
     });
-    notify.success(`Le rappel de ${reminder.animalName} a été ignoré localement.`);
-  }
 
-  function saveScheduledReminder(value: ReminderFormValue) {
-    const client = clientOptions.find((option) => option.id === value.clientId);
-    const animal = client?.animals.find((option) => option.id === value.animalId);
-
-    if (!client || !animal) return;
-
-    const dueDate = new Date(`${value.dueDate}T12:00:00`);
-    const calculatedStatus: ReminderStatus = dueDate <= referenceDate() ? "À relancer" : "À venir";
-
-    if (value.id) {
-      setReminders((current) => current.map((reminder) => (
-        reminder.id === value.id
-          ? {
-              ...reminder,
-              clientId: client.id,
-              clientName: client.name,
-              clientFirstName: client.name.split(" ")[0],
-              animalId: animal.id,
-              animalName: animal.name,
-              animalSpecies: animal.species,
-              dueDate: value.dueDate,
-              delay: value.delay,
-              note: value.note,
-              status: calculatedStatus,
-            }
-          : reminder
-      )));
-      notify.success(`Le rappel de ${animal.name} a été modifié localement.`);
-    } else {
-      const newReminder: Reminder = {
-        id: `rappel-${animal.id}-${Date.now()}`,
-        clientId: client.id,
-        clientName: client.name,
-        clientFirstName: client.name.split(" ")[0],
-        animalId: animal.id,
-        animalName: animal.name,
-        animalSpecies: animal.species,
-        lastConsultation: "À renseigner",
-        dueDate: value.dueDate,
-        delay: value.delay,
-        note: value.note,
-        status: calculatedStatus,
-      };
-      setReminders((current) => [newReminder, ...current]);
-      setStats((current) => ({
-        ...current,
-        due: calculatedStatus === "À relancer" ? current.due + 1 : current.due,
-        upcoming: calculatedStatus === "À venir" ? current.upcoming + 1 : current.upcoming,
-      }));
-      notify.success(`Le rappel de ${animal.name} a été programmé localement.`);
+    const result = await ignoreReminderAction(reminder.id);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
     }
 
+    notify.success(`Le rappel de ${reminder.animalName} a été ignoré.`);
+    router.refresh();
+  }
+
+  async function saveScheduledReminder(value: ReminderFormValue) {
+    setIsSaving(true);
+    const result = await saveReminderAction(value);
+    setIsSaving(false);
+
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+
+    const animal = clientOptions.find((option) => option.id === value.clientId)?.animals.find((option) => option.id === value.animalId);
+    notify.success(value.id ? `Le rappel de ${animal?.name ?? "l'animal"} a été modifié.` : `Le rappel de ${animal?.name ?? "l'animal"} a été programmé.`);
     setScheduleReminder(null);
+    router.refresh();
   }
 
   // Pas de toast ici : le filtre et la sélection changent visiblement à
@@ -293,7 +278,9 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Annuler</button>
-            <button type="button" onClick={() => markAsSent(Array.from(selectedIds))} className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#459e90]">Envoyer les rappels</button>
+            <button type="button" onClick={() => markAsSent(Array.from(selectedIds))} disabled={isBulkSending} className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+              {isBulkSending ? "Envoi…" : "Envoyer les rappels"}
+            </button>
           </div>
         </div>
       ) : null}
@@ -309,13 +296,14 @@ export function RemindersView({ initialReminders, initialStats, clientOptions }:
       />
 
       {activeReminder ? (
-        <ReminderModal reminder={activeReminder} onClose={() => setActiveReminder(null)} onSend={sendSingleReminder} />
+        <ReminderModal reminder={activeReminder} professionalSlug={professionalSlug} sending={isSending} onClose={() => setActiveReminder(null)} onSend={sendSingleReminder} />
       ) : null}
 
       {scheduleReminder ? (
         <ReminderScheduleModal
           reminder={scheduleReminder === "new" ? undefined : scheduleReminder}
           clients={clientOptions}
+          saving={isSaving}
           onClose={() => setScheduleReminder(null)}
           onSave={saveScheduledReminder}
         />

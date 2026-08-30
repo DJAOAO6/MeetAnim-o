@@ -37,7 +37,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 - **La faille de session est corrigée** : plus de boucle de redirection infinie (P0-1).
 - **Le contraste insuffisant de la couleur de marque, présent sur la quasi-totalité des pages, est corrigé** (P1-4) — c'était la seconde cause majeure du score d'accessibilité initial, avec le défaut clavier ci-dessus.
 
-**Ce qui reste inchangé, volontairement** : Rappels (envoi toujours simulé) et Statistiques (toujours 100 % de données fictives) n'ont pas été touchés — ce sont des décisions produit (P2-23/P2-24 dans le tableau des problèmes), pas des corrections de bug, et restent hors du périmètre P0/P1 de cette phase. Le reste du texte atténué sous le seuil de contraste (P2-12), les débordements horizontaux ponctuels (P2-11) et la couverture de tests (toujours partielle, P2-30 dans FIX_PLAN.md) n'ont pas non plus été traités à ce stade.
+**Ce qui reste inchangé, volontairement** : Statistiques (toujours 100 % de données fictives, P2-24) n'a pas encore été touché — décision produit prise le 2026-08-30 (avec Rappels/P2-23, désormais réellement fonctionnel) de rendre les deux écrans réels plutôt que de les assumer comme des maquettes ; Statistiques reste à traiter. Le reste du texte atténué sous le seuil de contraste (P2-12), les débordements horizontaux ponctuels (P2-11) et la couverture de tests (toujours partielle, P2-30 dans FIX_PLAN.md) n'ont pas non plus été traités à ce stade.
 
 68 % reflète : le cœur du produit (RDV, agenda, prestations, notifications, tournées, clients) est maintenant réellement fonctionnel de bout en bout, avec de vraies protections serveur et une accessibilité clavier/contraste largement remise à niveau. Il reste deux zones assumées comme non finies (Rappels, Statistiques) et une couverture de tests encore limitée avant de considérer le produit prêt pour une mise en production sans réserve.
 
@@ -203,7 +203,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 | P2-20 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `availability-settings-tab.tsx` | — | — |
 | P2-21 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `submitPublicBookingAction` | — | — |
 | P2-22 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `data/public-booking.ts` | — | — |
-| P2-23 | L'action « Envoyer » des rappels est entièrement simulée — aucun email/SMS réel n'est envoyé (label honnête « simulation locale », contrairement aux Tournées) | `reminders-view.tsx` | P2 | Forte |
+| P2-23 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `reminders-view.tsx` | — | — |
 | P2-24 | `/dashboard/statistiques` est 100 % données fictives, derrière une permission réelle (`VIEW_FINANCES`) qui laisse penser à des chiffres fiables | `stats-view.tsx` | P2 | Forte |
 | P2-25 | La table `TourAppointment` n'a aucun chemin d'écriture applicatif — seul le script de seed peut la peupler | `src/lib/tours.ts` | P2 | Moyenne |
 | P2-26 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `src/lib/rate-limit.ts` etc. | — | — |
@@ -527,9 +527,12 @@ Mais aucune de ces vérifications indépendantes ne confirme un débordement vis
 
 ### Ce qui existe actuellement
 - Suivi de statut (à relancer / envoyé / repris / ignoré), programmation, filtres, statistiques de rappels.
+- Corrigé (2026-08-30, P2-23, décision produit utilisateur) : les 4 actions (créer, éditer, envoyer, ignorer) passent désormais par de vraies server actions (`src/lib/reminders-actions.ts`) et persistent réellement en base — ce n'était auparavant qu'une simulation locale (`useState`, toast « simulation locale »). L'envoi utilise le vrai fournisseur d'email (best-effort, comme la réservation publique), avec le vrai lien de réservation du praticien (plus un placeholder statique) et le vrai email du client. `Reminder.lastConsultation` (requise, non collectée par le formulaire) est calculée depuis la vraie antériorité de l'animal (`Consultation` la plus récente, ou son dernier `Appointment` terminé), jamais une valeur inventée. Deux bugs réels trouvés en implémentant : le message édité par la praticienne était silencieusement perdu à l'envoi (`onSend` ne le transmettait pas) ; le lien « Voir la fiche animal » était gaté derrière une liste figée de 4 ids de démo, cassé pour tout client réel. Vérifié avec `tests/reminders-flow.spec.ts` (3 scénarios, résultat affiché + état réel en base).
 
 ### Ce qui est incomplet
-- L'action « Envoyer » est une simulation complète — aucun email/SMS n'est réellement envoyé (P2-23), même si c'est honnêtement indiqué à l'utilisateur (contrairement aux Tournées).
+- Aucun canal SMS (email uniquement) — non demandé, hors périmètre de la décision du 2026-08-30.
+
+### Niveau actuel : 4/5 — fonctionnel de bout en bout (création, édition, envoi réel, ignorer, antériorité calculée) ; il manque un canal SMS pour un niveau avancé.
 
 ## Statistiques
 

@@ -5,6 +5,7 @@ export type Reminder = {
   clientId: string;
   clientName: string;
   clientFirstName: string;
+  clientEmail: string;
   animalId: string;
   animalName: string;
   animalSpecies: string;

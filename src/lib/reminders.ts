@@ -40,6 +40,7 @@ export const getReminders = cache(async (): Promise<Reminder[]> => {
     clientId: reminder.clientId,
     clientName: `${reminder.client.firstName} ${reminder.client.lastName}`,
     clientFirstName: reminder.client.firstName,
+    clientEmail: reminder.client.email,
     animalId: reminder.animalId,
     animalName: reminder.animal.name,
     animalSpecies: reminder.animal.species,

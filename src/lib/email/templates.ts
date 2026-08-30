@@ -138,3 +138,19 @@ export function bookingRequestProfessionalTemplate(params: BookingRequestProfess
     `,
   };
 }
+
+/**
+ * Rappel de suivi envoyé à un client — le corps du message est
+ * intégralement rédigé par le praticien (ReminderModal, éditable avant
+ * envoi) : ce gabarit ne fait qu'y appliquer une mise en forme minimale,
+ * pas de contenu généré ici. Saisie libre, donc échappée comme les
+ * gabarits de réservation publique.
+ */
+export function reminderEmailTemplate(params: { professionalCompany: string; message: string }): Pick<EmailMessage, "subject" | "html" | "text"> {
+  const { professionalCompany, message } = params;
+  return {
+    subject: `Un petit rappel de ${professionalCompany}`,
+    text: message,
+    html: `<p>${escapeHtml(message).replace(/\n/g, "<br>")}</p>`,
+  };
+}

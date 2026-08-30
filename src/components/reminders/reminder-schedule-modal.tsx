@@ -17,18 +17,29 @@ export type ReminderFormValue = {
 type ReminderScheduleModalProps = {
   reminder?: Reminder;
   clients: ReminderClientOption[];
+  saving: boolean;
   onClose: () => void;
   onSave: (value: ReminderFormValue) => void;
 };
 
 const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
-export function ReminderScheduleModal({ reminder, clients, onClose, onSave }: ReminderScheduleModalProps) {
+function defaultDueDateId(): string {
+  const inSixMonths = new Date();
+  inSixMonths.setMonth(inSixMonths.getMonth() + 6);
+  return inSixMonths.toISOString().slice(0, 10);
+}
+
+function todayLabel(): string {
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date());
+}
+
+export function ReminderScheduleModal({ reminder, clients, saving, onClose, onSave }: ReminderScheduleModalProps) {
   const initialClientId = reminder?.clientId ?? clients[0]?.id ?? "";
   const initialClient = clients.find((client) => client.id === initialClientId) ?? clients[0];
   const [clientId, setClientId] = useState(initialClientId);
   const [animalId, setAnimalId] = useState(reminder?.animalId ?? initialClient?.animals[0]?.id ?? "");
-  const [dueDate, setDueDate] = useState(reminder?.dueDate ?? "2026-09-24");
+  const [dueDate, setDueDate] = useState(reminder?.dueDate ?? defaultDueDateId());
   const [delay, setDelay] = useState<Reminder["delay"]>(reminder?.delay ?? "6 mois");
   const [note, setNote] = useState(reminder?.note ?? "");
   const selectedClient = clients.find((client) => client.id === clientId) ?? clients[0];
@@ -58,7 +69,7 @@ export function ReminderScheduleModal({ reminder, clients, onClose, onSave }: Re
               <h2 id="schedule-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">
                 {reminder ? "Modifier le rappel" : "Programmer un rappel"}
               </h2>
-              <p className="mt-1 text-sm text-animeo-muted">Les informations sont conservées uniquement jusqu’à l’actualisation.</p>
+              <p className="mt-1 text-sm text-animeo-muted">Le rappel sera enregistré dans le suivi client.</p>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm transition hover:text-animeo-dark">×</button>
@@ -97,14 +108,14 @@ export function ReminderScheduleModal({ reminder, clients, onClose, onSave }: Re
             </label>
 
             <div className="sm:col-span-2 rounded-2xl border border-[#cfe7e1] bg-animeo-soft p-4 text-xs font-semibold leading-relaxed text-animeo-dark">
-              Si la date choisie est postérieure au 24 août 2026, le rappel sera classé <strong>À venir</strong>. Il ne passera pas prématurément dans <strong>À relancer</strong>.
+              Si la date choisie est postérieure au {todayLabel()}, le rappel sera classé <strong>À venir</strong>. Il ne passera pas prématurément dans <strong>À relancer</strong>.
             </div>
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
             <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
-              {reminder ? "Enregistrer les modifications" : "Programmer le rappel"}
+            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">
+              {saving ? "Enregistrement…" : reminder ? "Enregistrer les modifications" : "Programmer le rappel"}
             </button>
           </div>
         </form>

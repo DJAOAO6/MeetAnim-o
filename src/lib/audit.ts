@@ -24,7 +24,11 @@ type AuditAction =
   | "APPOINTMENT_UPDATED"
   | "APPOINTMENT_STATUS_CHANGED"
   | "ANIMAL_DELETED"
-  | "ANIMAL_UPDATED";
+  | "ANIMAL_UPDATED"
+  | "REMINDER_CREATED"
+  | "REMINDER_UPDATED"
+  | "REMINDER_SENT"
+  | "REMINDER_IGNORED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
