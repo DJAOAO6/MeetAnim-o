@@ -86,7 +86,7 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
       </Card>
 
       <Card className="p-5 sm:p-6">
-        <SectionTitle title="Temps de déplacement" description="Ce délai servira plus tard à protéger l’agenda entre deux rendez-vous à domicile." />
+        <SectionTitle title="Temps de déplacement" description="Après un rendez-vous à domicile, ce délai reste bloqué dans l’agenda avant qu’un autre rendez-vous (cabinet ou domicile) puisse commencer." />
         <div className="max-w-sm"><Field label="Temps minimum après un rendez-vous à domicile"><select value={draft.travelBuffer} onChange={(event) => setDraft((current) => ({ ...current, travelBuffer: Number(event.target.value) }))} className={inputClassName}>{[0, 15, 30, 45, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes} minute{minutes > 1 ? "s" : ""}</option>)}</select></Field></div>
       </Card>
 

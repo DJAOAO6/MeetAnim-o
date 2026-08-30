@@ -12,10 +12,10 @@ import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
 import { computeAgeLabel } from "@/lib/animal-age";
-import { bookingProfessionals } from "@/data/public-booking";
+import { getPublicZones } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
-import { getBusinessProfile } from "@/lib/business-profile-actions";
+import { getAvailability, getBusinessProfile } from "@/lib/business-profile-actions";
 import { getEmailProvider } from "@/lib/email/provider";
 import { bookingRequestClientTemplate, bookingRequestProfessionalTemplate } from "@/lib/email/templates";
 import {
@@ -83,17 +83,27 @@ function toAppointment(row: {
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
 async function hasConflict(dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
-  const sameDayAppointments = await prisma.appointment.findMany({
-    where: {
-      date: toDate(dateId),
-      status: { not: "CANCELLED" },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-    select: { start: true, duration: true },
-  });
+  const [sameDayAppointments, availability] = await Promise.all([
+    prisma.appointment.findMany({
+      where: {
+        date: toDate(dateId),
+        status: { not: "CANCELLED" },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { start: true, duration: true, mode: true },
+    }),
+    getAvailability(),
+  ]);
 
   const startMinutes = timeToMinutes(start);
-  return sameDayAppointments.some((appointment) => intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), appointment.duration));
+  return sameDayAppointments.some((appointment) => {
+    // « Temps de déplacement » (AUDIT_COMPLET.md P2-20) : un rendez-vous à
+    // domicile occupe, pour le calcul de conflit, sa durée réelle + le
+    // temps de trajet configuré après sa fin, avant qu'un autre rendez-vous
+    // (cabinet ou domicile) puisse démarrer.
+    const bufferedDuration = appointment.mode === "DOMICILE" ? appointment.duration + availability.travelBuffer : appointment.duration;
+    return intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), bufferedDuration);
+  });
 }
 
 /**
@@ -312,14 +322,17 @@ function sanitizeAnimalFields(input: PublicBookingInput) {
  * uniquement : une donnée manquante ou invalide fait renoncer à la
  * création/liaison plutôt que d'échouer la demande de rendez-vous.
  */
-async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<{ clientId: string | null; animalId: string | null }> {
+type FindOrCreateResult = { clientId: string | null; animalId: string | null; createdClientId: string | null; createdAnimalId: string | null };
+
+async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<FindOrCreateResult> {
   try {
     const owner = sanitizeOwnerFields(input);
     if (!owner.email || !owner.firstName || !owner.lastName) {
-      return { clientId: null, animalId: null };
+      return { clientId: null, animalId: null, createdClientId: null, createdAnimalId: null };
     }
 
     let client = await prisma.client.findFirst({ where: { email: { equals: owner.email, mode: "insensitive" } } });
+    let createdClientId: string | null = null;
     if (!client) {
       client = await prisma.client.create({
         data: {
@@ -331,16 +344,18 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<{
           address: owner.address ?? "",
         },
       });
+      createdClientId = client.id;
     }
 
     const animalName = input.animalName.trim();
     if (!animalName) {
-      return { clientId: client.id, animalId: null };
+      return { clientId: client.id, animalId: null, createdClientId, createdAnimalId: null };
     }
 
     let animal = await prisma.animal.findFirst({
       where: { clientId: client.id, name: { equals: animalName, mode: "insensitive" } },
     });
+    let createdAnimalId: string | null = null;
 
     if (!animal) {
       const animalFields = sanitizeAnimalFields(input);
@@ -368,11 +383,29 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<{
           notes: "",
         },
       });
+      createdAnimalId = animal.id;
     }
 
-    return { clientId: client.id, animalId: animal.id };
+    return { clientId: client.id, animalId: animal.id, createdClientId, createdAnimalId };
   } catch {
-    return { clientId: null, animalId: null };
+    return { clientId: null, animalId: null, createdClientId: null, createdAnimalId: null };
+  }
+}
+
+/**
+ * Nettoyage best-effort de la fiche Client/Animal qu'on vient de créer si la
+ * création du rendez-vous échoue juste après (AUDIT_COMPLET.md P2-21) —
+ * uniquement les enregistrements réellement créés par cet appel, jamais une
+ * fiche préexistante trouvée par email/nom. Un échec de suppression ne doit
+ * jamais empêcher de répondre à l'utilisateur : l'orphelin resterait alors,
+ * mais inoffensif (déjà le statu quo avant cette correction).
+ */
+async function cleanupOrphanedClientAndAnimal(result: FindOrCreateResult): Promise<void> {
+  try {
+    if (result.createdAnimalId) await prisma.animal.delete({ where: { id: result.createdAnimalId } });
+    if (result.createdClientId) await prisma.client.delete({ where: { id: result.createdClientId } });
+  } catch {
+    // Best-effort : voir la note ci-dessus.
   }
 }
 
@@ -460,12 +493,12 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
 
   const geoFields = sanitizeGeoFields(input);
   const animalFields = sanitizeAnimalFields(input);
-  const { clientId, animalId } = await findOrCreateClientAndAnimal(input);
+  const clientAndAnimal = await findOrCreateClientAndAnimal(input);
+  const { clientId, animalId } = clientAndAnimal;
 
-  // Les zones (et donc les frais de déplacement en mode "zone") restent une
-  // donnée de démonstration statique tant que les vraies zones ne sont pas
-  // branchées sur la base — voir AUDIT-FINDINGS.md §3.A.
-  const zones = bookingProfessionals[0]?.zones ?? [];
+  // Zones réellement configurées par le praticien (Tournées/Zones), et non
+  // plus des données de démonstration figées — AUDIT_COMPLET.md P2-22.
+  const zones = await getPublicZones();
   const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
 
   let row;
@@ -495,6 +528,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
+      await cleanupOrphanedClientAndAnimal(clientAndAnimal);
       return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
     }
     throw error;
@@ -560,6 +594,14 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
 
 export type OccupiedInterval = { start: string; duration: number };
 
+// Lecture légitime plusieurs fois par session de réservation (chargement
+// initial de la fenêtre de 90 jours, revalidation au choix d'une date,
+// revalidation juste avant la soumission) — seuil large pour ne jamais
+// gêner un vrai visiteur, tout en bornant le scraping/DoS léger signalé par
+// l'audit (P2-15).
+const occupiedSlotsMaxAttempts = 60;
+const occupiedSlotsWindowMs = 5 * 60 * 1000;
+
 /**
  * Lecture publique (sans session) des créneaux déjà occupés sur une période :
  * ne renvoie que date + horaire + durée, jamais l'identité du client, pour
@@ -572,17 +614,28 @@ export type OccupiedInterval = { start: string; duration: number };
  * intervalle par plage, plutôt que découpés en repères de 15 min.
  */
 export async function getOccupiedSlotsAction(fromDateId: string, toDateId: string): Promise<Record<string, OccupiedInterval[]>> {
+  const ip = await requestIp();
+  const rateLimitKey = `occupied-slots:ip:${ip}`;
+  if (await isRateLimited(rateLimitKey, occupiedSlotsMaxAttempts, occupiedSlotsWindowMs)) {
+    throw new Error("Trop de requêtes. Merci de réessayer dans quelques instants.");
+  }
+  await recordAttempt(rateLimitKey);
+
   const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
 
-  const [appointmentRows, blockedRows] = await Promise.all([
-    prisma.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true, duration: true } }),
+  const [appointmentRows, blockedRows, availability] = await Promise.all([
+    prisma.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true, duration: true, mode: true } }),
     prisma.blockedSlot.findMany({ where: { date: range }, select: { date: true, startTime: true, endTime: true } }),
+    getAvailability(),
   ]);
 
   const result: Record<string, OccupiedInterval[]> = {};
   for (const row of appointmentRows) {
     const id = row.date.toISOString().slice(0, 10);
-    (result[id] ??= []).push({ start: row.start, duration: row.duration });
+    // Même règle de temps de déplacement que hasConflict() : un rendez-vous
+    // à domicile occupe visuellement sa durée + le tampon configuré.
+    const duration = row.mode === "DOMICILE" ? row.duration + availability.travelBuffer : row.duration;
+    (result[id] ??= []).push({ start: row.start, duration });
   }
   for (const row of blockedRows) {
     const id = row.date.toISOString().slice(0, 10);
