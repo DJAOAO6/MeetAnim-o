@@ -82,6 +82,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
     }
     setTours((current) => current.filter((item) => item.id !== tour.id));
     setSelectedTourId(null);
+    setTourModal(null);
     notify.success(`${tour.name} a été supprimée.`);
   }
 
@@ -171,6 +172,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
           onClose={() => setTourModal(null)}
           onSave={saveTour}
           onCreateZone={() => setZoneModal("new")}
+          onDelete={deleteTour}
         />
       ) : null}
 

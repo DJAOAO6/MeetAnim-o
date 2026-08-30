@@ -77,6 +77,14 @@ export type AvailabilitySettings = {
   travelBuffer: number;
   closures: ExceptionalClosure[];
   vacations: Vacation[];
+  // Valeur pré-remplie à la création d'une nouvelle prestation (Prestations) —
+  // chaque prestation reste ensuite librement modifiable individuellement,
+  // ceci n'est qu'un point de départ.
+  defaultAppointmentDuration: number;
+  // Granularité de la grille horaire proposée (créneaux alignés sur ce pas,
+  // ex. 9h00/9h15/9h30…), indépendamment de la durée de la prestation
+  // choisie — utilisé par generateCandidateStarts (booking-validation.ts).
+  slotInterval: number;
 };
 
 export type ReminderSettings = {
@@ -195,6 +203,8 @@ export const initialSettings: SettingsState = {
       { id: "closure-1", date: "2026-09-14", start: "14:00", end: "18:00", scope: "Cabinet uniquement", reason: "Formation" },
     ],
     vacations: [],
+    defaultAppointmentDuration: 45,
+    slotInterval: 15,
   },
   reminders: {
     defaultDelay: "6 mois",

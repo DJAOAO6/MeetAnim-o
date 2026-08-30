@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
@@ -24,12 +25,13 @@ type TourModalProps = {
   onClose: () => void;
   onSave: (value: TourFormValue) => void;
   onCreateZone: () => void;
+  onDelete?: (tour: Tour) => void;
 };
 
 const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
-export function TourModal({ tour, zones, onClose, onSave, onCreateZone }: TourModalProps) {
+export function TourModal({ tour, zones, onClose, onSave, onCreateZone, onDelete }: TourModalProps) {
   const [name, setName] = useState(tour?.name ?? "");
   const [recurrence, setRecurrence] = useState<Tour["recurrence"]>(tour?.recurrence ?? "Toutes les semaines");
   const [day, setDay] = useState(tour?.day ?? "Lundi");
@@ -38,6 +40,7 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone }: TourMo
   const [zoneId, setZoneId] = useState(tour?.zoneId ?? zones[0]?.id ?? "");
   const [status, setStatus] = useState<Tour["status"]>(tour?.status ?? "Active");
   const [estimatedKm, setEstimatedKm] = useState(tour?.estimatedKm ?? 0);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [initialSnapshot] = useState(() => JSON.stringify({ name, recurrence, day, startTime, endTime, zoneId, status, estimatedKm }));
   const isDirty = JSON.stringify({ name, recurrence, day, startTime, endTime, zoneId, status, estimatedKm }) !== initialSnapshot;
   const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
@@ -120,13 +123,48 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone }: TourMo
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
+          <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:items-center sm:justify-end sm:p-6">
+            {tour && onDelete ? (
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-extrabold text-red-500 transition hover:bg-red-500/20 sm:mr-auto"
+              >
+                <TrashIcon />
+                Supprimer la tournée
+              </button>
+            ) : null}
             <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
             <button type="submit" disabled={!zones.length} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">{tour ? "Enregistrer" : "Créer la tournée"}</button>
           </div>
         </form>
       </section>
+
+      {tour && onDelete && deleteConfirmOpen ? (
+        <ConfirmModal
+          title="Supprimer cette tournée ?"
+          message={
+            tour.appointmentCount > 0
+              ? `« ${tour.name} » contient ${tour.appointmentCount} rendez-vous à sa prochaine occurrence. Ils resteront dans votre agenda mais ne seront plus rattachés à une tournée. Cette action est irréversible.`
+              : `« ${tour.name} » sera définitivement supprimée. Cette action est irréversible.`
+          }
+          confirmLabel="Supprimer la tournée"
+          onConfirm={() => onDelete(tour)}
+          onClose={() => setDeleteConfirmOpen(false)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   );
 }
 
