@@ -3,7 +3,7 @@
 Date de l'audit initial : 2026-08-28. Mise à jour après correction des P0/P1 : 2026-08-29.
 Méthode : lecture exhaustive du code (architecture, modèles de données, actions serveur, tests existants) + exploration réelle de l'application en local via Playwright (connexion, parcours de réservation publique complet, navigation dans le tableau de bord, formulaires, CRUD, cas limites, responsive à 5 largeurs, scan d'accessibilité automatisé via axe-core, tests de sécurité et de conditions de course).
 
-Limite à connaître : le compte de test « secrétariat » a une double authentification par email à laquelle nous n'avions pas accès ; les vérifications de séparation des rôles pour ce compte sont donc confirmées par lecture de code (fiable) mais pas par test live (voir tableau des problèmes, P2-14).
+Limite levée depuis (2026-08-30, voir P2-14) : la double authentification par email du compte « secrétariat » est désormais testée en direct via une suite E2E dédiée (`tests/auth-login-2fa.spec.ts`, `tests/secretary-role-separation.spec.ts`), le code étant simulé en base plutôt que reçu par email (aucun fournisseur réel en développement) — sans contourner la vérification réelle côté serveur.
 
 **Statut de la phase de correction** : tous les problèmes P0 et P1 identifiés ci-dessous ont été corrigés et revérifiés en conditions réelles (voir le statut détaillé de chaque fiche). Les problèmes P2/P3 n'ont volontairement pas été traités et attendent une validation avant d'être abordés. Les scores ci-dessous ont été recalculés après cette première vague de corrections.
 
@@ -194,7 +194,7 @@ Ce n'est pas une moyenne mécanique des scores ci-dessus, ni un simple comptage 
 | P2-11 | ⚪ Vérifié, ne se reproduit pas — voir note détaillée après ce tableau. `document.documentElement.scrollWidth` dépasse la largeur de viewport à 1280px/768px, mais il ne s'agit pas d'un débordement visuel réel | Clients, Agenda | — | — |
 | P2-12 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | Transversal | — | — |
 | P2-13 | 🟢 Corrigé et testé — `aria-label="Rechercher un client, un animal"` + `role="search"` sur le formulaire (`dashboard-top-bar.tsx`). Vérifié : axe-core (`label`/`aria-input-field-name`) 0 violation, lecteur d'accessibilité expose le nom, recherche fonctionnelle (saisie → Entrée → navigation `?q=`) inchangée | `DashboardTopBar` | — | — |
-| P2-14 | Rôle Secrétariat non testé en direct (2FA email non accessible pendant l'audit) — vérification uniquement par lecture de code | Sécurité | P2 | — |
+| P2-14 | 🟢 Limite levée — voir note détaillée après ce tableau | Sécurité | — | — |
 | P2-15 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `appointments-actions.ts` | — | — |
 | P2-16 | 🟢 Corrigé et testé — voir note détaillée après ce tableau | `Appointment.clientName` | — | — |
 | P2-17 | ⚪ Vérifié, ne se reproduit pas — voir note détaillée après ce tableau | `week-planner.tsx` | — | — |
@@ -224,6 +224,12 @@ Vérifié en conditions réelles (probabilité temporairement forcée à 100% po
 `logAudit()` (`src/lib/audit.ts`) lit désormais l'adresse IP (`x-forwarded-for` via `headers()` de `next/headers`) une seule fois, en interne, plutôt que d'exiger que chacun des ~15 sites d'appel la passe explicitement. Tous les appelants confirmés request-scoped (Server Actions et Server Components) via `grep`, donc `headers()` y est toujours valide.
 
 Vérifié en conditions réelles (pas seulement en lecture de code) : connexion réelle effectuée, requête SQL directe sur les 5 entrées `AuditLog` les plus récentes juste après — la nouvelle entrée `LOGIN_SUCCEEDED` porte bien `ipAddress: "::1"` (IP locale de développement), tandis que les entrées antérieures à la correction restent à `null` comme avant (aucune modification rétroactive des données existantes, comportement attendu). `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (52/52) verts.
+
+## P2-14 — Note (2026-08-30, Sprint 3 — item 30 de FIX_PLAN.md)
+
+Limite levée : le code à 6 chiffres de la double authentification n'était pas accessible pendant l'audit initial (aucun fournisseur d'email réel en développement, `ConsoleEmailProvider` se contente d'un `console.log`). Technique développée pour `tests/auth-login-2fa.spec.ts` : le code étant stocké haché (sha256, `src/lib/auth/tokens.ts`) sans salage, le test réécrit directement ce hash en base avec une valeur connue après la création du code par l'application — simulant « avoir reçu l'email » plutôt que de contourner la vérification réelle (le serveur compare toujours le hash soumis au hash attendu, exactement comme en production).
+
+Cette technique, réutilisable (`tests/helpers/secretary-login.ts`), a permis de vérifier en direct pour la première fois — au-delà de la seule double authentification elle-même — la séparation des rôles du compte Secrétariat (`tests/secretary-role-separation.spec.ts`) : barre latérale sans Administration ni Statistiques, garde côté serveur (pas seulement un lien masqué) sur `/dashboard/admin` et `/dashboard/statistiques`, aucun bouton de suppression de client, prestations en lecture seule avec message explicite. Les 6 scénarios confirment exactement ce que la lecture de code de l'audit initial avait conclu — aucune régression trouvée, mais désormais une confirmation par test réel plutôt que par inspection seule.
 
 ## P2-27 / P2-28 — Notes (2026-08-29, Sprint 3)
 
