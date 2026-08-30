@@ -10,9 +10,10 @@ type TourDetailModalProps = {
   appointments: TourAppointment[];
   onClose: () => void;
   onRoute: () => void;
+  onDelete: () => void;
 };
 
-export function TourDetailModal({ tour, zone, appointments, onClose, onRoute }: TourDetailModalProps) {
+export function TourDetailModal({ tour, zone, appointments, onClose, onRoute, onDelete }: TourDetailModalProps) {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -24,7 +25,7 @@ export function TourDetailModal({ tour, zone, appointments, onClose, onRoute }: 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
       <div className="mx-auto max-w-5xl py-6">
-        <TourDetail tour={tour} zone={zone} appointments={appointments} onBack={onClose} onRoute={onRoute} />
+        <TourDetail tour={tour} zone={zone} appointments={appointments} onBack={onClose} onRoute={onRoute} onDelete={onDelete} />
       </div>
     </div>
   );

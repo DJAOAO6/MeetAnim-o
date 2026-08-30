@@ -41,6 +41,7 @@ async function revalidateToursPages() {
   revalidatePath("/dashboard/carte");
   revalidatePath("/dashboard/parametres");
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/agenda");
 }
 
 export type TourActionResult = { ok: true; tour: Tour } | { ok: false; error: string };
@@ -104,6 +105,29 @@ export async function toggleTourStatusAction(id: string): Promise<TourActionResu
 
   await revalidateToursPages();
   return { ok: true, tour: await toTour(row) };
+}
+
+export type DeleteTourResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Une Tour n'a pas de relation en base vers Appointment (P2-25 : les arrêts
+ * sont calculés à la lecture par correspondance zone/date, pas une clé
+ * étrangère) — sa suppression ne touche donc jamais les rendez-vous
+ * eux-mêmes, seulement le regroupement en tournée, quel que soit son statut
+ * (active, inactive, passée ou à venir).
+ */
+export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de gérer les tournées." };
+  }
+
+  const existing = await prisma.tour.findUnique({ where: { id } });
+  if (!existing) return { ok: false, error: "Cette tournée n'existe plus." };
+
+  await prisma.tour.delete({ where: { id } });
+  await revalidateToursPages();
+  return { ok: true };
 }
 
 export type ZoneActionResult = { ok: true; zone: Zone } | { ok: false; error: string };

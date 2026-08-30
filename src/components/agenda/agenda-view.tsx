@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
 import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/agenda-view-switcher";
@@ -17,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
 import { notify } from "@/lib/notify";
+import { deleteTourAction } from "@/lib/tours-actions";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
@@ -103,6 +105,7 @@ type AgendaViewProps = {
 };
 
 export function AgendaView({ clients, availability, tours, zones, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
+  const router = useRouter();
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
 
@@ -219,6 +222,17 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     setSelectedTourId(tourId);
   }
 
+  async function deleteTour(tourId: string, tourName: string) {
+    const result = await deleteTourAction(tourId);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setSelectedTourId(null);
+    notify.success(`${tourName} a été supprimée.`);
+    router.refresh();
+  }
+
   function handleSelectBlockedSlot(id: string, anchorRect: DOMRect) {
     const slot = blockedSlots.find((item) => item.id === id);
     if (slot) setSelectedBlockedSlot({ slot, anchorRect });
@@ -279,13 +293,11 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     // ferait doublon avec ce qui est déjà visible à l'écran.
   }
 
-  return (
-    <>
-      <PageHeader
-        title="Agenda"
-        description="Votre planning unique pour les rendez-vous au cabinet et à domicile."
-      />
-
+  // Extrait en variable (plutôt que rendu directement dans le JSX ci-dessous)
+  // car sa position change selon la vue : juste au-dessus du planning en
+  // Jour/Semaine (les demandes en attente passent avant), toujours en tête
+  // en Mois/Année.
+  const toolbarCard = (
       <Card className="mb-6 p-4 sm:p-5">
         <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
@@ -363,10 +375,20 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
         ) : null}
 
       </Card>
+  );
+
+  return (
+    <>
+      <PageHeader
+        title="Agenda"
+        description="Votre planning unique pour les rendez-vous au cabinet et à domicile."
+      />
 
       {view === "day" || view === "week" ? (
         <>
           <PendingRequestsPanel requests={pendingRequests} weekDates={activeDates} totalPendingCount={totalPendingCount} onAction={handlePendingAction} />
+
+          {toolbarCard}
 
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
             <WeekPlanner
@@ -384,7 +406,9 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
           </div>
         </>
       ) : view === "month" ? (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+        <>
+          {toolbarCard}
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
           <Card className="overflow-hidden p-4 sm:p-5">
             <div className="mb-3">
               <h2 className="font-extrabold text-animeo-dark">Planning du mois</h2>
@@ -414,9 +438,12 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
               Sélectionnez un jour dans le calendrier pour voir le détail des rendez-vous.
             </Card>
           )}
-        </div>
+          </div>
+        </>
       ) : (
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+        <>
+          {toolbarCard}
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
           <div className="flex flex-col gap-4">
             <YearStatsRibbon year={yearValue} appointments={appointments} tours={tours} />
             <Card className="p-4 sm:p-5">
@@ -426,7 +453,8 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
           <div className="xl:sticky xl:top-6">
             <YearSidePanel year={yearValue} appointments={appointments} tours={tours} />
           </div>
-        </div>
+          </div>
+        </>
       )}
 
       {blockedSlotModalDate ? (
@@ -447,6 +475,7 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
             appointments={tourAppointments[tour.id] ?? []}
             onClose={() => setSelectedTourId(null)}
             onRoute={() => notify.info("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
+            onDelete={() => deleteTour(tour.id, tour.name)}
           />
         );
       })() : null}

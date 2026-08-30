@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { notify } from "@/lib/notify";
-import { deleteZoneAction, saveTourAction, saveZoneAction, toggleTourStatusAction } from "@/lib/tours-actions";
+import { deleteTourAction, deleteZoneAction, saveTourAction, saveZoneAction, toggleTourStatusAction } from "@/lib/tours-actions";
 import type { MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type ToursViewProps = {
@@ -74,6 +74,17 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
     setZoneModal(null);
   }
 
+  async function deleteTour(tour: Tour) {
+    const result = await deleteTourAction(tour.id);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setTours((current) => current.filter((item) => item.id !== tour.id));
+    setSelectedTourId(null);
+    notify.success(`${tour.name} a été supprimée.`);
+  }
+
   async function deleteZone(zone: Zone) {
     const result = await deleteZoneAction(zone.id);
     if (!result.ok) {
@@ -134,6 +145,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
               appointments={appointments[selectedTour.id] ?? []}
               onBack={() => setSelectedTourId(null)}
               onRoute={() => notify.info("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
+              onDelete={() => deleteTour(selectedTour)}
             />
           ) : (
             <ToursOverview

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { SimulatedMap } from "@/components/tours/simulated-map";
 import type { Tour, TourAppointment, Zone } from "@/data/tours";
@@ -9,9 +11,11 @@ type TourDetailProps = {
   appointments: TourAppointment[];
   onBack: () => void;
   onRoute: () => void;
+  onDelete: () => void;
 };
 
-export function TourDetail({ tour, zone, appointments, onBack, onRoute }: TourDetailProps) {
+export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete }: TourDetailProps) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const points = appointments.map((appointment, index) => ({
     id: appointment.id,
     x: appointment.position.x,
@@ -23,10 +27,16 @@ export function TourDetail({ tour, zone, appointments, onBack, onRoute }: TourDe
 
   return (
     <div className="space-y-6">
-      <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-sm font-extrabold text-animeo-muted transition hover:text-animeo">
-        <Icon name="arrow" className="h-4 w-4 rotate-180" />
-        Retour aux tournées
-      </button>
+      <div className="flex items-center justify-between gap-3">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-sm font-extrabold text-animeo-muted transition hover:text-animeo">
+          <Icon name="arrow" className="h-4 w-4 rotate-180" />
+          Retour aux tournées
+        </button>
+        <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl bg-red-500/10 px-3.5 py-2 text-sm font-extrabold text-red-500 transition hover:bg-red-500/20">
+          <TrashIcon />
+          Supprimer la tournée
+        </button>
+      </div>
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-5 bg-gradient-to-r from-animeo-soft to-white p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
@@ -94,10 +104,36 @@ export function TourDetail({ tour, zone, appointments, onBack, onRoute }: TourDe
           <SimulatedMap points={points} heightClassName="h-[520px]" />
         </Card>
       </div>
+
+      {deleteConfirmOpen ? (
+        <ConfirmModal
+          title="Supprimer cette tournée ?"
+          message={
+            tour.appointmentCount > 0
+              ? `« ${tour.name} » contient ${tour.appointmentCount} rendez-vous à sa prochaine occurrence. Ils resteront dans votre agenda mais ne seront plus rattachés à une tournée. Cette action est irréversible.`
+              : `« ${tour.name} » sera définitivement supprimée. Cette action est irréversible.`
+          }
+          confirmLabel="Supprimer la tournée"
+          onConfirm={onDelete}
+          onClose={() => setDeleteConfirmOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
 
 function TourMetric({ value, label }: { value: string; label: string }) {
   return <div className="p-5 text-center"><p className="text-2xl font-black text-animeo-dark">{value}</p><p className="mt-1 text-xs font-bold text-animeo-muted">{label}</p></div>;
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
 }

@@ -3,11 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { logout } from "@/lib/auth/actions";
 import { initialsFor } from "@/lib/format";
@@ -50,9 +51,22 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const { theme } = useDashboardTheme();
   const user = useCurrentUser();
   const items = showStatistics ? [...navigation, statisticsItem] : navigation;
+
+  // Ferme le popover profil au clic en dehors — même logique que
+  // AddressAutocomplete (src/components/ui/address-autocomplete.tsx).
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [profileOpen]);
 
   return (
     <>
@@ -126,7 +140,12 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
         </nav>
 
         {user ? (
-          <div className="mt-3 shrink-0 border-t border-white/10 pt-3">
+          // relative + le popover en absolute/bottom-full : le sous-menu
+          // flotte par-dessus le reste de la sidebar au lieu de le pousser
+          // (la sidebar est une colonne flex de hauteur fixe — un sous-menu
+          // dans le flux normal redimensionnait toute la navigation
+          // au-dessus à chaque ouverture/fermeture).
+          <div ref={profileRef} className="relative mt-3 shrink-0 border-t border-white/10 pt-3">
             <button
               type="button"
               onClick={() => setProfileOpen((current) => !current)}
@@ -142,12 +161,12 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
             </button>
 
             {profileOpen ? (
-              <div className="mt-1 space-y-0.5">
+              <div className="absolute inset-x-0 bottom-full z-20 mb-2 space-y-0.5 rounded-2xl border border-black/5 bg-white p-1.5 shadow-[0_16px_40px_rgba(12,39,47,0.35)]">
                 <Link
                   href="/dashboard/parametres"
                   onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
                   aria-current={isActive(pathname, "/dashboard/parametres") ? "page" : undefined}
-                  className="flex items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
                 >
                   <Icon name="settings" className="h-4 w-4" />
                   Paramètres
@@ -157,23 +176,35 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
                     href="/dashboard/admin"
                     onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
                     aria-current={isActive(pathname, "/dashboard/admin") ? "page" : undefined}
-                    className="flex items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white"
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
                   >
                     <Icon name="shield" className="h-4 w-4" />
                     Administration
                   </Link>
                 ) : null}
-                <form action={logout}>
-                  <button type="submit" className="flex w-full items-center gap-2 rounded-[12px] px-3 py-2.5 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">
-                    <LogoutIcon />
-                    Se déconnecter
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  onClick={() => setLogoutConfirmOpen(true)}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 transition hover:bg-red-500/10"
+                >
+                  <LogoutIcon />
+                  Se déconnecter
+                </button>
               </div>
             ) : null}
           </div>
         ) : null}
       </aside>
+
+      {logoutConfirmOpen ? (
+        <ConfirmModal
+          title="Se déconnecter ?"
+          message="Vous devrez vous reconnecter avec votre email et votre mot de passe pour accéder de nouveau à votre espace professionnel."
+          confirmLabel="Se déconnecter"
+          onConfirm={() => { void logout(); }}
+          onClose={() => setLogoutConfirmOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

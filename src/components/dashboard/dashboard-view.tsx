@@ -25,7 +25,14 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
           <DashboardPlanning clients={clients} />
           <DashboardActivityChart />
         </div>
-        <div className="grid grid-cols-1 items-start gap-6">
+        {/* xl:pr-24 : réserve un dégagement à droite pour le cluster de
+            boutons flottants (DashboardFloatingActions, fixed bottom-right)
+            — sans cette marge, la carte « Prochaine tournée » peut se
+            retrouver recouverte par les boutons sur les hauteurs d'écran
+            courantes (~720-800px). Scopé à cette seule colonne (pas au
+            layout partagé) pour ne pas rogner la largeur de l'Agenda, qui
+            en a besoin en entier sur les mêmes largeurs d'écran. */}
+        <div className="grid grid-cols-1 items-start gap-6 xl:pr-24">
           <DashboardNextTour tours={tours} zones={zones} tourAppointments={tourAppointments} />
           <DashboardRemindersCard reminders={reminders} />
           <DashboardActivitySummary clients={clients} />
