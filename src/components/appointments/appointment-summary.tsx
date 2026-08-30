@@ -1,5 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { completeAppointmentAction, type SuggestedReminder } from "@/lib/appointments-actions";
+import { saveReminderAction } from "@/lib/reminders-actions";
+import { notify } from "@/lib/notify";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 
@@ -27,7 +33,49 @@ type AppointmentSummaryProps = {
  * modifier une information par mégarde en atterrissant sur un champ éditable.
  */
 export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: AppointmentSummaryProps) {
+  const router = useRouter();
   const isHomeVisit = appointment.mode === "home";
+  const [completing, setCompleting] = useState(false);
+  const [reminderPrompt, setReminderPrompt] = useState<SuggestedReminder | null>(null);
+
+  // "Terminer" ne modifie jamais l'appointment affiché ici en place (pas de
+  // resynchronisation live du prop appointment entre popover et contexte,
+  // voir AppointmentForm) : on referme la fiche et on rafraîchit les
+  // données serveur de la page, plutôt que de tenter un état intermédiaire
+  // incohérent.
+  async function handleComplete() {
+    setCompleting(true);
+    const result = await completeAppointmentAction(appointment.id);
+    setCompleting(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success("Consultation marquée comme réalisée.");
+    if (result.suggestedReminder) {
+      setReminderPrompt(result.suggestedReminder);
+      return;
+    }
+    router.refresh();
+    onBack();
+  }
+
+  async function confirmReminder() {
+    if (!reminderPrompt) return;
+    const { clientId, animalId, delay, dueDate } = reminderPrompt;
+    setReminderPrompt(null);
+    const result = await saveReminderAction({ clientId, animalId, dueDate, delay, note: "" });
+    if (!result.ok) notify.error(result.error);
+    else notify.success(`Rappel programmé dans ${delay}.`);
+    router.refresh();
+    onBack();
+  }
+
+  function declineReminder() {
+    setReminderPrompt(null);
+    router.refresh();
+    onBack();
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -76,10 +124,27 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
             ) : <span />}
           </div>
         ) : null}
+        {appointment.status === "confirmed" ? (
+          <button type="button" onClick={handleComplete} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9] disabled:cursor-not-allowed disabled:opacity-60">
+            {completing ? "…" : "Consultation réalisée"}
+          </button>
+        ) : null}
         <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
           Modifier
         </button>
       </div>
+
+      {reminderPrompt ? (
+        <ConfirmModal
+          title="Programmer un rappel ?"
+          message={`Proposer un nouveau rendez-vous à ${appointment.clientName} dans ${reminderPrompt.delay}, à partir de la prestation d'aujourd'hui.`}
+          confirmLabel={`Programmer dans ${reminderPrompt.delay}`}
+          cancelLabel="Non merci"
+          destructive={false}
+          onConfirm={confirmReminder}
+          onClose={declineReminder}
+        />
+      ) : null}
     </div>
   );
 }

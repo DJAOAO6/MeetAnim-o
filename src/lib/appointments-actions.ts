@@ -255,6 +255,73 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   return { ok: true, appointment: toAppointment(row) };
 }
 
+export type SuggestedReminder = {
+  clientId: string;
+  animalId: string;
+  delay: "3 mois" | "6 mois" | "12 mois";
+  dueDate: string;
+};
+
+export type CompleteAppointmentResult =
+  | { ok: true; appointment: Appointment; suggestedReminder: SuggestedReminder | null }
+  | { ok: false; error: string };
+
+const reminderMonths: Record<"3 mois" | "6 mois" | "12 mois", number> = { "3 mois": 3, "6 mois": 6, "12 mois": 12 };
+
+/**
+ * "Terminer un rendez-vous" ≠ "rédiger un compte rendu" (décision assumée,
+ * voir AUDIT-PRODUIT-2026-08-30.md §G1) : un seul clic, aucun formulaire.
+ * Fait ce que rien d'autre dans l'application ne faisait jusqu'ici —
+ * finding P0 §4 — en trois temps :
+ *   1. statut → COMPLETED ;
+ *   2. une ligne Consultation réelle (jamais écrite ailleurs dans le code
+ *      applicatif avant ce chantier — seul prisma/seed.ts le faisait), sans
+ *      résumé inventé (summary vide plutôt qu'un texte fictif) ;
+ *   3. calcule (sans le créer) un rappel suggéré à partir de
+ *      Service.suggestedReminder, pour que l'appelant propose "Programmer
+ *      un rappel dans N mois ?" — l'utilisateur décide, ce n'est jamais
+ *      automatique.
+ */
+export async function completeAppointmentAction(id: string): Promise<CompleteAppointmentResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+
+  const current = await prisma.appointment.findUnique({ where: { id } });
+  if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
+  if (current.status === "COMPLETED" || current.status === "CANCELLED") {
+    return { ok: false, error: "Ce rendez-vous ne peut plus être marqué comme réalisé." };
+  }
+
+  const row = await prisma.appointment.update({ where: { id }, data: { status: "COMPLETED" }, include: { animal: { select: { species: true } } } });
+  await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status: "completed" } });
+
+  if (current.animalId) {
+    await prisma.consultation.create({
+      data: { animalId: current.animalId, date: current.date, service: current.serviceName, mode: current.mode, price: current.price, summary: "" },
+    });
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/clients");
+  revalidatePath("/dashboard/statistiques");
+
+  let suggestedReminder: SuggestedReminder | null = null;
+  if (current.animalId && current.clientId) {
+    // Correspondance best-effort par nom : serviceName reste un texte libre
+    // dans le formulaire interne (item 16 de l'audit, pas encore un
+    // `<select>` relié au catalogue), donc pas de FK stricte vers Service.
+    const service = await prisma.service.findFirst({ where: { name: current.serviceName }, select: { suggestedReminder: true } });
+    const delay = service?.suggestedReminder;
+    if (delay === "3 mois" || delay === "6 mois" || delay === "12 mois") {
+      const dueDate = new Date(current.date);
+      dueDate.setMonth(dueDate.getMonth() + reminderMonths[delay]);
+      suggestedReminder = { clientId: current.clientId, animalId: current.animalId, delay, dueDate: dueDate.toISOString().slice(0, 10) };
+    }
+  }
+
+  return { ok: true, appointment: toAppointment(row), suggestedReminder };
+}
+
 export type PublicBookingInput = {
   // Référence vers une prestation existante : le prix, la durée et le nom
   // affiché sont toujours relus depuis getPublicServices() côté serveur,
