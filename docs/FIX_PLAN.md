@@ -41,7 +41,7 @@ Objectif : plus aucun bug qui trompe l'utilisateur sur l'état réel de ses donn
 
 ---
 
-## SPRINT 3 — QUALITÉ (code / performance / tests)
+## SPRINT 3 — QUALITÉ (code / performance / tests) — ✅ TERMINÉ (2026-08-30)
 
 20. 🟢 **P2-16** — Stratégie retenue : resynchronisation (pas de jointure) — `clientId`/`animalId` sont nullables, les rendez-vous volants sans fiche n'ont aucune autre source pour leur nom. `updateClientAction`/`updateAnimalAction` propagent désormais le nom en transaction vers tous les rendez-vous liés. Vérifié en conditions réelles sur le cas cité par l'audit (« Loi Duboc » → « Loïc Duboc »), 0 désynchronisation restante en base après correction.
 21. 🟢 **P2-18** — Cause réelle : `referenceDate()` (fuseau horaire de l'environnement, pas juste un format de date) calculée pendant le rendu SSR d'un composant client. Corrigé avec `useHasMounted()` (`useSyncExternalStore`) : 0 erreur d'hydratation vérifiée après correction, chart toujours fonctionnel.
