@@ -5,18 +5,19 @@ import type { Animal } from "@/data/clients";
 type AnimalSideCardsProps = {
   animal: Animal;
   onAction: (message: string) => void;
+  onScheduleReminder: () => void;
 };
 
-export function AnimalSideCards({ animal, onAction }: AnimalSideCardsProps) {
+export function AnimalSideCards({ animal, onAction, onScheduleReminder }: AnimalSideCardsProps) {
   return (
     <aside className="grid gap-6 sm:grid-cols-2 2xl:sticky 2xl:top-6 2xl:grid-cols-1" aria-label={`Documents et rappel de ${animal.name}`}>
       <DocumentsCard animal={animal} onAction={onAction} />
-      <ReminderCard animal={animal} onAction={onAction} />
+      <ReminderCard animal={animal} onScheduleReminder={onScheduleReminder} />
     </aside>
   );
 }
 
-function DocumentsCard({ animal, onAction }: AnimalSideCardsProps) {
+function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (message: string) => void }) {
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between">
@@ -70,7 +71,7 @@ function DocumentsCard({ animal, onAction }: AnimalSideCardsProps) {
   );
 }
 
-function ReminderCard({ animal, onAction }: AnimalSideCardsProps) {
+function ReminderCard({ animal, onScheduleReminder }: { animal: Animal; onScheduleReminder: () => void }) {
   return (
     <Card className="overflow-hidden sm:self-start">
       <div className="bg-[#fff8e8] p-5">
@@ -89,7 +90,7 @@ function ReminderCard({ animal, onAction }: AnimalSideCardsProps) {
       <div className="p-4">
         <button
           type="button"
-          onClick={() => onAction(`La programmation d’un rappel pour ${animal.name} sera ajoutée ici`)}
+          onClick={onScheduleReminder}
           className="flex w-full items-center justify-center rounded-xl bg-[#fff0cf] px-4 py-2.5 text-sm font-extrabold text-[#8c6118] transition hover:bg-[#ffe7b2]"
         >
           Programmer un rappel

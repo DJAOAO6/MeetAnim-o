@@ -10,11 +10,13 @@ import { AnimalEditModal } from "@/components/clients/animal-edit-modal";
 import { AnimalRecord } from "@/components/clients/animal-record";
 import { AnimalSideCards } from "@/components/clients/animal-side-cards";
 import { ClientEditModal } from "@/components/clients/client-edit-modal";
+import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { hasPermission } from "@/lib/auth/permissions";
 import { deleteAnimalAction, deleteClientAction, updateClientAction, type ClientContactInput } from "@/lib/clients-actions";
+import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 
@@ -41,6 +43,8 @@ export function ClientProfile({ client }: ClientProfileProps) {
   const [editingClient, setEditingClient] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [addingAnimal, setAddingAnimal] = useState(false);
+  const [schedulingReminder, setSchedulingReminder] = useState(false);
+  const [savingReminder, setSavingReminder] = useState(false);
   const selectedAnimal = animals.find((animal) => animal.id === selectedAnimalId) ?? animals[0];
 
   useEffect(() => {
@@ -64,6 +68,25 @@ export function ClientProfile({ client }: ClientProfileProps) {
 
   function showStubFeedback(message: string) {
     notify.info(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
+  }
+
+  // Contrairement aux 3 autres boutons de AnimalSideCards (documents,
+  // toujours stub — voir showStubFeedback), "Programmer un rappel" a déjà
+  // un vrai équivalent fonctionnel sur /dashboard/rappels : on le relie ici
+  // au lieu de simuler (AUDIT-PRODUIT-2026-08-30.md, finding P0 §6).
+  async function saveReminder(value: ReminderFormValue) {
+    setSavingReminder(true);
+    const result = await saveReminderAction(value);
+    setSavingReminder(false);
+
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+
+    notify.success(`Un rappel a été programmé pour ${selectedAnimal?.name ?? "cet animal"}.`);
+    setSchedulingReminder(false);
+    router.refresh();
   }
 
   function deleteClient() {
@@ -214,7 +237,7 @@ export function ClientProfile({ client }: ClientProfileProps) {
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}
           />
-          <AnimalSideCards animal={selectedAnimal} onAction={showStubFeedback} />
+          <AnimalSideCards animal={selectedAnimal} onAction={showStubFeedback} onScheduleReminder={() => setSchedulingReminder(true)} />
         </div>
       ) : (
         <Card className="p-10 text-center">
@@ -227,6 +250,15 @@ export function ClientProfile({ client }: ClientProfileProps) {
 
       {editingClient ? (
         <ClientEditModal client={clientInfo} saving={savingClient} onClose={() => setEditingClient(false)} onSave={saveClientInfo} />
+      ) : null}
+
+      {schedulingReminder && selectedAnimal ? (
+        <ReminderScheduleModal
+          clients={[{ id: clientInfo.id, name: `${clientInfo.firstName} ${clientInfo.lastName}`, animals: [{ id: selectedAnimal.id, name: selectedAnimal.name, species: selectedAnimal.species }] }]}
+          saving={savingReminder}
+          onClose={() => setSchedulingReminder(false)}
+          onSave={saveReminder}
+        />
       ) : null}
 
       {addingAnimal ? (
