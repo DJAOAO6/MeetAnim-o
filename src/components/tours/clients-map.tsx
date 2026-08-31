@@ -2,13 +2,13 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
+import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { haversineDistanceKm } from "@/lib/geo";
-import { searchPlaces, type PlaceResult } from "@/lib/geo-search";
 import type { AnimalSpecies, MapClient } from "@/data/tours";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
@@ -26,7 +26,6 @@ type PerimeterCenter = { lat: number; lng: number; label: string };
 
 const speciesFilters: SpeciesFilter[] = ["Tous les clients", "Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
 const radiusOptions = [2, 5, 10, 15, 20, 25, 30, 50];
-const placeTypeLabels: Record<PlaceResult["type"], string> = { commune: "Ville / village", departement: "Département", region: "Région" };
 
 export function ClientsMap({ clients }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
@@ -37,31 +36,10 @@ export function ClientsMap({ clients }: ClientsMapProps) {
   const [selectedId, setSelectedId] = useState(clients[0]?.id ?? "");
   const cities = Array.from(new Set(clients.map((client) => client.city))).sort((first, second) => first.localeCompare(second, "fr"));
 
-  const [placeQuery, setPlaceQuery] = useState("");
-  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
-  const [placeLoading, setPlaceLoading] = useState(false);
-  const [showPlaceResults, setShowPlaceResults] = useState(false);
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom: number; token: string } | null>(null);
   const [perimeterMode, setPerimeterMode] = useState(false);
   const [perimeterCenter, setPerimeterCenter] = useState<PerimeterCenter | null>(null);
   const [perimeterRadiusKm, setPerimeterRadiusKm] = useState(15);
-
-  useEffect(() => {
-    const trimmed = placeQuery.trim();
-    if (trimmed.length < 2) return;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      setPlaceLoading(true);
-      searchPlaces(trimmed, controller.signal)
-        .then((results) => { if (!controller.signal.aborted) setPlaceResults(results); })
-        .finally(() => { if (!controller.signal.aborted) setPlaceLoading(false); });
-    }, 350);
-    return () => { clearTimeout(timeout); controller.abort(); };
-  }, [placeQuery]);
-
-  const trimmedPlaceQuery = placeQuery.trim();
-  const visiblePlaceResults = trimmedPlaceQuery.length < 2 ? [] : placeResults;
-  const isSearchingPlace = trimmedPlaceQuery.length >= 2 && placeLoading;
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -95,12 +73,27 @@ export function ClientsMap({ clients }: ClientsMapProps) {
   }));
 
   const focusTokenRef = useRef(0);
-  function selectPlace(place: PlaceResult) {
+  function focusOn(lat: number, lng: number, zoom: number, tokenSeed: string) {
     focusTokenRef.current += 1;
-    setPlaceQuery(place.label);
-    setShowPlaceResults(false);
-    setFocus({ lat: place.lat, lng: place.lng, zoom: place.zoom, token: `${place.id}:${focusTokenRef.current}` });
-    if (perimeterMode) setPerimeterCenter({ lat: place.lat, lng: place.lng, label: place.label });
+    setFocus({ lat, lng, zoom, token: `${tokenSeed}:${focusTokenRef.current}` });
+  }
+
+  // Sélectionner un lieu dans la recherche unifiée applique directement un
+  // périmètre (pas de mode à activer au préalable, contrairement à l'ancien
+  // "Créer un périmètre" + clic sur la carte, conservé ci-dessous pour la
+  // phase 1).
+  function handleUnifiedSelect(selection: UnifiedSearchSelection) {
+    if (selection.kind === "place") {
+      focusOn(selection.place.lat, selection.place.lng, selection.place.zoom, selection.place.id);
+      setPerimeterCenter({ lat: selection.place.lat, lng: selection.place.lng, label: selection.place.label });
+      return;
+    }
+    const target = selection.kind === "client"
+      ? clients.find((client) => client.clientId === selection.client.id)
+      : clients.find((client) => client.id === selection.animal.id);
+    if (!target) return;
+    setSelectedId(target.id);
+    if (target.coordinates) focusOn(target.coordinates.lat, target.coordinates.lng, 14, target.id);
   }
 
   function handleMapClick(lat: number, lng: number) {
@@ -117,23 +110,11 @@ export function ClientsMap({ clients }: ClientsMapProps) {
     setPerimeterMode(false);
   }
 
-  const dropdownTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function closeDropdownDelayed() {
-    dropdownTimeout.current = setTimeout(() => setShowPlaceResults(false), 120);
-  }
-  function cancelDropdownClose() {
-    if (dropdownTimeout.current) clearTimeout(dropdownTimeout.current);
-  }
-
   return (
     <div className="space-y-6">
       <Card className="p-4 sm:p-5">
         <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.75fr)_minmax(0,1.25fr)] xl:items-end">
-          <label className="relative block">
-            <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Recherche</span>
-            <SearchIcon />
-            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Rechercher un client ou un animal" className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:bg-white" />
-          </label>
+          <UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} />
 
           <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -159,47 +140,17 @@ export function ClientsMap({ clients }: ClientsMapProps) {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 border-t border-[#e5eeeb] pt-5 lg:grid-cols-[minmax(260px,0.6fr)_minmax(0,0.4fr)]">
-          <label className="relative block">
-            <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Rechercher un lieu (ville, village, département, région)</span>
-            <div className="relative">
-              <SearchIcon />
-              <input
-                type="search"
-                value={placeQuery}
-                onChange={(event) => { setPlaceQuery(event.target.value); setShowPlaceResults(true); }}
-                onFocus={() => setShowPlaceResults(true)}
-                onBlur={closeDropdownDelayed}
-                placeholder="Ex. Rouen, Calvados, Normandie…"
-                className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:bg-white"
-              />
-            </div>
-            {showPlaceResults && trimmedPlaceQuery.length >= 2 ? (
-              <div onMouseDown={cancelDropdownClose} className="absolute z-[600] mt-1.5 max-h-64 w-full overflow-y-auto rounded-xl border border-[#d9e5e2] bg-white shadow-[0_14px_35px_rgba(24,59,69,0.15)]">
-                {isSearchingPlace ? <p className="px-4 py-3 text-xs font-bold text-animeo-muted">Recherche…</p> : null}
-                {!isSearchingPlace && visiblePlaceResults.length === 0 ? <p className="px-4 py-3 text-xs font-bold text-animeo-muted">Aucun lieu trouvé.</p> : null}
-                {visiblePlaceResults.map((place) => (
-                  <button key={place.id} type="button" onClick={() => selectPlace(place)} className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-animeo-soft">
-                    <span className="font-extrabold text-animeo-dark">{place.label}</span>
-                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.08em] text-animeo-muted">{placeTypeLabels[place.type]}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </label>
-
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Périmètre</span>
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={togglePerimeterMode} aria-pressed={perimeterMode} className={`rounded-xl px-3 py-2.5 text-xs font-extrabold transition ${perimeterMode ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}>
-                  {perimeterMode ? "Cliquez sur la carte…" : "Créer un périmètre"}
-                </button>
-                <select value={perimeterRadiusKm} onChange={(event) => setPerimeterRadiusKm(Number(event.target.value))} className="h-10 rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo" aria-label="Rayon du périmètre en kilomètres">
-                  {radiusOptions.map((km) => <option key={km} value={km}>{km} km</option>)}
-                </select>
-                {perimeterCenter ? <button type="button" onClick={clearPerimeter} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]">Effacer</button> : null}
-              </div>
+        <div className="mt-5 flex flex-wrap items-end gap-2 border-t border-[#e5eeeb] pt-5">
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Périmètre</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={togglePerimeterMode} aria-pressed={perimeterMode} className={`rounded-xl px-3 py-2.5 text-xs font-extrabold transition ${perimeterMode ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}>
+                {perimeterMode ? "Cliquez sur la carte…" : "Créer un périmètre"}
+              </button>
+              <select value={perimeterRadiusKm} onChange={(event) => setPerimeterRadiusKm(Number(event.target.value))} className="h-10 rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo" aria-label="Rayon du périmètre en kilomètres">
+                {radiusOptions.map((km) => <option key={km} value={km}>{km} km</option>)}
+              </select>
+              {perimeterCenter ? <button type="button" onClick={clearPerimeter} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]">Effacer</button> : null}
             </div>
           </div>
         </div>
@@ -303,8 +254,4 @@ function MapClientPopup({ client }: { client: MapClient }) {
 
 function PopupLine({ label, value }: { label: string; value: string }) {
   return <div className="flex items-start justify-between gap-3"><dt className="text-animeo-muted">{label}</dt><dd className="text-right font-extrabold text-animeo-dark">{value}</dd></div>;
-}
-
-function SearchIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="absolute bottom-3 left-3.5 h-5 w-5 text-animeo-muted"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>;
 }

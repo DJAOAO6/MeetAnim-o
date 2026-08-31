@@ -2,13 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth/dal";
+import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { clientInclude, mapAnimal, mapClient } from "@/lib/clients";
+import { buildClientNameWordConditions, clientSearchQuerySchema, MAX_SEARCH_RESULTS_PER_GROUP } from "@/lib/client-search";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { Animal, Client } from "@/data/clients";
 import type { PublicAnimalType } from "@/data/public-booking";
+import type { AnimalSpecies } from "@/data/species";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -193,4 +195,49 @@ export async function deleteAnimalAction(animalId: string): Promise<ClientAction
   revalidatePath("/dashboard/rappels");
 
   return { ok: true };
+}
+
+export type ClientSearchResult = { id: string; firstName: string; lastName: string; address: string; city: string };
+export type AnimalSearchResult = { id: string; name: string; species: AnimalSpecies; clientId: string; ownerName: string };
+export type ClientAndAnimalSearch = { clients: ClientSearchResult[]; animals: AnimalSearchResult[] };
+
+/**
+ * Recherche unifiée (carte clients, future palette CTRL+K) : deux requêtes
+ * Postgres indépendantes (ILIKE via Prisma `contains`/`mode: "insensitive"`),
+ * jamais de moteur de recherche externe à cette échelle. Une chaîne trop
+ * courte ou invalide renvoie simplement des groupes vides plutôt qu'une
+ * erreur — la saisie en cours n'a pas à être bloquante.
+ */
+export async function searchClientsAndAnimalsAction(rawQuery: string): Promise<ClientAndAnimalSearch> {
+  const user = await getCurrentUser();
+  if (!user) return { clients: [], animals: [] };
+
+  const parsed = clientSearchQuerySchema.safeParse(rawQuery);
+  if (!parsed.success) return { clients: [], animals: [] };
+
+  const [clients, animals] = await Promise.all([
+    prisma.client.findMany({
+      where: { AND: buildClientNameWordConditions(parsed.data) },
+      select: { id: true, firstName: true, lastName: true, address: true, city: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: MAX_SEARCH_RESULTS_PER_GROUP,
+    }),
+    prisma.animal.findMany({
+      where: { name: { contains: parsed.data, mode: "insensitive" } },
+      select: { id: true, name: true, species: true, clientId: true, client: { select: { firstName: true, lastName: true } } },
+      orderBy: { name: "asc" },
+      take: MAX_SEARCH_RESULTS_PER_GROUP,
+    }),
+  ]);
+
+  return {
+    clients,
+    animals: animals.map((animal): AnimalSearchResult => ({
+      id: animal.id,
+      name: animal.name,
+      species: animal.species as AnimalSpecies,
+      clientId: animal.clientId,
+      ownerName: `${animal.client.firstName} ${animal.client.lastName}`,
+    })),
+  };
 }
