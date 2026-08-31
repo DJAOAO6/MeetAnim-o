@@ -16,6 +16,7 @@ import { getPublicZones } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
 import { getAvailability, getBusinessProfile } from "@/lib/business-profile-actions";
+import { getDayAvailability } from "@/lib/availability";
 import { getEmailProvider } from "@/lib/email/provider";
 import { bookingRequestClientTemplate, bookingRequestProfessionalTemplate } from "@/lib/email/templates";
 import {
@@ -29,6 +30,7 @@ import {
   BOOKING_WINDOW_DAYS,
   computeTotalPrice,
   findServiceById,
+  fitsWithinOpenHours,
   formatBookingDateLabels,
   formatBookingReference,
   intervalsOverlap,
@@ -323,6 +325,98 @@ export async function completeAppointmentAction(id: string): Promise<CompleteApp
   }
 
   return { ok: true, appointment: toAppointment(row), suggestedReminder };
+}
+
+export type SwapAppointmentsResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Échange les heures de début de deux rendez-vous du même jour — jamais une
+ * colonne d'ordre indépendante (mode tournée, phase 2b) : l'ordre affiché
+ * dérive uniquement de `start`, la même source de vérité que l'agenda et la
+ * détection de conflit. Revalide horaires d'ouverture, temps de trajet et
+ * chevauchement avec les autres rendez-vous du jour exactement comme
+ * saveAppointmentAction — un échange qui casserait l'un des deux est refusé
+ * en bloc (aucune écriture partielle).
+ */
+export async function swapAppointmentTimesAction(appointmentIdA: string, appointmentIdB: string): Promise<SwapAppointmentsResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+
+  if (appointmentIdA === appointmentIdB) return { ok: false, error: "Sélectionnez deux rendez-vous différents." };
+
+  const [appointmentA, appointmentB] = await Promise.all([
+    prisma.appointment.findUnique({ where: { id: appointmentIdA } }),
+    prisma.appointment.findUnique({ where: { id: appointmentIdB } }),
+  ]);
+  if (!appointmentA || !appointmentB) return { ok: false, error: "Un des deux rendez-vous n'existe plus." };
+  if (appointmentA.status === "CANCELLED" || appointmentA.status === "COMPLETED" || appointmentB.status === "CANCELLED" || appointmentB.status === "COMPLETED") {
+    return { ok: false, error: "Un rendez-vous terminé ou annulé ne peut plus être déplacé." };
+  }
+  if (appointmentA.date.getTime() !== appointmentB.date.getTime()) {
+    return { ok: false, error: "Les deux rendez-vous ne sont pas le même jour." };
+  }
+
+  const dateId = toLocalDateId(appointmentA.date);
+  const [availability, sameDayOthers] = await Promise.all([
+    getAvailability(),
+    prisma.appointment.findMany({
+      where: { date: appointmentA.date, status: { not: "CANCELLED" }, id: { notIn: [appointmentIdA, appointmentIdB] } },
+      select: { start: true, duration: true, mode: true },
+    }),
+  ]);
+  const { hourly } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
+
+  const planned = [
+    { appointment: appointmentA, newStart: appointmentB.start },
+    { appointment: appointmentB, newStart: appointmentA.start },
+  ];
+
+  for (const { appointment, newStart } of planned) {
+    const mode = modeLabel[appointment.mode];
+    const startMinutes = timeToMinutes(newStart);
+
+    if (!fitsWithinOpenHours(hourly, mode, startMinutes, appointment.duration)) {
+      return { ok: false, error: `« ${appointment.animalName} » ne tiendrait plus dans les horaires d'ouverture à ${newStart}. Échange refusé.` };
+    }
+
+    const conflictsWithOthers = sameDayOthers.some((other) => {
+      const bufferedDuration = other.mode === "DOMICILE" ? other.duration + availability.travelBuffer : other.duration;
+      return intervalsOverlap(startMinutes, appointment.duration, timeToMinutes(other.start), bufferedDuration);
+    });
+    if (conflictsWithOthers) {
+      return { ok: false, error: `« ${appointment.animalName} » chevaucherait un autre rendez-vous à ${newStart}. Échange refusé.` };
+    }
+  }
+
+  // Les deux nouveaux intervalles l'un contre l'autre (rarement en cause —
+  // ils se croisent typiquement dans l'ordre inverse — mais jamais supposé).
+  const [firstPlanned, secondPlanned] = planned;
+  const firstBuffered = firstPlanned.appointment.mode === "DOMICILE" ? firstPlanned.appointment.duration + availability.travelBuffer : firstPlanned.appointment.duration;
+  if (intervalsOverlap(timeToMinutes(firstPlanned.newStart), firstBuffered, timeToMinutes(secondPlanned.newStart), secondPlanned.appointment.duration)) {
+    return { ok: false, error: "Ces deux rendez-vous se chevaucheraient après l'échange. Échange refusé." };
+  }
+
+  // En 3 temps, jamais 2 : l'index unique partiel sur (date, start) est
+  // vérifié immédiatement après chaque instruction (non différé), pas à la
+  // validation de la transaction. Écrire directement A→heure de B pendant
+  // que B occupe encore cette heure violerait la contrainte avant que B
+  // n'ait pu se libérer — une valeur temporaire, unique par construction
+  // (dérivée de l'id), sert de case vide intermédiaire.
+  const temporaryStart = `swap:${appointmentIdA}`;
+  await prisma.$transaction([
+    prisma.appointment.update({ where: { id: appointmentIdA }, data: { start: temporaryStart } }),
+    prisma.appointment.update({ where: { id: appointmentIdB }, data: { start: appointmentA.start } }),
+    prisma.appointment.update({ where: { id: appointmentIdA }, data: { start: appointmentB.start } }),
+  ]);
+
+  await logAudit({ userId: user.id, action: "APPOINTMENT_UPDATED", entityType: "Appointment", entityId: appointmentIdA, metadata: { swappedWith: appointmentIdB } });
+
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard/tournees");
+  revalidatePath("/dashboard/carte");
+  revalidatePath("/dashboard");
+
+  return { ok: true };
 }
 
 export type PublicBookingInput = {

@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
-import { completeAppointmentAction, type SuggestedReminder } from "@/lib/appointments-actions";
+import { completeAppointmentAction, swapAppointmentTimesAction, type SuggestedReminder } from "@/lib/appointments-actions";
 import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import { formatEuros } from "@/lib/format";
@@ -50,6 +50,8 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [reminderPrompt, setReminderPrompt] = useState<{ animalName: string; reminder: SuggestedReminder } | null>(null);
   const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [swapConfirm, setSwapConfirm] = useState<{ source: TourAppointment; target: TourAppointment } | null>(null);
+  const [swapping, setSwapping] = useState(false);
 
   const completedStops = appointments.filter((appointment) => appointment.completedAt !== null);
   const pendingStops = appointments.filter((appointment) => appointment.completedAt === null);
@@ -90,6 +92,21 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
 
   function declineReminder() {
     setReminderPrompt(null);
+    router.refresh();
+  }
+
+  async function confirmSwap() {
+    if (!swapConfirm) return;
+    const { source, target } = swapConfirm;
+    setSwapping(true);
+    const result = await swapAppointmentTimesAction(source.id, target.id);
+    setSwapping(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    setSwapConfirm(null);
+    notify.success("Rendez-vous échangés.");
     router.refresh();
   }
 
@@ -168,13 +185,13 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
         <Card className="overflow-hidden">
           <div className="border-b border-[#e5eeeb] px-5 py-4">
             <h3 className="font-extrabold text-animeo-dark">{upcomingStops.length} arrêt{upcomingStops.length > 1 ? "s" : ""} à venir</h3>
+            {upcomingStops.length > 1 ? <p className="mt-0.5 text-xs text-animeo-muted">Glissez la poignée pour échanger l’heure de deux arrêts</p> : null}
           </div>
-          <div className="divide-y divide-[#edf2f0]">
-            {upcomingStops.map((appointment) => {
-              const index = appointments.findIndex((item) => item.id === appointment.id);
-              return <UpcomingStopRow key={appointment.id} appointment={appointment} distance={distanceFromPrevious(appointments, index)} />;
-            })}
-          </div>
+          <UpcomingStopsList
+            upcomingStops={upcomingStops}
+            allAppointments={appointments}
+            onSwapRequested={(source, target) => setSwapConfirm({ source, target })}
+          />
         </Card>
       ) : null}
 
@@ -230,6 +247,18 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
           onClose={declineReminder}
         />
       ) : null}
+
+      {swapConfirm ? (
+        <ConfirmModal
+          title="Échanger ces deux arrêts ?"
+          message={`Échanger ${swapConfirm.source.time} ${swapConfirm.source.animalName} (${swapConfirm.source.city}) et ${swapConfirm.target.time} ${swapConfirm.target.animalName} (${swapConfirm.target.city}) ?`}
+          confirmLabel={swapping ? "Échange…" : "Échanger"}
+          cancelLabel="Annuler"
+          destructive={false}
+          onConfirm={confirmSwap}
+          onClose={() => setSwapConfirm(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -283,23 +312,116 @@ function CurrentStopCard({ appointment, completing, onComplete }: { appointment:
   );
 }
 
-function UpcomingStopRow({ appointment, distance }: { appointment: TourAppointment; distance: string | null }) {
+/**
+ * Glisser-déposer via Pointer Events plutôt que l'API HTML5 Drag and Drop :
+ * un seul chemin de code pour souris, tactile et stylet (le mode tournée est
+ * d'abord pensé pour un téléphone), sans dépendance supplémentaire pour un
+ * geste aussi ciblé (mode tournée, phase 2b). La poignée capture le
+ * pointeur ; la ligne survolée est retrouvée par comparaison de
+ * getBoundingClientRect(), pas par élément sous le curseur.
+ */
+function UpcomingStopsList({ upcomingStops, allAppointments, onSwapRequested }: {
+  upcomingStops: TourAppointment[];
+  allAppointments: TourAppointment[];
+  onSwapRequested: (source: TourAppointment, target: TourAppointment) => void;
+}) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const rowElements = useRef(new Map<string, HTMLElement>());
+
+  function rowIdAtY(clientY: number): string | null {
+    for (const [id, element] of rowElements.current) {
+      const rect = element.getBoundingClientRect();
+      if (clientY >= rect.top && clientY <= rect.bottom) return id;
+    }
+    return null;
+  }
+
+  function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>, id: string) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggedId(id);
+  }
+
+  function handlePointerMove(event: React.PointerEvent<HTMLButtonElement>) {
+    if (!draggedId) return;
+    const hoveredId = rowIdAtY(event.clientY);
+    setDropTargetId(hoveredId && hoveredId !== draggedId ? hoveredId : null);
+  }
+
+  function handlePointerUp() {
+    if (draggedId && dropTargetId) {
+      const source = upcomingStops.find((item) => item.id === draggedId);
+      const target = upcomingStops.find((item) => item.id === dropTargetId);
+      if (source && target) onSwapRequested(source, target);
+    }
+    setDraggedId(null);
+    setDropTargetId(null);
+  }
+
+  return (
+    <div className="divide-y divide-[#edf2f0]">
+      {upcomingStops.map((appointment) => {
+        const index = allAppointments.findIndex((item) => item.id === appointment.id);
+        return (
+          <UpcomingStopRow
+            key={appointment.id}
+            appointment={appointment}
+            distance={distanceFromPrevious(allAppointments, index)}
+            dragging={draggedId === appointment.id}
+            dropTarget={dropTargetId === appointment.id}
+            rowRef={(element) => {
+              if (element) rowElements.current.set(appointment.id, element);
+              else rowElements.current.delete(appointment.id);
+            }}
+            onHandlePointerDown={(event) => handlePointerDown(event, appointment.id)}
+            onHandlePointerMove={handlePointerMove}
+            onHandlePointerUp={handlePointerUp}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function UpcomingStopRow({ appointment, distance, dragging, dropTarget, rowRef, onHandlePointerDown, onHandlePointerMove, onHandlePointerUp }: {
+  appointment: TourAppointment;
+  distance: string | null;
+  dragging: boolean;
+  dropTarget: boolean;
+  rowRef: (element: HTMLDivElement | null) => void;
+  onHandlePointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onHandlePointerMove: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onHandlePointerUp: (event: React.PointerEvent<HTMLButtonElement>) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const telHref = appointment.phone ? toTelHref(appointment.phone) : null;
   const goHref = appointment.coordinates ? buildSingleStopMapsUrl(appointment.coordinates) : null;
   const recordHref = appointment.clientId && appointment.animalId ? `/dashboard/clients/${appointment.clientId}?animal=${appointment.animalId}` : null;
 
   return (
-    <div>
-      <button type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded} className="flex min-h-11 w-full items-center justify-between gap-3 px-5 py-3 text-left transition hover:bg-animeo-bg">
-        <div className="min-w-0">
-          <p className="text-sm font-black text-animeo-dark">{appointment.time} · {appointment.animalName}</p>
-          <p className="truncate text-xs font-semibold text-animeo-muted">{appointment.clientName} · {appointment.city}{!appointment.coordinates ? " · Position inconnue" : ""}</p>
-        </div>
-        {distance ? <span className="shrink-0 text-xs font-bold text-animeo-muted">{distance}</span> : null}
-      </button>
+    <div ref={rowRef} className={`transition-colors ${dragging ? "opacity-50" : ""} ${dropTarget ? "bg-animeo-soft" : ""}`}>
+      <div className="flex items-center gap-1 pl-2">
+        <button
+          type="button"
+          aria-label={`Glisser pour échanger l’heure de ${appointment.animalName} avec un autre arrêt`}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={onHandlePointerUp}
+          className="flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center text-animeo-muted active:cursor-grabbing"
+        >
+          <GripIcon />
+        </button>
+        <button type="button" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded} className="flex min-h-11 flex-1 items-center justify-between gap-3 py-3 pr-5 text-left transition hover:bg-animeo-bg">
+          <div className="min-w-0">
+            <p className="text-sm font-black text-animeo-dark">{appointment.time} · {appointment.animalName}</p>
+            <p className="truncate text-xs font-semibold text-animeo-muted">{appointment.clientName} · {appointment.city}{!appointment.coordinates ? " · Position inconnue" : ""}</p>
+          </div>
+          {distance ? <span className="shrink-0 text-xs font-bold text-animeo-muted">{distance}</span> : null}
+        </button>
+      </div>
       {expanded && (telHref || goHref || recordHref) ? (
-        <div className="flex flex-wrap gap-2 px-5 pb-4">
+        <div className="flex flex-wrap gap-2 px-5 pb-4 pl-10">
           {telHref ? (
             <a href={telHref} className="inline-flex min-h-11 flex-1 basis-[110px] items-center justify-center gap-1.5 rounded-xl bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
               <PhoneIcon />
@@ -321,6 +443,19 @@ function UpcomingStopRow({ appointment, distance }: { appointment: TourAppointme
         </div>
       ) : null}
     </div>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+      <circle cx="9" cy="6" r="1.5" />
+      <circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+    </svg>
   );
 }
 
