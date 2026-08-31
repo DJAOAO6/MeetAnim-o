@@ -84,6 +84,17 @@ test.describe("Parcours complet de réservation publique", () => {
     await expect(page.getByText("En attente de validation")).toBeVisible();
     await expect(page.getByText("RexE2EBooking")).toBeVisible();
 
+    // Boutons "Ajouter à mon agenda" (étapes 13-16 du chantier calendrier) :
+    // Google et Outlook sont des liens pré-remplis (pas d'OAuth demandé au
+    // client), Apple Calendar reste le téléchargement .ics existant.
+    const googleLink = page.getByRole("link", { name: "Google Agenda" });
+    await expect(googleLink).toHaveAttribute("href", /^https:\/\/calendar\.google\.com\/calendar\/render\?/);
+    const appleLink = page.getByRole("link", { name: "Apple Calendar" });
+    await expect(appleLink).toHaveAttribute("href", /^data:text\/calendar/);
+    await expect(appleLink).toHaveAttribute("download", /\.ics$/);
+    const outlookLink = page.getByRole("link", { name: "Outlook" });
+    await expect(outlookLink).toHaveAttribute("href", /^https:\/\/outlook\.live\.com\/calendar\/0\/deeplink\/compose\?/);
+
     // Persistance réelle en base, statut PENDING (jamais confirmé
     // automatiquement — une demande publique reste en attente de validation
     // par le praticien), horaire exact choisi à l'étape 2.

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,14 +13,16 @@ import { AvailabilitySettingsTab } from "@/components/settings/availability-sett
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
 import { RemindersSettingsTab } from "@/components/settings/reminders-settings-tab";
 import { PersonalizationView } from "@/components/settings/personalization-view";
+import { IntegrationsSettingsTab } from "@/components/settings/integrations-settings-tab";
 import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings, type ServiceSettings, type SettingsState } from "@/data/settings";
 import { updateAvailabilityAction, updateBusinessProfileAction, updateReminderSettingsAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
 import { notify } from "@/lib/notify";
 import type { Tour, Zone } from "@/data/tours";
+import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
 
-type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization";
+type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
 
 type SettingsViewProps = {
   tours: Tour[];
@@ -28,6 +31,8 @@ type SettingsViewProps = {
   availability: AvailabilitySettings;
   reminders: ReminderSettings;
   services: ServiceSettings[];
+  google: GoogleIntegrationState;
+  icsFeed: IcsFeedState;
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
@@ -37,15 +42,44 @@ const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
   { id: "tours", label: "Tournées", icon: "tournees" },
   { id: "reminders", label: "Rappels", icon: "bell" },
   { id: "customization", label: "Personnalisation", icon: "settings" },
+  { id: "integrations", label: "Intégrations", icon: "calendarPlus" },
 ];
+
+const googleOAuthErrorMessages: Record<string, string> = {
+  missing_params: "La connexion à Google Agenda a été interrompue. Merci de réessayer.",
+  invalid_state: "La demande de connexion a expiré ou n’est plus valide. Merci de réessayer.",
+  no_refresh_token: "Google n’a pas autorisé l’accès hors-ligne nécessaire. Merci de réessayer la connexion.",
+  exchange_failed: "La connexion à Google Agenda a échoué. Merci de réessayer dans quelques instants.",
+  access_denied: "La connexion à Google Agenda a été annulée.",
+};
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones, businessProfile, availability, reminders, services }: SettingsViewProps) {
+export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed }: SettingsViewProps) {
   const currentUser = useCurrentUser();
   const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => (searchParams.get("tab") === "integrations" ? "integrations" : "profile"));
+
+  // Retour du callback OAuth Google (?tab=integrations&connected=google ou
+  // &google_error=...) : un seul toast, puis l'URL est nettoyée pour ne pas
+  // le réafficher à l'actualisation de la page.
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const googleError = searchParams.get("google_error");
+    if (!connected && !googleError) return;
+
+    if (connected === "google") notify.success("Google Agenda connecté");
+    else if (googleError) notify.error(googleOAuthErrorMessages[googleError] ?? googleOAuthErrorMessages.exchange_failed);
+
+    router.replace("/dashboard/parametres?tab=integrations");
+    // searchParams volontairement absent des dépendances : ne doit s'exécuter
+    // qu'une fois au chargement initial de ces paramètres, jamais à nouveau
+    // après le nettoyage de l'URL ci-dessus (qui modifierait searchParams).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [settings, setSettings] = useState<SettingsState>(() => ({
     ...sessionSettings,
     profile: businessProfile,
@@ -171,6 +205,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
           onSaveTheme={saveTheme}
         />
       ) : null}
+      {activeTab === "integrations" ? <IntegrationsSettingsTab google={google} icsFeed={icsFeed} /> : null}
     </>
   );
 }

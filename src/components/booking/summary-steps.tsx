@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicBookingRequest, PublicProfessional, PublicService } from "@/data/public-booking";
 import { buildIcsContent, formatBookingDateLabels, formatBookingReference } from "@/lib/booking-validation";
+import { buildGoogleCalendarLink, buildOutlookCalendarLink } from "@/lib/calendar/client-calendar-links";
 
 type BookingSummaryProps = {
   professional: PublicProfessional;
@@ -104,21 +105,33 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
   const lieu = request.mode === "CABINET" ? `${professional.cabinetAddress}, ${professional.cabinetCity}` : [request.address?.city, request.address?.postalCode].filter(Boolean).join(" · ");
   const reference = formatBookingReference(request.id);
 
+  const calendarSummary = `${service.name} — ${request.animal.name}`;
+  const calendarDescription = `Rendez-vous avec ${professional.firstName} ${professional.lastName} (${professional.company}). Demande en attente de validation, référence ${reference}.`;
+  const calendarLocation = request.mode === "CABINET" ? lieu : (lieu || "À domicile");
+  const calendarLinkInput = { title: calendarSummary, description: calendarDescription, location: calendarLocation, dateId: request.date, start: request.time, durationMinutes: service.duration };
+
   // Fichier .ics généré côté client (aucune requête serveur nécessaire) et
   // proposé en data: URI plutôt qu'en Blob + URL.createObjectURL : un lien
   // <a download> statique suffit ici et évite de gérer la révocation de
-  // l'URL objet.
+  // l'URL objet. Compatible Apple Calendar (iPhone/iPad/macOS) — voir
+  // buildIcsContent (booking-validation.ts).
   const icsHref = `data:text/calendar;charset=utf-8,${encodeURIComponent(
     buildIcsContent({
       uid: `${request.id}@animeo.app`,
       dateId: request.date,
       start: request.time,
       durationMinutes: service.duration,
-      summary: `${service.name} — ${request.animal.name}`,
-      description: `Rendez-vous avec ${professional.firstName} ${professional.lastName} (${professional.company}). Demande en attente de validation, référence ${reference}.`,
-      location: request.mode === "CABINET" ? lieu : (lieu || "À domicile"),
+      summary: calendarSummary,
+      description: calendarDescription,
+      location: calendarLocation,
     }),
   )}`;
+
+  // Google et Outlook : une URL pré-remplie que le client valide lui-même,
+  // jamais d'autorisation OAuth demandée à ce stade (étape 14 du chantier
+  // calendrier) — voir client-calendar-links.ts.
+  const googleCalendarHref = buildGoogleCalendarLink(calendarLinkInput);
+  const outlookCalendarHref = buildOutlookCalendarLink(calendarLinkInput);
 
   return (
     <div role="status" aria-live="polite" className="py-4 text-center sm:py-8">
@@ -133,17 +146,39 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
         <p className="mt-1 text-sm text-animeo-muted">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"}{lieu ? ` · ${lieu}` : ""}</p>
       </div>
 
-      <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <a
-          href={icsHref}
-          download={`rendez-vous-${reference}.ics`}
-          className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-6 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
-        >
-          <CalendarPlusIcon />
-          Ajouter à mon calendrier
-        </a>
-        <button type="button" onClick={onReset} className="min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-[#459e90] focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
+      <div className="mt-7">
+        <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Ajouter à mon agenda</p>
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          <a
+            href={googleCalendarHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+          >
+            <GoogleGIcon />
+            Google Agenda
+          </a>
+          <a
+            href={icsHref}
+            download={`rendez-vous-${reference}.ics`}
+            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+          >
+            <CalendarPlusIcon />
+            Apple Calendar
+          </a>
+          <a
+            href={outlookCalendarHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+          >
+            <CalendarPlusIcon />
+            Outlook
+          </a>
+        </div>
       </div>
+
+      <button type="button" onClick={onReset} className="mt-5 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-[#459e90] focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
     </div>
   );
 }
@@ -155,4 +190,8 @@ function CalendarPlusIcon() {
       <path d="M16 3v4M8 3v4M3 10h18M12 14v5M9.5 16.5h5" />
     </svg>
   );
+}
+
+function GoogleGIcon() {
+  return <span aria-hidden="true" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-animeo-dark text-[10px] font-black text-white">G</span>;
 }
