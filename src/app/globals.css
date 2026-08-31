@@ -174,3 +174,27 @@ a:focus-visible {
     animation: none;
   }
 }
+
+/* Rejoué à chaque changement de valeur via un remount (key={valeur}) plutôt
+   qu'un état React dédié : un compteur de résultats filtrés (carte clients)
+   n'a besoin de rien d'autre qu'un signal visuel transitoire au changement. */
+@keyframes count-pulse {
+  from {
+    transform: scale(1.16);
+    opacity: 0.65;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-count-pulse {
+  animation: count-pulse 220ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-count-pulse {
+    animation: none;
+  }
+}

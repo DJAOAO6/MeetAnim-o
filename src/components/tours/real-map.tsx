@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 
 export type RealMapPoint = {
   id: string;
@@ -37,8 +37,6 @@ type RealMapProps = {
   overlay?: ReactNode;
   circle?: RealMapCircle | null;
   focus?: RealMapFocus | null;
-  onMapClick?: (lat: number, lng: number) => void;
-  crosshair?: boolean;
 };
 
 function markerIcon(point: RealMapPoint, selected: boolean) {
@@ -94,14 +92,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-function MapClickHandler({ onMapClick }: { onMapClick?: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click: (event) => onMapClick?.(event.latlng.lat, event.latlng.lng),
-  });
-  return null;
-}
-
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, onMapClick, crosshair = false }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length === 0) return [49.4432, 1.0999];
     return [points[0].lat, points[0].lng];
@@ -110,7 +101,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
   const mapRef = useRef<L.Map | null>(null);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName} ${crosshair ? "[&_.leaflet-container]:cursor-crosshair" : ""}`}>
+    <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName}`}>
       <MapContainer center={center} zoom={12} scrollWheelZoom className="h-full w-full" ref={mapRef}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -119,7 +110,6 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         <FitToPoints points={points} />
         <FlyToSelected point={selectedPoint} />
         <FlyToFocus focus={focus} />
-        <MapClickHandler onMapClick={onMapClick} />
         {circle ? (
           <Circle
             center={[circle.lat, circle.lng]}

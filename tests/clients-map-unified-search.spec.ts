@@ -116,8 +116,11 @@ test.describe("Carte clients — recherche unifiée (Phase 1)", () => {
     await expect(placeOption).toBeVisible();
     await placeOption.click();
 
-    await expect(page.getByText(/dans un rayon de/)).toBeVisible();
-    await expect(page.getByText(/autour de.*Rouen/)).toBeVisible();
+    // Scopé au paragraphe de la bannière : depuis la phase 2, un jeton de
+    // filtre actif ("15 km autour de Rouen ×") reprend un texte proche.
+    const banner = page.getByText(/dans un rayon de/);
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText("Rouen");
   });
 
   test("valider du texte libre sans sélection filtre uniquement les clients", async ({ page }) => {
