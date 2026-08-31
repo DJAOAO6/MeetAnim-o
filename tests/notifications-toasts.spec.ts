@@ -18,6 +18,26 @@ config({ path: ".env.local" });
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
+const testZoneId = "tmp-toast-zone";
+const testTourId = "tmp-toast-tour";
+
+/**
+ * Sa propre zone utilisée par une tournée plutôt qu'une dépendance aux
+ * données de démo ("Zone Dieppe") : cette base de dev n'a pas toujours de
+ * zones pré-existantes, le test doit rester autonome pour déclencher le
+ * rejet de suppression (contrainte de clé étrangère) de façon fiable.
+ */
+async function seedZoneUsedByTour() {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`INSERT INTO "Zone" (id, name) VALUES (${testZoneId}, 'Zone E2E Toast Erreur')`;
+  await sql`INSERT INTO "Tour" (id, name, recurrence, day, "dateLabel", "startTime", "endTime", "zoneId", status) VALUES (${testTourId}, 'Tournée E2E Toast Erreur', 'Toutes les semaines', 'Lundi', 'test', '08:00', '18:00', ${testZoneId}, 'ACTIVE')`;
+}
+
+async function cleanupZoneUsedByTour() {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`DELETE FROM "Tour" WHERE id = ${testTourId}`;
+  await sql`DELETE FROM "Zone" WHERE id = ${testZoneId}`;
+}
 
 async function grantPublicSettingsPermission() {
   const sql = neon(process.env.DATABASE_URL!);
@@ -68,46 +88,51 @@ test.describe("Système de notifications (toasts)", () => {
   });
 
   test("un toast d'erreur reste affiché jusqu'à fermeture manuelle", async ({ page }) => {
-    // Zone Dieppe est utilisée par la tournée Dieppe des données de démo :
-    // sa suppression est rejetée côté serveur (contrainte de clé étrangère),
-    // ce qui déclenche notify.error.
+    // Une zone utilisée par une tournée : sa suppression est rejetée côté
+    // serveur (contrainte de clé étrangère), ce qui déclenche notify.error.
     await grantPublicSettingsPermission();
+    await cleanupZoneUsedByTour();
+    await seedZoneUsedByTour();
 
-    await page.goto("/dashboard/tournees");
-    await page.locator('button:has-text("Supprimer")').first().click();
+    try {
+      await page.goto("/dashboard/tournees");
+      await page.getByRole("button", { name: "Supprimer", exact: true }).click();
 
-    const toast = page.locator('[data-sonner-toast][data-type="error"]');
-    await expect(toast).toBeVisible();
-    await expect(toast).toContainText("ne peut pas être supprimée");
+      const toast = page.locator('[data-sonner-toast][data-type="error"]');
+      await expect(toast).toBeVisible();
+      await expect(toast).toContainText("ne peut pas être supprimée");
 
-    // Toujours là bien après la durée d'auto-dismiss des succès (4s).
-    await page.waitForTimeout(5000);
-    await expect(toast).toBeVisible();
+      // Toujours là bien après la durée d'auto-dismiss des succès (4s).
+      await page.waitForTimeout(5000);
+      await expect(toast).toBeVisible();
 
-    await toast.getByRole("button", { name: "Close toast" }).click();
-    await expect(toast).toHaveCount(0);
-
-    await revokePublicSettingsPermission();
+      await toast.getByRole("button", { name: "Close toast" }).click();
+      await expect(toast).toHaveCount(0);
+    } finally {
+      await cleanupZoneUsedByTour();
+      await revokePublicSettingsPermission();
+    }
   });
 
   test("plusieurs actions rapides empilent les toasts sans perte", async ({ page }) => {
-    await page.goto("/dashboard/tournees");
-    await page.getByText("Voir la journée").first().click();
-    const routeButton = page.getByRole("button", { name: "Voir l’itinéraire" });
+    await page.goto("/dashboard/clients");
+    await page.locator('a[href^="/dashboard/clients/"]').first().click();
+    const uploadButton = page.getByRole("button", { name: "Téléverser un document" });
 
-    // Trois déclenchements rapprochés du même toast info (simulation de
-    // l'itinéraire) : chacun doit produire son propre toast, aucun perdu.
-    await routeButton.click();
-    await routeButton.click();
-    await routeButton.click();
+    // Trois déclenchements rapprochés du même toast info (stub documents,
+    // encore en attente des identifiants de stockage — voir AnimalSideCards) :
+    // chacun doit produire son propre toast, aucun perdu.
+    await uploadButton.click();
+    await uploadButton.click();
+    await uploadButton.click();
 
     await expect(page.locator('[data-sonner-toast][data-type="info"]')).toHaveCount(3);
   });
 
   test("le toast est annoncé aux technologies d'assistance via une région live", async ({ page }) => {
-    await page.goto("/dashboard/tournees");
-    await page.getByText("Voir la journée").first().click();
-    await page.getByRole("button", { name: "Voir l’itinéraire" }).click();
+    await page.goto("/dashboard/clients");
+    await page.locator('a[href^="/dashboard/clients/"]').first().click();
+    await page.getByRole("button", { name: "Téléverser un document" }).click();
 
     const liveRegion = page.locator('[aria-live="polite"]').filter({ has: page.locator('[data-sonner-toast]') });
     await expect(liveRegion).toHaveCount(1);

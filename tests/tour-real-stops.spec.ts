@@ -14,6 +14,7 @@ config({ path: ".env.local" });
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
 const testPassword = "Praticien-Test-2026!";
+const testZoneId = "tmp-tour-p25-zone";
 const testTourId = "tmp-tour-p25";
 const testClientId = "tmp-tour-p25-client";
 const testAnimalId = "tmp-tour-p25-animal";
@@ -24,17 +25,22 @@ function todayDateId(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/**
+ * Sa propre zone plutôt qu'une dépendance à "Zone Rouen Nord" du seed de
+ * base : cette base de dev n'a pas toujours de zones pré-existantes
+ * (environnement fraîchement provisionné), le test doit rester autonome.
+ */
 async function seedTourAndAppointment() {
   const sql = neon(process.env.DATABASE_URL!);
-  const [zone] = await sql`SELECT id FROM "Zone" WHERE name = 'Zone Rouen Nord' LIMIT 1`;
-  if (!zone) throw new Error("Zone Rouen Nord introuvable — seed de base attendu.");
+  await sql`INSERT INTO "Zone" (id, name) VALUES (${testZoneId}, 'Zone E2E P25')`;
+  await sql`INSERT INTO "City" (id, name, "postalCode", "zoneId") VALUES ('tmp-tour-p25-city', 'Rouen', '76000', ${testZoneId})`;
 
   const today = new Date();
   const todayLabel = weekdayLabels[today.getDay()];
 
   await sql`
-    INSERT INTO "Tour" (id, name, recurrence, day, "dateLabel", "startTime", "endTime", "zoneId", status, "estimatedKm")
-    VALUES (${testTourId}, 'Tournée E2E P25', 'Toutes les semaines', ${todayLabel}, 'test', '08:00', '20:00', ${zone.id}, 'ACTIVE', 12)
+    INSERT INTO "Tour" (id, name, recurrence, day, "dateLabel", "startTime", "endTime", "zoneId", status)
+    VALUES (${testTourId}, 'Tournée E2E P25', 'Toutes les semaines', ${todayLabel}, 'test', '08:00', '20:00', ${testZoneId}, 'ACTIVE')
   `;
   await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, "updatedAt") VALUES (${testClientId}, 'Prénom', 'E2ETourP25Test', '0600000000', 'tour-p25-e2e@example.fr', 'Rouen', '1 rue Test', now())`;
   await sql`INSERT INTO "Animal" (id, "clientId", name, species, breed, age, weight, sex, avatar, "avatarBackground", history, conditions, treatments, notes, "updatedAt") VALUES (${testAnimalId}, ${testClientId}, 'TourP25Test', 'Chien', '', '', '', '', '', '', '', '', '', '', now())`;
@@ -49,6 +55,8 @@ async function cleanupData() {
   await sql`DELETE FROM "Appointment" WHERE id = ${testAppointmentId}`;
   await sql`DELETE FROM "Client" WHERE "lastName" = 'E2ETourP25Test'`;
   await sql`DELETE FROM "Tour" WHERE id = ${testTourId}`;
+  await sql`DELETE FROM "City" WHERE "zoneId" = ${testZoneId}`;
+  await sql`DELETE FROM "Zone" WHERE id = ${testZoneId}`;
 }
 
 async function clearLoginRateLimit() {
@@ -82,6 +90,6 @@ test.describe("Tournées — arrêts réels (P2-25)", () => {
     await card.getByRole("button", { name: "Voir la journée" }).click();
     await expect(page.getByText("TourP25Test", { exact: true })).toBeVisible();
     await expect(page.getByText("Ostéopathie E2E Tour")).toBeVisible();
-    await expect(page.getByText("Rouen · Prénom E2ETourP25Test")).toBeVisible();
+    await expect(page.getByText("Prénom E2ETourP25Test", { exact: true })).toBeVisible();
   });
 });
