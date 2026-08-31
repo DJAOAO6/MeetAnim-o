@@ -137,8 +137,15 @@ test.describe("Détail de tournée — itinéraire réel et actions par arrêt (
 
     // Arrêt B (11:00) est "à venir", replié : le déplier révèle ses actions.
     // Client B n'a pas de téléphone : le bouton Appeler doit être absent, pas grisé.
-    await page.getByRole("button", { name: new RegExp(`.*${animalBName}.*`) }).click();
-    const stopB = page.getByText(animalBName).locator("xpath=ancestor::button[1]/following-sibling::div[1]");
+    // Filtré sur [aria-expanded] : depuis la phase 2b (glisser-déposer), une
+    // poignée de drag partage aussi cet animal dans son libellé accessible
+    // ("Glisser pour échanger l'heure de ..."), seul le bouton de la ligne
+    // elle-même porte aria-expanded.
+    await page.getByRole("button", { name: new RegExp(`.*${animalBName}.*`) }).and(page.locator("[aria-expanded]")).click();
+    // Depuis la phase 2b, le bouton de la ligne est lui-même enveloppé (avec
+    // la poignée de drag) dans un conteneur dont le panneau d'actions déplié
+    // est le frère — plus le bouton directement.
+    const stopB = page.getByText(animalBName).locator("xpath=ancestor::button[1]/parent::div/following-sibling::div[1]");
     await expect(stopB.getByRole("link", { name: "Appeler" })).toHaveCount(0);
     await expect(stopB.getByRole("link", { name: "Y aller" })).toHaveAttribute("target", "_blank");
     await expect(stopB.getByRole("link", { name: "Voir la fiche" })).toHaveAttribute("href", `/dashboard/clients/${clientBId}?animal=${animalBId}`);
