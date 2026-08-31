@@ -18,10 +18,16 @@ function cleanSlug(value: string) {
   return value.toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
+// L'ancien préfixe "animeo.fr/" (jamais un domaine réel) et l'absence du
+// segment "/reserver/" produisaient un lien copié qui ne menait nulle part.
+// Dérivé de NEXT_PUBLIC_APP_URL — inliné au build, comme dans reminder-modal.tsx.
+const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/^https?:\/\//, "");
+
 export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
   const [draft, setDraft] = useState(value);
   const [copied, setCopied] = useState(false);
-  const publicLink = `animeo.fr/${draft.slug || "votre-nom"}`;
+  const publicLinkPrefix = `${appOrigin}/reserver/`;
+  const publicLink = `${publicLinkPrefix}${draft.slug || "votre-nom"}`;
 
   function update<K extends keyof ProfileSettings>(key: K, next: ProfileSettings[K]) {
     setDraft((current) => ({ ...current, [key]: next }));
@@ -78,7 +84,7 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
             <Field label="Slug public" hint="Lettres minuscules, chiffres et tirets uniquement.">
               <div className="flex overflow-hidden rounded-xl border border-[#d9e5e2] bg-white focus-within:border-animeo">
-                <span className="flex items-center border-r border-[#e2eae8] bg-animeo-bg px-3 text-sm font-bold text-animeo-muted">animeo.fr/</span>
+                <span className="flex items-center border-r border-[#e2eae8] bg-animeo-bg px-3 text-sm font-bold text-animeo-muted">{publicLinkPrefix}</span>
                 <input value={draft.slug} onChange={(event) => update("slug", cleanSlug(event.target.value))} className="h-11 min-w-0 flex-1 px-3 text-sm font-bold text-animeo-dark outline-none" required />
               </div>
             </Field>

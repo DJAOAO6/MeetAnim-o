@@ -5,13 +5,18 @@ import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import type { ReminderSettings } from "@/data/settings";
 
+// Aperçu illustratif (comme "Marie"/"Luna" ci-dessous) : dérivé de
+// NEXT_PUBLIC_APP_URL plutôt qu'un domaine fictif, pour rester cohérent avec
+// le vrai lien substitué à l'envoi (reminder-modal.tsx).
+const previewAppOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/^https?:\/\//, "");
+
 export function RemindersSettingsTab({ value, onSave }: { value: ReminderSettings; onSave: (value: ReminderSettings) => void }) {
   const [draft, setDraft] = useState(value);
   const preview = draft.messageTemplate
     .replaceAll("[Prénom]", "Marie")
     .replaceAll("[Durée]", draft.defaultDelay === "Aucun" ? "quelques mois" : draft.defaultDelay)
     .replaceAll("[Animal]", "Luna")
-    .replaceAll("[Lien de réservation]", "animeo.fr/pauline-faucillon");
+    .replaceAll("[Lien de réservation]", `${previewAppOrigin}/reserver/pauline-faucillon`);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
