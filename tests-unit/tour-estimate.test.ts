@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimateExpectedReturnTime, estimateTourRoute, formatTourEstimate, ROAD_DETOUR_FACTOR } from "../src/lib/tour-estimate";
+import { estimateExpectedReturnTime, estimateTourRoute, formatGeoWarningMessage, formatTourEstimate, ROAD_DETOUR_FACTOR } from "../src/lib/tour-estimate";
 import { haversineDistanceKm } from "../src/lib/geo";
 import type { Coordinates } from "../src/data/tours";
 
@@ -72,4 +72,19 @@ test("estimateExpectedReturnTime retombe sur la fin du dernier arrêt sans cabin
 
 test("estimateExpectedReturnTime retourne null sans dernier arrêt", () => {
   assert.equal(estimateExpectedReturnTime(cabinet, undefined), null);
+});
+
+test("formatGeoWarningMessage reprend l'exemple du cahier des charges (rendez-vous précédent)", () => {
+  const text = formatGeoWarningMessage("previous", "à Louviers", 70, 45);
+  assert.equal(text, "Le rendez-vous précédent est à Louviers, à environ 1 h 10 de route. Il ne reste que 45 minutes entre les deux.");
+});
+
+test("formatGeoWarningMessage gère le rendez-vous suivant et un voisin au cabinet", () => {
+  const text = formatGeoWarningMessage("next", "au cabinet", 20, 15);
+  assert.equal(text, "Le rendez-vous suivant est au cabinet, à environ 20 min de route. Il ne reste que 15 minutes entre les deux.");
+});
+
+test("formatGeoWarningMessage arrondit le temps de trajet et l'écart, sans jamais afficher de minutes négatives", () => {
+  const text = formatGeoWarningMessage("previous", "à Rouen", 12.6, -2);
+  assert.equal(text, "Le rendez-vous précédent est à Rouen, à environ 13 min de route. Il ne reste que 0 minute entre les deux.");
 });

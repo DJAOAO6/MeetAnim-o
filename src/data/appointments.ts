@@ -19,6 +19,14 @@ export type Appointment = {
   price: number;
   status: AppointmentStatus;
   notes: string;
+  // Géocodage (Géoplateforme IGN, comme la réservation publique) : bonus
+  // pour l'estimation de trajet (avertissement d'incompatibilité géographique,
+  // refonte tournées phase 3.3) — absent tant que l'adresse d'un rendez-vous
+  // à domicile n'a pas été sélectionnée via l'autocomplétion.
+  postalCode?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {

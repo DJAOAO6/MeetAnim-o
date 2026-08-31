@@ -8,8 +8,9 @@ import { appointmentStatusLabels, type Appointment, type AppointmentStatus } fro
 import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
-import type { SaveAppointmentInput } from "@/lib/appointments-actions";
+import { checkGeographicWarningAction, type GeoWarning, type SaveAppointmentInput } from "@/lib/appointments-actions";
 import { toLocalDateId } from "@/lib/booking-validation";
+import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
 
 export function AppointmentForm({ appointment, clients, defaultDate, onSave, onBack, backLabel = "Tous les rendez-vous", onDirtyChange }: {
@@ -42,8 +43,15 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
   });
   const [addressLine, setAddressLine] = useState(() => (appointment?.mode === "home" ? appointment.location : ""));
   const [addressExtra, setAddressExtra] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [city, setCity] = useState("");
+  const [postalCode, setPostalCode] = useState(() => appointment?.postalCode ?? "");
+  const [city, setCity] = useState(() => appointment?.city ?? "");
+  // Géocodage de l'adresse (bonus pour l'avertissement d'incompatibilité
+  // géographique ci-dessous) : effacé dès que le texte est retapé après une
+  // sélection, jamais gardé pour une adresse qui a changé sans être
+  // re-sélectionnée — même règle que updateAddressQuery côté réservation
+  // publique (details-step.tsx).
+  const [coordinates, setCoordinates] = useState<{ latitude?: number; longitude?: number }>(() => ({ latitude: appointment?.latitude, longitude: appointment?.longitude }));
+  const [geoWarnings, setGeoWarnings] = useState<GeoWarning[]>([]);
   const [animalMode, setAnimalMode] = useState<"existing" | "freeform">(appointment?.animalId ? "existing" : "freeform");
   const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +127,12 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
     setAddressLine(result.label);
     setPostalCode(result.postcode);
     setCity(result.city);
+    setCoordinates({ latitude: result.latitude, longitude: result.longitude });
+  }
+
+  function updateAddressQuery(next: string) {
+    setAddressLine(next);
+    setCoordinates((current) => (current.latitude !== undefined ? {} : current));
   }
 
   function composeLocation(): string {
@@ -127,6 +141,37 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
     const line2 = [postalCode.trim(), city.trim()].filter(Boolean).join(" ");
     return [line1, line2].filter(Boolean).join(", ");
   }
+
+  // Avertissement d'incompatibilité géographique (refonte tournées, phase
+  // 3.3) : purement indicatif, recalculé pendant la saisie (avant
+  // l'enregistrement, pour que la praticienne puisse encore ajuster
+  // l'horaire) dès que la position réelle du rendez-vous est connue.
+  // Débounce léger : évite un aller-retour serveur à chaque frappe sur
+  // l'heure ou la durée.
+  useEffect(() => {
+    if (draft.mode !== "home" || coordinates.latitude === undefined || coordinates.longitude === undefined) {
+      // queueMicrotask : évite d'appeler setState de façon synchrone au corps
+      // de l'effet (même convention que schedule-step.tsx et
+      // src/components/clients/client-profile.tsx).
+      queueMicrotask(() => setGeoWarnings([]));
+      return;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      checkGeographicWarningAction({
+        date: draft.date,
+        start: draft.start,
+        duration: draft.duration,
+        mode: draft.mode,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        excludeId: appointment?.id,
+      })
+        .then((warnings) => { if (!cancelled) setGeoWarnings(warnings); })
+        .catch(() => { if (!cancelled) setGeoWarnings([]); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timeout); };
+  }, [draft.mode, draft.date, draft.start, draft.duration, coordinates.latitude, coordinates.longitude, appointment?.id]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,6 +190,10 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
       serviceName: draft.serviceName,
       mode: draft.mode,
       location: composeLocation(),
+      postalCode: postalCode.trim() || undefined,
+      city: city.trim() || undefined,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
       price: draft.price,
       status: draft.status,
       notes: draft.notes,
@@ -246,12 +295,22 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
             <>
               <div className="sm:col-span-2">
                 <Field label="Adresse">
-                  <AddressAutocomplete value={addressLine} onQueryChange={setAddressLine} onSelect={applySelectedAddress} inputClassName={inputClassName} placeholder="12 rue Exemple" required />
+                  <AddressAutocomplete value={addressLine} onQueryChange={updateAddressQuery} onSelect={applySelectedAddress} inputClassName={inputClassName} placeholder="12 rue Exemple" required />
                 </Field>
               </div>
               <div className="sm:col-span-2"><Field id="appt-form-address-extra" label="Complément d’adresse" hint="Facultatif"><input value={addressExtra} onChange={(event) => setAddressExtra(event.target.value)} className={inputClassName} placeholder="Bâtiment, étage, lieu-dit…" aria-describedby={fieldDescribedBy("appt-form-address-extra", { hasHint: true })} /></Field></div>
               <Field id="appt-form-postal-code" label="Code postal" hint="Facultatif"><input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} className={inputClassName} inputMode="numeric" placeholder="76000" aria-describedby={fieldDescribedBy("appt-form-postal-code", { hasHint: true })} /></Field>
               <Field id="appt-form-city" label="Ville" hint="Facultatif"><input value={city} onChange={(event) => setCity(event.target.value)} className={inputClassName} placeholder="Rouen" aria-describedby={fieldDescribedBy("appt-form-city", { hasHint: true })} /></Field>
+
+              {geoWarnings.length > 0 ? (
+                <div className="sm:col-span-2 space-y-2">
+                  {geoWarnings.map((warning) => (
+                    <div key={warning.direction} role="alert" className="rounded-xl bg-[#fff3e0] px-3.5 py-2.5 text-sm font-bold text-[#a9573b]">
+                      {formatGeoWarningMessage(warning.direction, warning.neighborLabel, warning.travelMinutes, warning.gapMinutes)}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </>
           ) : null}
 

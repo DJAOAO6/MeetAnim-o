@@ -67,7 +67,7 @@ export function estimateExpectedReturnTime(cabinetCoordinates: Coordinates | nul
   return minutesToTime(endMinutes + legMinutes);
 }
 
-function formatApproxDuration(minutes: number): string {
+export function formatApproxDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   if (hours === 0) return `${rest} min`;
@@ -94,4 +94,18 @@ export function formatTourEstimate(estimate: TourEstimate): string {
   }
 
   return estimate.durationMinutes !== null ? `${distanceLabel} · ≈ ${formatApproxDuration(estimate.durationMinutes)} de route` : distanceLabel;
+}
+
+/**
+ * Texte de l'avertissement d'incompatibilité géographique (refonte
+ * tournées, phase 3.3) — purement informatif, jamais un texte qui bloque la
+ * saisie. `neighborLabel` arrive déjà préposé ("à Louviers" / "au cabinet",
+ * voir checkGeographicWarningAction) : formaté ici plutôt que dans
+ * appointments-actions.ts, un fichier "use server" qui ne peut exporter que
+ * des fonctions async.
+ */
+export function formatGeoWarningMessage(direction: "previous" | "next", neighborLabel: string, travelMinutes: number, gapMinutes: number): string {
+  const directionLabel = direction === "previous" ? "précédent" : "suivant";
+  const gapLabel = Math.max(0, Math.round(gapMinutes));
+  return `Le rendez-vous ${directionLabel} est ${neighborLabel}, à environ ${formatApproxDuration(Math.round(travelMinutes))} de route. Il ne reste que ${gapLabel} minute${gapLabel > 1 ? "s" : ""} entre les deux.`;
 }

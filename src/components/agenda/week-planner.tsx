@@ -6,7 +6,9 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
+import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
+import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
@@ -268,6 +270,25 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       // en texte reste utile — un agenda chargé rend le nouvel emplacement
       // moins évident qu'il n'y paraît.
       notify.success(`Rendez-vous de ${original.animalName} déplacé au ${label.charAt(0).toLowerCase()}${label.slice(1)} à ${targetStart}.`);
+
+      // Avertissement d'incompatibilité géographique (refonte tournées,
+      // phase 3.3) : purement indicatif, après coup — le glisser-déposer n'a
+      // pas de formulaire où l'afficher avant l'enregistrement, contrairement
+      // à AppointmentForm.
+      if (original.mode === "home" && original.latitude != null && original.longitude != null) {
+        const warnings = await checkGeographicWarningAction({
+          date: dateIdOf(targetDate),
+          start: targetStart,
+          duration: original.duration,
+          mode: original.mode,
+          latitude: original.latitude,
+          longitude: original.longitude,
+          excludeId: original.id,
+        });
+        for (const warning of warnings) {
+          notify.info(formatGeoWarningMessage(warning.direction, warning.neighborLabel, warning.travelMinutes, warning.gapMinutes));
+        }
+      }
     } else {
       if (state.currentDuration === state.originDuration) return;
       const result = await saveAppointment({ ...original, duration: state.currentDuration });

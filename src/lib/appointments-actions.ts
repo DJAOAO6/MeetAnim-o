@@ -17,6 +17,9 @@ import { getPublicServices } from "@/lib/services-actions";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
 import { getAvailability, getBusinessProfile } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
+import { haversineDistanceKm } from "@/lib/geo";
+import { AVERAGE_SPEED_KMH, ROAD_DETOUR_FACTOR } from "@/lib/tour-estimate";
+import type { Coordinates } from "@/data/tours";
 import { getEmailProvider } from "@/lib/email/provider";
 import { bookingRequestClientTemplate, bookingRequestProfessionalTemplate } from "@/lib/email/templates";
 import {
@@ -57,6 +60,7 @@ function toAppointment(row: {
   id: string; date: Date; start: string; duration: number; clientId: string | null; clientName: string;
   animalId: string | null; animalName: string; animalSpecies: string | null; animal: { species: string } | null;
   serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
+  postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null;
 }): Appointment {
   return {
     id: row.id,
@@ -74,6 +78,10 @@ function toAppointment(row: {
     price: row.price,
     status: statusLabel[row.status],
     notes: row.notes,
+    postalCode: row.postalCode ?? undefined,
+    city: row.city ?? undefined,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
   };
 }
 
@@ -136,6 +144,109 @@ async function hasConflict(dateId: string, start: string, duration: number, excl
   });
 }
 
+export type GeoWarning = {
+  direction: "previous" | "next";
+  // Déjà préposé ("à Louviers" / "au cabinet") : la phrase complète se
+  // construit ensuite avec formatGeoWarningMessage (tour-estimate.ts, pas ce
+  // fichier "use server" qui ne peut exporter que des fonctions async).
+  neighborLabel: string;
+  travelMinutes: number;
+  gapMinutes: number;
+};
+
+export type GeoWarningInput = {
+  date: string;
+  start: string;
+  duration: number;
+  mode: AppointmentMode;
+  latitude?: number;
+  longitude?: number;
+  // Exclut le rendez-vous lui-même de la comparaison lors d'une modification
+  // — même convention que hasConflict.
+  excludeId?: string;
+};
+
+/**
+ * Avertissement d'incompatibilité géographique (refonte tournées, phase
+ * 3.3) : compare la position d'un rendez-vous à domicile en cours de
+ * création/déplacement à celle du rendez-vous précédent/suivant le même
+ * jour (le cabinet compte comme position via ses coordonnées géocodées —
+ * prérequis 0.1), et signale si le temps de trajet estimé (même formule que
+ * le mode tournée : haversine × ROAD_DETOUR_FACTOR / AVERAGE_SPEED_KMH)
+ * dépasse le temps réellement disponible entre les deux. Purement indicatif
+ * — n'empêche jamais l'enregistrement — et silencieux dès qu'une position
+ * manque plutôt que de deviner (jamais de valeur par défaut, voir AGENTS.md).
+ */
+export async function checkGeographicWarningAction(input: GeoWarningInput): Promise<GeoWarning[]> {
+  if (input.mode !== "home" || input.latitude == null || input.longitude == null) return [];
+
+  const [sameDayAppointments, businessProfile] = await Promise.all([
+    prisma.appointment.findMany({
+      where: {
+        date: toDate(input.date),
+        status: { not: "CANCELLED" },
+        ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
+      },
+      select: { start: true, duration: true, mode: true, city: true, latitude: true, longitude: true },
+    }),
+    getBusinessProfile(),
+  ]);
+
+  const startMinutes = timeToMinutes(input.start);
+  const endMinutes = startMinutes + input.duration;
+  const thisCoordinates: Coordinates = { lat: input.latitude, lng: input.longitude };
+  const cabinetCoordinates: Coordinates | null = businessProfile.latitude != null && businessProfile.longitude != null
+    ? { lat: businessProfile.latitude, lng: businessProfile.longitude }
+    : null;
+
+  type SameDayAppointment = (typeof sameDayAppointments)[number];
+  // Voisin immédiat de chaque côté seulement : un rendez-vous plus loin
+  // dans la journée a nécessairement plus de marge, jamais moins.
+  let previous: SameDayAppointment | null = null;
+  let next: SameDayAppointment | null = null;
+  for (const appointment of sameDayAppointments) {
+    const appointmentStart = timeToMinutes(appointment.start);
+    const appointmentEnd = appointmentStart + appointment.duration;
+    if (appointmentEnd <= startMinutes && (!previous || appointmentEnd > timeToMinutes(previous.start) + previous.duration)) previous = appointment;
+    if (appointmentStart >= endMinutes && (!next || appointmentStart < timeToMinutes(next.start))) next = appointment;
+  }
+
+  function coordinatesFor(appointment: SameDayAppointment): Coordinates | null {
+    if (appointment.mode === "CABINET") return cabinetCoordinates;
+    return appointment.latitude != null && appointment.longitude != null ? { lat: appointment.latitude, lng: appointment.longitude } : null;
+  }
+
+  function labelFor(appointment: SameDayAppointment): string {
+    return appointment.mode === "CABINET" ? "au cabinet" : appointment.city ? `à ${appointment.city}` : "à cette adresse";
+  }
+
+  function travelMinutesBetween(a: Coordinates, b: Coordinates): number {
+    return (haversineDistanceKm(a, b) * ROAD_DETOUR_FACTOR / AVERAGE_SPEED_KMH) * 60;
+  }
+
+  const warnings: GeoWarning[] = [];
+
+  if (previous) {
+    const coordinates = coordinatesFor(previous);
+    const gapMinutes = startMinutes - (timeToMinutes(previous.start) + previous.duration);
+    if (coordinates && gapMinutes >= 0) {
+      const travelMinutes = travelMinutesBetween(coordinates, thisCoordinates);
+      if (travelMinutes > gapMinutes) warnings.push({ direction: "previous", neighborLabel: labelFor(previous), travelMinutes, gapMinutes });
+    }
+  }
+
+  if (next) {
+    const coordinates = coordinatesFor(next);
+    const gapMinutes = timeToMinutes(next.start) - endMinutes;
+    if (coordinates && gapMinutes >= 0) {
+      const travelMinutes = travelMinutesBetween(thisCoordinates, coordinates);
+      if (travelMinutes > gapMinutes) warnings.push({ direction: "next", neighborLabel: labelFor(next), travelMinutes, gapMinutes });
+    }
+  }
+
+  return warnings;
+}
+
 /**
  * P2002 (contrainte unique violée) ne peut venir que de l'index partiel sur
  * (date, start) : c'est la même course que hasConflict() vérifie déjà en
@@ -163,6 +274,14 @@ export type SaveAppointmentInput = {
   price: number;
   status: AppointmentStatus;
   notes: string;
+  // Géocodage de l'adresse (Géoplateforme IGN, AppointmentForm) : bonus pour
+  // l'avertissement d'incompatibilité géographique (refonte tournées, phase
+  // 3.3) — comme les champs équivalents de PublicBookingInput, jamais
+  // garantis valides côté serveur, revalidés via sanitizeGeoFields.
+  postalCode?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type AppointmentActionResult =
@@ -183,6 +302,11 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
 
+  // Bonus, jamais bloquant : n'a de sens qu'à domicile, et une valeur
+  // absente/mal formée est simplement ignorée (stockée à null) plutôt que de
+  // faire échouer l'enregistrement — même schéma que submitPublicBookingAction.
+  const geoFields = input.mode === "home" ? sanitizeGeoFields(input) : {};
+
   const data = {
     date: toDate(input.date),
     start: input.start,
@@ -195,6 +319,10 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     serviceName: input.serviceName,
     mode: dbMode[input.mode],
     location: input.location,
+    postalCode: geoFields.postalCode ?? null,
+    city: geoFields.city ?? null,
+    latitude: geoFields.latitude ?? null,
+    longitude: geoFields.longitude ?? null,
     price: input.price,
     status: dbStatus[input.status],
     notes: input.notes,
@@ -478,7 +606,9 @@ const geoFieldsSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
 });
 
-function sanitizeGeoFields(input: PublicBookingInput) {
+type GeoFieldsInput = { postalCode?: string; city?: string; inseeCode?: string; latitude?: number; longitude?: number };
+
+function sanitizeGeoFields(input: GeoFieldsInput) {
   const parsed = geoFieldsSchema.safeParse({
     postalCode: input.postalCode,
     city: input.city,
