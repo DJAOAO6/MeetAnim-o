@@ -24,6 +24,14 @@ type PerimeterCenter = { lat: number; lng: number; label: string };
 type FilterToken = { key: string; label: string; onRemove: () => void };
 
 const DEFAULT_PERIMETER_RADIUS_KM = 15;
+// Paliers, pas de curseur continu : chaque changement de valeur redessine la
+// carte, et la décision réelle ("mon secteur / ma ville / mon département")
+// se résume à trois choix, pas cent — voir le prompt dédié.
+const PERIMETER_RADIUS_TIERS = [15, 30, 50];
+// Sous cette largeur, la poignée de redimensionnement du cercle disparaît
+// (tirer une poignée avec le doigt masque la carte sur mobile) : seuls les
+// paliers restent.
+const CIRCLE_HANDLE_MIN_WIDTH_QUERY = "(min-width: 640px)";
 
 export function ClientsMap({ clients }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
@@ -35,9 +43,17 @@ export function ClientsMap({ clients }: ClientsMapProps) {
 
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom: number; token: string } | null>(null);
   const [perimeterCenter, setPerimeterCenter] = useState<PerimeterCenter | null>(null);
-  // Pas encore réglable (paliers 15/30/50 km depuis le jeton du filtre actif
-  // — phase 3) : une constante plutôt qu'un état non utilisé pour cette phase.
-  const perimeterRadiusKm = DEFAULT_PERIMETER_RADIUS_KM;
+  const [perimeterRadiusKm, setPerimeterRadiusKm] = useState(DEFAULT_PERIMETER_RADIUS_KM);
+  const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
+  // Change uniquement pour un rayon fixé hors glisser (palier, nouveau
+  // centre) : force CircleResizeHandle à se replacer au bord du cercle sans
+  // jamais interrompre un glisser en cours (voir real-map.tsx).
+  const [circleHandleResetKey, setCircleHandleResetKey] = useState(0);
+  // Sous 640px, la poignée de redimensionnement disparaît (voir le prompt) :
+  // même motif que le thème système (dashboard-theme-provider.tsx).
+  const [showCircleHandle, setShowCircleHandle] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(CIRCLE_HANDLE_MIN_WIDTH_QUERY).matches,
+  );
 
   const speciesPanelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -48,12 +64,31 @@ export function ClientsMap({ clients }: ClientsMapProps) {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
+  const radiusPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (radiusPanelRef.current && !radiusPanelRef.current.contains(event.target as Node)) setRadiusPanelOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia(CIRCLE_HANDLE_MIN_WIDTH_QUERY);
+    function handleChange(event: MediaQueryListEvent) {
+      setShowCircleHandle(event.matches);
+    }
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
+
   function toggleSpecies(species: AnimalSpecies) {
     setSelectedSpecies((current) => (current.includes(species) ? current.filter((item) => item !== species) : [...current, species]));
   }
 
   function clearPerimeter() {
     setPerimeterCenter(null);
+    setRadiusPanelOpen(false);
   }
 
   function clearAllFilters() {
@@ -61,6 +96,22 @@ export function ClientsMap({ clients }: ClientsMapProps) {
     setDueOnly(false);
     setQuery("");
     clearPerimeter();
+  }
+
+  // Fixe le rayon hors glisser (palier cliqué, nouveau centre choisi) : la
+  // poignée doit se replacer au bord du cercle en conséquence.
+  function setPerimeterRadiusExternally(km: number) {
+    setPerimeterRadiusKm(km);
+    setCircleHandleResetKey((current) => current + 1);
+  }
+
+  // Pendant un glisser, seule la valeur en direct (pour le cercle, le jeton
+  // et les paliers) change ; au relâchement (phase "commit"), la valeur est
+  // arrondie à 5 km — jamais de nouvel appel réseau ici, le filtrage par
+  // périmètre est déjà entièrement local (voir clientsInPerimeter).
+  function handleCircleRadiusChange(radiusKm: number, phase: "drag" | "commit") {
+    if (phase === "commit") setPerimeterRadiusKm(Math.max(5, Math.round(radiusKm / 5) * 5));
+    else setPerimeterRadiusKm(radiusKm);
   }
 
   const filteredClients = useMemo(() => {
@@ -79,6 +130,22 @@ export function ClientsMap({ clients }: ClientsMapProps) {
     // périmètre : exclu plutôt que deviné.
     return filteredClients.filter((client) => client.coordinates && haversineDistanceKm(perimeterCenter, client.coordinates) <= perimeterRadiusKm);
   }, [filteredClients, perimeterCenter, perimeterRadiusKm]);
+
+  // Nombre de clients par palier, calculé localement sur les clients déjà
+  // chargés (jamais un aller-retour réseau) : affiché dans le panneau de
+  // rayon, indépendant de la valeur actuellement retenue.
+  const perimeterTierCounts = useMemo(() => {
+    if (!perimeterCenter) return {} as Record<number, number>;
+    const counts: Record<number, number> = {};
+    for (const km of PERIMETER_RADIUS_TIERS) {
+      counts[km] = filteredClients.filter((client) => client.coordinates && haversineDistanceKm(perimeterCenter, client.coordinates) <= km).length;
+    }
+    return counts;
+  }, [filteredClients, perimeterCenter]);
+
+  // Clients sans coordonnées : exclus de tout calcul de périmètre, jamais
+  // devinés — signalés explicitement plutôt que silencieusement absents.
+  const unlocatedFilteredCount = useMemo(() => filteredClients.filter((client) => !client.coordinates).length, [filteredClients]);
 
   const visibleClients = perimeterCenter ? clientsInPerimeter : filteredClients;
   const locatedClients = visibleClients.filter((client) => client.coordinates);
@@ -107,6 +174,7 @@ export function ClientsMap({ clients }: ClientsMapProps) {
     if (selection.kind === "place") {
       focusOn(selection.place.lat, selection.place.lng, selection.place.zoom, selection.place.id);
       setPerimeterCenter({ lat: selection.place.lat, lng: selection.place.lng, label: selection.place.label });
+      setPerimeterRadiusExternally(DEFAULT_PERIMETER_RADIUS_KM);
       return;
     }
     const target = selection.kind === "client"
@@ -119,11 +187,12 @@ export function ClientsMap({ clients }: ClientsMapProps) {
 
   // Filtres actifs seulement : les filtres inactifs se rangent (bouton
   // Espèce, champ de recherche), ceux-ci restent visibles pour qu'un
-  // résultat filtré reste toujours explicable en un coup d'œil.
+  // résultat filtré reste toujours explicable en un coup d'œil. Le
+  // périmètre a son propre jeton (déroulant vers les paliers) rendu à part
+  // ci-dessous, pas dans cette liste générique "clic = retire".
   const activeFilterTokens: FilterToken[] = [
     ...selectedSpecies.map((species): FilterToken => ({ key: `species-${species}`, label: species, onRemove: () => toggleSpecies(species) })),
     ...(dueOnly ? [{ key: "due", label: "À relancer", onRemove: () => setDueOnly(false) }] : []),
-    ...(perimeterCenter ? [{ key: "perimeter", label: `${perimeterRadiusKm} km autour de ${perimeterCenter.label}`, onRemove: clearPerimeter }] : []),
   ];
 
   return (
@@ -173,7 +242,7 @@ export function ClientsMap({ clients }: ClientsMapProps) {
           </div>
         </div>
 
-        {activeFilterTokens.length > 0 ? (
+        {activeFilterTokens.length > 0 || perimeterCenter ? (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#e5eeeb] pt-3">
             {activeFilterTokens.map((token) => (
               <button key={token.key} type="button" onClick={token.onRemove} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-[#d9ece7]">
@@ -181,6 +250,45 @@ export function ClientsMap({ clients }: ClientsMapProps) {
                 <span aria-hidden="true" className="text-sm leading-none text-animeo-muted">×</span>
               </button>
             ))}
+
+            {perimeterCenter ? (
+              <div ref={radiusPanelRef} className="relative">
+                <div className="inline-flex min-h-11 items-stretch overflow-hidden rounded-xl bg-animeo-soft text-xs font-extrabold text-animeo-dark">
+                  <button
+                    type="button"
+                    onClick={() => setRadiusPanelOpen((current) => !current)}
+                    aria-haspopup="true"
+                    aria-expanded={radiusPanelOpen}
+                    className="inline-flex items-center gap-1 px-3 transition hover:bg-[#d9ece7]"
+                  >
+                    {Math.round(perimeterRadiusKm)} km autour de {perimeterCenter.label}
+                    <ChevronIcon />
+                  </button>
+                  <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de périmètre" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-[#d9ece7] hover:text-animeo-dark">×</button>
+                </div>
+                {radiusPanelOpen ? (
+                  <div role="group" aria-label="Choisir le rayon du périmètre" className="absolute z-20 mt-1.5 w-56 rounded-xl border border-[#d9e5e2] bg-white p-1.5 shadow-[0_14px_35px_rgba(24,59,69,0.15)]">
+                    {PERIMETER_RADIUS_TIERS.map((km) => {
+                      const count = perimeterTierCounts[km] ?? 0;
+                      const active = Math.round(perimeterRadiusKm) === km;
+                      return (
+                        <button
+                          key={km}
+                          type="button"
+                          onClick={() => { setPerimeterRadiusExternally(km); setRadiusPanelOpen(false); }}
+                          aria-pressed={active}
+                          className={`flex min-h-11 w-full items-center justify-between rounded-lg px-2.5 text-sm font-bold transition ${active ? "bg-animeo-soft text-animeo-dark" : "text-animeo-dark hover:bg-animeo-bg"}`}
+                        >
+                          <span>{km} km</span>
+                          <span className="text-xs font-semibold text-animeo-muted">{count} client{count > 1 ? "s" : ""}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <button type="button" onClick={clearAllFilters} className="inline-flex min-h-11 items-center px-2 text-xs font-extrabold text-animeo-muted underline decoration-dotted underline-offset-4 transition hover:text-animeo-dark">
               Tout effacer
             </button>
@@ -190,7 +298,10 @@ export function ClientsMap({ clients }: ClientsMapProps) {
         {perimeterCenter ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
             <Icon name="map" className="h-5 w-5 shrink-0 text-animeo" />
-            <p><strong>{clientsInPerimeter.length} client{clientsInPerimeter.length > 1 ? "s" : ""}</strong> dans un rayon de <strong>{perimeterRadiusKm} km</strong> autour de <strong>{perimeterCenter.label}</strong>. Utile pour évaluer la création d’une nouvelle tournée.</p>
+            <p>
+              <strong>{clientsInPerimeter.length} client{clientsInPerimeter.length > 1 ? "s" : ""}</strong> dans un rayon de <strong>{Math.round(perimeterRadiusKm)} km</strong> autour de <strong>{perimeterCenter.label}</strong>.
+              {unlocatedFilteredCount > 0 ? ` ${unlocatedFilteredCount} client${unlocatedFilteredCount > 1 ? "s" : ""} non localisé${unlocatedFilteredCount > 1 ? "s" : ""}, exclu${unlocatedFilteredCount > 1 ? "s" : ""} de ce calcul.` : " Utile pour évaluer la création d’une nouvelle tournée."}
+            </p>
           </div>
         ) : null}
       </Card>
@@ -216,6 +327,9 @@ export function ClientsMap({ clients }: ClientsMapProps) {
             heightClassName="h-[610px]"
             overlay={selectedClient ? <MapClientPopup client={selectedClient} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
+            circleHandle={showCircleHandle}
+            onCircleRadiusChange={handleCircleRadiusChange}
+            circleHandleResetKey={circleHandleResetKey}
             focus={focus}
           />
         </Card>

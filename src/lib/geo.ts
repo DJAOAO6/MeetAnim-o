@@ -23,3 +23,25 @@ export function haversineDistanceKm(a: { lat: number; lng: number }, b: { lat: n
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
 }
+
+/**
+ * Point situé à `distanceKm` de `origin` dans la direction `bearingDegrees`
+ * (0° = nord, 90° = est) — inverse de haversineDistanceKm. Sert à placer la
+ * poignée de redimensionnement du cercle de périmètre sur son bord (carte
+ * clients, phase 3).
+ */
+export function destinationPoint(origin: { lat: number; lng: number }, distanceKm: number, bearingDegrees: number): { lat: number; lng: number } {
+  const earthRadiusKm = 6371;
+  const angularDistance = distanceKm / earthRadiusKm;
+  const bearing = (bearingDegrees * Math.PI) / 180;
+  const lat1 = (origin.lat * Math.PI) / 180;
+  const lng1 = (origin.lng * Math.PI) / 180;
+
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(angularDistance) + Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing));
+  const lng2 = lng1 + Math.atan2(
+    Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
+    Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2),
+  );
+
+  return { lat: (lat2 * 180) / Math.PI, lng: (lng2 * 180) / Math.PI };
+}

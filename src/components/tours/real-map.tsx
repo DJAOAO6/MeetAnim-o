@@ -4,7 +4,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { Circle, MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { destinationPoint, haversineDistanceKm } from "@/lib/geo";
 
 export type RealMapPoint = {
   id: string;
@@ -37,7 +38,60 @@ type RealMapProps = {
   overlay?: ReactNode;
   circle?: RealMapCircle | null;
   focus?: RealMapFocus | null;
+  // Poignée de redimensionnement sur le bord du cercle (carte clients, phase
+  // 3) : absente sous 640px (voir le prompt dédié — tirer une poignée avec
+  // le doigt masque la carte sur mobile, les paliers suffisent).
+  circleHandle?: boolean;
+  onCircleRadiusChange?: (radiusKm: number, phase: "drag" | "commit") => void;
+  // Force la poignée à se replacer au bord du cercle (paliers, nouveau
+  // centre) sans l'interrompre pendant un glisser en cours — voir
+  // CircleResizeHandle ci-dessous.
+  circleHandleResetKey?: number;
 };
+
+const circleHandleIcon = L.divIcon({
+  className: "",
+  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#fff;border:3px solid #4FAF9F;box-shadow:0 2px 8px rgba(24,59,69,0.35);cursor:ew-resize;"></span>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+/**
+ * Poignée glissable sur le bord du cercle de périmètre. Le rayon affiché
+ * n'est jamais recalculé depuis `circle.radiusKm` pendant la vie de ce
+ * composant (position mémorisée une seule fois, à son montage) : react-
+ * leaflet imposerait sinon la position "plein est" à chaque frappe de rayon
+ * en direct pendant le glisser, ce qui entrerait en conflit avec le
+ * déplacement natif de la souris dans n'importe quelle autre direction. Un
+ * remount complet (la clé passée par l'appelant, dérivée de
+ * circleHandleResetKey) est le seul moyen prévu de la replacer — utilisé
+ * pour un changement de rayon hors glisser (palier, nouveau centre), jamais
+ * pendant le glisser lui-même.
+ */
+function CircleResizeHandle({ circle, onRadiusChange }: { circle: RealMapCircle; onRadiusChange: (radiusKm: number, phase: "drag" | "commit") => void }) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- calculée une seule fois au montage, voir le commentaire ci-dessus.
+  const initialPosition = useMemo(() => destinationPoint(circle, circle.radiusKm, 90), []);
+
+  return (
+    <Marker
+      position={[initialPosition.lat, initialPosition.lng]}
+      icon={circleHandleIcon}
+      draggable
+      eventHandlers={{
+        drag: (event) => {
+          const latlng = (event.target as L.Marker).getLatLng();
+          onRadiusChange(haversineDistanceKm(circle, { lat: latlng.lat, lng: latlng.lng }), "drag");
+        },
+        dragend: (event) => {
+          const latlng = (event.target as L.Marker).getLatLng();
+          onRadiusChange(haversineDistanceKm(circle, { lat: latlng.lat, lng: latlng.lng }), "commit");
+        },
+      }}
+    >
+      <Tooltip permanent direction="top" offset={[0, -12]}>{`${Math.round(circle.radiusKm)} km`}</Tooltip>
+    </Marker>
+  );
+}
 
 function markerIcon(point: RealMapPoint, selected: boolean) {
   const size = selected ? 42 : 34;
@@ -92,7 +146,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0 }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length === 0) return [49.4432, 1.0999];
     return [points[0].lat, points[0].lng];
@@ -116,6 +170,9 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
             radius={circle.radiusKm * 1000}
             pathOptions={{ color: "#4FAF9F", fillColor: "#4FAF9F", fillOpacity: 0.12, weight: 2 }}
           />
+        ) : null}
+        {circle && circleHandle && onCircleRadiusChange ? (
+          <CircleResizeHandle key={`${circle.lat}:${circle.lng}:${circleHandleResetKey}`} circle={circle} onRadiusChange={onCircleRadiusChange} />
         ) : null}
         {points.map((point) => (
           <Marker
