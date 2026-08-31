@@ -9,7 +9,7 @@ import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { computeAgeLabel } from "@/lib/animal-age";
 import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
-import { intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
+import { formatBookingDateLabels, intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicAnimalType, PublicProfessional, PublicService } from "@/data/public-booking";
 
 const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
@@ -85,6 +85,15 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
   const groupContentRefs = useRef<Partial<Record<GroupKey, HTMLDivElement | null>>>({});
   const zone = professional.zones.find((item) => item.id === zoneId);
   const activeAddress = mode === "CABINET" ? owner : address;
+  // Le créneau est déjà choisi à ce stade (étape précédente) : si le jour
+  // choisi tombe sur un jour de passage régulier de la zone détectée, la
+  // réassurance porte sur CE rendez-vous précis plutôt que sur la zone en
+  // général — refonte tournées, phase 3.2 (l'adresse n'étant connue qu'à
+  // cette étape depuis l'inversion de l'ordre des étapes, la mise en avant
+  // ne peut plus trier/étiqueter les créneaux eux-mêmes, voir commit
+  // 16acbdf ; ceci reste un message informatif après coup, jamais un filtre).
+  const selectedDateWeekday = formatBookingDateLabels(dateId).weekday;
+  const zoneRunsOnSelectedDate = mode === "HOME" && Boolean(zone?.tourDays.includes(selectedDateWeekday));
 
   function isGroupValid(group: GroupKey): boolean {
     switch (group) {
@@ -448,7 +457,11 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
 
             {mode === "HOME" && zone ? (
               <div className="mt-4 rounded-2xl border border-[#bfe1d8] bg-[#edf9f5] p-3.5 text-sm">
-                <p className="font-black text-[#24755f]">✓ {zone.name} — passage régulier le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}</p>
+                {zoneRunsOnSelectedDate ? (
+                  <p className="font-black text-[#24755f]">✓ Vous êtes déjà dans notre secteur ce jour-là — {zone.name}, passage régulier le {selectedDateWeekday.toLocaleLowerCase("fr-FR")}.</p>
+                ) : (
+                  <p className="font-black text-[#24755f]">✓ {zone.name} — passage régulier le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}</p>
+                )}
               </div>
             ) : null}
           </DynamicReveal>
