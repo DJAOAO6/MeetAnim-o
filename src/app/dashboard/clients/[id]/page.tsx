@@ -5,6 +5,7 @@ import { getClientById } from "@/lib/clients";
 
 type ClientPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ animal?: string }>;
 };
 
 export async function generateMetadata({ params }: ClientPageProps): Promise<Metadata> {
@@ -16,13 +17,14 @@ export async function generateMetadata({ params }: ClientPageProps): Promise<Met
   };
 }
 
-export default async function ClientPage({ params }: ClientPageProps) {
+export default async function ClientPage({ params, searchParams }: ClientPageProps) {
   const { id } = await params;
+  const { animal } = await searchParams;
   const client = await getClientById(id);
 
   if (!client) {
     notFound();
   }
 
-  return <ClientProfile client={client} />;
+  return <ClientProfile client={client} initialAnimalId={animal} />;
 }

@@ -4,10 +4,12 @@ import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
 import { coordinatesForCity } from "@/data/normandy-cities";
 import { jitterCoordinates, projectToPercent } from "@/lib/geo";
+import { estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { findMatchingZone, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import type { AnimalSpecies } from "@/data/species";
-import type { City, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
+import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 import type { PublicZone } from "@/data/public-booking";
 import type { Tour as DbTour, TourStatus as DbTourStatus } from "@/generated/prisma/client";
 
@@ -37,7 +39,7 @@ function formatConsultationHours(totalMinutes: number): string {
   return minutes > 0 ? `${hours}h${String(minutes).padStart(2, "0")}` : `${hours}h`;
 }
 
-type TourOccurrence = { appointmentCount: number; consultationHours: string; stops: TourAppointment[] };
+type TourOccurrence = { appointmentCount: number; consultationHours: string; stops: TourAppointment[]; estimate: TourEstimate };
 
 /**
  * Arrêts réels d'une tournée à sa prochaine occurrence : rendez-vous à
@@ -45,14 +47,17 @@ type TourOccurrence = { appointmentCount: number; consultationHours: string; sto
  * tournée (AUDIT_COMPLET.md P2-25 — remplace TourAppointment, une table que
  * seul le script de seed pouvait peupler, jamais l'app réelle).
  */
-async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], todayId: string): Promise<TourOccurrence> {
+async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
   const dateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
-  if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [] };
+  if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 } };
 
   const appointments = await prisma.appointment.findMany({
     where: { date: new Date(`${dateId}T00:00:00.000Z`), mode: "DOMICILE", status: { not: "CANCELLED" } },
     orderBy: { start: "asc" },
-    select: { id: true, start: true, duration: true, animalName: true, serviceName: true, city: true, postalCode: true, clientName: true, latitude: true, longitude: true },
+    select: {
+      id: true, start: true, duration: true, animalName: true, serviceName: true, city: true, postalCode: true, clientName: true, latitude: true, longitude: true,
+      clientId: true, animalId: true, client: { select: { phone: true } },
+    },
   });
 
   const matched = appointments.filter((a) => findMatchingZone(publicZones, a.postalCode ?? undefined, a.city ?? undefined)?.id === tour.zoneId);
@@ -70,12 +75,17 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
       service: a.serviceName,
       city: a.city ?? "",
       clientName: a.clientName,
+      clientId: a.clientId,
+      animalId: a.animalId,
+      phone: a.client?.phone ?? null,
       position: coordinates ? projectToPercent(coordinates.lat, coordinates.lng) : null,
       coordinates,
     };
   });
 
-  return { appointmentCount: stops.length, consultationHours: formatConsultationHours(totalMinutes), stops };
+  const estimate = estimateTourRoute(cabinetCoordinates, stops);
+
+  return { appointmentCount: stops.length, consultationHours: formatConsultationHours(totalMinutes), stops, estimate };
 }
 
 /**
@@ -85,11 +95,12 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
  * les appellent ensemble.
  */
 const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> => {
-  const [rows, zones] = await Promise.all([prisma.tour.findMany(), getZones()]);
+  const [rows, zones, businessProfile] = await Promise.all([prisma.tour.findMany(), getZones(), getBusinessProfile()]);
   const publicZones = zones.map(zoneToPublicShape);
   const todayId = toLocalDateId(new Date());
+  const cabinetCoordinates = businessProfile.latitude != null && businessProfile.longitude != null ? { lat: businessProfile.latitude, lng: businessProfile.longitude } : null;
 
-  const occurrences = await Promise.all(rows.map((tour) => computeTourOccurrence(tour, publicZones, todayId)));
+  const occurrences = await Promise.all(rows.map((tour) => computeTourOccurrence(tour, publicZones, todayId, cabinetCoordinates)));
   return new Map(rows.map((tour, index) => [tour.id, occurrences[index]]));
 });
 
@@ -113,7 +124,9 @@ export async function getTours(): Promise<Tour[]> {
       zoneId: tour.zoneId,
       status: statusLabel[tour.status],
       appointmentCount: occurrence?.appointmentCount ?? 0,
-      estimatedKm: tour.estimatedKm,
+      estimatedDistanceKm: occurrence?.estimate.distanceKm ?? null,
+      estimatedDurationMinutes: occurrence?.estimate.durationMinutes ?? null,
+      unlocatedStopCount: occurrence?.estimate.unlocatedStopCount ?? 0,
       consultationHours: occurrence?.consultationHours ?? "0h",
     };
   });
@@ -213,13 +226,18 @@ export async function getWeeklyHomeAppointmentCount(): Promise<number> {
 }
 
 export async function getToursPageData() {
-  const [zones, tours, stops, mapClients, weeklyHomeAppointments] = await Promise.all([
+  const [zones, tours, stops, mapClients, weeklyHomeAppointments, businessProfile] = await Promise.all([
     getZones(),
     getTours(),
     getTourStops(),
     getMapClients(),
     getWeeklyHomeAppointmentCount(),
+    getBusinessProfile(),
   ]);
 
-  return { zones, tours, appointments: stops, mapClients, weeklyHomeAppointments };
+  const cabinetCoordinates: Coordinates | null = businessProfile.latitude != null && businessProfile.longitude != null
+    ? { lat: businessProfile.latitude, lng: businessProfile.longitude }
+    : null;
+
+  return { zones, tours, appointments: stops, mapClients, weeklyHomeAppointments, cabinetCoordinates };
 }

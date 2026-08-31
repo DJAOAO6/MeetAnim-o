@@ -22,7 +22,7 @@ import { deleteTourAction } from "@/lib/tours-actions";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
-import type { Tour, TourAppointment, Zone } from "@/data/tours";
+import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -112,9 +112,10 @@ type AgendaViewProps = {
   zones: Zone[];
   tourAppointments: Record<string, TourAppointment[]>;
   initialBlockedSlots: BlockedSlot[];
+  cabinetCoordinates: Coordinates | null;
 };
 
-export function AgendaView({ clients, availability, tours, zones, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
+export function AgendaView({ clients, availability, tours, zones, tourAppointments, initialBlockedSlots, cabinetCoordinates }: AgendaViewProps) {
   const router = useRouter();
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
@@ -505,8 +506,8 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
             tour={tour}
             zone={zones.find((zone) => zone.id === tour.zoneId)}
             appointments={tourAppointments[tour.id] ?? []}
+            cabinetCoordinates={cabinetCoordinates}
             onClose={() => setSelectedTourId(null)}
-            onRoute={() => notify.info("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
             onDelete={() => deleteTour(tour.id, tour.name)}
           />
         );

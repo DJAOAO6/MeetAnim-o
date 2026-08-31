@@ -68,7 +68,7 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
           <p className="mb-1 text-sm font-bold text-animeo-dark">{zone?.name ?? "Zone non définie"}</p>
           <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-animeo-muted">
             <span>{nextTour.appointmentCount} rendez-vous</span>
-            <span>{nextTour.estimatedKm} km</span>
+            {nextTour.estimatedDistanceKm !== null ? <span>≈ {Math.round(nextTour.estimatedDistanceKm)} km</span> : null}
             <span>{nextTour.day} · {nextTour.startTime}</span>
           </div>
           <SimulatedMap points={points} heightClassName="h-40" showLabels={false} />

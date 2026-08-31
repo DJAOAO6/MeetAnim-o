@@ -22,6 +22,10 @@ import type { Animal, Client } from "@/data/clients";
 
 type ClientProfileProps = {
   client: Client;
+  // Présélectionne un animal précis à l'ouverture (ex. lien "Voir la fiche"
+  // depuis un arrêt de tournée) — ignoré s'il ne correspond à aucun animal
+  // de ce client.
+  initialAnimalId?: string;
 };
 
 const animalPhotosStorageKey = "animeo-animal-photos-v1";
@@ -30,14 +34,17 @@ function animalPhotoKey(clientId: string, animalId: string) {
   return `${clientId}:${animalId}`;
 }
 
-export function ClientProfile({ client }: ClientProfileProps) {
+export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   const { openNewAppointment } = useAppointments();
   const router = useRouter();
   const currentUser = useCurrentUser();
   const canDelete = hasPermission(currentUser, "DELETE_CLIENTS");
   const [clientInfo, setClientInfo] = useState(client);
   const [animals, setAnimals] = useState(client.animals);
-  const [selectedAnimalId, setSelectedAnimalId] = useState(client.animals[0]?.id ?? "");
+  const [selectedAnimalId, setSelectedAnimalId] = useState(() => {
+    if (initialAnimalId && client.animals.some((animal) => animal.id === initialAnimalId)) return initialAnimalId;
+    return client.animals[0]?.id ?? "";
+  });
   const [animalPhotos, setAnimalPhotos] = useState<Record<string, string>>({});
   const [deletingClient, startDeletingClient] = useTransition();
   const [editingClient, setEditingClient] = useState(false);

@@ -30,8 +30,14 @@ export type Tour = {
   zoneId: string;
   status: TourStatus;
   appointmentCount: number;
-  estimatedKm: number;
   consultationHours: string;
+  // Calculées depuis les vraies coordonnées des arrêts de la prochaine
+  // occurrence (distance à vol d'oiseau × ROAD_DETOUR_FACTOR) — remplace
+  // l'ancien estimatedKm saisi à la main (refonte tournées, phase 1.3).
+  // null si moins de deux points ne sont localisés.
+  estimatedDistanceKm: number | null;
+  estimatedDurationMinutes: number | null;
+  unlocatedStopCount: number;
 };
 
 export type TourAppointment = {
@@ -41,6 +47,13 @@ export type TourAppointment = {
   service: string;
   city: string;
   clientName: string;
+  // null si le rendez-vous n'est plus rattaché à un client/animal réel
+  // (fiche supprimée) — l'action "Voir la fiche" est alors absente.
+  clientId: string | null;
+  animalId: string | null;
+  // null si aucun client rattaché, ou numéro dans un format non reconnu par
+  // toTelHref() — l'action "Appeler" est alors absente, jamais grisée.
+  phone: string | null;
   // null quand ni le rendez-vous ni la table de villes n'ont de coordonnées
   // réelles — jamais de position devinée (AUDIT-PRODUIT-2026-08-30.md,
   // refonte tournées, prérequis 0.2).

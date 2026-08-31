@@ -31,7 +31,9 @@ async function toTour(row: DbTour): Promise<Tour> {
     zoneId: row.zoneId,
     status: tourStatusLabel[row.status],
     appointmentCount: computed?.appointmentCount ?? 0,
-    estimatedKm: row.estimatedKm,
+    estimatedDistanceKm: computed?.estimatedDistanceKm ?? null,
+    estimatedDurationMinutes: computed?.estimatedDurationMinutes ?? null,
+    unlocatedStopCount: computed?.unlocatedStopCount ?? 0,
     consultationHours: computed?.consultationHours ?? "0h",
   };
 }
@@ -55,7 +57,6 @@ export type SaveTourInput = {
   endTime: string;
   zoneId: string;
   status: Tour["status"];
-  estimatedKm: number;
 };
 
 export async function saveTourAction(input: SaveTourInput): Promise<TourActionResult> {
@@ -78,7 +79,6 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
     endTime: input.endTime,
     zoneId: input.zoneId,
     status: dbTourStatus[input.status],
-    estimatedKm: Math.max(0, input.estimatedKm),
   };
 
   const row = input.id

@@ -119,7 +119,12 @@ export function getYearStats(year: number, appointments: Appointment[], tours: T
       for (const tour of activeTours) {
         if (!tourRunsOnDate(tour, id, weekday)) continue;
         tourOccurrences += 1;
-        distanceKm += tour.estimatedKm;
+        // Approximation assumée : la distance réelle de la prochaine
+        // occurrence sert de proxy pour chaque occurrence future de
+        // l'année — les rendez-vous des semaines à venir n'existent pas
+        // encore pour être calculés individuellement (refonte tournées,
+        // phase 1.3 ; estimatedKm saisi à la main n'est plus lu nulle part).
+        distanceKm += tour.estimatedDistanceKm ?? 0;
       }
     }
   }

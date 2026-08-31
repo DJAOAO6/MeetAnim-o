@@ -16,7 +16,6 @@ export type TourFormValue = {
   endTime: string;
   zoneId: string;
   status: Tour["status"];
-  estimatedKm: number;
 };
 
 type TourModalProps = {
@@ -39,10 +38,9 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone, onDelete
   const [endTime, setEndTime] = useState(tour?.endTime ?? "18:00");
   const [zoneId, setZoneId] = useState(tour?.zoneId ?? zones[0]?.id ?? "");
   const [status, setStatus] = useState<Tour["status"]>(tour?.status ?? "Active");
-  const [estimatedKm, setEstimatedKm] = useState(tour?.estimatedKm ?? 0);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [initialSnapshot] = useState(() => JSON.stringify({ name, recurrence, day, startTime, endTime, zoneId, status, estimatedKm }));
-  const isDirty = JSON.stringify({ name, recurrence, day, startTime, endTime, zoneId, status, estimatedKm }) !== initialSnapshot;
+  const [initialSnapshot] = useState(() => JSON.stringify({ name, recurrence, day, startTime, endTime, zoneId, status }));
+  const isDirty = JSON.stringify({ name, recurrence, day, startTime, endTime, zoneId, status }) !== initialSnapshot;
   const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
     if (confirmDiscard()) onClose();
@@ -51,7 +49,7 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone, onDelete
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave({ id: tour?.id, name: name.trim(), recurrence, day, startTime, endTime, zoneId, status, estimatedKm: Math.max(0, estimatedKm) });
+    onSave({ id: tour?.id, name: name.trim(), recurrence, day, startTime, endTime, zoneId, status });
   }
 
   return (
@@ -105,10 +103,6 @@ export function TourModal({ tour, zones, onClose, onSave, onCreateZone, onDelete
             <div className="flex items-end">
               <button type="button" onClick={onCreateZone} className="h-11 w-full rounded-xl border border-animeo px-3.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">+ Créer une zone</button>
             </div>
-
-            <Field label="Kilomètres estimés">
-              <input type="number" min={0} step={1} value={estimatedKm} onChange={(event) => setEstimatedKm(Number(event.target.value))} className={inputClassName} />
-            </Field>
 
             <Field label="Statut" wide>
               <div className="inline-flex rounded-xl bg-animeo-soft p-1">

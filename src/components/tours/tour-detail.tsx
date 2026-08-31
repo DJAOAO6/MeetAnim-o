@@ -1,20 +1,24 @@
+import Link from "next/link";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { SimulatedMap } from "@/components/tours/simulated-map";
-import type { Tour, TourAppointment, Zone } from "@/data/tours";
+import { toTelHref } from "@/lib/phone";
+import { buildSingleStopMapsUrl, buildTourMapsLinks } from "@/lib/tour-maps";
+import { formatTourEstimate } from "@/lib/tour-estimate";
+import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type TourDetailProps = {
   tour: Tour;
   zone?: Zone;
   appointments: TourAppointment[];
+  cabinetCoordinates: Coordinates | null;
   onBack: () => void;
-  onRoute: () => void;
   onDelete: () => void;
 };
 
-export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete }: TourDetailProps) {
+export function TourDetail({ tour, zone, appointments, cabinetCoordinates, onBack, onDelete }: TourDetailProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   // Un arrêt sans position réelle n'apparaît pas sur la carte (simulée) —
   // jamais de position devinée — mais reste listé dans le détail ci-dessous.
@@ -29,6 +33,9 @@ export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete
       title: `${appointment.time} · ${appointment.animalName} · ${appointment.city}`,
       accent: "purple" as const,
     }));
+
+  const mapsResult = buildTourMapsLinks(cabinetCoordinates, appointments);
+  const estimateLabel = formatTourEstimate({ distanceKm: tour.estimatedDistanceKm, durationMinutes: tour.estimatedDurationMinutes, unlocatedStopCount: tour.unlocatedStopCount });
 
   return (
     <div className="space-y-6">
@@ -53,16 +60,37 @@ export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete
               {zone?.cities.map((city) => <span key={city.id} className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-animeo-dark shadow-sm">{city.name}</span>)}
             </div>
           </div>
-          <button type="button" onClick={onRoute} className="inline-flex items-center justify-center rounded-xl bg-animeo px-5 py-3 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
-            <Icon name="tournees" className="mr-2 h-5 w-5" />
-            Voir l’itinéraire
-          </button>
+          {mapsResult.links.length > 0 ? (
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              <div className="flex flex-wrap justify-end gap-2">
+                {mapsResult.links.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-animeo px-5 py-3 text-sm font-extrabold text-white transition hover:bg-[#459e90]"
+                  >
+                    <Icon name="tournees" className="mr-2 h-5 w-5" />
+                    {mapsResult.links.length > 1 ? link.label : "Ouvrir l’itinéraire complet"}
+                  </a>
+                ))}
+              </div>
+              {mapsResult.excludedStopCount > 0 ? (
+                <p className="text-right text-xs font-semibold text-[#a9573b]">
+                  {mapsResult.excludedStopCount > 1
+                    ? `${mapsResult.excludedStopCount} arrêts sans adresse localisée ne sont pas dans l’itinéraire.`
+                    : "1 arrêt sans adresse localisée n’est pas dans l’itinéraire."}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-        <div className="grid divide-y divide-[#e5eeeb] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="grid divide-y divide-[#e5eeeb] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
           <TourMetric value={`${tour.appointmentCount}`} label="rendez-vous" />
-          <TourMetric value={`${tour.estimatedKm} km`} label="estimés" />
           <TourMetric value={tour.consultationHours} label="de consultations" />
         </div>
+        <p className="border-t border-[#e5eeeb] px-5 py-3 text-center text-sm font-bold text-animeo-muted sm:px-6">{estimateLabel}</p>
       </Card>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(340px,0.75fr)_minmax(0,1.25fr)]">
@@ -74,23 +102,7 @@ export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete
           {appointments.length > 0 ? (
             <div className="divide-y divide-[#edf2f0]">
               {appointments.map((appointment, index) => (
-                <article key={appointment.id} className="flex gap-4 p-5">
-                  <div className="flex flex-col items-center">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eeeaf8] text-xs font-black text-[#6c5598]">{index + 1}</span>
-                    {index < appointments.length - 1 ? <span className="mt-2 h-full w-px bg-[#e2e8e6]" /> : null}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-black text-animeo-dark">{appointment.time}</p>
-                        <h4 className="mt-1 font-extrabold text-animeo-dark">{appointment.animalName}</h4>
-                      </div>
-                      <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-black text-animeo-dark">Domicile</span>
-                    </div>
-                    <p className="mt-1 text-sm font-bold text-animeo-muted">{appointment.service}</p>
-                    <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-animeo-muted"><Icon name="map" className="h-3.5 w-3.5 text-animeo" />{appointment.city} · {appointment.clientName}</p>
-                  </div>
-                </article>
+                <TourStopCard key={appointment.id} appointment={appointment} index={index} />
               ))}
             </div>
           ) : (
@@ -127,8 +139,68 @@ export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete
   );
 }
 
+function TourStopCard({ appointment, index }: { appointment: TourAppointment; index: number }) {
+  const telHref = appointment.phone ? toTelHref(appointment.phone) : null;
+  const goHref = appointment.coordinates ? buildSingleStopMapsUrl(appointment.coordinates) : null;
+  const recordHref = appointment.clientId && appointment.animalId ? `/dashboard/clients/${appointment.clientId}?animal=${appointment.animalId}` : null;
+
+  return (
+    <article className="flex gap-4 p-5">
+      <div className="flex flex-col items-center">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#eeeaf8] text-xs font-black text-[#6c5598]">{index + 1}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-lg font-black text-animeo-dark">{appointment.time}</p>
+            <h4 className="mt-1 font-extrabold text-animeo-dark">{appointment.animalName}</h4>
+          </div>
+          <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-black text-animeo-dark">Domicile</span>
+        </div>
+        <p className="mt-1 text-sm font-bold text-animeo-muted">{appointment.service}</p>
+        <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-animeo-muted">
+          <Icon name="map" className="h-3.5 w-3.5 text-animeo" />
+          {appointment.city} · {appointment.clientName}
+          {!appointment.coordinates ? <span className="font-bold text-[#a9573b]">· Position inconnue</span> : null}
+        </p>
+
+        {telHref || goHref || recordHref ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {telHref ? (
+              <a href={telHref} className="inline-flex min-h-11 flex-1 basis-[110px] items-center justify-center gap-1.5 rounded-xl bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
+                <PhoneIcon />
+                Appeler
+              </a>
+            ) : null}
+            {goHref ? (
+              <a href={goHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 flex-1 basis-[110px] items-center justify-center gap-1.5 rounded-xl bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
+                <Icon name="car" className="h-4 w-4" />
+                Y aller
+              </a>
+            ) : null}
+            {recordHref ? (
+              <Link href={recordHref} className="inline-flex min-h-11 flex-1 basis-[110px] items-center justify-center gap-1.5 rounded-xl bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
+                <Icon name="paw" className="h-4 w-4" />
+                Voir la fiche
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 function TourMetric({ value, label }: { value: string; label: string }) {
   return <div className="p-5 text-center"><p className="text-2xl font-black text-animeo-dark">{value}</p><p className="mt-1 text-xs font-bold text-animeo-muted">{label}</p></div>;
+}
+
+function PhoneIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
+    </svg>
+  );
 }
 
 function TrashIcon() {

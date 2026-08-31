@@ -346,10 +346,12 @@ model City {
  * (AUDIT_COMPLET.md P2-25) : figées à 0/"0h" pour toute tournée créée via
  * l'app réelle (jamais mises à jour), elles sont désormais calculées à la
  * lecture depuis les vrais Appointment de la prochaine occurrence de la
- * tournée (voir src/lib/tours.ts). estimatedKm reste une colonne : aucune
- * coordonnée géocodée pour le cabinet lui-même n'existe en base pour la
- * calculer réellement (même constat que Statistiques/P2-24) — c'est une
- * estimation saisie à la main par la praticienne.
+ * tournée (voir src/lib/tours.ts). Même sort pour estimatedKm depuis la
+ * refonte tournées (phase 1.3) : la colonne reste en base (des lectures
+ * historiques peuvent encore l'utiliser, ex. les statistiques annuelles),
+ * mais l'app ne la lit/écrit plus nulle part — la distance affichée est
+ * recalculée à la volée depuis les vraies coordonnées géocodées des arrêts
+ * et du cabinet (src/lib/tour-estimate.ts).
  */
 model Tour {
   id          String     @id @default(cuid())

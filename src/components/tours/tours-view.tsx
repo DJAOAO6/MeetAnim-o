@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { notify } from "@/lib/notify";
 import { deleteTourAction, deleteZoneAction, saveTourAction, saveZoneAction, toggleTourStatusAction } from "@/lib/tours-actions";
-import type { MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
+import type { Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type ToursViewProps = {
   initialTab: "tours" | "map";
@@ -20,17 +20,23 @@ type ToursViewProps = {
   appointments: Record<string, TourAppointment[]>;
   mapClients: MapClient[];
   weeklyHomeAppointments: number;
+  cabinetCoordinates: Coordinates | null;
 };
 
-export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments }: ToursViewProps) {
+export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments, cabinetCoordinates }: ToursViewProps) {
   const [activeTab, setActiveTab] = useState<"tours" | "map">(initialTab);
   const [tours, setTours] = useState(initialTours);
   const [zones, setZones] = useState(initialZones);
   const activeTours = tours.filter((tour) => tour.status === "Active");
+  // Certaines tournées actives peuvent n'avoir aucune estimation (aucun
+  // arrêt réel à leur prochaine occurrence, ou aucun point localisé) —
+  // exclues de la somme plutôt que comptées comme 0 km.
+  const estimableTours = activeTours.filter((tour): tour is Tour & { estimatedDistanceKm: number } => tour.estimatedDistanceKm !== null);
+  const totalEstimatedKm = estimableTours.reduce((sum, tour) => sum + tour.estimatedDistanceKm, 0);
   const stats: Array<{ label: string; value: string; icon: IconName; color: string; background: string }> = [
     { label: "Tournées actives", value: String(activeTours.length), icon: "tournees", color: "text-animeo", background: "bg-animeo-soft" },
     { label: "RDV domicile cette semaine", value: String(weeklyHomeAppointments), icon: "agenda", color: "text-animeo-dark", background: "bg-[#e8f1f4]" },
-    { label: "Kilomètres estimés", value: `${activeTours.reduce((sum, tour) => sum + tour.estimatedKm, 0)} km`, icon: "map", color: "text-[#b7791f]", background: "bg-[#fff4dd]" },
+    { label: "Kilomètres estimés", value: estimableTours.length > 0 ? `≈ ${Math.round(totalEstimatedKm)} km` : "—", icon: "map", color: "text-[#b7791f]", background: "bg-[#fff4dd]" },
     { label: "Zones desservies", value: String(zones.length), icon: "map", color: "text-[#8067b0]", background: "bg-[#eeeaf8]" },
   ];
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
@@ -144,8 +150,8 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
               tour={selectedTour}
               zone={zones.find((zone) => zone.id === selectedTour.zoneId)}
               appointments={appointments[selectedTour.id] ?? []}
+              cabinetCoordinates={cabinetCoordinates}
               onBack={() => setSelectedTourId(null)}
-              onRoute={() => notify.info("L’itinéraire est une simulation locale : aucun trajet réel n’a été calculé.")}
               onDelete={() => deleteTour(selectedTour)}
             />
           ) : (
