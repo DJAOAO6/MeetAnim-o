@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { neon } from "@neondatabase/serverless";
 import { config } from "dotenv";
 
@@ -7,12 +7,100 @@ const sql = neon(process.env.DATABASE_URL!);
 
 const PROFESSIONAL_SLUG = "pauline-faucillon";
 
+// Le mois/jour "aujourd'hui" de cet environnement de test change à chaque
+// exécution (le temps passe réellement) : toutes les dates de ce fichier
+// sont calculées à partir de `new Date()` plutôt que codées en dur, pour ne
+// pas se retrouver, quelques jours plus tard, à cibler un jour du calendrier
+// devenu passé (et donc absent de la grille).
+const FRENCH_MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+// Fermeture ponctuelle connue du profil de démonstration (cabinet, 14:00-18:00) — évitée pour ne pas fausser un test qui suppose une journée normale.
+const KNOWN_CLOSURE_DATE_ID = "2026-09-14";
+
+function toDateId(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function frenchFullLabel(date: Date): string {
+  return `${date.getDate()} ${FRENCH_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/**
+ * \b avant le quantième évite qu'un jour à un chiffre ("6 septembre") ne
+ * matche aussi la fin d'un jour à deux chiffres ("16 septembre",
+ * "26 septembre") par simple sous-chaîne.
+ */
+function dateLabelPattern(date: Date): RegExp {
+  return new RegExp(`\\b${frenchFullLabel(date)}`);
+}
+
+function frenchMonthYearLabel(date: Date): string {
+  const month = FRENCH_MONTHS[date.getMonth()];
+  return `${month.charAt(0).toLocaleUpperCase("fr-FR")}${month.slice(1)} ${date.getFullYear()}`;
+}
+
+function parseFrenchFullLabelToDateId(label: string): string {
+  const match = /(\d{1,2}) (\p{L}+) (\d{4})/u.exec(label);
+  if (!match) throw new Error(`Date non reconnue dans le libellé : "${label}"`);
+  const [, day, monthName, year] = match;
+  const monthIndex = FRENCH_MONTHS.indexOf(monthName.toLocaleLowerCase("fr-FR"));
+  if (monthIndex === -1) throw new Error(`Mois non reconnu : "${monthName}"`);
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(Number(day)).padStart(2, "0")}`;
+}
+
+/** Prochain dimanche (jour fermé par défaut du profil de démonstration), au moins un jour après aujourd'hui. */
+function nextClosedSunday(from: Date): Date {
+  const date = new Date(from);
+  date.setDate(date.getDate() + 1);
+  while (date.getDay() !== 0) date.setDate(date.getDate() + 1);
+  return date;
+}
+
+/** Jour ouvré (lundi-samedi) assez loin pour ne heurter ni de vraies données proches d'aujourd'hui, ni la fermeture ponctuelle connue. */
+function futureOpenWeekday(from: Date, offsetDays: number): Date {
+  const date = new Date(from);
+  date.setDate(date.getDate() + offsetDays);
+  while (date.getDay() === 0 || toDateId(date) === KNOWN_CLOSURE_DATE_ID) date.setDate(date.getDate() + 1);
+  return date;
+}
+
+/**
+ * Mois actuellement affiché, lu depuis l'en-tête du calendrier plutôt que
+ * supposé égal au mois réel d'aujourd'hui : quand le dernier jour du mois
+ * courant n'est plus réservable (délai minimum avant rendez-vous), le
+ * calendrier s'ouvre directement sur le mois suivant.
+ */
+async function currentDisplayedMonth(page: Page): Promise<Date> {
+  const label = await page.locator('[role="grid"]').getAttribute("aria-label");
+  const match = /Calendrier, (\p{L}+) (\d{4})/u.exec(label ?? "");
+  if (!match) throw new Error(`Mois affiché non reconnu dans "${label}"`);
+  const [, monthName, year] = match;
+  const monthIndex = FRENCH_MONTHS.indexOf(monthName.toLocaleLowerCase("fr-FR"));
+  if (monthIndex === -1) throw new Error(`Mois non reconnu : "${monthName}"`);
+  return new Date(Number(year), monthIndex, 1);
+}
+
+/** Clique "Mois suivant" jusqu'à atteindre le mois de `target`, à partir du mois réellement affiché. */
+async function navigateToMonth(page: Page, target: Date) {
+  const current = await currentDisplayedMonth(page);
+  const monthsAhead = (target.getFullYear() - current.getFullYear()) * 12 + (target.getMonth() - current.getMonth());
+  for (let i = 0; i < monthsAhead; i += 1) {
+    await page.getByRole("button", { name: "Mois suivant" }).click();
+    await page.waitForTimeout(150);
+  }
+}
+
 /**
  * Amène la page jusqu'à l'étape "Rendez-vous" (calendrier), prestation
  * cabinet déjà choisie. Voir PROMPT-CALENDRIER.md — le calendrier remplace
  * l'ancienne grille de dates plate (schedule-step.tsx).
  */
-async function gotoScheduleStep(page: import("@playwright/test").Page) {
+async function gotoScheduleStep(page: Page) {
+  // Le tunnel de réservation restaure un brouillon depuis sessionStorage :
+  // sans ce nettoyage, un second appel dans le même test (ex. re-visiter la
+  // page après avoir seedé des rendez-vous) atterrirait directement sur
+  // l'étape 2 avec la prestation déjà choisie, et les clics de l'étape 1
+  // ci-dessous ne trouveraient plus rien.
+  await page.addInitScript(() => sessionStorage.clear());
   await page.goto(`/reserver/${PROFESSIONAL_SLUG}`);
   await expect(page.getByText("Quelle consultation souhaitez-vous")).toBeVisible();
   await page.locator("button[aria-pressed]").first().click();
@@ -46,9 +134,8 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
 
   test("les flèches de mois se désactivent aux bornes de la fenêtre de réservation", async ({ page }) => {
     await gotoScheduleStep(page);
-    // Août 2026 est le mois de départ de la fenêtre (le 28/08/2026 est
-    // "aujourd'hui" dans cet environnement de test) : "Mois précédent" doit
-    // être désactivé dès l'arrivée sur le calendrier.
+    // Le calendrier s'ouvre toujours sur le premier mois de la fenêtre de
+    // réservation : "Mois précédent" doit être désactivé dès l'arrivée.
     await expect(page.getByRole("button", { name: "Mois précédent" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Mois suivant" })).toBeEnabled();
 
@@ -71,8 +158,23 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
     // (contrainte unique (date, start)) ou un nettoyage prématuré pendant
     // que l'autre projet lisait encore l'état de la cellule.
     test.skip(testInfo.project.name !== "chromium", "évite une course d'écriture en base avec l'autre projet — logique de calcul du statut déjà couverte côté serveur, indépendante du moteur de rendu");
-    const DATE = "2026-08-31T00:00:00.000Z";
-    const slots = ["10:30", "11:00", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00"];
+    const target = futureOpenWeekday(new Date(), 10);
+    const DATE = `${toDateId(target)}T00:00:00.000Z`;
+
+    // La liste exacte des créneaux d'une journée dépend des réglages de
+    // disponibilités réels (durée par défaut, intervalle) — lue depuis la
+    // page elle-même plutôt que supposée, pour ne pas se désynchroniser si
+    // ces réglages changent (le jour ciblé n'a encore aucun rendez-vous à ce
+    // stade, donc tous ses créneaux sont proposés).
+    await gotoScheduleStep(page);
+    await navigateToMonth(page, target);
+    const cell = page.getByRole("gridcell", { name: dateLabelPattern(target) });
+    await cell.click();
+    await expect(page.getByText("Choisissez une heure")).toBeVisible();
+    const timeTexts = await page.locator('button:has-text(":")').allTextContents();
+    const slots = timeTexts.map((text) => text.trim()).filter((text) => /^\d{2}:\d{2}$/.test(text));
+    expect(slots.length).toBeGreaterThan(0);
+
     for (const start of slots) {
       await sql`
         INSERT INTO "Appointment" (id, date, start, duration, "clientName", "animalName", "serviceName", mode, location, price, status, notes, "createdAt", "updatedAt")
@@ -81,10 +183,10 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
     }
     try {
       await gotoScheduleStep(page);
+      await navigateToMonth(page, target);
       // Laisse le temps à la vérification des créneaux occupés de revenir
       // avant de lire l'état de la cellule.
       await page.waitForTimeout(1000);
-      const cell = page.getByRole("gridcell", { name: /31 août 2026/ });
       await expect(cell).toHaveAttribute("aria-label", /complet/i);
       await expect(cell).toHaveAttribute("aria-disabled", "true");
       // "COMPLET" à l'écran vient d'un text-transform CSS (uppercase) sur un
@@ -98,9 +200,11 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
 
   test("un jour fermé (non ouvré) est grisé sans la mention Complet", async ({ page }) => {
     await gotoScheduleStep(page);
-    // Dimanche 30 août 2026 : aucun créneau candidat ce jour-là (jour
-    // habituellement fermé), distinct d'un jour complet.
-    const cell = page.getByRole("gridcell", { name: /30 août 2026/ });
+    // Prochain dimanche : aucun créneau candidat ce jour-là (jour fermé par
+    // défaut dans le profil de démonstration), distinct d'un jour complet.
+    const target = nextClosedSunday(new Date());
+    await navigateToMonth(page, target);
+    const cell = page.getByRole("gridcell", { name: dateLabelPattern(target) });
     await expect(cell).not.toHaveAttribute("aria-label", /complet/i);
     await expect(cell).toHaveAttribute("aria-disabled", "true");
     await expect(cell).not.toContainText("COMPLET");
@@ -111,17 +215,23 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
     const grid = page.locator('[role="grid"]');
     await grid.locator('[role="gridcell"][tabindex="0"]').focus();
 
+    // Mois réellement affiché à l'arrivée — pas nécessairement celui
+    // d'aujourd'hui : quand le dernier jour du mois courant n'est plus
+    // réservable, le calendrier s'ouvre directement sur le mois suivant.
+    const openingMonth = await currentDisplayedMonth(page);
+    const nextMonth = new Date(openingMonth.getFullYear(), openingMonth.getMonth() + 1, 1);
+
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Home");
     await page.keyboard.press("End");
     await page.keyboard.press("PageDown");
-    // { exact: true } : "Septembre 2026" seul cible l'en-tête visible du
-    // calendrier, sans ambiguïté avec l'annonce aria-live "Septembre 2026
-    // affiché" (texte différent, mais que /septembre 2026/i matcherait aussi).
-    await expect(page.getByText("Septembre 2026", { exact: true })).toBeVisible();
+    // { exact: true } : le libellé du mois seul cible l'en-tête visible du
+    // calendrier, sans ambiguïté avec l'annonce aria-live "<mois> affiché"
+    // (texte différent, mais qu'une regex insensible à la casse matcherait aussi).
+    await expect(page.getByText(frenchMonthYearLabel(nextMonth), { exact: true })).toBeVisible();
     await page.keyboard.press("PageUp");
-    await expect(page.getByText("Août 2026", { exact: true })).toBeVisible();
+    await expect(page.getByText(frenchMonthYearLabel(openingMonth), { exact: true })).toBeVisible();
 
     const availableCell = page.locator('[role="gridcell"][aria-disabled="false"]').first();
     await availableCell.focus();
@@ -151,16 +261,17 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
     test.skip(testInfo.project.name !== "chromium", "évite une course d'écriture en base avec l'autre projet");
 
     await gotoScheduleStep(page);
-    await page.locator('[role="gridcell"][aria-disabled="false"]').first().click();
+    const firstAvailableCell = page.locator('[role="gridcell"][aria-disabled="false"]').first();
+    // Lu depuis le DOM plutôt que fixé : le premier jour disponible de la
+    // fenêtre dépend du jour réel d'exécution du test.
+    const cellLabel = await firstAvailableCell.getAttribute("aria-label");
+    await firstAvailableCell.click();
     await page.locator('button:has-text(":")').first().click();
     const time = await page.locator('button[aria-pressed="true"]:has-text(":")').textContent();
     await page.locator('button[type="submit"]').click();
     await expect(page.getByText("Quelques informations")).toBeVisible();
 
-    // La date choisie est "29 août 2026" (premier jour disponible de la
-    // fenêtre dans cet environnement de test — voir les autres tests de ce
-    // fichier) ; fixé plutôt que reparsé depuis le DOM pour rester lisible.
-    const DATE = "2026-08-29T00:00:00.000Z";
+    const DATE = `${parseFrenchFullLabelToDateId(cellLabel ?? "")}T00:00:00.000Z`;
 
     await page.fill('#booking-details-firstName', "Reval");
     await page.fill('#booking-details-lastName', "DetailsStep");

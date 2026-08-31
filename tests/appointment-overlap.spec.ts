@@ -45,6 +45,11 @@ test.describe("Chevauchement de créneaux (dashboard)", () => {
 
     async function openForm() {
       await page.goto("/dashboard/agenda");
+      // Course d'hydratation connue : un clic immédiatement après goto()
+      // peut atterrir avant que React n'ait attaché ses gestionnaires et
+      // ne rien faire silencieusement (même contournement que les tests de
+      // notifications).
+      await page.waitForTimeout(600);
       await page.getByRole("button", { name: "Nouveau rendez-vous", exact: true }).click();
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible();
@@ -71,7 +76,7 @@ test.describe("Chevauchement de créneaux (dashboard)", () => {
     // RDV de référence : 60 min à 09:00.
     const dialog1 = await openForm();
     await fill(dialog1, { time: "09:00", duration: 60, name: "E2E Overlap Ref" });
-    await dialog1.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await dialog1.getByRole("button", { name: "Créer le rendez-vous" }).click();
     await expect.poll(() => fetchAppointment("E2E Overlap Ref"), { timeout: 5000 }).toMatchObject({ start: "09:00", duration: 60 });
 
     // 09:30 chevauche [09:00, 10:00) : doit être refusé, le dialogue reste
@@ -79,13 +84,13 @@ test.describe("Chevauchement de créneaux (dashboard)", () => {
     // puisque rien ne ferme le formulaire dans ce cas).
     const dialog2 = await openForm();
     await fill(dialog2, { time: "09:30", duration: 30, name: "E2E Overlap Conflict" });
-    await dialog2.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await dialog2.getByRole("button", { name: "Créer le rendez-vous" }).click();
     await expect(page.getByText(/chevauche un autre rendez-vous/)).toBeVisible({ timeout: 5000 });
     expect(await fetchAppointment("E2E Overlap Conflict")).toBeUndefined();
 
     // 10:30 ne chevauche pas [09:00, 10:00) : doit passer.
     await dialog2.locator('input[type="time"]').fill("10:30");
-    await dialog2.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await dialog2.getByRole("button", { name: "Créer le rendez-vous" }).click();
     await expect.poll(() => fetchAppointment("E2E Overlap Conflict"), { timeout: 5000 }).toMatchObject({ start: "10:30", duration: 30 });
   });
 });
