@@ -71,6 +71,18 @@ enum TwoFactorMethod {
   // TOTP prévu pour une évolution future (Google Authenticator, etc.)
 }
 
+enum CalendarProviderKind {
+  GOOGLE
+  MICROSOFT
+  APPLE
+}
+
+enum CalendarSyncStatus {
+  SYNCED
+  PENDING
+  ERROR
+}
+
 enum AuditAction {
   LOGIN_SUCCEEDED
   LOGIN_FAILED
@@ -97,28 +109,39 @@ enum AuditAction {
   REMINDER_UPDATED
   REMINDER_SENT
   REMINDER_IGNORED
+  CALENDAR_CONNECTED
+  CALENDAR_DISCONNECTED
+  CALENDAR_SETTINGS_UPDATED
+  CALENDAR_FEED_TOKEN_REGENERATED
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
+  id                String          @id @default(cuid())
+  email             String          @unique
   passwordHash      String
   firstName         String
   lastName          String
-  role              UserRole  @default(PRACTITIONER)
-  permissions       String[]  @default([])
-  active            Boolean   @default(true)
-  twoFactorEnabled  Boolean   @default(false)
+  role              UserRole        @default(PRACTITIONER)
+  permissions       String[]        @default([])
+  active            Boolean         @default(true)
+  twoFactorEnabled  Boolean         @default(false)
   twoFactorMethod   TwoFactorMethod @default(EMAIL)
-  passwordChangedAt DateTime  @default(now())
+  passwordChangedAt DateTime        @default(now())
   lastLoginAt       DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Abonnement ICS privé (Apple Calendar et assimilés) : un jeton par
+  // utilisateur, jamais l'id utilisateur directement dans l'URL du flux
+  // (intégrations calendrier — voir docs/GOOGLE-CALENDAR-SETUP.md). Absent
+  // tant que l'utilisateur n'a jamais généré son lien.
+  icsFeedToken String? @unique
 
   auditLogs           AuditLog[]
   passwordResetTokens PasswordResetToken[]
   twoFactorCodes      TwoFactorCode[]
   blockedSlots        BlockedSlot[]
+  calendarConnections CalendarConnection[]
 
   @@index([email])
 }
@@ -197,17 +220,17 @@ model Animal {
   clientId String
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  name             String
-  species          String
-  breed            String
-  age              String
+  name                 String
+  species              String
+  breed                String
+  age                  String
   birthDate            DateTime?
   birthDateApproximate Boolean   @default(false)
-  weight           String
-  sex              String
-  avatar           String
-  avatarBackground String
-  photo            String?
+  weight               String
+  sex                  String
+  avatar               String
+  avatarBackground     String
+  photo                String?
 
   history    String @db.Text
   conditions String @db.Text
@@ -237,8 +260,8 @@ model Consultation {
   service String
   mode    VisitMode
   price   Float
-  summary String              @db.Text
-  status  ConsultationStatus  @default(TERMINE)
+  summary String             @db.Text
+  status  ConsultationStatus @default(TERMINE)
 
   createdAt DateTime @default(now())
 
@@ -269,31 +292,106 @@ model Appointment {
   animalName    String
   animalSpecies String?
   serviceName   String
-  date        DateTime
-  start       String
-  duration    Int
-  mode        VisitMode
-  location    String
-  postalCode  String?
-  city        String?
-  inseeCode   String?
-  latitude    Float?
-  longitude   Float?
-  price       Float
-  status      AppointmentStatus @default(PENDING)
-  notes       String            @db.Text
+  date          DateTime
+  start         String
+  duration      Int
+  mode          VisitMode
+  location      String
+  postalCode    String?
+  city          String?
+  inseeCode     String?
+  latitude      Float?
+  longitude     Float?
+  price         Float
+  status        AppointmentStatus @default(PENDING)
+  notes         String            @db.Text
   // Horodatage réel de clôture (bouton "Consultation réalisée"), distinct de
   // updatedAt qui bouge à chaque modification du rendez-vous — sert au mode
   // tournée (refonte tournées, phase 2) pour l'indicateur de retard et
   // l'heure de fin réelle affichée sous un arrêt terminé.
-  completedAt DateTime?
+  completedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  calendarEvents AppointmentCalendarEvent[]
+
   @@index([clientId])
   @@index([animalId])
   @@index([date])
+}
+
+/**
+ * Intégrations calendrier externes (Google/Microsoft/Apple), rattachées à
+ * l'utilisateur qui les a connectées — pas au cabinet (BusinessProfile,
+ * toujours un singleton dans cette version, voir docs) : chaque membre du
+ * staff connecte son propre compte. Provider-agnostique dès le départ
+ * (CalendarProviderKind) pour ne pas avoir à reprendre ce modèle quand
+ * Microsoft sera implémenté — voir src/lib/calendar/types.ts.
+ */
+model CalendarConnection {
+  id       String               @id @default(cuid())
+  userId   String
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider CalendarProviderKind
+
+  providerAccountId String
+  accountEmail      String
+
+  calendarId   String
+  calendarName String
+
+  // Chiffrés (AES-256-GCM, voir calendar-encryption.ts) — jamais en clair en
+  // base, jamais exposés au navigateur, jamais journalisés.
+  accessTokenEncrypted  String   @db.Text
+  refreshTokenEncrypted String   @db.Text
+  accessTokenExpiresAt  DateTime
+
+  syncAppointments       Boolean @default(true)
+  syncUpdates            Boolean @default(true)
+  deleteCancelledEvents  Boolean @default(true)
+  blockExternalBusySlots Boolean @default(true)
+
+  connectedAt DateTime  @default(now())
+  lastSyncAt  DateTime?
+  lastError   String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events AppointmentCalendarEvent[]
+
+  // Empêche deux connexions dupliquées pour le même provider chez le même
+  // utilisateur (reconnecter remplace la ligne existante plutôt que d'en
+  // créer une seconde).
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+/**
+ * Table de liaison générique (plutôt qu'un simple externalCalendarEventId
+ * sur Appointment) : un même rendez-vous peut un jour être synchronisé vers
+ * plusieurs connexions (deux membres du staff qui se partagent l'agenda),
+ * et chaque provider aura son propre identifiant d'événement externe.
+ */
+model AppointmentCalendarEvent {
+  id            String             @id @default(cuid())
+  appointmentId String
+  appointment   Appointment        @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  connectionId  String
+  connection    CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  externalEventId String
+
+  status     CalendarSyncStatus @default(SYNCED)
+  lastError  String?            @db.Text
+  lastSyncAt DateTime           @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([appointmentId, connectionId])
+  @@index([connectionId])
 }
 
 model BlockedSlot {
