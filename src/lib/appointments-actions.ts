@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
@@ -46,6 +47,8 @@ import {
   toLocalDateId,
 } from "@/lib/booking-validation";
 import { Prisma } from "@/generated/prisma/client";
+import { getGoogleBusyPeriods, mapBusyPeriodsToOccupiedIntervals } from "@/lib/calendar/calendar-freebusy";
+import { syncAppointmentToCalendars } from "@/lib/calendar/calendar-sync";
 
 const dbMode: Record<AppointmentMode, VisitMode> = { cabinet: "CABINET", home: "DOMICILE" };
 const modeLabel: Record<VisitMode, AppointmentMode> = { CABINET: "cabinet", DOMICILE: "home" };
@@ -121,7 +124,7 @@ async function notifyAppointmentChange(clientId: string | null, previousStatus: 
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
 async function hasConflict(dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
-  const [sameDayAppointments, availability] = await Promise.all([
+  const [sameDayAppointments, availability, googleBusyPeriods] = await Promise.all([
     prisma.appointment.findMany({
       where: {
         date: toDate(dateId),
@@ -131,10 +134,14 @@ async function hasConflict(dateId: string, start: string, duration: number, excl
       select: { start: true, duration: true, mode: true },
     }),
     getAvailability(),
+    // Best-effort (jamais levée, jamais bloquante — voir calendar-freebusy.ts) :
+    // revalidation serveur de la disponibilité Google (étape 11 du chantier
+    // calendrier), jamais seulement affichée côté client.
+    getGoogleBusyPeriods(`${dateId}T00:00:00.000Z`, `${dateId}T23:59:59.999Z`),
   ]);
 
   const startMinutes = timeToMinutes(start);
-  return sameDayAppointments.some((appointment) => {
+  const conflictsWithAppointment = sameDayAppointments.some((appointment) => {
     // « Temps de déplacement » (AUDIT_COMPLET.md P2-20) : un rendez-vous à
     // domicile occupe, pour le calcul de conflit, sa durée réelle + le
     // temps de trajet configuré après sa fin, avant qu'un autre rendez-vous
@@ -142,6 +149,10 @@ async function hasConflict(dateId: string, start: string, duration: number, excl
     const bufferedDuration = appointment.mode === "DOMICILE" ? appointment.duration + availability.travelBuffer : appointment.duration;
     return intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), bufferedDuration);
   });
+  if (conflictsWithAppointment) return true;
+
+  const googleIntervals = mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods)[dateId] ?? [];
+  return googleIntervals.some((interval) => intervalsOverlap(startMinutes, duration, timeToMinutes(interval.start), interval.duration));
 }
 
 export type GeoWarning = {
@@ -359,6 +370,12 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     await notifyAppointmentChange(existing.clientId, previousStatus, input.status, dateOrTimeChanged, snapshot);
   }
 
+  // Diffusion vers les calendriers externes connectés, après coup (jamais
+  // dans le chemin critique de cette réponse) : le rendez-vous interne est
+  // déjà définitivement enregistré ci-dessus, un échec Google ne le remet
+  // jamais en cause — voir calendar-sync.ts.
+  after(() => syncAppointmentToCalendars(row.id, input.status === "cancelled" ? "cancel" : "upsert").catch(() => {}));
+
   return { ok: true, appointment: toAppointment(row) };
 }
 
@@ -381,6 +398,8 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   // finding P0 §3.
   const snapshot: AppointmentEmailSnapshot = { id: row.id, date: toAppointment(row).date, start: row.start, duration: row.duration, mode: modeLabel[row.mode], location: row.location, animalName: row.animalName, serviceName: row.serviceName };
   await notifyAppointmentChange(current.clientId, statusLabel[current.status], status, false, snapshot);
+
+  after(() => syncAppointmentToCalendars(row.id, status === "cancelled" ? "cancel" : "upsert").catch(() => {}));
 
   return { ok: true, appointment: toAppointment(row) };
 }
@@ -543,6 +562,11 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
   revalidatePath("/dashboard/tournees");
   revalidatePath("/dashboard/carte");
   revalidatePath("/dashboard");
+
+  after(() => {
+    syncAppointmentToCalendars(appointmentIdA, "upsert").catch(() => {});
+    syncAppointmentToCalendars(appointmentIdB, "upsert").catch(() => {});
+  });
 
   return { ok: true };
 }
@@ -943,6 +967,12 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     if (result.status === "rejected") console.error("Échec de l'envoi d'un email de confirmation de réservation :", result.reason);
   }
 
+  // Diffusion vers les calendriers externes connectés (voir saveAppointmentAction) :
+  // dès la demande, même encore en attente de confirmation — elle occupe déjà
+  // le créneau (hasConflict la traite comme telle), Google doit refléter la
+  // même réalité.
+  after(() => syncAppointmentToCalendars(row.id, "upsert").catch(() => {}));
+
   return { ok: true, id: row.id };
 }
 
@@ -996,5 +1026,16 @@ export async function getOccupiedSlotsAction(fromDateId: string, toDateId: strin
     const duration = timeToMinutes(row.endTime) - timeToMinutes(row.startTime);
     (result[id] ??= []).push({ start: row.startTime, duration });
   }
+
+  // Périodes occupées Google (étape 9 du chantier calendrier) : mêmes
+  // intervalles, fusionnés ici pour que le calcul de créneaux (interne comme
+  // public) les traite exactement comme un rendez-vous ou un blocage — sans
+  // rien changer côté appelant (schedule-step.tsx). Best-effort : une panne
+  // Google ne doit jamais faire échouer cette lecture.
+  const googleBusyPeriods = await getGoogleBusyPeriods(`${fromDateId}T00:00:00.000Z`, `${toDateId}T23:59:59.999Z`);
+  for (const [id, intervals] of Object.entries(mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods))) {
+    (result[id] ??= []).push(...intervals);
+  }
+
   return result;
 }

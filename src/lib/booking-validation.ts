@@ -310,43 +310,79 @@ export type IcsEventInput = {
   location: string;
 };
 
+function formatIcsFloating(date: Date): string {
+  return `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}T${pad2(date.getHours())}${pad2(date.getMinutes())}00`;
+}
+
+function formatIcsUtc(date: Date): string {
+  return `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}${pad2(date.getUTCSeconds())}Z`;
+}
+
 /**
- * Construit un fichier .ics minimal (un seul VEVENT) pour le bouton
- * "Ajouter à mon calendrier" de l'écran de succès (BookingSuccess). DTSTART/
- * DTEND sont en heure "flottante" (sans suffixe Z ni TZID) plutôt qu'en UTC
- * précis : convertir correctement Europe/Paris (praticien) vers UTC exige de
- * gérer les changements d'heure été/hiver, hors de portée pour ce gain
- * ponctuel — une heure flottante est interprétée par la plupart des
- * calendriers dans le fuseau local du lecteur, ce qui coïncide avec celui du
- * praticien pour l'immense majorité de ses clients (patientèle locale).
- * DTSTAMP (horodatage de génération du fichier, sémantiquement différent de
- * DTSTART) reste en UTC réel comme l'exige RFC 5545.
+ * Lignes d'un seul VEVENT (sans l'enveloppe VCALENDAR) — factorisé pour être
+ * réutilisé aussi bien par buildIcsContent (un seul événement, bouton
+ * "Ajouter à mon calendrier") que par buildIcsCalendar (plusieurs
+ * événements, abonnement ICS du professionnel — src/app/api/calendar/feed).
+ * DTSTART/DTEND en heure "flottante" (sans suffixe Z ni TZID) plutôt qu'en
+ * UTC précis : convertir correctement Europe/Paris vers UTC exige de gérer
+ * les changements d'heure été/hiver, hors de portée pour ce gain ponctuel —
+ * une heure flottante est interprétée par la plupart des calendriers dans le
+ * fuseau local du lecteur, ce qui coïncide avec celui du praticien pour
+ * l'immense majorité de ses clients (patientèle locale). DTSTAMP
+ * (horodatage de génération, sémantiquement différent de DTSTART) reste en
+ * UTC réel comme l'exige RFC 5545.
  */
-export function buildIcsContent(input: IcsEventInput, now: Date = new Date()): string {
+function buildIcsEventLines(input: IcsEventInput, now: Date): string[] {
   const [year, month, day] = input.dateId.split("-").map(Number);
   const [startHour, startMinute] = input.start.split(":").map(Number);
   const startDate = new Date(year, month - 1, day, startHour, startMinute);
   const endDate = new Date(startDate.getTime() + input.durationMinutes * 60_000);
 
-  const formatFloating = (date: Date) => `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}T${pad2(date.getHours())}${pad2(date.getMinutes())}00`;
-  const formatUtc = (date: Date) => `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}${pad2(date.getUTCSeconds())}Z`;
+  return [
+    "BEGIN:VEVENT",
+    `UID:${input.uid}`,
+    `DTSTAMP:${formatIcsUtc(now)}`,
+    `DTSTART:${formatIcsFloating(startDate)}`,
+    `DTEND:${formatIcsFloating(endDate)}`,
+    `SUMMARY:${escapeIcsText(input.summary)}`,
+    `DESCRIPTION:${escapeIcsText(input.description)}`,
+    `LOCATION:${escapeIcsText(input.location)}`,
+    "END:VEVENT",
+  ];
+}
 
+/** Construit un fichier .ics minimal (un seul VEVENT) pour le bouton "Ajouter à mon calendrier" de l'écran de succès (BookingSuccess). */
+export function buildIcsContent(input: IcsEventInput, now: Date = new Date()): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Animeo//Reservation publique//FR",
     "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${input.uid}`,
-    `DTSTAMP:${formatUtc(now)}`,
-    `DTSTART:${formatFloating(startDate)}`,
-    `DTEND:${formatFloating(endDate)}`,
-    `SUMMARY:${escapeIcsText(input.summary)}`,
-    `DESCRIPTION:${escapeIcsText(input.description)}`,
-    `LOCATION:${escapeIcsText(input.location)}`,
-    "END:VEVENT",
+    ...buildIcsEventLines(input, now),
     "END:VCALENDAR",
   ];
   // RFC 5545 impose des fins de ligne CRLF.
+  return lines.join("\r\n");
+}
+
+/**
+ * Calendrier .ics complet (plusieurs VEVENT) — abonnement privé du
+ * professionnel (étape 18 du chantier calendrier). METHOD:PUBLISH et
+ * X-WR-CALNAME/X-PUBLISHED-TTL sont des extensions largement supportées
+ * (Apple Calendar, Google, Outlook) pour un flux abonné plutôt qu'un import
+ * ponctuel.
+ */
+export function buildIcsCalendar(events: IcsEventInput[], calendarName: string, now: Date = new Date()): string {
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Animeo//Agenda professionnel//FR",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    `X-WR-CALNAME:${escapeIcsText(calendarName)}`,
+    "X-PUBLISHED-TTL:PT1H",
+    ...events.flatMap((event) => buildIcsEventLines(event, now)),
+    "END:VCALENDAR",
+  ];
   return lines.join("\r\n");
 }

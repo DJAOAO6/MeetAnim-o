@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   addMonths,
+  buildIcsCalendar,
   buildIcsContent,
   computeConsultationPrice,
   computeTotalPrice,
@@ -371,4 +372,29 @@ test("buildIcsContent escapes commas, semicolons and newlines in text fields", (
 
   assert.match(ics, /DESCRIPTION:Ligne 1\\nLigne 2\\, avec\\; des caractères spéciaux\r\n/);
   assert.match(ics, /LOCATION:12 rue Exemple\\, 76000 Rouen\r\n/);
+});
+
+test("buildIcsCalendar produces one VCALENDAR with one VEVENT per entry, stable UIDs", () => {
+  const ics = buildIcsCalendar(
+    [
+      { uid: "appt-1@animeo.app", dateId: "2026-11-05", start: "09:00", durationMinutes: 30, summary: "RDV 1", description: "", location: "Cabinet" },
+      { uid: "appt-2@animeo.app", dateId: "2026-11-06", start: "10:00", durationMinutes: 45, summary: "RDV 2", description: "", location: "À domicile" },
+    ],
+    "Animéo — Agenda",
+    new Date("2026-10-01T10:00:00.000Z"),
+  );
+
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /\r\nEND:VCALENDAR$/);
+  assert.match(ics, /X-WR-CALNAME:Animéo — Agenda\r\n/);
+  assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 2);
+  assert.equal((ics.match(/END:VEVENT/g) ?? []).length, 2);
+  assert.match(ics, /UID:appt-1@animeo\.app\r\n/);
+  assert.match(ics, /UID:appt-2@animeo\.app\r\n/);
+});
+
+test("buildIcsCalendar with no events still produces a valid empty calendar", () => {
+  const ics = buildIcsCalendar([], "Animéo — Agenda", new Date("2026-10-01T10:00:00.000Z"));
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n[\s\S]*\r\nEND:VCALENDAR$/);
+  assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 0);
 });

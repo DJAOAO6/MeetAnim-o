@@ -28,7 +28,11 @@ type AuditAction =
   | "REMINDER_CREATED"
   | "REMINDER_UPDATED"
   | "REMINDER_SENT"
-  | "REMINDER_IGNORED";
+  | "REMINDER_IGNORED"
+  | "CALENDAR_CONNECTED"
+  | "CALENDAR_DISCONNECTED"
+  | "CALENDAR_SETTINGS_UPDATED"
+  | "CALENDAR_FEED_TOKEN_REGENERATED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
