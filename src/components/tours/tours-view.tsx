@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { notify } from "@/lib/notify";
 import { deleteTourAction, deleteZoneAction, saveTourAction, saveZoneAction, toggleTourStatusAction } from "@/lib/tours-actions";
+import type { TourFillOpportunity } from "@/lib/tour-fill";
 import type { Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type ToursViewProps = {
@@ -21,9 +22,10 @@ type ToursViewProps = {
   mapClients: MapClient[];
   weeklyHomeAppointments: number;
   cabinetCoordinates: Coordinates | null;
+  fillOpportunities: Record<string, TourFillOpportunity>;
 };
 
-export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments, cabinetCoordinates }: ToursViewProps) {
+export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments, cabinetCoordinates, fillOpportunities }: ToursViewProps) {
   const [activeTab, setActiveTab] = useState<"tours" | "map">(initialTab);
   const [tours, setTours] = useState(initialTours);
   const [zones, setZones] = useState(initialZones);
@@ -151,6 +153,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
               zone={zones.find((zone) => zone.id === selectedTour.zoneId)}
               appointments={appointments[selectedTour.id] ?? []}
               cabinetCoordinates={cabinetCoordinates}
+              fillOpportunity={fillOpportunities[selectedTour.id]}
               onBack={() => setSelectedTourId(null)}
               onDelete={() => deleteTour(selectedTour)}
             />

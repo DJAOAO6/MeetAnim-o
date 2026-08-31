@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { completeAppointmentAction, swapAppointmentTimesAction, type SuggestedReminder } from "@/lib/appointments-actions";
-import { saveReminderAction } from "@/lib/reminders-actions";
+import { saveReminderAction, sendZoneReminderCampaignAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import { formatEuros } from "@/lib/format";
 import { toTelHref } from "@/lib/phone";
@@ -15,6 +15,7 @@ import { buildSingleStopMapsUrl, buildTourMapsLinks } from "@/lib/tour-maps";
 import { formatTourEstimate, ROAD_DETOUR_FACTOR } from "@/lib/tour-estimate";
 import { haversineDistanceKm } from "@/lib/geo";
 import { timeToMinutes } from "@/lib/booking-validation";
+import type { TourFillOpportunity } from "@/lib/tour-fill";
 import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type TourExecutionProps = {
@@ -22,6 +23,7 @@ type TourExecutionProps = {
   zone?: Zone;
   appointments: TourAppointment[];
   cabinetCoordinates: Coordinates | null;
+  fillOpportunity?: TourFillOpportunity;
   onBack: () => void;
   onDelete: () => void;
 };
@@ -44,7 +46,7 @@ function distanceFromPrevious(appointments: TourAppointment[], index: number): s
  * déjà la source de vérité de l'agenda (`appointments` arrive triée par
  * `start`, voir computeTourOccurrence).
  */
-export function TourExecution({ tour, zone, appointments, cabinetCoordinates, onBack, onDelete }: TourExecutionProps) {
+export function TourExecution({ tour, zone, appointments, cabinetCoordinates, fillOpportunity, onBack, onDelete }: TourExecutionProps) {
   const router = useRouter();
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
   const [completedExpanded, setCompletedExpanded] = useState(false);
   const [swapConfirm, setSwapConfirm] = useState<{ source: TourAppointment; target: TourAppointment } | null>(null);
   const [swapping, setSwapping] = useState(false);
+  const [sendingCampaign, setSendingCampaign] = useState(false);
 
   const completedStops = appointments.filter((appointment) => appointment.completedAt !== null);
   const pendingStops = appointments.filter((appointment) => appointment.completedAt === null);
@@ -93,6 +96,20 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
   function declineReminder() {
     setReminderPrompt(null);
     router.refresh();
+  }
+
+  async function proposeAppointments() {
+    if (!fillOpportunity) return;
+    setSendingCampaign(true);
+    const result = await sendZoneReminderCampaignAction(fillOpportunity.reminderIds, fillOpportunity.zoneName, fillOpportunity.dateLabel);
+    setSendingCampaign(false);
+    if (result.sentIds.length > 0) {
+      notify.success(`${result.sentIds.length} proposition${result.sentIds.length > 1 ? "s" : ""} de rendez-vous envoyée${result.sentIds.length > 1 ? "s" : ""}.`);
+    }
+    if (result.failedNames.length > 0) {
+      notify.error(`Échec de l'envoi pour : ${result.failedNames.join(", ")}.`);
+    }
+    if (result.sentIds.length > 0) router.refresh();
   }
 
   async function confirmSwap() {
@@ -164,6 +181,23 @@ export function TourExecution({ tour, zone, appointments, cabinetCoordinates, on
           {tour.expectedReturnTime ? <span>Retour prévu vers {tour.expectedReturnTime}</span> : null}
         </div>
       </Card>
+
+      {fillOpportunity ? (
+        <Card className="flex flex-col gap-3 border border-[#d9e5e2] bg-animeo-soft/40 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <p className="flex items-center gap-2 text-sm font-extrabold text-animeo-dark">
+            <Icon name="tournees" className="h-4 w-4 shrink-0 text-animeo" />
+            {fillOpportunity.reminderIds.length} rappel{fillOpportunity.reminderIds.length > 1 ? "s" : ""} dû{fillOpportunity.reminderIds.length > 1 ? "s" : ""} dans la zone {fillOpportunity.zoneName} · {fillOpportunity.freeSlotCount} créneau{fillOpportunity.freeSlotCount > 1 ? "x" : ""} libre{fillOpportunity.freeSlotCount > 1 ? "s" : ""} {fillOpportunity.dateLabel.toLocaleLowerCase("fr-FR")}
+          </p>
+          <button
+            type="button"
+            onClick={proposeAppointments}
+            disabled={sendingCampaign}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-animeo px-5 py-3 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {sendingCampaign ? "Envoi…" : "Proposer un rendez-vous"}
+          </button>
+        </Card>
+      ) : null}
 
       {delayMinutes > LATE_THRESHOLD_MINUTES ? (
         <div className="flex items-center gap-2 rounded-2xl bg-[#fff3e0] px-4 py-3 text-sm font-extrabold text-[#a9573b]">

@@ -8,6 +8,7 @@ import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
+import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-fill";
 import type { AnimalSpecies } from "@/data/species";
 import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 import type { PublicZone } from "@/data/public-booking";
@@ -238,18 +239,21 @@ export async function getWeeklyHomeAppointmentCount(): Promise<number> {
 }
 
 export async function getToursPageData() {
-  const [zones, tours, stops, mapClients, weeklyHomeAppointments, businessProfile] = await Promise.all([
+  const [zones, tours, stops, mapClients, weeklyHomeAppointments, businessProfile, fillOpportunities] = await Promise.all([
     getZones(),
     getTours(),
     getTourStops(),
     getMapClients(),
     getWeeklyHomeAppointmentCount(),
     getBusinessProfile(),
+    getTourFillOpportunities(),
   ]);
 
   const cabinetCoordinates: Coordinates | null = businessProfile.latitude != null && businessProfile.longitude != null
     ? { lat: businessProfile.latitude, lng: businessProfile.longitude }
     : null;
 
-  return { zones, tours, appointments: stops, mapClients, weeklyHomeAppointments, cabinetCoordinates };
+  return { zones, tours, appointments: stops, mapClients, weeklyHomeAppointments, cabinetCoordinates, fillOpportunities };
 }
+
+export type { TourFillOpportunity };

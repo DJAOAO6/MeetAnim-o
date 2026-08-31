@@ -9,7 +9,7 @@ import { reminderEmailTemplate } from "@/lib/email/templates";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { parseDateIdToLocalNoon } from "@/lib/booking-validation";
 import type { Reminder } from "@/data/reminders";
-import type { ReminderDelay as DbReminderDelay, ReminderStatus as DbReminderStatus } from "@/generated/prisma/client";
+import type { Prisma, ReminderDelay as DbReminderDelay, ReminderStatus as DbReminderStatus } from "@/generated/prisma/client";
 
 const dbDelay: Record<Reminder["delay"], DbReminderDelay> = {
   "3 mois": "THREE_MONTHS",
@@ -170,38 +170,23 @@ export async function sendReminderAction(id: string, message: string): Promise<R
 
 export type BulkSendResult = { sentIds: string[]; failedNames: string[] };
 
-/**
- * Envoi groupé (bandeau de sélection) : contrairement à sendReminderAction,
- * aucun message n'a été relu/édité par la praticienne pour chaque
- * destinataire — on génère un message par défaut, cohérent avec celui
- * proposé dans ReminderModal. Chaque envoi est indépendant (Promise.allSettled) :
- * l'échec d'un email ne doit jamais bloquer les autres.
- */
-export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendResult> {
-  const user = await getCurrentUser();
-  if (!user) return { sentIds: [], failedNames: [] };
+type ReminderForBulkSend = Prisma.ReminderGetPayload<{ include: { client: true; animal: true } }>;
 
-  const reminders = await prisma.reminder.findMany({
-    where: { id: { in: ids }, status: "DUE" },
-    include: { client: true, animal: true },
-  });
+/**
+ * Mécanique commune à tout envoi groupé de rappels (sélection manuelle ou
+ * campagne de secteur) : chaque envoi est indépendant (Promise.allSettled),
+ * l'échec d'un email ne doit jamais bloquer les autres — reprise ici plutôt
+ * que dupliquée, un seul système d'envoi (spec phase 3.1 refonte tournées).
+ */
+async function dispatchReminderEmails(userId: string, reminders: ReminderForBulkSend[], buildMessage: (reminder: ReminderForBulkSend, professional: Awaited<ReturnType<typeof getBusinessProfile>>) => string, source: string): Promise<BulkSendResult> {
   const professional = await getBusinessProfile();
 
   const results = await Promise.allSettled(reminders.map(async (reminder) => {
     if (!reminder.client.email) throw new Error("Adresse email manquante");
-    const message = [
-      `Bonjour ${reminder.client.firstName},`,
-      "",
-      `Cela fait bientôt ${delayLabelFr[reminder.delay]} depuis la dernière séance de ${reminder.animal.name}.`,
-      "",
-      "Si vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :",
-      "",
-      bookingUrl(professional.slug),
-    ].join("\n");
-
+    const message = buildMessage(reminder, professional);
     await getEmailProvider().send({ to: reminder.client.email, ...reminderEmailTemplate({ professionalCompany: professional.company, message }) });
     await prisma.reminder.update({ where: { id: reminder.id }, data: { status: "SENT" } });
-    await logAudit({ userId: user.id, action: "REMINDER_SENT", entityType: "Reminder", entityId: reminder.id, metadata: { source: "bulk" } });
+    await logAudit({ userId, action: "REMINDER_SENT", entityType: "Reminder", entityId: reminder.id, metadata: { source } });
     return reminder.id;
   }));
 
@@ -215,4 +200,60 @@ export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendRe
   revalidatePath("/dashboard/rappels");
   revalidatePath("/dashboard");
   return { sentIds, failedNames };
+}
+
+/**
+ * Envoi groupé (bandeau de sélection) : contrairement à sendReminderAction,
+ * aucun message n'a été relu/édité par la praticienne pour chaque
+ * destinataire — on génère un message par défaut, cohérent avec celui
+ * proposé dans ReminderModal.
+ */
+export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendResult> {
+  const user = await getCurrentUser();
+  if (!user) return { sentIds: [], failedNames: [] };
+
+  const reminders = await prisma.reminder.findMany({
+    where: { id: { in: ids }, status: "DUE" },
+    include: { client: true, animal: true },
+  });
+
+  return dispatchReminderEmails(user.id, reminders, (reminder, professional) => [
+    `Bonjour ${reminder.client.firstName},`,
+    "",
+    `Cela fait bientôt ${delayLabelFr[reminder.delay]} depuis la dernière séance de ${reminder.animal.name}.`,
+    "",
+    "Si vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :",
+    "",
+    bookingUrl(professional.slug),
+  ].join("\n"), "bulk");
+}
+
+/**
+ * Campagne "je passe dans le secteur" (mode tournée, phase 3.1) : proposée
+ * depuis le bloc de remplissage de tournée (tour-fill.ts) pour les rappels
+ * dus ou proches de l'échéance dont le client habite la zone de la tournée.
+ * Message dédié mentionnant le secteur et la date, sinon même mécanique que
+ * sendRemindersBulkAction. Re-filtre par statut DUE/UPCOMING au moment de
+ * l'envoi (défensif : un rappel a pu être traité entre-temps par un autre
+ * chemin).
+ */
+export async function sendZoneReminderCampaignAction(reminderIds: string[], zoneName: string, dateLabel: string): Promise<BulkSendResult> {
+  const user = await getCurrentUser();
+  if (!user) return { sentIds: [], failedNames: [] };
+  if (reminderIds.length === 0) return { sentIds: [], failedNames: [] };
+
+  const reminders = await prisma.reminder.findMany({
+    where: { id: { in: reminderIds }, status: { in: ["DUE", "UPCOMING"] } },
+    include: { client: true, animal: true },
+  });
+
+  return dispatchReminderEmails(user.id, reminders, (reminder, professional) => [
+    `Bonjour ${reminder.client.firstName},`,
+    "",
+    `Cela fait bientôt ${delayLabelFr[reminder.delay]} depuis la dernière séance de ${reminder.animal.name}. Je passe justement dans le secteur ${zoneName} ${dateLabel} prochain.`,
+    "",
+    "Si vous souhaitez en profiter pour prévoir une nouvelle consultation, vous pouvez prendre rendez-vous directement ici :",
+    "",
+    bookingUrl(professional.slug),
+  ].join("\n"), "tour-zone");
 }
