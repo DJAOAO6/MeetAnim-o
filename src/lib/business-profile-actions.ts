@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDayAvailability } from "@/lib/availability";
 import { fitsWithinOpenHours, parseDateIdToLocalNoon, timeToMinutes } from "@/lib/booking-validation";
+import { geocodeAddress } from "@/lib/geocoding";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings } from "@/data/settings";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -13,6 +14,8 @@ export type BusinessProfileData = ProfileSettings & {
   publicColor: string;
   cabinetAvailable: boolean;
   homeAvailable: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 const DEFAULT_PROFILE: BusinessProfileData = {
@@ -36,7 +39,14 @@ const DEFAULT_PROFILE: BusinessProfileData = {
   publicColor: "#2F7A6E",
   cabinetAvailable: true,
   homeAvailable: true,
+  latitude: null,
+  longitude: null,
 };
+
+/** Adresse complète transmise au géocodeur IGN, dans un format qu'il résout de façon fiable. */
+function fullAddress(profile: Pick<ProfileSettings, "address" | "postalCode" | "city">): string {
+  return `${profile.address} ${profile.postalCode} ${profile.city}`;
+}
 
 export async function getBusinessProfile(): Promise<BusinessProfileData> {
   const row = await prisma.businessProfile.findFirst();
@@ -45,7 +55,9 @@ export async function getBusinessProfile(): Promise<BusinessProfileData> {
   return created;
 }
 
-export type BusinessProfileActionResult = { ok: true } | { ok: false; error: string };
+export type BusinessProfileActionResult = { ok: true; warning?: string } | { ok: false; error: string };
+
+const GEOCODING_FAILED_WARNING = "L’adresse du cabinet n’a pas pu être localisée. Les itinéraires de tournée partiront du premier arrêt.";
 
 export async function updateBusinessProfileAction(input: BusinessProfileData): Promise<BusinessProfileActionResult> {
   const user = await requireUser();
@@ -62,15 +74,39 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   // tableau de bord) : ce formulaire ne capture leur valeur qu'une fois au
   // montage, un enregistrement de profil (bio, photo…) plus tard écraserait
   // sinon un état de fermeture entre-temps changé depuis le tableau de bord
-  // avec une valeur périmée.
-  const { cabinetAvailable, homeAvailable, ...profileFields } = input;
-  const data = { ...profileFields, slug };
+  // avec une valeur périmée. latitude/longitude sont recalculées ci-dessous,
+  // jamais reprises telles quelles depuis le formulaire (qui n'a pas la main
+  // dessus).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- exclues volontairement de profileFields, voir commentaire ci-dessus
+  const { cabinetAvailable, homeAvailable, latitude: _formLatitude, longitude: _formLongitude, ...profileFields } = input;
+  const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug };
+
+  // Ne re-géocoder que si l'adresse a réellement changé : ni gaspiller un
+  // appel externe à chaque enregistrement, ni écraser de bonnes coordonnées
+  // par une panne passagère de l'IGN sur un champ qui n'a pas bougé.
+  const addressChanged = !existing || existing.address !== profileFields.address || existing.postalCode !== profileFields.postalCode || existing.city !== profileFields.city;
+  let warning: string | undefined;
+
+  if (addressChanged) {
+    const geocoded = await geocodeAddress(fullAddress(profileFields));
+    if (geocoded) {
+      data.latitude = geocoded.latitude;
+      data.longitude = geocoded.longitude;
+    } else {
+      // Les anciennes coordonnées pointaient vers l'ancienne adresse : les
+      // garder serait pire que de les vider, puisqu'elles deviendraient
+      // silencieusement fausses plutôt qu'absentes.
+      data.latitude = null;
+      data.longitude = null;
+      warning = GEOCODING_FAILED_WARNING;
+    }
+  }
 
   try {
     if (existing) {
       await prisma.businessProfile.update({ where: { id: existing.id }, data });
     } else {
-      await prisma.businessProfile.create({ data: { ...data, cabinetAvailable, homeAvailable } });
+      await prisma.businessProfile.create({ data: { ...data, cabinetAvailable, homeAvailable } as Prisma.BusinessProfileCreateInput });
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {
@@ -83,6 +119,28 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (existing && existing.slug !== slug) revalidatePath(`/reserver/${existing.slug}`);
   revalidatePath("/dashboard/parametres");
 
+  return { ok: true, warning };
+}
+
+/**
+ * Rattrapage : géocode l'adresse du cabinet déjà enregistrée, sans attendre
+ * qu'elle soit modifiée. Utile juste après le déploiement de ce champ, pour
+ * un profil créé avant son existence. `npm run geocode:profile`.
+ */
+export async function geocodeBusinessProfileAction(): Promise<BusinessProfileActionResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de modifier les paramètres publics." };
+  }
+
+  const existing = await prisma.businessProfile.findFirst();
+  if (!existing) return { ok: false, error: "Aucun profil à géocoder." };
+
+  const geocoded = await geocodeAddress(fullAddress(existing));
+  if (!geocoded) return { ok: false, error: GEOCODING_FAILED_WARNING };
+
+  await prisma.businessProfile.update({ where: { id: existing.id }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude } });
+  revalidatePath("/dashboard/parametres");
   return { ok: true };
 }
 

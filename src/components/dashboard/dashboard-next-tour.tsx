@@ -39,14 +39,19 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
 
   const zone = zones.find((item) => item.id === nextTour?.zoneId);
   const appointments = nextTour ? tourAppointments[nextTour.id] ?? [] : [];
-  const points = appointments.map((appointment, index) => ({
-    id: appointment.id,
-    x: appointment.position.x,
-    y: appointment.position.y,
-    label: `${index + 1}`,
-    title: `${appointment.time} · ${appointment.animalName} · ${appointment.city}`,
-    accent: "purple" as const,
-  }));
+  // Un arrêt sans position réelle n'apparaît pas sur la carte (simulée) —
+  // jamais de position devinée.
+  const points = appointments
+    .map((appointment, index) => ({ appointment, index }))
+    .filter((entry): entry is { appointment: TourAppointment & { position: { x: number; y: number } }; index: number } => entry.appointment.position !== null)
+    .map(({ appointment, index }) => ({
+      id: appointment.id,
+      x: appointment.position.x,
+      y: appointment.position.y,
+      label: `${index + 1}`,
+      title: `${appointment.time} · ${appointment.animalName} · ${appointment.city}`,
+      accent: "purple" as const,
+    }));
 
   return (
     <Card className="overflow-hidden p-5 sm:p-6">

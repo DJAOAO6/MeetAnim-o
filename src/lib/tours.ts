@@ -59,8 +59,10 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
   const totalMinutes = matched.reduce((sum, a) => sum + a.duration, 0);
 
   const stops: TourAppointment[] = matched.map((a) => {
-    const lat = a.latitude ?? 49.44;
-    const lng = a.longitude ?? 1.1;
+    // Coordonnées réelles géocodées à la prise de rendez-vous à domicile —
+    // jamais de valeur par défaut : un rendez-vous non localisé n'a pas de
+    // position plutôt qu'une position fictive (prérequis 0.2).
+    const coordinates = a.latitude != null && a.longitude != null ? { lat: a.latitude, lng: a.longitude } : null;
     return {
       id: a.id,
       time: a.start,
@@ -68,8 +70,8 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
       service: a.serviceName,
       city: a.city ?? "",
       clientName: a.clientName,
-      position: projectToPercent(lat, lng),
-      coordinates: { lat, lng },
+      position: coordinates ? projectToPercent(coordinates.lat, coordinates.lng) : null,
+      coordinates,
     };
   });
 
@@ -155,13 +157,24 @@ export async function getMapClients(): Promise<MapClient[]> {
       client: true,
       consultations: { orderBy: { date: "desc" }, take: 1 },
       reminders: { orderBy: { dueDate: "asc" }, take: 1 },
+      // Dernier rendez-vous à domicile géolocalisé de l'animal : coordonnées
+      // réelles à privilégier sur la table de villes en dur (prérequis 0.2).
+      appointments: {
+        where: { mode: "DOMICILE", latitude: { not: null }, longitude: { not: null } },
+        orderBy: { date: "desc" },
+        take: 1,
+        select: { latitude: true, longitude: true },
+      },
     },
     orderBy: { name: "asc" },
   });
 
   return animals.map((animal): MapClient => {
-    const baseCoordinates = coordinatesForCity(animal.client.city);
-    const coordinates = jitterCoordinates(baseCoordinates, animal.id);
+    const geocodedAppointment = animal.appointments[0];
+    const baseCoordinates = geocodedAppointment && geocodedAppointment.latitude != null && geocodedAppointment.longitude != null
+      ? { lat: geocodedAppointment.latitude, lng: geocodedAppointment.longitude }
+      : coordinatesForCity(animal.client.city);
+    const coordinates = baseCoordinates ? jitterCoordinates(baseCoordinates, animal.id) : null;
     const lastConsultation = animal.consultations[0]?.date;
     const reminder = animal.reminders[0];
 
@@ -177,7 +190,7 @@ export async function getMapClients(): Promise<MapClient[]> {
       nextReminder: animal.reminderDate ? formatFrenchDate(animal.reminderDate) : "-",
       dueForReminder: reminder?.status === "DUE",
       avatar: animal.avatar,
-      position: projectToPercent(coordinates.lat, coordinates.lng),
+      position: coordinates ? projectToPercent(coordinates.lat, coordinates.lng) : null,
       coordinates,
     };
   });

@@ -76,15 +76,18 @@ export function ClientsMap({ clients }: ClientsMapProps) {
 
   const clientsInPerimeter = useMemo(() => {
     if (!perimeterCenter) return filteredClients;
-    return filteredClients.filter((client) => haversineDistanceKm(perimeterCenter, client.coordinates) <= perimeterRadiusKm);
+    // Un client sans coordonnées ne peut pas être comparé à un centre de
+    // périmètre : exclu plutôt que deviné.
+    return filteredClients.filter((client) => client.coordinates && haversineDistanceKm(perimeterCenter, client.coordinates) <= perimeterRadiusKm);
   }, [filteredClients, perimeterCenter, perimeterRadiusKm]);
 
   const visibleClients = perimeterCenter ? clientsInPerimeter : filteredClients;
+  const locatedClients = visibleClients.filter((client) => client.coordinates);
   const selectedClient = visibleClients.find((client) => client.id === selectedId) ?? visibleClients[0];
-  const points = visibleClients.map((client) => ({
+  const points = locatedClients.map((client) => ({
     id: client.id,
-    lat: client.coordinates.lat,
-    lng: client.coordinates.lng,
+    lat: client.coordinates!.lat,
+    lng: client.coordinates!.lng,
     label: client.avatar,
     title: `${client.ownerName} · ${client.animalName} · ${client.city} · ${client.species}${client.dueForReminder ? " · À relancer" : ""}`,
     color: resolveSpeciesColor(theme.speciesColors, client.species),
@@ -254,7 +257,10 @@ export function ClientsMap({ clients }: ClientsMapProps) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
                     <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{client.animalName} · {client.species}</span>
-                    <span className="mt-1 block truncate text-[10px] text-animeo-muted">{client.city} · {client.lastConsultation}</span>
+                    <span className="mt-1 block truncate text-[10px] text-animeo-muted">
+                      {client.city} · {client.lastConsultation}
+                      {!client.coordinates ? <span className="ml-1.5 font-bold text-[#a9573b]">· Position inconnue</span> : null}
+                    </span>
                   </span>
                   {client.dueForReminder ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-animeo-accent" title="À relancer" /> : null}
                 </button>

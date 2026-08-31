@@ -16,14 +16,19 @@ type TourDetailProps = {
 
 export function TourDetail({ tour, zone, appointments, onBack, onRoute, onDelete }: TourDetailProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const points = appointments.map((appointment, index) => ({
-    id: appointment.id,
-    x: appointment.position.x,
-    y: appointment.position.y,
-    label: `${index + 1}`,
-    title: `${appointment.time} · ${appointment.animalName} · ${appointment.city}`,
-    accent: "purple" as const,
-  }));
+  // Un arrêt sans position réelle n'apparaît pas sur la carte (simulée) —
+  // jamais de position devinée — mais reste listé dans le détail ci-dessous.
+  const points = appointments
+    .map((appointment, index) => ({ appointment, index }))
+    .filter((entry): entry is { appointment: TourAppointment & { position: { x: number; y: number } }; index: number } => entry.appointment.position !== null)
+    .map(({ appointment, index }) => ({
+      id: appointment.id,
+      x: appointment.position.x,
+      y: appointment.position.y,
+      label: `${index + 1}`,
+      title: `${appointment.time} · ${appointment.animalName} · ${appointment.city}`,
+      accent: "purple" as const,
+    }));
 
   return (
     <div className="space-y-6">

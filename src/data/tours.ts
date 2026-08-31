@@ -41,8 +41,11 @@ export type TourAppointment = {
   service: string;
   city: string;
   clientName: string;
-  position: { x: number; y: number };
-  coordinates: Coordinates;
+  // null quand ni le rendez-vous ni la table de villes n'ont de coordonnées
+  // réelles — jamais de position devinée (AUDIT-PRODUIT-2026-08-30.md,
+  // refonte tournées, prérequis 0.2).
+  position: { x: number; y: number } | null;
+  coordinates: Coordinates | null;
 };
 
 export type MapClient = {
@@ -57,6 +60,6 @@ export type MapClient = {
   nextReminder: string;
   dueForReminder: boolean;
   avatar: string;
-  position: { x: number; y: number };
-  coordinates: Coordinates;
+  position: { x: number; y: number } | null;
+  coordinates: Coordinates | null;
 };

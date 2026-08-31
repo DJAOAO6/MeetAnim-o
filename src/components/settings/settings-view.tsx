@@ -53,11 +53,18 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
     availability,
     reminders,
   }));
-  // Valeur requise par le type BusinessProfileData mais ignorée par
-  // updateBusinessProfileAction sur la mise à jour : ces deux champs sont
-  // gérés exclusivement par les badges du tableau de bord
-  // (updateManualAvailabilityAction), jamais depuis ce formulaire.
-  const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable"> = { cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable };
+  // Valeurs requises par le type BusinessProfileData mais ignorées par
+  // updateBusinessProfileAction sur la mise à jour : cabinetAvailable/
+  // homeAvailable sont gérés exclusivement par les badges du tableau de
+  // bord (updateManualAvailabilityAction) ; latitude/longitude sont
+  // recalculées côté serveur à partir de l'adresse, jamais reprises telles
+  // quelles depuis ce formulaire.
+  const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable" | "latitude" | "longitude"> = {
+    cabinetAvailable: businessProfile.cabinetAvailable,
+    homeAvailable: businessProfile.homeAvailable,
+    latitude: businessProfile.latitude,
+    longitude: businessProfile.longitude,
+  };
   const [saving, setSaving] = useState(false);
 
   function updateSettings<K extends keyof SettingsState>(key: K, value: SettingsState[K], message = "Modifications enregistrées") {
@@ -85,6 +92,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
       return next;
     });
     notify.success(message);
+    if (result.warning) notify.info(result.warning);
   }
 
   async function saveTheme(draft: ThemeDraft) {

@@ -22,7 +22,15 @@ export const NORMANDY_CITIES: NormandyCity[] = [
   { name: "Val-de-Reuil", postalCode: "27100", lat: 49.2667, lng: 1.2167, zone: "Zone Vallée de l’Eure" },
 ];
 
-export function coordinatesForCity(cityName: string): { lat: number; lng: number } {
+/**
+ * Filet de secours ultime, seulement quand aucune coordonnée géocodée
+ * réelle n'est disponible (ex. rendez-vous à domicile déjà géolocalisé) —
+ * ne devine jamais une position pour une ville hors de cette liste : mieux
+ * vaut l'exclure des calculs et l'afficher comme "position inconnue" que de
+ * la faire apparaître, à tort, au même endroit qu'une autre ville
+ * (AUDIT-PRODUIT-2026-08-30.md, refonte tournées, prérequis 0.2).
+ */
+export function coordinatesForCity(cityName: string): { lat: number; lng: number } | null {
   const match = NORMANDY_CITIES.find((city) => city.name === cityName);
-  return match ? { lat: match.lat, lng: match.lng } : { lat: 49.4432, lng: 1.0999 };
+  return match ? { lat: match.lat, lng: match.lng } : null;
 }

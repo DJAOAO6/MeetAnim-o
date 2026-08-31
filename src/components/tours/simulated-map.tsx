@@ -43,7 +43,6 @@ export function SimulatedMap({ points, selectedId, onSelect, heightClassName = "
         <>
           <MapLabel label="Le Havre" x="10%" y="38%" />
           <MapLabel label="Dieppe" x="67%" y="10%" />
-          <MapLabel label="Rouen" x="64%" y="76%" />
           <MapLabel label="Montivilliers" x="29%" y="25%" />
         </>
       ) : null}
