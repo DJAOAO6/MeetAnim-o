@@ -4,9 +4,9 @@ import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
 import { coordinatesForCity } from "@/data/normandy-cities";
 import { jitterCoordinates, projectToPercent } from "@/lib/geo";
-import { estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
+import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
-import { findMatchingZone, toLocalDateId } from "@/lib/booking-validation";
+import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import type { AnimalSpecies } from "@/data/species";
 import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
@@ -39,7 +39,11 @@ function formatConsultationHours(totalMinutes: number): string {
   return minutes > 0 ? `${hours}h${String(minutes).padStart(2, "0")}` : `${hours}h`;
 }
 
-type TourOccurrence = { appointmentCount: number; consultationHours: string; stops: TourAppointment[]; estimate: TourEstimate };
+function formatTimeHHMM(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+type TourOccurrence = { appointmentCount: number; consultationHours: string; stops: TourAppointment[]; estimate: TourEstimate; expectedReturnTime: string | null };
 
 /**
  * Arrêts réels d'une tournée à sa prochaine occurrence : rendez-vous à
@@ -49,14 +53,14 @@ type TourOccurrence = { appointmentCount: number; consultationHours: string; sto
  */
 async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
   const dateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
-  if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 } };
+  if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }, expectedReturnTime: null };
 
   const appointments = await prisma.appointment.findMany({
     where: { date: new Date(`${dateId}T00:00:00.000Z`), mode: "DOMICILE", status: { not: "CANCELLED" } },
     orderBy: { start: "asc" },
     select: {
-      id: true, start: true, duration: true, animalName: true, serviceName: true, city: true, postalCode: true, clientName: true, latitude: true, longitude: true,
-      clientId: true, animalId: true, client: { select: { phone: true } },
+      id: true, start: true, duration: true, animalName: true, animalSpecies: true, serviceName: true, price: true, location: true, city: true, postalCode: true, clientName: true, latitude: true, longitude: true,
+      clientId: true, animalId: true, completedAt: true, client: { select: { phone: true } },
     },
   });
 
@@ -71,21 +75,28 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
     return {
       id: a.id,
       time: a.start,
+      endTime: minutesToTime(timeToMinutes(a.start) + a.duration),
+      duration: a.duration,
       animalName: a.animalName,
+      species: (a.animalSpecies as AnimalSpecies | null) ?? null,
       service: a.serviceName,
+      price: a.price,
       city: a.city ?? "",
+      address: a.location,
       clientName: a.clientName,
       clientId: a.clientId,
       animalId: a.animalId,
       phone: a.client?.phone ?? null,
+      completedAt: a.completedAt ? formatTimeHHMM(a.completedAt) : null,
       position: coordinates ? projectToPercent(coordinates.lat, coordinates.lng) : null,
       coordinates,
     };
   });
 
   const estimate = estimateTourRoute(cabinetCoordinates, stops);
+  const expectedReturnTime = estimateExpectedReturnTime(cabinetCoordinates, stops[stops.length - 1]);
 
-  return { appointmentCount: stops.length, consultationHours: formatConsultationHours(totalMinutes), stops, estimate };
+  return { appointmentCount: stops.length, consultationHours: formatConsultationHours(totalMinutes), stops, estimate, expectedReturnTime };
 }
 
 /**
@@ -127,6 +138,7 @@ export async function getTours(): Promise<Tour[]> {
       estimatedDistanceKm: occurrence?.estimate.distanceKm ?? null,
       estimatedDurationMinutes: occurrence?.estimate.durationMinutes ?? null,
       unlocatedStopCount: occurrence?.estimate.unlocatedStopCount ?? 0,
+      expectedReturnTime: occurrence?.expectedReturnTime ?? null,
       consultationHours: occurrence?.consultationHours ?? "0h",
     };
   });

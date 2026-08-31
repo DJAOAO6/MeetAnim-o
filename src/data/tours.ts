@@ -38,14 +38,22 @@ export type Tour = {
   estimatedDistanceKm: number | null;
   estimatedDurationMinutes: number | null;
   unlocatedStopCount: number;
+  // Fin du dernier arrêt + trajet de retour estimé si le cabinet est
+  // géocodé — null si la tournée n'a aucun arrêt (mode tournée, phase 2).
+  expectedReturnTime: string | null;
 };
 
 export type TourAppointment = {
   id: string;
   time: string;
+  endTime: string;
+  duration: number;
   animalName: string;
+  species: AnimalSpecies | null;
   service: string;
+  price: number;
   city: string;
+  address: string;
   clientName: string;
   // null si le rendez-vous n'est plus rattaché à un client/animal réel
   // (fiche supprimée) — l'action "Voir la fiche" est alors absente.
@@ -54,6 +62,10 @@ export type TourAppointment = {
   // null si aucun client rattaché, ou numéro dans un format non reconnu par
   // toTelHref() — l'action "Appeler" est alors absente, jamais grisée.
   phone: string | null;
+  // Heure réelle de clôture (bouton "Consultation réalisée") — null tant
+  // que l'arrêt n'est pas terminé ; source de vérité du mode tournée pour
+  // distinguer arrêt en cours/à venir/terminé (refonte tournées, phase 2).
+  completedAt: string | null;
   // null quand ni le rendez-vous ni la table de villes n'ont de coordonnées
   // réelles — jamais de position devinée (AUDIT-PRODUIT-2026-08-30.md,
   // refonte tournées, prérequis 0.2).

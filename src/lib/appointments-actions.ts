@@ -292,7 +292,7 @@ export async function completeAppointmentAction(id: string): Promise<CompleteApp
     return { ok: false, error: "Ce rendez-vous ne peut plus être marqué comme réalisé." };
   }
 
-  const row = await prisma.appointment.update({ where: { id }, data: { status: "COMPLETED" }, include: { animal: { select: { species: true } } } });
+  const row = await prisma.appointment.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() }, include: { animal: { select: { species: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status: "completed" } });
 
   if (current.animalId) {
@@ -304,6 +304,9 @@ export async function completeAppointmentAction(id: string): Promise<CompleteApp
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/statistiques");
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard/tournees");
+  revalidatePath("/dashboard/carte");
 
   let suggestedReminder: SuggestedReminder | null = null;
   if (current.animalId && current.clientId) {

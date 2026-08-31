@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ClientsMap } from "@/components/tours/clients-map";
-import { TourDetail } from "@/components/tours/tour-detail";
+import { TourExecution } from "@/components/tours/tour-execution";
 import { TourModal, type TourFormValue } from "@/components/tours/tour-modal";
 import { ToursOverview } from "@/components/tours/tours-overview";
 import { ZoneModal, type ZoneFormValue } from "@/components/tours/zone-modal";
@@ -146,7 +146,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
           ) : null}
 
           {selectedTour ? (
-            <TourDetail
+            <TourExecution
               tour={selectedTour}
               zone={zones.find((zone) => zone.id === selectedTour.zoneId)}
               appointments={appointments[selectedTour.id] ?? []}

@@ -5,10 +5,13 @@ import { neon } from "@neondatabase/serverless";
 config({ path: ".env.local" });
 
 /**
- * Refonte tournées, phase 1 : la page de détail d'une tournée doit afficher
- * un lien Google Maps réel, une distance/durée estimées à partir de vraies
- * coordonnées, et les trois actions par arrêt (Appeler, Y aller, Voir la
- * fiche) — remplace l'ancien écran purement descriptif.
+ * Refonte tournées, phase 1 (complétée par la phase 2, qui a remplacé
+ * l'écran de détail par le mode tournée) : la page doit afficher un lien
+ * Google Maps réel, une distance/durée estimées à partir de vraies
+ * coordonnées, et les actions par arrêt (Appeler, Y aller, Voir la fiche).
+ * L'arrêt en cours (le plus tôt, non terminé) n'a que Appeler/Y aller/
+ * Terminé — Voir la fiche reste disponible sur les arrêts à venir, repliés
+ * par défaut (il faut les déplier pour atteindre leurs actions).
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
@@ -123,24 +126,29 @@ test.describe("Détail de tournée — itinéraire réel et actions par arrêt (
     expect(href).toContain("destination=");
     expect(mapsLink).toHaveAttribute("target", "_blank");
 
-    await expect(page.getByText(/^≈ \d+ km/)).toBeVisible();
+    // " · ≈ ... de route" distingue le résumé d'en-tête des petites pastilles
+    // de distance entre arrêts consécutifs (juste "≈ N km").
+    await expect(page.getByText(/^≈ \d+ km · ≈/)).toBeVisible();
 
-    const stopA = page.getByText(animalAName, { exact: true }).locator("xpath=ancestor::article[1]");
+    // Arrêt A (09:00, le plus tôt) est "en cours" : Appeler/Y aller/Terminé.
+    const stopA = page.getByText("Arrêt en cours").locator("xpath=following-sibling::*[1]");
     await expect(stopA.getByRole("link", { name: "Appeler" })).toHaveAttribute("href", "tel:+33612345678");
     await expect(stopA.getByRole("link", { name: "Y aller" })).toHaveAttribute("target", "_blank");
-    await expect(stopA.getByRole("link", { name: "Voir la fiche" })).toHaveAttribute("href", `/dashboard/clients/${clientAId}?animal=${animalAId}`);
 
+    // Arrêt B (11:00) est "à venir", replié : le déplier révèle ses actions.
     // Client B n'a pas de téléphone : le bouton Appeler doit être absent, pas grisé.
-    const stopB = page.getByText(animalBName, { exact: true }).locator("xpath=ancestor::article[1]");
+    await page.getByRole("button", { name: new RegExp(`.*${animalBName}.*`) }).click();
+    const stopB = page.getByText(animalBName).locator("xpath=ancestor::button[1]/following-sibling::div[1]");
     await expect(stopB.getByRole("link", { name: "Appeler" })).toHaveCount(0);
-    await expect(stopB.getByRole("link", { name: "Y aller" })).toBeVisible();
+    await expect(stopB.getByRole("link", { name: "Y aller" })).toHaveAttribute("target", "_blank");
+    await expect(stopB.getByRole("link", { name: "Voir la fiche" })).toHaveAttribute("href", `/dashboard/clients/${clientBId}?animal=${animalBId}`);
   });
 
   test("reste utilisable sur mobile (380px) : une carte par arrêt, actions pleine largeur", async ({ page }) => {
     await page.setViewportSize({ width: 380, height: 800 });
     await openTourDetail(page);
 
-    const stopA = page.getByText(animalAName, { exact: true }).locator("xpath=ancestor::article[1]");
+    const stopA = page.getByText("Arrêt en cours").locator("xpath=following-sibling::*[1]");
     await expect(stopA).toBeVisible();
 
     const callButton = stopA.getByRole("link", { name: "Appeler" });

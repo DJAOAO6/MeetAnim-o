@@ -34,6 +34,7 @@ async function toTour(row: DbTour): Promise<Tour> {
     estimatedDistanceKm: computed?.estimatedDistanceKm ?? null,
     estimatedDurationMinutes: computed?.estimatedDurationMinutes ?? null,
     unlocatedStopCount: computed?.unlocatedStopCount ?? 0,
+    expectedReturnTime: computed?.expectedReturnTime ?? null,
     consultationHours: computed?.consultationHours ?? "0h",
   };
 }

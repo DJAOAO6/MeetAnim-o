@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { TourDetail } from "@/components/tours/tour-detail";
+import { TourExecution } from "@/components/tours/tour-execution";
 import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type TourDetailModalProps = {
@@ -25,7 +25,7 @@ export function TourDetailModal({ tour, zone, appointments, cabinetCoordinates, 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
       <div className="mx-auto max-w-5xl py-6">
-        <TourDetail tour={tour} zone={zone} appointments={appointments} cabinetCoordinates={cabinetCoordinates} onBack={onClose} onDelete={onDelete} />
+        <TourExecution tour={tour} zone={zone} appointments={appointments} cabinetCoordinates={cabinetCoordinates} onBack={onClose} onDelete={onDelete} />
       </div>
     </div>
   );

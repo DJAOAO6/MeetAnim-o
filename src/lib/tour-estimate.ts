@@ -1,4 +1,5 @@
 import { haversineDistanceKm } from "@/lib/geo";
+import { minutesToTime, timeToMinutes } from "@/lib/booking-validation";
 import type { Coordinates } from "@/data/tours";
 
 // Ratio moyen distance routière / distance à vol d'oiseau en zone rurale
@@ -46,6 +47,24 @@ export function estimateTourRoute(cabinetCoordinates: Coordinates | null, stops:
   const durationMinutes = Math.round(rawDurationMinutes / DURATION_ROUNDING_MINUTES) * DURATION_ROUNDING_MINUTES;
 
   return { distanceKm, durationMinutes, unlocatedStopCount };
+}
+
+/**
+ * Heure de retour prévue : fin du dernier arrêt, plus le trajet estimé
+ * jusqu'au cabinet quand les deux points sont localisés. Sans cabinet
+ * géocodé ou dernier arrêt non localisé, retourne simplement l'heure de fin
+ * du dernier arrêt — jamais un trajet de retour deviné (mode tournée,
+ * phase 2).
+ */
+export function estimateExpectedReturnTime(cabinetCoordinates: Coordinates | null, lastStop: { endTime: string; coordinates: Coordinates | null } | undefined): string | null {
+  if (!lastStop) return null;
+  const endMinutes = timeToMinutes(lastStop.endTime);
+
+  if (!cabinetCoordinates || !lastStop.coordinates) return minutesToTime(endMinutes);
+
+  const legKm = haversineDistanceKm(lastStop.coordinates, cabinetCoordinates) * ROAD_DETOUR_FACTOR;
+  const legMinutes = Math.round(((legKm / AVERAGE_SPEED_KMH) * 60) / DURATION_ROUNDING_MINUTES) * DURATION_ROUNDING_MINUTES;
+  return minutesToTime(endMinutes + legMinutes);
 }
 
 function formatApproxDuration(minutes: number): string {

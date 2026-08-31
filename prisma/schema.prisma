@@ -282,6 +282,11 @@ model Appointment {
   price       Float
   status      AppointmentStatus @default(PENDING)
   notes       String            @db.Text
+  // Horodatage réel de clôture (bouton "Consultation réalisée"), distinct de
+  // updatedAt qui bouge à chaque modification du rendez-vous — sert au mode
+  // tournée (refonte tournées, phase 2) pour l'indicateur de retard et
+  // l'heure de fin réelle affichée sous un arrêt terminé.
+  completedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

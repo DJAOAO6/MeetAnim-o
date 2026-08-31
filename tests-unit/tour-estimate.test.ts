@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { estimateTourRoute, formatTourEstimate, ROAD_DETOUR_FACTOR } from "../src/lib/tour-estimate";
+import { estimateExpectedReturnTime, estimateTourRoute, formatTourEstimate, ROAD_DETOUR_FACTOR } from "../src/lib/tour-estimate";
 import { haversineDistanceKm } from "../src/lib/geo";
 import type { Coordinates } from "../src/data/tours";
 
@@ -55,4 +55,21 @@ test("formatTourEstimate gère le pluriel pour plusieurs arrêts non localisés"
 test("formatTourEstimate gère l'absence totale de distance estimable", () => {
   assert.equal(formatTourEstimate({ distanceKm: null, durationMinutes: null, unlocatedStopCount: 3 }), "Distance non estimée (position inconnue)");
   assert.equal(formatTourEstimate({ distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }), "Distance non estimée");
+});
+
+test("estimateExpectedReturnTime ajoute le trajet de retour quand cabinet et dernier arrêt sont localisés", () => {
+  const withoutReturn = estimateExpectedReturnTime(null, { endTime: "17:00", coordinates: stopB });
+  const withReturn = estimateExpectedReturnTime(cabinet, { endTime: "17:00", coordinates: stopB });
+  assert.equal(withoutReturn, "17:00");
+  assert.notEqual(withReturn, "17:00");
+  assert.ok(withReturn! > "17:00");
+});
+
+test("estimateExpectedReturnTime retombe sur la fin du dernier arrêt sans cabinet ou sans localisation", () => {
+  assert.equal(estimateExpectedReturnTime(null, { endTime: "18:30", coordinates: null }), "18:30");
+  assert.equal(estimateExpectedReturnTime(cabinet, { endTime: "18:30", coordinates: null }), "18:30");
+});
+
+test("estimateExpectedReturnTime retourne null sans dernier arrêt", () => {
+  assert.equal(estimateExpectedReturnTime(cabinet, undefined), null);
 });
