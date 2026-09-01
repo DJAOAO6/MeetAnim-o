@@ -8,6 +8,17 @@ config({ path: ".env.local" });
 /**
  * Refonte tournées — étape 3 : timeline des arrêts + recherche client/animal.
  * Étape 4 : raccourcis de navigation (itinéraire complet, menu Y aller).
+ *
+ * Suspendu (unification des tournées, phase 2, PROMPT-TOURNEES-UNIFICATION.md) :
+ * ces deux tests créent leur zone/motif via le panneau Zones et TourModal,
+ * retirés de /dashboard/tournees (liste de journées datées) et pas encore
+ * relogés ailleurs (phase 4). Plus profondément, tour-detail.tsx lui-même
+ * (la timeline testée ici) est bâti sur l'ancien modèle Tour/arrêts dérivés
+ * des rendez-vous — la phase 3, prochaine étape de ce même chantier, le
+ * remplace par un écran de journée unifié sur TourRun/TourStop (arrêts
+ * réellement stockés). Pas de valeur à réécrire ces tests contre un
+ * composant sur le point d'être remplacé : la phase 3 les remplacera par
+ * ses propres tests contre le nouvel écran.
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
@@ -85,7 +96,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
-test.describe("Tournées — timeline des arrêts", () => {
+test.describe.skip("Tournées — timeline des arrêts", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(grantPermission);

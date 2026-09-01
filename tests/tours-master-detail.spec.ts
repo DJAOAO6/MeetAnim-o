@@ -6,6 +6,15 @@ config({ path: ".env.local" });
 
 /**
  * Refonte tournées — étape 2 : structure maître-détail + panneau zones.
+ *
+ * Suspendu (unification des tournées, phase 2, PROMPT-TOURNEES-UNIFICATION.md) :
+ * /dashboard/tournees est désormais une liste de journées datées — le
+ * panneau Zones et TourModal (création multi-zone, "Modifier" en dialog)
+ * n'y sont plus accessibles et n'ont pas encore d'équivalent ailleurs dans
+ * l'application (leur reloge dans Paramètres est la phase 4 de ce
+ * chantier). Gardé tel quel comme référence du comportement attendu plutôt
+ * que réécrit à l'aveugle contre un écran qui n'existe pas encore — à
+ * réactiver/adapter une fois la phase 4 posée.
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
@@ -33,7 +42,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
-test.describe("Tournées — maître-détail et panneau zones", () => {
+test.describe.skip("Tournées — maître-détail et panneau zones", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(grantPermission);
