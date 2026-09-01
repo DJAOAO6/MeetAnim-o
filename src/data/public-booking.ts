@@ -1,3 +1,5 @@
+import type { PublicHoursRow } from "@/lib/public-hours";
+
 export type BookingMode = "CABINET" | "HOME";
 export type PublicAnimalType = "Chien" | "Chat" | "Cheval" | "NAC" | "Petit ruminant";
 export type TravelFeeMode = "none" | "fixed" | "zone";
@@ -52,13 +54,37 @@ export type PublicProfessional = {
   cabinetAddress: string;
   cabinetPostalCode: string;
   cabinetCity: string;
+  cabinetLatitude: number | null;
+  cabinetLongitude: number | null;
   color: string;
   logo: string;
   photo: string;
+  phone: string;
   cabinetAvailable: boolean;
   homeAvailable: boolean;
   services: PublicService[];
   zones: PublicZone[];
+  // Profil public (refonte 2026-09) — voir ProfileSettings pour le détail
+  // de chaque champ. Toujours transmis, la visibilité (show*Publicly) est
+  // tranchée côté composants d'affichage, jamais en filtrant ici : la page
+  // reste une seule source de vérité pour ce qui est réellement configuré.
+  tagline: string | null;
+  coverPicture: string | null;
+  website: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  registrationNumber: string | null;
+  acceptedPayments: string | null;
+  cabinetName: string | null;
+  cabinetInstructions: string | null;
+  parkingInformation: string | null;
+  accessibilityInformation: string | null;
+  showPhonePublicly: boolean;
+  showAddressPublicly: boolean;
+  showHoursPublicly: boolean;
+  showSocialsPublicly: boolean;
+  showPaymentsPublicly: boolean;
+  openingHours: PublicHoursRow[];
 };
 
 export type BookingAddress = {

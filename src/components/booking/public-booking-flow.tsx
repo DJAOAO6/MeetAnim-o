@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingProgress } from "@/components/booking/booking-progress";
+import { ProfessionalSidebar } from "@/components/booking/sidebar/professional-sidebar";
 import { ConsultationStep } from "@/components/booking/location-service-steps";
 import { DetailsStep } from "@/components/booking/details-step";
 import { ScheduleStep } from "@/components/booking/schedule-step";
@@ -348,7 +349,9 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
   return (
     <main className="min-h-screen bg-[#f4f9f7] text-animeo-dark">
       <BookingHeader professional={professional} />
-      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
+          <div className="min-w-0">
         {screen !== "success" ? <BookingProgress current={progressFor(screen)} /> : null}
         <section className="rounded-[18px] border border-[#dfe9e6] bg-white p-4 shadow-[0_14px_45px_rgba(24,59,69,0.08)] sm:p-8">
           {screen === "consultation" ? (
@@ -395,6 +398,11 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
           {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} submitting={submitting} submitError={submitError} onBack={goToPreviousScreen} onSubmit={submitRequest} /> : null}
           {screen === "success" && request && service ? <BookingSuccess professional={professional} request={request} service={service} onReset={resetBooking} /> : null}
         </section>
+          </div>
+
+          <ProfessionalSidebar professional={professional} className="mt-6 lg:sticky lg:top-6 lg:mt-0" />
+        </div>
+
         <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 py-6 text-center text-xs font-bold text-animeo-muted">
           <span>Propulsé par</span><AnimeoLogo size="footer" />
         </footer>
