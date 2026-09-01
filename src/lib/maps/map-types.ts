@@ -40,6 +40,8 @@ export type RouteResult = {
   distanceMeters: number;
   durationSeconds: number;
   geometry: GeoJSON.LineString;
+  /** Un élément par tronçon entre deux waypoints consécutifs, même ordre que les waypoints fournis. */
+  legs: { distanceMeters: number; durationSeconds: number }[];
 };
 
 export type MatrixResult = {

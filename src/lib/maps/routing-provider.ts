@@ -63,6 +63,7 @@ const geojsonRouteResponseSchema = z.object({
       geometry: z.object({ type: z.literal("LineString"), coordinates: z.array(z.tuple([z.number(), z.number()])) }),
       properties: z.object({
         summary: z.object({ distance: z.number(), duration: z.number() }),
+        segments: z.array(z.object({ distance: z.number(), duration: z.number() })).optional(),
       }),
     }),
   ),
@@ -99,6 +100,7 @@ export async function computeRoute(
     distanceMeters: feature.properties.summary.distance,
     durationSeconds: feature.properties.summary.duration,
     geometry: feature.geometry as GeoJSON.LineString,
+    legs: (feature.properties.segments ?? []).map((segment) => ({ distanceMeters: segment.distance, durationSeconds: segment.duration })),
   };
 }
 

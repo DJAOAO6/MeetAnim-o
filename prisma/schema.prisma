@@ -586,8 +586,13 @@ model TourRun {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  name String
-  date DateTime
+  name          String
+  date          DateTime
+  // Heure de départ effective (HH:mm) — sert de point de départ au chaînage
+  // des heures d'arrivée/départ de chaque TourStop. Absente : on retombe sur
+  // TourPreferences.workHoursStart au moment du calcul, jamais stockée en
+  // dur ici pour ne pas devoir la resynchroniser si les préférences changent.
+  departureTime String?
 
   startType         TourEndpointType
   startLabel        String?
