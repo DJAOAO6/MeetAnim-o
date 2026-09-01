@@ -1,12 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { normalizeGeocodedFeatures } from "@/lib/geocoding";
+import { normalizeGeocodedFeatures } from "@/lib/maps/geocoding-provider";
 
 // Service de géocodage de la Géoplateforme IGN (successeur de l'ancienne
 // api-adresse.data.gouv.fr, dépréciée). Pas de clé nécessaire, limité à
 // 50 req/s par IP — largement suffisant pour une autocomplétion débitée
 // côté client. Le mode autocomplete=1 renvoie directement les coordonnées
 // géocodées avec chaque suggestion, ce qui évite un second appel.
+//
+// Appel HTTP fait ici plutôt que via searchAddresses() du provider partagé :
+// ce endpoint distingue "aucun résultat" de "erreur réseau/amont" pour
+// l'UI (address-autocomplete.tsx affiche un état différent), alors que
+// searchAddresses() dégrade silencieusement en tableau vide pour les
+// usages serveur (tournées) qui n'ont pas besoin de cette distinction.
 const IGN_SEARCH_URL = "https://data.geopf.fr/geocodage/search";
 const UPSTREAM_TIMEOUT_MS = 4000;
 const MIN_QUERY_LENGTH = 3;

@@ -83,6 +83,46 @@ enum CalendarSyncStatus {
   ERROR
 }
 
+// Point de départ/arrivée d'une TourRun. FAVORITE référence un SavedPlace ;
+// CURRENT_LOCATION est résolu côté client (géolocalisation navigateur) puis
+// envoyé comme des coordonnées CUSTOM au moment de la sauvegarde — jamais
+// suivi en continu, jamais stocké tel quel.
+enum TourEndpointType {
+  CABINET
+  HOME
+  FAVORITE
+  CUSTOM
+  CURRENT_LOCATION
+  LAST_APPOINTMENT
+  SAME_AS_START
+}
+
+enum TourStopType {
+  APPOINTMENT
+  BREAK
+  MEAL
+  CABINET
+  HOME
+  CLINIC
+  STABLE
+  SUPPLIER
+  OTHER
+}
+
+enum SavedPlaceType {
+  CABINET
+  HOME
+  CLINIC
+  STABLE
+  OTHER
+}
+
+enum OptimizationPreference {
+  TIME
+  DISTANCE
+  BALANCED
+}
+
 enum AuditAction {
   LOGIN_SUCCEEDED
   LOGIN_FAILED
@@ -142,6 +182,9 @@ model User {
   twoFactorCodes      TwoFactorCode[]
   blockedSlots        BlockedSlot[]
   calendarConnections CalendarConnection[]
+  tourRuns            TourRun[]
+  savedPlaces         SavedPlace[]
+  tourPreferences     TourPreferences?
 
   @@index([email])
 }
@@ -315,6 +358,7 @@ model Appointment {
   updatedAt DateTime @updatedAt
 
   calendarEvents AppointmentCalendarEvent[]
+  tourStops      TourStop[]
 
   @@index([clientId])
   @@index([animalId])
@@ -521,4 +565,169 @@ model Service {
   // image de l'app) ; à défaut, une photo générique par espèce est utilisée.
   photoUrl          String?       @db.Text
   createdAt         DateTime      @default(now())
+}
+
+/**
+ * Tournée datée concrète (éditeur interactif — carte + timeline), distincte
+ * du modèle `Tour` existant (gabarit récurrent par zone, utilisé par la
+ * grille "Tournées"/relances par zone — reste inchangé, les deux systèmes
+ * coexistent). Rattachée à l'utilisateur qui l'a créée : "ma tournée" reste
+ * personnelle (départ/arrivée typiquement domicile/cabinet d'une personne),
+ * même principe que CalendarConnection.
+ * routeGeometry/totalDistanceMeters/totalDurationSeconds sont un cache du
+ * dernier calcul d'itinéraire réussi (openrouteservice) — jamais la source
+ * de vérité : recalculés dès qu'un arrêt/départ/arrivée/option change,
+ * conservés seulement pour un rendu instantané à l'ouverture sans attendre
+ * un nouvel appel réseau, et pour rester utilisables si l'API est
+ * temporairement indisponible (la tournée reste éditable/sauvegardable).
+ */
+model TourRun {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name String
+  date DateTime
+
+  startType         TourEndpointType
+  startLabel        String?
+  startAddress      String?
+  startLatitude     Float?
+  startLongitude    Float?
+  startSavedPlaceId String?
+  startSavedPlace   SavedPlace?      @relation("TourRunStart", fields: [startSavedPlaceId], references: [id], onDelete: SetNull)
+
+  endType         TourEndpointType
+  endLabel        String?
+  endAddress      String?
+  endLatitude     Float?
+  endLongitude    Float?
+  endSavedPlaceId String?
+  endSavedPlace   SavedPlace?      @relation("TourRunEnd", fields: [endSavedPlaceId], references: [id], onDelete: SetNull)
+
+  totalDistanceMeters  Int?
+  totalDurationSeconds Int?
+  routeGeometry        Json?
+  routeComputedAt      DateTime?
+
+  safetyBufferMinutes Int     @default(10)
+  lunchBreakEnabled   Boolean @default(false)
+  lunchBreakStart     String?
+  lunchBreakEnd       String?
+
+  optimizationPreference OptimizationPreference @default(BALANCED)
+  avoidTolls             Boolean                @default(false)
+  avoidHighways          Boolean                @default(false)
+  avoidFerries           Boolean                @default(false)
+
+  // Dernière proposition d'optimisation calculée (ordre proposé + gains) —
+  // affichée pour comparaison, jamais appliquée automatiquement (voir
+  // TourStop.order, qui seul reflète la tournée réellement retenue).
+  lastOptimizationProposal Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stops TourStop[]
+
+  @@index([userId, date])
+}
+
+model TourStop {
+  id        String  @id @default(cuid())
+  tourRunId String
+  tourRun   TourRun @relation(fields: [tourRunId], references: [id], onDelete: Cascade)
+
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  order Int
+  type  TourStopType
+
+  // Snapshot au moment de l'ajout (voir doc snapshot vs lien vivant) : le
+  // libellé/l'adresse affichés dans la tournée ne bougent pas si le client
+  // déménage ensuite — seules les coordonnées servent au recalcul
+  // d'itinéraire. Pour un arrêt lié à un Appointment, label/adresse sont
+  // pré-remplis depuis celui-ci à l'ajout puis vivent indépendamment.
+  label     String
+  address   String?
+  latitude  Float?
+  longitude Float?
+
+  arrivalTime            String?
+  departureTime          String?
+  serviceDurationMinutes Int?
+
+  flexible        Boolean @default(false)
+  locked          Boolean @default(true)
+  timeWindowStart String?
+  timeWindowEnd   String?
+
+  legDistanceMeters  Int?
+  legDurationSeconds Int?
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tourRunId, order])
+  @@index([tourRunId])
+  @@index([appointmentId])
+}
+
+model SavedPlace {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label     String
+  type      SavedPlaceType
+  address   String
+  latitude  Float
+  longitude Float
+
+  isDefaultStart Boolean @default(false)
+  isDefaultEnd   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  startOfTourRuns TourRun[] @relation("TourRunStart")
+  endOfTourRuns   TourRun[] @relation("TourRunEnd")
+
+  @@index([userId])
+}
+
+/**
+ * Réglages globaux par utilisateur (valeurs par défaut uniquement) — une
+ * TourRun peut toujours surcharger localement sans jamais modifier cette
+ * ligne (voir doc "surcharge par tournée").
+ */
+model TourPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  defaultStartType         TourEndpointType @default(CABINET)
+  defaultStartSavedPlaceId String?
+  defaultEndType           TourEndpointType @default(CABINET)
+  defaultEndSavedPlaceId   String?
+  returnToStart            Boolean          @default(false)
+
+  safetyBufferMinutes Int @default(10)
+
+  lunchBreakEnabled Boolean @default(false)
+  lunchBreakStart   String  @default("12:00")
+  lunchBreakEnd     String  @default("13:00")
+
+  workHoursStart String @default("08:00")
+  workHoursEnd   String @default("19:00")
+
+  optimizationPreference OptimizationPreference @default(BALANCED)
+  avoidTolls             Boolean                @default(false)
+  avoidHighways          Boolean                @default(false)
+  avoidFerries           Boolean                @default(false)
+
+  updatedAt DateTime @updatedAt
 }
