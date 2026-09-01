@@ -38,6 +38,11 @@ test.describe("Réglages — Tournées (favoris et préférences)", () => {
     await page.waitForURL("**/dashboard**", { timeout: 10000 });
 
     await page.goto("/dashboard/parametres");
+    // Le contenu des onglets s'hydrate après le rendu SSR initial (même
+    // convention que le reste de la suite, ex. public-booking-flow.spec.ts) :
+    // sans cette pause, le clic peut arriver avant que le gestionnaire React
+    // soit attaché.
+    await page.waitForTimeout(600);
     await page.getByRole("button", { name: "Tournées", exact: true }).click();
 
     await expect(page.getByText("Lieux favoris")).toBeVisible({ timeout: 10000 });
