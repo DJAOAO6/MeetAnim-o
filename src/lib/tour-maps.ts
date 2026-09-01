@@ -30,6 +30,40 @@ export function buildSingleStopMapsUrl(destination: Coordinates): string {
   return url.toString();
 }
 
+/** Lien Waze — deep link universel documenté (waze.com/ul), fonctionne sans l'app installée (redirige vers le store). */
+export function buildWazeUrl(destination: Coordinates): string {
+  const url = new URL("https://waze.com/ul");
+  url.searchParams.set("ll", coordinatesToParam(destination));
+  url.searchParams.set("navigate", "yes");
+  return url.toString();
+}
+
+/** Lien Plans (Apple) — daddr seul laisse Plans utiliser la position actuelle comme origine. */
+export function buildAppleMapsUrl(destination: Coordinates): string {
+  const url = new URL("https://maps.apple.com/");
+  url.searchParams.set("daddr", coordinatesToParam(destination));
+  url.searchParams.set("dirflg", "d");
+  return url.toString();
+}
+
+export type NavProvider = "google" | "waze" | "apple";
+
+export const navProviderLabels: Record<NavProvider, string> = {
+  google: "Google Maps",
+  waze: "Waze",
+  apple: "Plans (Apple)",
+};
+
+const navProviderBuilders: Record<NavProvider, (destination: Coordinates) => string> = {
+  google: buildSingleStopMapsUrl,
+  waze: buildWazeUrl,
+  apple: buildAppleMapsUrl,
+};
+
+export function buildNavUrl(provider: NavProvider, destination: Coordinates): string {
+  return navProviderBuilders[provider](destination);
+}
+
 /**
  * Construit le ou les liens Google Maps de l'itinéraire complet d'une
  * tournée : origine = cabinet géocodé, ou premier arrêt localisé à défaut ;

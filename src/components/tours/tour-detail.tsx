@@ -3,25 +3,47 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/icon";
+import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { completeAppointmentAction } from "@/lib/appointments-actions";
 import { searchClientsAndAnimalsAction, type AnimalSearchResult } from "@/lib/clients-actions";
 import { getPublicServices } from "@/lib/services-actions";
 import { addTourStopAction } from "@/lib/tours-actions";
-import { buildSingleStopMapsUrl } from "@/lib/tour-maps";
+import { buildNavUrl, buildTourMapsLinks, navProviderLabels, type NavProvider } from "@/lib/tour-maps";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import { toLocalDateId } from "@/lib/booking-validation";
 import { toTelHref } from "@/lib/phone";
 import { formatEuros } from "@/lib/format";
 import { notify } from "@/lib/notify";
 import type { PublicService } from "@/data/public-booking";
-import type { Tour, TourAppointment, Zone } from "@/data/tours";
+import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
 
 const MIN_SEARCH_CHARS = 2;
+const NAV_PROVIDER_STORAGE_KEY = "animeo:nav-provider";
+const navProviders: NavProvider[] = ["google", "waze", "apple"];
+
+function readStoredNavProvider(): NavProvider {
+  if (typeof window === "undefined") return "google";
+  try {
+    const raw = window.localStorage.getItem(NAV_PROVIDER_STORAGE_KEY);
+    return raw === "google" || raw === "waze" || raw === "apple" ? raw : "google";
+  } catch {
+    return "google";
+  }
+}
+
+function persistNavProvider(provider: NavProvider) {
+  try {
+    window.localStorage.setItem(NAV_PROVIDER_STORAGE_KEY, provider);
+  } catch {
+    // best-effort : une préférence d'affichage locale, jamais bloquant
+  }
+}
 
 type TourDetailProps = {
   tour: Tour | null;
   zones: Zone[];
   stops: TourAppointment[];
+  cabinetCoordinates: Coordinates | null;
   cabinetAddress: string | null;
   onEdit: () => void;
   onBack?: () => void;
@@ -37,7 +59,7 @@ function cityInZones(city: string, zones: Zone[]): boolean {
   return zones.some((zone) => zone.cities.some((c) => normalizeCity(c.name) === normalized));
 }
 
-export function TourDetail({ tour, zones, stops, cabinetAddress, onEdit, onBack }: TourDetailProps) {
+export function TourDetail({ tour, zones, stops, cabinetCoordinates, cabinetAddress, onEdit, onBack }: TourDetailProps) {
   if (!tour) {
     return (
       <div className="flex min-h-[320px] flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-[#c9dbd6] p-8 text-center">
@@ -50,6 +72,7 @@ export function TourDetail({ tour, zones, stops, cabinetAddress, onEdit, onBack 
   const tourZones = zones.filter((zone) => tour.zoneIds.includes(zone.id));
   const departure = tour.startType === "Cabinet" ? (cabinetAddress ?? "Cabinet") : (tour.startAddress ?? "Adresse personnalisée");
   const dateId = nextOccurrenceDateId(tour, toLocalDateId(new Date()));
+  const mapsResult = buildTourMapsLinks(cabinetCoordinates, stops);
 
   return (
     <div className="flex-1">
@@ -88,6 +111,32 @@ export function TourDetail({ tour, zones, stops, cabinetAddress, onEdit, onBack 
           <p className="mt-1 truncate text-[13px] font-medium text-animeo-dark" title={departure}>{departure}</p>
         </div>
       </div>
+
+      {mapsResult.links.length > 0 ? (
+        <div className="mt-4">
+          <div className="flex flex-wrap gap-2">
+            {mapsResult.links.map((link) => (
+              <a
+                key={link.label}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-animeo px-5 text-sm font-medium text-white transition hover:bg-[#459e90]"
+              >
+                <Icon name="car" className="h-4 w-4" />
+                {mapsResult.links.length > 1 ? link.label : "Ouvrir l’itinéraire complet"}
+              </a>
+            ))}
+          </div>
+          {mapsResult.excludedStopCount > 0 ? (
+            <p className="mt-1.5 text-xs text-[#a9573b]">
+              {mapsResult.excludedStopCount > 1
+                ? `${mapsResult.excludedStopCount} arrêts sans adresse localisée ne sont pas dans l’itinéraire.`
+                : "1 arrêt sans adresse localisée n’est pas dans l’itinéraire."}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {tour.note ? (
         <p className="mt-4 rounded-xl bg-[#fff9ec] border border-[#f1d89f] p-3 text-xs text-[#8c6118]">{tour.note}</p>
@@ -143,7 +192,6 @@ function StopRow({ stop }: { stop: TourAppointment }) {
   const router = useRouter();
   const [completing, setCompleting] = useState(false);
   const telHref = stop.phone ? toTelHref(stop.phone) : null;
-  const goHref = stop.coordinates ? buildSingleStopMapsUrl(stop.coordinates) : null;
 
   async function complete() {
     setCompleting(true);
@@ -178,11 +226,7 @@ function StopRow({ stop }: { stop: TourAppointment }) {
             <PhoneIcon /> Appeler
           </a>
         ) : null}
-        {goHref ? (
-          <a href={goHref} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-animeo-bg px-3 text-xs font-medium text-animeo-dark transition hover:bg-animeo-soft">
-            <Icon name="car" className="h-3.5 w-3.5" /> Y aller
-          </a>
-        ) : null}
+        {stop.coordinates ? <GoButton coordinates={stop.coordinates} /> : null}
         {!stop.completedAt ? (
           <button type="button" onClick={complete} disabled={completing} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-animeo px-3 text-xs font-medium text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
             {completing ? "Enregistrement…" : "Terminé"}
@@ -320,6 +364,77 @@ function AddStopPanel({ tour, tourZones, stops, dateId, onDone }: { tour: Tour; 
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function GoButton({ coordinates }: { coordinates: Coordinates }) {
+  // Préférence lue après l'hydratation, ajustée pendant le rendu plutôt que
+  // dans un effet (même motif que notifications-bell.tsx) : le serveur et le
+  // premier rendu client valent toujours "google" (useHasMounted), jamais de
+  // désaccord d'hydratation malgré la vraie préférence lue en localStorage.
+  const hasMounted = useHasMounted();
+  const [provider, setProvider] = useState<NavProvider>("google");
+  const [providerLoaded, setProviderLoaded] = useState(false);
+  if (hasMounted && !providerLoaded) {
+    setProviderLoaded(true);
+    setProvider(readStoredNavProvider());
+  }
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  function choose(next: NavProvider) {
+    setProvider(next);
+    persistNavProvider(next);
+    setOpen(false);
+  }
+
+  return (
+    <div ref={menuRef} className="relative inline-flex">
+      <a
+        href={buildNavUrl(provider, coordinates)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-l-lg bg-animeo-bg py-0 pl-3 pr-2 text-xs font-medium text-animeo-dark transition hover:bg-animeo-soft"
+      >
+        <Icon name="car" className="h-3.5 w-3.5" /> Y aller
+      </a>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Choisir l’application de navigation"
+        className="inline-flex min-h-9 items-center rounded-r-lg border-l border-white bg-animeo-bg px-1.5 text-animeo-dark transition hover:bg-animeo-soft"
+      >
+        <Icon name="arrow" className="h-3 w-3 rotate-90" />
+      </button>
+      {open ? (
+        <div role="menu" className="absolute left-0 top-[calc(100%+4px)] z-10 w-40 rounded-lg border border-[#e5eeeb] bg-white p-1 shadow-[0_12px_28px_rgba(21,63,71,0.16)]">
+          {navProviders.map((option) => (
+            <a
+              key={option}
+              role="menuitem"
+              href={buildNavUrl(option, coordinates)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => choose(option)}
+              className={`block rounded-md px-2.5 py-1.5 text-left text-xs ${option === provider ? "bg-animeo-soft font-medium text-animeo-dark" : "text-animeo-dark hover:bg-animeo-bg"}`}
+            >
+              {navProviderLabels[option]}
+            </a>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

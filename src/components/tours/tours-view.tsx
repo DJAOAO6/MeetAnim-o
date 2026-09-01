@@ -36,7 +36,7 @@ type ToursViewProps = {
   explicitDate: boolean;
 };
 
-export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, cabinetCoordinates: _cabinetCoordinates, cabinetAddress, editorDateId, editorData, explicitDate }: ToursViewProps) {
+export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, cabinetCoordinates, cabinetAddress, editorDateId, editorData, explicitDate }: ToursViewProps) {
   const router = useRouter();
   const pathname = usePathname();
   // L'éditeur ne vit que dans l'onglet "tours" : ?date=... force cet onglet
@@ -151,6 +151,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
             tours={tours}
             zones={zones}
             appointments={appointments}
+            cabinetCoordinates={cabinetCoordinates}
             cabinetAddress={cabinetAddress}
             selectedTourId={selectedTourId}
             onSelectTour={setSelectedTourId}

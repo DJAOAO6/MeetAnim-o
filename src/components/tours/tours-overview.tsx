@@ -1,12 +1,13 @@
 import { Card } from "@/components/ui/card";
 import { TourList } from "@/components/tours/tour-list";
 import { TourDetail } from "@/components/tours/tour-detail";
-import type { Tour, TourAppointment, Zone } from "@/data/tours";
+import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
 
 type ToursOverviewProps = {
   tours: Tour[];
   zones: Zone[];
   appointments: Record<string, TourAppointment[]>;
+  cabinetCoordinates: Coordinates | null;
   cabinetAddress: string | null;
   selectedTourId: string | null;
   onSelectTour: (id: string | null) => void;
@@ -23,7 +24,7 @@ type ToursOverviewProps = {
  * façon TourExecution (retiré, remplacé par TourDetail). Sous 1024px, une
  * seule colonne à la fois (liste, puis détail plein écran avec retour).
  */
-export function ToursOverview({ tours, zones, appointments, cabinetAddress, selectedTourId, onSelectTour, onEditTour, onNewTour, onOpenZonesPanel, onOpenEditor, hasTourRunToday }: ToursOverviewProps) {
+export function ToursOverview({ tours, zones, appointments, cabinetCoordinates, cabinetAddress, selectedTourId, onSelectTour, onEditTour, onNewTour, onOpenZonesPanel, onOpenEditor, hasTourRunToday }: ToursOverviewProps) {
   const selectedTour = tours.find((tour) => tour.id === selectedTourId) ?? null;
 
   return (
@@ -50,6 +51,7 @@ export function ToursOverview({ tours, zones, appointments, cabinetAddress, sele
             tour={selectedTour}
             zones={zones}
             stops={selectedTour ? (appointments[selectedTour.id] ?? []) : []}
+            cabinetCoordinates={cabinetCoordinates}
             cabinetAddress={cabinetAddress}
             onEdit={() => selectedTour && onEditTour(selectedTour)}
             onBack={() => onSelectTour(null)}
