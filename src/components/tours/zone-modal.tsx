@@ -18,7 +18,7 @@ type ZoneModalProps = {
   onSave: (value: ZoneFormValue) => void;
 };
 
-const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
+const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 const initialEmptyCity: City = { id: "city-initial", name: "", postalCode: "" };
 
 export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
@@ -56,8 +56,8 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="map" className="h-6 w-6" /></div>
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Villes et codes postaux</p>
-              <h2 id="zone-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{zone ? "Modifier la zone" : "Créer une zone"}</h2>
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-animeo">Villes et codes postaux</p>
+              <h2 id="zone-dialog-title" className="mt-1 text-2xl font-medium text-animeo-dark">{zone ? "Modifier la zone" : "Créer une zone"}</h2>
               <p className="mt-1 text-sm text-animeo-muted">Aucun rayon ni contour géographique n’est utilisé en V1.</p>
             </div>
           </div>
@@ -67,14 +67,14 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
         <form onSubmit={handleSubmit}>
           <div className="space-y-5 p-5 sm:p-6">
             <label>
-              <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Nom de la zone</span>
+              <span className="mb-2 block text-xs font-medium uppercase tracking-[0.11em] text-animeo-muted">Nom de la zone</span>
               <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex. Zone Le Havre" className={inputClassName} required />
             </label>
 
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Communes</p>
-                <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-black text-animeo-dark">{cities.length} ligne{cities.length > 1 ? "s" : ""}</span>
+                <p className="text-xs font-medium uppercase tracking-[0.11em] text-animeo-muted">Communes</p>
+                <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-medium text-animeo-dark">{cities.length} ligne{cities.length > 1 ? "s" : ""}</span>
               </div>
               <div className="space-y-2">
                 {cities.map((city, index) => (
@@ -87,17 +87,17 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
                       <span className="sr-only">Code postal {index + 1}</span>
                       <input value={city.postalCode} onChange={(event) => updateCity(city.id, "postalCode", event.target.value)} placeholder="Code postal" inputMode="numeric" className={inputClassName} required />
                     </label>
-                    <button type="button" onClick={() => removeCity(city.id)} disabled={cities.length === 1} aria-label={`Supprimer la ligne ${index + 1}`} className="flex h-11 items-center justify-center rounded-xl text-lg font-bold text-animeo-muted transition hover:bg-white hover:text-[#a9573b] disabled:opacity-30">×</button>
+                    <button type="button" onClick={() => removeCity(city.id)} disabled={cities.length === 1} aria-label={`Supprimer la ligne ${index + 1}`} className="flex h-11 items-center justify-center rounded-xl text-lg font-medium text-animeo-muted transition hover:bg-white hover:text-[#a9573b] disabled:opacity-30">×</button>
                   </div>
                 ))}
               </div>
-              <button type="button" onClick={addCity} className="mt-3 rounded-xl border border-animeo px-4 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">+ Ajouter une ville</button>
+              <button type="button" onClick={addCity} className="mt-3 rounded-xl border border-animeo px-4 py-2.5 text-sm font-medium text-animeo transition hover:bg-animeo-soft">+ Ajouter une ville</button>
             </div>
           </div>
 
           <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">{zone ? "Enregistrer" : "Créer la zone"}</button>
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#459e90]">{zone ? "Enregistrer" : "Créer la zone"}</button>
           </div>
         </form>
       </section>

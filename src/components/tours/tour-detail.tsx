@@ -228,7 +228,7 @@ function StopRow({ stop }: { stop: TourAppointment }) {
         ) : null}
         {stop.coordinates ? <GoButton coordinates={stop.coordinates} /> : null}
         {!stop.completedAt ? (
-          <button type="button" onClick={complete} disabled={completing} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-animeo px-3 text-xs font-medium text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={complete} disabled={completing} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-animeo px-3 text-xs font-medium text-animeo transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
             {completing ? "Enregistrement…" : "Terminé"}
           </button>
         ) : null}
@@ -358,7 +358,7 @@ function AddStopPanel({ tour, tourZones, stops, dateId, onDone }: { tour: Tour; 
             type="button"
             onClick={submit}
             disabled={submitting || !effectiveServiceId}
-            className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-animeo px-4 text-sm font-medium text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-animeo px-4 text-sm font-medium text-animeo transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Ajout…" : "Ajouter à la tournée"}
           </button>

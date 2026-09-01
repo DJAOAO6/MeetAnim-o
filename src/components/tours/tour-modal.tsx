@@ -41,7 +41,7 @@ type TourModalProps = {
 
 const frenchDays = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 const days = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
+const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
 function weekdayFromDateId(dateId: string): string {
   const [year, month, day] = dateId.split("-").map(Number);
@@ -151,8 +151,8 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="tournees" className="h-6 w-6" /></div>
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Consultations à domicile</p>
-              <h2 id="tour-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{tour ? "Modifier la tournée" : "Créer une tournée"}</h2>
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-animeo">Consultations à domicile</p>
+              <h2 id="tour-dialog-title" className="mt-1 text-2xl font-medium text-animeo-dark">{tour ? "Modifier la tournée" : "Créer une tournée"}</h2>
               <p className="mt-1 text-sm text-animeo-muted">Une ou plusieurs zones, un rythme, un point de départ.</p>
             </div>
           </div>
@@ -181,7 +181,7 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
                       type="button"
                       onClick={() => toggleZone(zone.id)}
                       aria-pressed={selected}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition ${selected ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${selected ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-transparent bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
                     >
                       {zone.name}
                     </button>
@@ -189,7 +189,7 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
                 })}
               </div>
               {zoneQuery.trim() && !exactZoneMatch ? (
-                <button type="button" onClick={createZoneInline} disabled={creatingZone} className="mt-2 text-xs font-extrabold text-animeo hover:underline disabled:opacity-60">
+                <button type="button" onClick={createZoneInline} disabled={creatingZone} className="mt-2 text-xs font-medium text-animeo hover:underline disabled:opacity-60">
                   {creatingZone ? "Création…" : `+ Créer la zone "${zoneQuery.trim()}"`}
                 </button>
               ) : null}
@@ -198,8 +198,8 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
 
             <Field label="Type" wide>
               <div className="inline-flex rounded-xl bg-animeo-soft p-1">
-                <button type="button" onClick={() => setIsRecurring(true)} aria-pressed={isRecurring} className={`rounded-lg px-5 py-2 text-sm font-extrabold transition ${isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Récurrente</button>
-                <button type="button" onClick={() => setIsRecurring(false)} aria-pressed={!isRecurring} className={`rounded-lg px-5 py-2 text-sm font-extrabold transition ${!isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Ponctuelle</button>
+                <button type="button" onClick={() => setIsRecurring(true)} aria-pressed={isRecurring} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Récurrente</button>
+                <button type="button" onClick={() => setIsRecurring(false)} aria-pressed={!isRecurring} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${!isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Ponctuelle</button>
               </div>
             </Field>
 
@@ -238,8 +238,8 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
 
             <Field label="Point de départ" wide>
               <div className="inline-flex rounded-xl bg-animeo-soft p-1">
-                <button type="button" onClick={() => setStartType("Cabinet")} aria-pressed={startType === "Cabinet"} className={`rounded-lg px-5 py-2 text-sm font-extrabold transition ${startType === "Cabinet" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Cabinet</button>
-                <button type="button" onClick={() => setStartType("Adresse personnalisée")} aria-pressed={startType === "Adresse personnalisée"} className={`rounded-lg px-5 py-2 text-sm font-extrabold transition ${startType === "Adresse personnalisée" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Adresse personnalisée</button>
+                <button type="button" onClick={() => setStartType("Cabinet")} aria-pressed={startType === "Cabinet"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Cabinet" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Cabinet</button>
+                <button type="button" onClick={() => setStartType("Adresse personnalisée")} aria-pressed={startType === "Adresse personnalisée"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Adresse personnalisée" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Adresse personnalisée</button>
               </div>
               {startType === "Adresse personnalisée" ? (
                 <div className="mt-2">
@@ -272,14 +272,14 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
               <button
                 type="button"
                 onClick={() => setDeleteConfirmOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-extrabold text-red-500 transition hover:bg-red-500/20 sm:mr-auto"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-500/20 sm:mr-auto"
               >
                 <TrashIcon />
                 Supprimer la tournée
               </button>
             ) : null}
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Enregistrement…" : tour ? "Enregistrer" : "Créer la tournée"}</button>
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Enregistrement…" : tour ? "Enregistrer" : "Créer la tournée"}</button>
           </div>
         </form>
       </section>
@@ -315,7 +315,7 @@ function TrashIcon() {
 function Field({ label, children, wide = false }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <label className={wide ? "sm:col-span-2" : ""}>
-      <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{label}</span>
+      <span className="mb-2 block text-xs font-medium uppercase tracking-[0.11em] text-animeo-muted">{label}</span>
       {children}
     </label>
   );
