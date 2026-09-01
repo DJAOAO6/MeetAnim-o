@@ -43,6 +43,10 @@ test.describe("CRUD client et animal", () => {
 
   test("créer un nouveau client depuis la liste l'ajoute réellement en base", async ({ page }) => {
     await page.goto("/dashboard/clients");
+    // Même pause que les autres tests de ce fichier (ligne ~68 etc.) : sans
+    // elle, le clic peut arriver avant que React attache son gestionnaire
+    // sur le bouton rendu côté serveur (oubliée sur ce premier scénario).
+    await page.waitForTimeout(600);
     await page.getByRole("button", { name: "Nouveau client" }).click();
     const dialog = page.locator('section[role="dialog"]');
     await dialog.getByLabel("Prénom").fill(testClientFirstName);
