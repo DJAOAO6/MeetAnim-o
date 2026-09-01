@@ -21,6 +21,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { notify } from "@/lib/notify";
 import type { Tour, Zone } from "@/data/tours";
 import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
+import type { SavedPlaceView, TourPreferencesView } from "@/lib/tour-runs";
 
 type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
 
@@ -33,6 +34,8 @@ type SettingsViewProps = {
   services: ServiceSettings[];
   google: GoogleIntegrationState;
   icsFeed: IcsFeedState;
+  savedPlaces: SavedPlaceView[];
+  tourPreferences: TourPreferencesView;
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
@@ -55,7 +58,7 @@ const googleOAuthErrorMessages: Record<string, string> = {
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed }: SettingsViewProps) {
+export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaces, tourPreferences }: SettingsViewProps) {
   const currentUser = useCurrentUser();
   const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
@@ -194,7 +197,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} /> : null}
-      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} /> : null}
+      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} cabinetAvailable={businessProfile.latitude != null} /> : null}
       {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={saveReminders} /> : null}
       {activeTab === "customization" ? (
         <PersonalizationView

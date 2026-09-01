@@ -5,11 +5,14 @@ import { getTours, getZones } from "@/lib/tours";
 import { getAvailability, getBusinessProfile, getReminderSettings } from "@/lib/business-profile-actions";
 import { getServices } from "@/lib/services-actions";
 import { getGoogleIntegrationState, getIcsFeedState } from "@/lib/calendar";
+import { getOrCreateTourPreferences, listSavedPlaces, toSavedPlaceView } from "@/lib/tour-runs";
+import { requireUser } from "@/lib/auth/dal";
 
 export const metadata: Metadata = { title: "Paramètres" };
 
 export default async function ParametresPage() {
-  const [tours, zones, businessProfile, availability, reminders, services, google, icsFeed] = await Promise.all([
+  const user = await requireUser();
+  const [tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaceRows, preferences] = await Promise.all([
     getTours(),
     getZones(),
     getBusinessProfile(),
@@ -18,6 +21,8 @@ export default async function ParametresPage() {
     getServices(),
     getGoogleIntegrationState(),
     getIcsFeedState(),
+    listSavedPlaces(user.id),
+    getOrCreateTourPreferences(user.id),
   ]);
   return (
     // Suspense requis par useSearchParams (retour du callback OAuth Google —
@@ -33,6 +38,8 @@ export default async function ParametresPage() {
         services={services}
         google={google}
         icsFeed={icsFeed}
+        savedPlaces={savedPlaceRows.map(toSavedPlaceView)}
+        tourPreferences={preferences}
       />
     </Suspense>
   );
