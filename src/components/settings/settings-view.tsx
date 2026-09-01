@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
+import { PublicProfileSettingsTab } from "@/components/settings/public-profile-settings-tab";
 import { ServicesSettingsShortcut } from "@/components/settings/services-settings-tab";
 import { AvailabilitySettingsTab } from "@/components/settings/availability-settings-tab";
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
@@ -23,7 +24,7 @@ import type { Tour, Zone } from "@/data/tours";
 import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
 import type { SavedPlaceView, TourPreferencesView } from "@/lib/tour-runs";
 
-type SettingsTab = "profile" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
+type SettingsTab = "profile" | "publicProfile" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
 
 type SettingsViewProps = {
   tours: Tour[];
@@ -40,6 +41,7 @@ type SettingsViewProps = {
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
   { id: "profile", label: "Mon profil", icon: "clients" },
+  { id: "publicProfile", label: "Profil public", icon: "shield" },
   { id: "services", label: "Prestations", icon: "services" },
   { id: "availability", label: "Disponibilités", icon: "calendar" },
   { id: "tours", label: "Tournées", icon: "tournees" },
@@ -195,6 +197,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
       </Card>
 
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
+      {activeTab === "publicProfile" ? <PublicProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil public enregistré et visible sur votre page de réservation")} /> : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} /> : null}
       {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} zones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} cabinetAvailable={businessProfile.latitude != null} /> : null}

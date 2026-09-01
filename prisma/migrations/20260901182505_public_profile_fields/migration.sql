@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "BusinessProfile" ADD COLUMN     "acceptedPayments" TEXT,
+ADD COLUMN     "accessibilityInformation" TEXT,
+ADD COLUMN     "cabinetInstructions" TEXT,
+ADD COLUMN     "cabinetName" TEXT,
+ADD COLUMN     "coverPicture" TEXT,
+ADD COLUMN     "facebook" TEXT,
+ADD COLUMN     "instagram" TEXT,
+ADD COLUMN     "parkingInformation" TEXT,
+ADD COLUMN     "registrationNumber" TEXT,
+ADD COLUMN     "showAddressPublicly" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "showHoursPublicly" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "showPaymentsPublicly" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "showPhonePublicly" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "showSocialsPublicly" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "tagline" TEXT,
+ADD COLUMN     "website" TEXT;

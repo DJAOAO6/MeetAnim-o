@@ -15,6 +15,26 @@ export type ProfileSettings = {
   slug: string;
   photo: string;
   logo: string;
+  // Page publique de réservation — profil public (refonte 2026-09). `bio`
+  // ci-dessus est le contenu détaillé de "À propos" ; tagline est le texte
+  // très court affiché dans le bandeau d'en-tête, jamais le même texte aux
+  // deux endroits.
+  tagline: string | null;
+  coverPicture: string | null;
+  website: string | null;
+  facebook: string | null;
+  instagram: string | null;
+  registrationNumber: string | null;
+  acceptedPayments: string | null;
+  cabinetName: string | null;
+  cabinetInstructions: string | null;
+  parkingInformation: string | null;
+  accessibilityInformation: string | null;
+  showPhonePublicly: boolean;
+  showAddressPublicly: boolean;
+  showHoursPublicly: boolean;
+  showSocialsPublicly: boolean;
+  showPaymentsPublicly: boolean;
 };
 
 export type TravelFeeMode = "fixed" | "zone" | "kilometric";
@@ -127,6 +147,22 @@ export const initialSettings: SettingsState = {
     slug: "pauline-faucillon",
     photo: "PF",
     logo: "PF",
+    tagline: null,
+    coverPicture: null,
+    website: null,
+    facebook: null,
+    instagram: null,
+    registrationNumber: null,
+    acceptedPayments: null,
+    cabinetName: null,
+    cabinetInstructions: null,
+    parkingInformation: null,
+    accessibilityInformation: null,
+    showPhonePublicly: true,
+    showAddressPublicly: true,
+    showHoursPublicly: true,
+    showSocialsPublicly: true,
+    showPaymentsPublicly: true,
   },
   services: [
     {

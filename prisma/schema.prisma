@@ -552,29 +552,49 @@ model Tour {
 }
 
 model BusinessProfile {
-  id               String   @id @default(cuid())
-  slug             String   @unique
-  firstName        String
-  lastName         String
-  profession       String
-  company          String
-  phone            String
-  email            String
-  address          String
-  postalCode       String
-  city             String
-  location         String
-  latitude         Float?
-  longitude        Float?
-  bio              String   @db.Text
-  photo            String   @db.Text
-  logo             String   @db.Text
-  publicColor      String
-  cabinetAvailable Boolean  @default(true)
-  homeAvailable    Boolean  @default(true)
-  availability     Json?
-  reminderSettings Json?
-  updatedAt        DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  slug                     String   @unique
+  firstName                String
+  lastName                 String
+  profession               String
+  company                  String
+  phone                    String
+  email                    String
+  address                  String
+  postalCode               String
+  city                     String
+  location                 String
+  latitude                 Float?
+  longitude                Float?
+  bio                      String   @db.Text
+  photo                    String   @db.Text
+  logo                     String   @db.Text
+  publicColor              String
+  cabinetAvailable         Boolean  @default(true)
+  homeAvailable            Boolean  @default(true)
+  availability             Json?
+  reminderSettings         Json?
+  // Page publique de réservation — refonte profil (2026-09) : le "bio"
+  // existant devient le contenu détaillé de "À propos" ; tagline est le
+  // texte très court affiché dans le bandeau d'en-tête, pour ne jamais
+  // dupliquer le même texte à deux endroits.
+  tagline                  String?
+  coverPicture             String?  @db.Text
+  website                  String?
+  facebook                 String?
+  instagram                String?
+  registrationNumber       String?
+  acceptedPayments         String?
+  cabinetName              String?
+  cabinetInstructions      String?  @db.Text
+  parkingInformation       String?  @db.Text
+  accessibilityInformation String?  @db.Text
+  showPhonePublicly        Boolean  @default(true)
+  showAddressPublicly      Boolean  @default(true)
+  showHoursPublicly        Boolean  @default(true)
+  showSocialsPublicly      Boolean  @default(true)
+  showPaymentsPublicly     Boolean  @default(true)
+  updatedAt                DateTime @updatedAt
 }
 
 model Service {

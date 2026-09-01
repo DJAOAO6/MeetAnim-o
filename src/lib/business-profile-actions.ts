@@ -41,6 +41,22 @@ const DEFAULT_PROFILE: BusinessProfileData = {
   homeAvailable: true,
   latitude: null,
   longitude: null,
+  tagline: null,
+  coverPicture: null,
+  website: null,
+  facebook: null,
+  instagram: null,
+  registrationNumber: null,
+  acceptedPayments: null,
+  cabinetName: null,
+  cabinetInstructions: null,
+  parkingInformation: null,
+  accessibilityInformation: null,
+  showPhonePublicly: true,
+  showAddressPublicly: true,
+  showHoursPublicly: true,
+  showSocialsPublicly: true,
+  showPaymentsPublicly: true,
 };
 
 /** Adresse complète transmise au géocodeur IGN, dans un format qu'il résout de façon fiable. */
