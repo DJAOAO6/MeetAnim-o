@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { refreshUpcomingRemindersAction } from "@/lib/reminders-actions";
+import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 
 /**
  * Prérequis technique de toutes les tâches de fond (rappel J-1, purges…) —
@@ -21,11 +22,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const results = await Promise.allSettled([refreshUpcomingRemindersAction()]);
+  const results = await Promise.allSettled([refreshUpcomingRemindersAction(), generateUpcomingTourRuns()]);
 
-  const [remindersResult] = results;
+  const [remindersResult, tourRunsResult] = results;
   const summary = {
     remindersRefreshed: remindersResult.status === "fulfilled" ? remindersResult.value.updated : null,
+    tourRunsGenerated: tourRunsResult.status === "fulfilled" ? tourRunsResult.value.created : null,
     errors: results.filter((result) => result.status === "rejected").map((result) => String((result as PromiseRejectedResult).reason)),
   };
 

@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { haversineDistanceKm } from "@/lib/geo";
 import { toLocalDateId } from "@/lib/booking-validation";
+import { nextOccurrenceDateId } from "@/lib/tour-schedule";
+import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-fill";
+import type { Tour } from "@/data/tours";
 import type {
   Appointment as DbAppointment,
   SavedPlace as DbSavedPlace,
@@ -106,9 +109,9 @@ export async function resolveTourEndpoints(
   return { start, end };
 }
 
-const stopInclude = { appointment: { select: { animalSpecies: true, price: true, clientId: true, animalId: true, status: true } } } as const;
+const stopInclude = { appointment: { select: { animalSpecies: true, price: true, clientId: true, animalId: true, status: true, date: true } } } as const;
 
-export type TourRunWithStops = DbTourRun & { stops: (DbTourStop & { appointment: { animalSpecies: string | null; price: number; clientId: string | null; animalId: string | null; status: string } | null })[] };
+export type TourRunWithStops = DbTourRun & { stops: (DbTourStop & { appointment: { animalSpecies: string | null; price: number; clientId: string | null; animalId: string | null; status: string; date: Date } | null })[] };
 
 export async function getTourRunForDate(userId: string, dateId: string): Promise<TourRunWithStops | null> {
   const date = new Date(`${dateId}T00:00:00.000Z`);
@@ -351,13 +354,38 @@ function toTourPreferencesView(preferences: DbTourPreferences): TourPreferencesV
   };
 }
 
+// Unification des tournées, phase 1.3 : réconciliation live entre la
+// journée et l'agenda (source de vérité des rendez-vous) — jamais résolue
+// automatiquement, seulement signalée pour que l'utilisatrice décide.
+export type StopToRemove = { stopId: string; label: string; reason: "cancelled" | "moved" };
+
 export type TourRunEditorData = {
   tourRun: TourRunView | null;
   savedPlaces: SavedPlaceView[];
   preferences: TourPreferencesView;
   availableAppointments: AvailableAppointmentView[];
   cabinet: { address: string | null; latitude: number | null; longitude: number | null };
+  // Rendez-vous à domicile de cette date pas encore un arrêt de la journée — "à placer".
+  unplacedHomeAppointments: AvailableAppointmentView[];
+  // Arrêts dont le rendez-vous lié a été annulé ou déplacé à une autre date — "à retirer".
+  stopsToRemove: StopToRemove[];
+  // Créneaux encore libres à la prochaine occurrence du motif dont cette
+  // journée est issue — uniquement quand `dateId` EST cette prochaine
+  // occurrence (getTourFillOpportunities ne calcule que celle-là par motif).
+  fillOpportunity: TourFillOpportunity | null;
 };
+
+async function resolveFillOpportunity(templateId: string, dateId: string): Promise<TourFillOpportunity | null> {
+  const tour = await prisma.tour.findUnique({ where: { id: templateId }, select: { id: true, day: true, dateId: true, recurrence: true } });
+  if (!tour) return null;
+
+  const todayId = toLocalDateId(new Date());
+  const nextDateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
+  if (nextDateId !== dateId) return null;
+
+  const opportunities = await getTourFillOpportunities();
+  return opportunities[tour.id] ?? null;
+}
 
 export async function getTourRunEditorData(userId: string, dateId: string): Promise<TourRunEditorData> {
   const [tourRunRow, savedPlaceRows, preferences, profile] = await Promise.all([
@@ -368,12 +396,25 @@ export async function getTourRunEditorData(userId: string, dateId: string): Prom
   ]);
 
   const availableAppointmentRows = await getAvailableAppointmentsForDate(dateId, tourRunRow?.id ?? null);
+  const unplacedHomeAppointmentRows = availableAppointmentRows.filter((appointment) => appointment.mode === "DOMICILE");
 
   let tourRun: TourRunView | null = null;
   if (tourRunRow) {
     const { start, end } = await resolveTourEndpoints(tourRunRow, tourRunRow.stops, savedPlaceRows);
     tourRun = toTourRunView(tourRunRow, start, end);
   }
+
+  const stopsToRemove: StopToRemove[] = tourRunRow
+    ? tourRunRow.stops
+        .filter((stop) => stop.appointment && (stop.appointment.status === "CANCELLED" || toLocalDateId(stop.appointment.date) !== dateId))
+        .map((stop) => ({
+          stopId: stop.id,
+          label: stop.label,
+          reason: (stop.appointment!.status === "CANCELLED" ? "cancelled" : "moved") as StopToRemove["reason"],
+        }))
+    : [];
+
+  const fillOpportunity = tourRunRow?.templateId ? await resolveFillOpportunity(tourRunRow.templateId, dateId) : null;
 
   return {
     tourRun,
@@ -385,6 +426,9 @@ export async function getTourRunEditorData(userId: string, dateId: string): Prom
       latitude: profile.latitude,
       longitude: profile.longitude,
     },
+    unplacedHomeAppointments: unplacedHomeAppointmentRows.map(toAvailableAppointmentView),
+    stopsToRemove,
+    fillOpportunity,
   };
 }
 

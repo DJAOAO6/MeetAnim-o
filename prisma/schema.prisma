@@ -548,6 +548,10 @@ model Tour {
   maxStops       Int?
   note           String?       @db.Text
 
+  // Unification des tournées (2026-09) : journées TourRun générées à
+  // l'avance depuis ce motif — voir TourRun.templateId ci-dessous.
+  tourRuns TourRun[]
+
   @@index([zoneId])
 }
 
@@ -640,6 +644,14 @@ model TourRun {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Unification des tournées (2026-09) : motif récurrent dont cette journée
+  // est née, s'il en existe un — absent pour une journée créée à la main
+  // (bouton "+ Nouvel itinéraire", sans rapport avec un motif). SetNull : la
+  // suppression du motif ne doit jamais faire disparaître une journée déjà
+  // générée, seulement couper le lien.
+  templateId String?
+  template   Tour?   @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
   name          String
   date          DateTime
   // Heure de départ effective (HH:mm) — sert de point de départ au chaînage
@@ -689,7 +701,9 @@ model TourRun {
 
   stops TourStop[]
 
+  @@unique([templateId, date, userId])
   @@index([userId, date])
+  @@index([templateId])
 }
 
 model TourStop {

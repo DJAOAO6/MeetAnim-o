@@ -88,7 +88,10 @@ test.describe("Tournées — maître-détail et panneau zones", () => {
     const panel = page.locator('[role="dialog"][aria-labelledby="zones-panel-title"]');
     await expect(panel).toBeVisible({ timeout: 10000 });
     await expect(panel.getByText(zoneAName)).toBeVisible();
-    await expect(panel.getByText("1 tournée", { exact: false })).toBeVisible();
+    // Scopé à la ligne de cette zone précise — sans ça, une autre zone
+    // réelle de l'environnement affichant elle aussi "1 tournée" rend le
+    // texte ambigu dans tout le panneau (violation strict mode Playwright).
+    await expect(panel.locator("li", { hasText: zoneAName }).getByText("1 tournée", { exact: false })).toBeVisible();
 
     // Créer une deuxième zone directement depuis le panneau, sans quitter l'écran.
     await panel.getByRole("button", { name: "+ Nouvelle zone" }).click();
