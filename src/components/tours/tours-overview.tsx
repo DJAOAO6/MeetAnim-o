@@ -11,11 +11,26 @@ type ToursOverviewProps = {
   onNewZone: () => void;
   onEditZone: (zone: Zone) => void;
   onDeleteZone: (zone: Zone) => void;
+  onOpenEditor: () => void;
+  hasTourRunToday: boolean;
 };
 
-export function ToursOverview({ tours, zones, onViewTour, onEditTour, onToggleTour, onNewZone, onEditZone, onDeleteZone }: ToursOverviewProps) {
+export function ToursOverview({ tours, zones, onViewTour, onEditTour, onToggleTour, onNewZone, onEditZone, onDeleteZone, onOpenEditor, hasTourRunToday }: ToursOverviewProps) {
   return (
     <div className="space-y-8">
+      <Card className="overflow-hidden">
+        <div className="flex flex-col items-start gap-4 bg-animeo-dark p-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-white/70">Éditeur de tournées</p>
+            <h2 className="mt-1 text-xl font-black text-white">Organisez votre journée sur la carte</h2>
+            <p className="mt-1 text-sm font-semibold text-white/80">Départ, arrivée, rendez-vous, itinéraire réel et optimisation — jour par jour.</p>
+          </div>
+          <button type="button" onClick={onOpenEditor} className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-animeo-dark shadow-sm transition hover:-translate-y-0.5">
+            {hasTourRunToday ? "Continuer ma tournée" : "+ Nouvelle tournée"}
+          </button>
+        </div>
+      </Card>
+
       <section>
         <div className="mb-4">
           <h2 className="text-xl font-extrabold text-animeo-dark">Vos tournées</h2>

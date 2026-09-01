@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { ClientsMap } from "@/components/tours/clients-map";
 import { TourExecution } from "@/components/tours/tour-execution";
 import { TourModal, type TourFormValue } from "@/components/tours/tour-modal";
 import { ToursOverview } from "@/components/tours/tours-overview";
+import { TourRunEditor } from "@/components/tours/tour-run-editor";
 import { ZoneModal, type ZoneFormValue } from "@/components/tours/zone-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
@@ -13,6 +15,7 @@ import { notify } from "@/lib/notify";
 import { deleteTourAction, deleteZoneAction, saveTourAction, saveZoneAction, toggleTourStatusAction } from "@/lib/tours-actions";
 import type { TourFillOpportunity } from "@/lib/tour-fill";
 import type { Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
+import type { TourRunEditorData } from "@/lib/tour-runs";
 
 type ToursViewProps = {
   initialTab: "tours" | "map";
@@ -23,10 +26,22 @@ type ToursViewProps = {
   weeklyHomeAppointments: number;
   cabinetCoordinates: Coordinates | null;
   fillOpportunities: Record<string, TourFillOpportunity>;
+  editorDateId: string;
+  editorData: TourRunEditorData;
+  // Vrai quand l'URL d'entrée portait déjà ?date=... (navigation dans
+  // l'éditeur, ou rechargement de page pendant qu'il est ouvert) — permet de
+  // rouvrir l'éditeur directement plutôt que de retomber sur la vue
+  // d'ensemble à chaque F5 (voir onOpenEditor, qui pousse ce même paramètre).
+  explicitDate: boolean;
 };
 
-export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments, cabinetCoordinates, fillOpportunities }: ToursViewProps) {
-  const [activeTab, setActiveTab] = useState<"tours" | "map">(initialTab);
+export function ToursView({ initialTab, initialTours, initialZones, appointments, mapClients, weeklyHomeAppointments, cabinetCoordinates, fillOpportunities, editorDateId, editorData, explicitDate }: ToursViewProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  // L'éditeur ne vit que dans l'onglet "tours" : ?date=... force cet onglet
+  // au chargement, quelle que soit la route (/tournees ou /carte).
+  const [activeTab, setActiveTab] = useState<"tours" | "map">(explicitDate ? "tours" : initialTab);
+  const [editorOpen, setEditorOpen] = useState(explicitDate);
   const [tours, setTours] = useState(initialTours);
   const [zones, setZones] = useState(initialZones);
   const activeTours = tours.filter((tour) => tour.status === "Active");
@@ -131,43 +146,65 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
 
       {activeTab === "tours" ? (
         <>
-          {!selectedTour ? (
-            <section aria-label="Statistiques des tournées" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map((item) => (
-                <Card key={item.label} className="flex items-center gap-4 p-5">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${item.background} ${item.color}`}>
-                    <Icon name={item.icon} className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-animeo-muted">{item.label}</p>
-                    <p className={`mt-1 text-2xl font-black ${item.color}`}>{item.value}</p>
-                  </div>
-                </Card>
-              ))}
-            </section>
-          ) : null}
-
-          {selectedTour ? (
-            <TourExecution
-              tour={selectedTour}
-              zone={zones.find((zone) => zone.id === selectedTour.zoneId)}
-              appointments={appointments[selectedTour.id] ?? []}
-              cabinetCoordinates={cabinetCoordinates}
-              fillOpportunity={fillOpportunities[selectedTour.id]}
-              onBack={() => setSelectedTourId(null)}
-              onDelete={() => deleteTour(selectedTour)}
+          {editorOpen ? (
+            <TourRunEditor
+              dateId={editorDateId}
+              tourRun={editorData.tourRun}
+              savedPlaces={editorData.savedPlaces}
+              preferences={editorData.preferences}
+              availableAppointments={editorData.availableAppointments}
+              cabinet={editorData.cabinet}
+              onClose={() => {
+                setEditorOpen(false);
+                router.push(pathname);
+              }}
             />
           ) : (
-            <ToursOverview
-              tours={tours}
-              zones={zones}
-              onViewTour={(tour) => setSelectedTourId(tour.id)}
-              onEditTour={setTourModal}
-              onToggleTour={toggleTourStatus}
-              onNewZone={() => setZoneModal("new")}
-              onEditZone={setZoneModal}
-              onDeleteZone={deleteZone}
-            />
+            <>
+              {!selectedTour ? (
+                <section aria-label="Statistiques des tournées" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {stats.map((item) => (
+                    <Card key={item.label} className="flex items-center gap-4 p-5">
+                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${item.background} ${item.color}`}>
+                        <Icon name={item.icon} className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-animeo-muted">{item.label}</p>
+                        <p className={`mt-1 text-2xl font-black ${item.color}`}>{item.value}</p>
+                      </div>
+                    </Card>
+                  ))}
+                </section>
+              ) : null}
+
+              {selectedTour ? (
+                <TourExecution
+                  tour={selectedTour}
+                  zone={zones.find((zone) => zone.id === selectedTour.zoneId)}
+                  appointments={appointments[selectedTour.id] ?? []}
+                  cabinetCoordinates={cabinetCoordinates}
+                  fillOpportunity={fillOpportunities[selectedTour.id]}
+                  onBack={() => setSelectedTourId(null)}
+                  onDelete={() => deleteTour(selectedTour)}
+                />
+              ) : (
+                <ToursOverview
+                  tours={tours}
+                  zones={zones}
+                  onViewTour={(tour) => setSelectedTourId(tour.id)}
+                  onEditTour={setTourModal}
+                  onToggleTour={toggleTourStatus}
+                  onNewZone={() => setZoneModal("new")}
+                  onEditZone={setZoneModal}
+                  onDeleteZone={deleteZone}
+                  onOpenEditor={() => {
+                    setEditorOpen(true);
+                    router.push(`${pathname}?date=${editorDateId}`);
+                  }}
+                  hasTourRunToday={editorData.tourRun !== null}
+                />
+              )}
+            </>
           )}
         </>
       ) : (

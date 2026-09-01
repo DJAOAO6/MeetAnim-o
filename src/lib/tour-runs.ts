@@ -311,10 +311,48 @@ export function todayDateId(): string {
   return toLocalDateId(new Date());
 }
 
+export type TourPreferencesView = {
+  defaultStartType: string;
+  defaultStartSavedPlaceId: string | null;
+  defaultEndType: string;
+  defaultEndSavedPlaceId: string | null;
+  returnToStart: boolean;
+  safetyBufferMinutes: number;
+  lunchBreakEnabled: boolean;
+  lunchBreakStart: string;
+  lunchBreakEnd: string;
+  workHoursStart: string;
+  workHoursEnd: string;
+  optimizationPreference: string;
+  avoidTolls: boolean;
+  avoidHighways: boolean;
+  avoidFerries: boolean;
+};
+
+function toTourPreferencesView(preferences: DbTourPreferences): TourPreferencesView {
+  return {
+    defaultStartType: preferences.defaultStartType,
+    defaultStartSavedPlaceId: preferences.defaultStartSavedPlaceId,
+    defaultEndType: preferences.defaultEndType,
+    defaultEndSavedPlaceId: preferences.defaultEndSavedPlaceId,
+    returnToStart: preferences.returnToStart,
+    safetyBufferMinutes: preferences.safetyBufferMinutes,
+    lunchBreakEnabled: preferences.lunchBreakEnabled,
+    lunchBreakStart: preferences.lunchBreakStart,
+    lunchBreakEnd: preferences.lunchBreakEnd,
+    workHoursStart: preferences.workHoursStart,
+    workHoursEnd: preferences.workHoursEnd,
+    optimizationPreference: preferences.optimizationPreference,
+    avoidTolls: preferences.avoidTolls,
+    avoidHighways: preferences.avoidHighways,
+    avoidFerries: preferences.avoidFerries,
+  };
+}
+
 export type TourRunEditorData = {
   tourRun: TourRunView | null;
   savedPlaces: SavedPlaceView[];
-  preferences: DbTourPreferences;
+  preferences: TourPreferencesView;
   availableAppointments: AvailableAppointmentView[];
   cabinet: { address: string | null; latitude: number | null; longitude: number | null };
 };
@@ -338,7 +376,7 @@ export async function getTourRunEditorData(userId: string, dateId: string): Prom
   return {
     tourRun,
     savedPlaces: savedPlaceRows.map(toSavedPlaceView),
-    preferences,
+    preferences: toTourPreferencesView(preferences),
     availableAppointments: availableAppointmentRows.map(toAvailableAppointmentView),
     cabinet: {
       address: profile.address ? `${profile.address}, ${profile.postalCode} ${profile.city}` : null,
