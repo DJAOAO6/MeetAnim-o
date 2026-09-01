@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
-import { getTours } from "@/lib/tours";
+import { getPublicZones, getTours } from "@/lib/tours";
+import { getPublicServices } from "@/lib/services-actions";
+import { saveAppointmentAction } from "@/lib/appointments-actions";
+import { computeTotalPrice } from "@/lib/booking-validation";
+import { geocodeAddress } from "@/lib/maps/geocoding-provider";
 import type { City, Tour, Zone } from "@/data/tours";
 import type { Tour as DbTour, TourStartType as DbTourStartType, TourStatus as DbTourStatus } from "@/generated/prisma/client";
 
@@ -270,6 +274,76 @@ export async function reassignAndDeleteZoneAction(zoneId: string, targetZoneId: 
     }
     await tx.zone.delete({ where: { id: zoneId } });
   });
+
+  await revalidateToursPages();
+  return { ok: true };
+}
+
+export type AddTourStopInput = {
+  clientId: string;
+  animalId: string;
+  serviceId: string;
+  date: string;
+  start: string;
+};
+
+export type AddTourStopResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Ajoute un arrêt à une tournée : crée un vrai rendez-vous à domicile via
+ * saveAppointmentAction (source unique de vérité), jamais une ligne dans
+ * une table d'arrêts séparée — la tournée le récupère ensuite comme
+ * n'importe quel autre arrêt (correspondance par zone/date, voir
+ * computeTourOccurrence dans tours.ts). Le prix réutilise exactement le
+ * calcul de la réservation publique (computeTotalPrice) plutôt que d'en
+ * dupliquer une variante ici.
+ */
+export async function addTourStopAction(input: AddTourStopInput): Promise<AddTourStopResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de gérer les tournées." };
+  }
+
+  const [client, animal, services, zones] = await Promise.all([
+    prisma.client.findUnique({ where: { id: input.clientId } }),
+    prisma.animal.findUnique({ where: { id: input.animalId } }),
+    getPublicServices(),
+    getPublicZones(),
+  ]);
+  if (!client) return { ok: false, error: "Ce client n'existe plus." };
+  if (!animal || animal.clientId !== client.id) return { ok: false, error: "Cet animal n'existe plus." };
+  const service = services.find((item) => item.id === input.serviceId);
+  if (!service) return { ok: false, error: "Cette prestation n'existe plus." };
+  if (!service.homeEnabled) return { ok: false, error: "Cette prestation n'est pas proposée à domicile." };
+
+  const addressQuery = [client.address, client.city].filter(Boolean).join(", ");
+  const geocoded = addressQuery ? await geocodeAddress(addressQuery) : null;
+  const postalCode = geocoded?.postcode;
+  const city = geocoded?.city ?? client.city;
+
+  const price = computeTotalPrice(service, "home", zones, postalCode, city);
+
+  const result = await saveAppointmentAction({
+    date: input.date,
+    start: input.start,
+    duration: service.duration,
+    clientId: client.id,
+    clientName: `${client.firstName} ${client.lastName}`,
+    animalId: animal.id,
+    animalName: animal.name,
+    animalSpecies: animal.species,
+    serviceName: service.name,
+    mode: "home",
+    location: addressQuery || client.city || "Domicile",
+    price,
+    status: "confirmed",
+    notes: "",
+    postalCode,
+    city,
+    latitude: geocoded?.latitude,
+    longitude: geocoded?.longitude,
+  });
+  if (!result.ok) return result;
 
   await revalidateToursPages();
   return { ok: true };

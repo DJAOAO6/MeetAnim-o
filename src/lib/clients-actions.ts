@@ -198,7 +198,7 @@ export async function deleteAnimalAction(animalId: string): Promise<ClientAction
 }
 
 export type ClientSearchResult = { id: string; firstName: string; lastName: string; address: string; city: string };
-export type AnimalSearchResult = { id: string; name: string; species: AnimalSpecies; clientId: string; ownerName: string };
+export type AnimalSearchResult = { id: string; name: string; species: AnimalSpecies; clientId: string; ownerName: string; city: string };
 export type ClientAndAnimalSearch = { clients: ClientSearchResult[]; animals: AnimalSearchResult[] };
 
 /**
@@ -224,7 +224,7 @@ export async function searchClientsAndAnimalsAction(rawQuery: string): Promise<C
     }),
     prisma.animal.findMany({
       where: { name: { contains: parsed.data, mode: "insensitive" } },
-      select: { id: true, name: true, species: true, clientId: true, client: { select: { firstName: true, lastName: true } } },
+      select: { id: true, name: true, species: true, clientId: true, client: { select: { firstName: true, lastName: true, city: true } } },
       orderBy: { name: "asc" },
       take: MAX_SEARCH_RESULTS_PER_GROUP,
     }),
@@ -238,6 +238,7 @@ export async function searchClientsAndAnimalsAction(rawQuery: string): Promise<C
       species: animal.species as AnimalSpecies,
       clientId: animal.clientId,
       ownerName: `${animal.client.firstName} ${animal.client.lastName}`,
+      city: animal.client.city,
     })),
   };
 }
