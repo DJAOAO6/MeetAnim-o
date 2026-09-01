@@ -41,6 +41,7 @@ async function toTour(row: DbTour): Promise<Tour> {
     estimatedDurationMinutes: computed?.estimatedDurationMinutes ?? null,
     unlocatedStopCount: computed?.unlocatedStopCount ?? 0,
     expectedReturnTime: computed?.expectedReturnTime ?? null,
+    nextOccurrenceLabel: computed?.nextOccurrenceLabel ?? null,
     consultationHours: computed?.consultationHours ?? "0h",
     startType: tourStartTypeLabel[row.startType],
     startAddress: row.startAddress,
@@ -229,6 +230,46 @@ export async function deleteZoneAction(id: string): Promise<DeleteZoneResult> {
     // (Tour.zone n'a pas de cascade de suppression, par conception).
     return { ok: false, error: "Cette zone est utilisée par une tournée et ne peut pas être supprimée." };
   }
+
+  await revalidateToursPages();
+  return { ok: true };
+}
+
+/**
+ * Une zone utilisée par au moins une tournée ne peut pas être supprimée
+ * directement (contrainte de clé étrangère sur Tour.zoneId, par
+ * conception — voir deleteZoneAction ci-dessus) : cette action réassigne
+ * d'abord chaque tournée concernée vers une autre zone existante, puis
+ * supprime la zone devenue orpheline. Ne touche jamais Service.zoneFees
+ * (frais de déplacement, clé = nom de zone — hors périmètre de cette
+ * refonte).
+ */
+export async function reassignAndDeleteZoneAction(zoneId: string, targetZoneId: string): Promise<DeleteZoneResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
+    return { ok: false, error: "Vous n'avez pas la permission de gérer les zones." };
+  }
+  if (zoneId === targetZoneId) return { ok: false, error: "Choisissez une zone de destination différente." };
+
+  const targetZone = await prisma.zone.findUnique({ where: { id: targetZoneId } });
+  if (!targetZone) return { ok: false, error: "La zone de destination n'existe plus." };
+
+  const affectedTours = await prisma.tour.findMany({ where: { OR: [{ zoneId }, { zones: { some: { id: zoneId } } }] }, include: { zones: { select: { id: true } } } });
+
+  await prisma.$transaction(async (tx) => {
+    for (const tour of affectedTours) {
+      const remainingZoneIds = tour.zones.map((zone) => zone.id).filter((id) => id !== zoneId);
+      if (!remainingZoneIds.includes(targetZoneId)) remainingZoneIds.push(targetZoneId);
+      await tx.tour.update({
+        where: { id: tour.id },
+        data: {
+          zoneId: tour.zoneId === zoneId ? targetZoneId : tour.zoneId,
+          zones: { set: remainingZoneIds.map((id) => ({ id })) },
+        },
+      });
+    }
+    await tx.zone.delete({ where: { id: zoneId } });
+  });
 
   await revalidateToursPages();
   return { ok: true };

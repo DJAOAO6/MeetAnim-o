@@ -48,6 +48,9 @@ export type Tour = {
   // Fin du dernier arrêt + trajet de retour estimé si le cabinet est
   // géocodé — null si la tournée n'a aucun arrêt (mode tournée, phase 2).
   expectedReturnTime: string | null;
+  // "jeudi 4 septembre" — null si la tournée n'a plus d'occurrence à venir
+  // (ponctuelle passée).
+  nextOccurrenceLabel: string | null;
   startType: TourStartType;
   startAddress: string | null;
   startCoordinates: Coordinates | null;

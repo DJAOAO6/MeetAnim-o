@@ -8,7 +8,6 @@ import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
-import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-fill";
 import type { AnimalSpecies } from "@/data/species";
 import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 import type { PublicZone } from "@/data/public-booking";
@@ -51,7 +50,13 @@ function formatTimeHHMM(date: Date): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-type TourOccurrence = { appointmentCount: number; consultationHours: string; stops: TourAppointment[]; estimate: TourEstimate; expectedReturnTime: string | null };
+type TourOccurrence = { appointmentCount: number; consultationHours: string; stops: TourAppointment[]; estimate: TourEstimate; expectedReturnTime: string | null; nextOccurrenceLabel: string | null };
+
+const nextOccurrenceDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+function formatNextOccurrenceLabel(dateId: string): string {
+  return nextOccurrenceDateFormatter.format(new Date(`${dateId}T12:00:00.000Z`));
+}
 
 /**
  * Arrêts réels d'une tournée à sa prochaine occurrence : rendez-vous à
@@ -61,7 +66,7 @@ type TourOccurrence = { appointmentCount: number; consultationHours: string; sto
  */
 async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
   const dateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
-  if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }, expectedReturnTime: null };
+  if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }, expectedReturnTime: null, nextOccurrenceLabel: null };
 
   const appointments = await prisma.appointment.findMany({
     where: { date: new Date(`${dateId}T00:00:00.000Z`), mode: "DOMICILE", status: { not: "CANCELLED" } },
@@ -112,7 +117,7 @@ async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZ
   const estimate = estimateTourRoute(cabinetCoordinates, stops);
   const expectedReturnTime = estimateExpectedReturnTime(cabinetCoordinates, stops[stops.length - 1]);
 
-  return { appointmentCount: stops.length, consultationHours: formatConsultationHours(totalMinutes), stops, estimate, expectedReturnTime };
+  return { appointmentCount: stops.length, consultationHours: formatConsultationHours(totalMinutes), stops, estimate, expectedReturnTime, nextOccurrenceLabel: formatNextOccurrenceLabel(dateId) };
 }
 
 /**
@@ -156,6 +161,7 @@ export async function getTours(): Promise<Tour[]> {
       estimatedDurationMinutes: occurrence?.estimate.durationMinutes ?? null,
       unlocatedStopCount: occurrence?.estimate.unlocatedStopCount ?? 0,
       expectedReturnTime: occurrence?.expectedReturnTime ?? null,
+      nextOccurrenceLabel: occurrence?.nextOccurrenceLabel ?? null,
       consultationHours: occurrence?.consultationHours ?? "0h",
       startType: startTypeLabel[tour.startType],
       startAddress: tour.startAddress,
@@ -245,9 +251,10 @@ export async function getMapClients(): Promise<MapClient[]> {
 
 /**
  * Rendez-vous à domicile réels programmés dans les 7 prochains jours,
- * quelle que soit la tournée — sert au bandeau de statistiques de
- * /dashboard/tournees (AUDIT_COMPLET.md P2-25 : ce total était auparavant
- * une chaîne « 8 » codée en dur, jamais reliée à de vraies données).
+ * quelle que soit la tournée — historiquement utilisé par le bandeau de
+ * statistiques de /dashboard/tournees, retiré depuis la refonte maître-
+ * détail (le nouveau design n'a plus ce bandeau). Conservée : fonction
+ * encore correcte, pourrait resservir pour un futur indicateur.
  */
 export async function getWeeklyHomeAppointmentCount(): Promise<number> {
   const todayId = toLocalDateId(new Date());
@@ -260,21 +267,24 @@ export async function getWeeklyHomeAppointmentCount(): Promise<number> {
 }
 
 export async function getToursPageData() {
-  const [zones, tours, stops, mapClients, weeklyHomeAppointments, businessProfile, fillOpportunities] = await Promise.all([
+  const [zones, tours, stops, mapClients, businessProfile] = await Promise.all([
     getZones(),
     getTours(),
     getTourStops(),
     getMapClients(),
-    getWeeklyHomeAppointmentCount(),
     getBusinessProfile(),
-    getTourFillOpportunities(),
   ]);
 
   const cabinetCoordinates: Coordinates | null = businessProfile.latitude != null && businessProfile.longitude != null
     ? { lat: businessProfile.latitude, lng: businessProfile.longitude }
     : null;
 
-  return { zones, tours, appointments: stops, mapClients, weeklyHomeAppointments, cabinetCoordinates, fillOpportunities };
+  return {
+    zones,
+    tours,
+    appointments: stops,
+    mapClients,
+    cabinetCoordinates,
+    cabinetAddress: businessProfile.address ? `${businessProfile.address}, ${businessProfile.city}` : businessProfile.city || null,
+  };
 }
-
-export type { TourFillOpportunity };

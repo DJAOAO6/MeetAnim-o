@@ -89,10 +89,12 @@ test.describe("Éditeur de tournées interactif", () => {
     await seedAppointment();
     await login(page);
 
-    // Point d'entrée normal : depuis la vue d'ensemble, "+ Nouvelle tournée"
-    // ouvre l'éditeur et pousse ?date=... dans l'URL.
+    // Point d'entrée normal : depuis la vue d'ensemble, "+ Nouvel itinéraire"
+    // (bandeau éditeur cartographique — distinct du "+ Nouvelle tournée" de
+    // la colonne de gauche, qui crée une tournée récurrente) ouvre l'éditeur
+    // et pousse ?date=... dans l'URL.
     await page.goto("/dashboard/tournees");
-    await page.getByRole("button", { name: "+ Nouvelle tournée" }).click();
+    await page.getByRole("button", { name: "+ Nouvel itinéraire" }).click();
     await page.waitForURL(/\?date=\d{4}-\d{2}-\d{2}/, { timeout: 10000 });
 
     // On repart ensuite directement sur la date de test (comportement

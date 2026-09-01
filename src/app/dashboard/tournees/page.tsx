@@ -11,7 +11,7 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
   const dateId = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayDateId();
 
   const user = await requireUser();
-  const [{ zones, tours, appointments, mapClients, weeklyHomeAppointments, cabinetCoordinates, fillOpportunities }, editorData] = await Promise.all([
+  const [{ zones, tours, appointments, mapClients, cabinetCoordinates, cabinetAddress }, editorData] = await Promise.all([
     getToursPageData(),
     getTourRunEditorData(user.id, dateId),
   ]);
@@ -23,9 +23,8 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
       initialZones={zones}
       appointments={appointments}
       mapClients={mapClients}
-      weeklyHomeAppointments={weeklyHomeAppointments}
       cabinetCoordinates={cabinetCoordinates}
-      fillOpportunities={fillOpportunities}
+      cabinetAddress={cabinetAddress}
       editorDateId={dateId}
       editorData={editorData}
       explicitDate={Boolean(date)}
