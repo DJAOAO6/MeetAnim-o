@@ -440,3 +440,97 @@ export async function getTourRunEditorData(userId: string, dateId: string): Prom
 export function haversineLegDistanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   return haversineDistanceKm(a, b);
 }
+
+// ---------------------------------------------------------------------------
+// Unification des tournées, phase 2 : liste de journées datées (page
+// tournées) — un seul objet visible, plus de maître-détail sur un motif.
+// ---------------------------------------------------------------------------
+
+const dayListLabelFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+const PAST_WINDOW_DAYS = 30;
+const UPCOMING_WINDOW_DAYS = 21;
+
+export type TourDayListItem = {
+  id: string;
+  dateId: string;
+  dateLabel: string;
+  sectorLabel: string | null;
+  stopCount: number;
+  distanceKm: number | null;
+  durationMinutes: number | null;
+  departureTime: string | null;
+  recurrenceMention: string | null;
+  freeSlotCount: number | null;
+};
+
+export type TourDayListData = {
+  upcoming: TourDayListItem[];
+  past: TourDayListItem[];
+};
+
+const recurrenceMentions: Record<string, (day: string) => string> = {
+  "Toutes les semaines": (day) => `chaque ${day.toLocaleLowerCase("fr-FR")}`,
+  "Toutes les deux semaines": (day) => `un ${day.toLocaleLowerCase("fr-FR")} sur deux`,
+  "Tous les mois": () => "chaque mois",
+};
+
+/**
+ * Journées datées d'un utilisateur sur une fenêtre glissante (passé proche →
+ * à venir) — pour la nouvelle page tournées (liste, plus de maître-détail
+ * sur un motif). Les créneaux encore libres ne sont calculés que pour la
+ * journée qui EST la prochaine occurrence réelle de son motif
+ * (getTourFillOpportunities ne calcule que celle-là par motif, voir
+ * resolveFillOpportunity ci-dessus) — jamais recalculé occurrence par
+ * occurrence.
+ */
+export async function getTourRunsListData(userId: string, todayId: string): Promise<TourDayListData> {
+  const today = new Date(`${todayId}T00:00:00.000Z`);
+  const windowStart = new Date(today.getTime() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const windowEnd = new Date(today.getTime() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  const [rows, fillOpportunities] = await Promise.all([
+    prisma.tourRun.findMany({
+      where: { userId, date: { gte: windowStart, lte: windowEnd } },
+      include: {
+        stops: { select: { id: true } },
+        template: { select: { id: true, day: true, dateId: true, recurrence: true, zones: { select: { name: true } } } },
+      },
+      orderBy: { date: "asc" },
+    }),
+    getTourFillOpportunities(),
+  ]);
+
+  const upcoming: TourDayListItem[] = [];
+  const past: TourDayListItem[] = [];
+
+  for (const row of rows) {
+    const dateId = toLocalDateId(row.date);
+    if (dateId === todayId) continue; // "Aujourd'hui" est traité à part (voir editorData.tourRun).
+
+    const template = row.template;
+    const isNextOccurrence = template
+      ? nextOccurrenceDateId({ day: template.day, dateId: template.dateId ?? undefined, recurrence: template.recurrence as Tour["recurrence"] }, todayId) === dateId
+      : false;
+
+    const item: TourDayListItem = {
+      id: row.id,
+      dateId,
+      dateLabel: dayListLabelFormatter.format(row.date),
+      sectorLabel: template && template.zones.length > 0 ? template.zones.map((zone) => zone.name).join(", ") : null,
+      stopCount: row.stops.length,
+      distanceKm: row.totalDistanceMeters != null ? Math.round(row.totalDistanceMeters / 100) / 10 : null,
+      durationMinutes: row.totalDurationSeconds != null ? Math.round(row.totalDurationSeconds / 60) : null,
+      departureTime: row.departureTime,
+      recurrenceMention: template ? (recurrenceMentions[template.recurrence]?.(template.day) ?? null) : null,
+      freeSlotCount: dateId > todayId && isNextOccurrence && template ? (fillOpportunities[template.id]?.freeSlotCount ?? null) : null,
+    };
+
+    if (dateId > todayId) upcoming.push(item);
+    else past.push(item);
+  }
+
+  // Les plus récentes en premier pour "Passées" (repliées au-delà des 5 dernières côté UI).
+  past.reverse();
+
+  return { upcoming, past };
+}

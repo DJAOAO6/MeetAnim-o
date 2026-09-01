@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { ToursView } from "@/components/tours/tours-view";
-import { getToursPageData } from "@/lib/tours";
-import { getTourRunEditorData, todayDateId } from "@/lib/tour-runs";
+import { getMapClients } from "@/lib/tours";
+import { getTourRunEditorData, getTourRunsListData, todayDateId } from "@/lib/tour-runs";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { requireUser } from "@/lib/auth/dal";
 
@@ -19,22 +19,24 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
   // générée pour `dateId` doit apparaître dans ce même rendu.
   await generateUpcomingTourRuns();
 
-  const [{ zones, tours, appointments, mapClients, cabinetCoordinates, cabinetAddress }, editorData] = await Promise.all([
-    getToursPageData(),
+  const [editorData, listData, mapClients] = await Promise.all([
     getTourRunEditorData(user.id, dateId),
+    getTourRunsListData(user.id, todayDateId()),
+    getMapClients(),
   ]);
+
+  const cabinetCoordinates =
+    editorData.cabinet.latitude != null && editorData.cabinet.longitude != null
+      ? { lat: editorData.cabinet.latitude, lng: editorData.cabinet.longitude }
+      : null;
 
   return (
     <ToursView
-      initialTab="tours"
-      initialTours={tours}
-      initialZones={zones}
-      appointments={appointments}
-      mapClients={mapClients}
-      cabinetCoordinates={cabinetCoordinates}
-      cabinetAddress={cabinetAddress}
+      listData={listData}
       editorDateId={dateId}
       editorData={editorData}
+      cabinetCoordinates={cabinetCoordinates}
+      mapClients={mapClients}
       explicitDate={Boolean(date)}
     />
   );

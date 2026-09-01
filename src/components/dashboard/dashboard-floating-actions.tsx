@@ -1,11 +1,20 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Icon } from "@/components/ui/icon";
 
+// Routes où ce cluster entre en concurrence directe avec les actions déjà
+// présentes à l'écran (unification des tournées, phase 2 : "+ Nouvelle
+// journée", "Ouvrir ma tournée"…) — masqué plutôt que superposé.
+const HIDDEN_ON_ROUTES = ["/dashboard/tournees"];
+
 export function DashboardFloatingActions() {
+  const pathname = usePathname();
   const { appointments, openManager, openNewAppointment } = useAppointments();
   const pendingCount = appointments.filter((appointment) => appointment.status === "pending").length;
+
+  if (HIDDEN_ON_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) return null;
 
   return (
     // Empilement horizontal sous sm : réduit l'empreinte verticale du

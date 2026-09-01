@@ -7,8 +7,9 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getPublicZones, getTours } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { saveAppointmentAction } from "@/lib/appointments-actions";
-import { computeTotalPrice } from "@/lib/booking-validation";
+import { computeTotalPrice, parseDateIdToLocalNoon } from "@/lib/booking-validation";
 import { geocodeAddress } from "@/lib/maps/geocoding-provider";
+import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { City, Tour, Zone } from "@/data/tours";
 import type { Tour as DbTour, TourStartType as DbTourStartType, TourStatus as DbTourStatus } from "@/generated/prisma/client";
 
@@ -347,4 +348,44 @@ export async function addTourStopAction(input: AddTourStopInput): Promise<AddTou
 
   await revalidateToursPages();
   return { ok: true };
+}
+
+export type TourPatternMatch = {
+  tourId: string;
+  name: string;
+  startTime: string;
+  startType: Tour["startType"];
+  startAddress: string | null;
+  startLatitude: number | null;
+  startLongitude: number | null;
+};
+
+/**
+ * Unification des tournées, phase 2 : au moment de créer une nouvelle
+ * journée, propose de reprendre les réglages d'un motif actif dont la date
+ * choisie EST une occurrence — jamais appliqué automatiquement, seulement
+ * proposé (voir NewTourDayModal). Simple lecture, pas de donnée sensible
+ * (les motifs ne sont pas propres à un utilisateur) : requireUser() suffit,
+ * pas de permission dédiée.
+ */
+export async function findTourPatternForDateAction(dateId: string): Promise<TourPatternMatch | null> {
+  await requireUser();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateId)) return null;
+
+  const tours = await prisma.tour.findMany({ where: { status: "ACTIVE" } });
+  const weekday = weekdayLabelFor(parseDateIdToLocalNoon(dateId));
+  const match = tours.find((tour) =>
+    tourRunsOnDate({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, dateId, weekday),
+  );
+  if (!match) return null;
+
+  return {
+    tourId: match.id,
+    name: match.name,
+    startTime: match.startTime,
+    startType: tourStartTypeLabel[match.startType],
+    startAddress: match.startAddress,
+    startLatitude: match.startLatitude,
+    startLongitude: match.startLongitude,
+  };
 }
