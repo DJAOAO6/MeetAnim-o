@@ -193,6 +193,19 @@ a:focus-visible {
   animation: count-pulse 220ms ease-out;
 }
 
+/* Confine les z-index internes de Leaflet (contrôles zoom .leaflet-top/
+   .leaflet-bottom à z-index: 1000 par défaut) à l'intérieur de la carte —
+   sans ça ils passent au-dessus du dropdown de recherche (carte clients)
+   quel que soit le z-index posé sur ce dernier, puisque 1000 > sa valeur.
+   `isolation: isolate` crée un nouveau contexte d'empilement : plus aucun
+   élément interne à .leaflet-container ne peut s'échapper par-dessus des
+   éléments extérieurs, indépendamment des valeurs numériques en jeu. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-count-pulse {
     animation: none;

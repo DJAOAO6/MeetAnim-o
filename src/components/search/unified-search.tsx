@@ -181,7 +181,7 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
   const hasAnyGroup = showPlacesGroup || showClientsGroup || showAnimalsGroup;
 
   return (
-    <div ref={containerRef} className={`relative ${className ?? ""}`}>
+    <div ref={containerRef} className={`relative z-50 ${className ?? ""}`}>
       <div className="relative">
         <SearchIcon />
         <input
