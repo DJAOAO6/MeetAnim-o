@@ -16,6 +16,14 @@ export type TourRunMapPoint = {
   kind: "start" | "end" | "stop";
 };
 
+export type TourRunMapClientPoint = {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  title: string;
+};
+
 type TourRunMapProps = {
   points: TourRunMapPoint[];
   routeGeometry: GeoJSON.LineString | null;
@@ -23,6 +31,11 @@ type TourRunMapProps = {
   onSelect?: (id: string) => void;
   heightClassName?: string;
   overlay?: ReactNode;
+  // Repère "fond de carte" facultatif — clients à proximité, jamais pris en
+  // compte dans le fitBounds (sinon en afficher un seul, loin de la
+  // tournée, dézoomerait toute la carte à chaque activation du calque).
+  clientPoints?: TourRunMapClientPoint[];
+  onClientSelect?: (id: string) => void;
 };
 
 const NORMANDY_DEFAULT_CENTER: [number, number] = [1.0999, 49.4432];
@@ -54,6 +67,22 @@ function markerElement(point: TourRunMapPoint, selected: boolean): HTMLDivElemen
   return element;
 }
 
+function clientMarkerElement(point: TourRunMapClientPoint): HTMLDivElement {
+  const element = document.createElement("div");
+  element.style.width = "22px";
+  element.style.height = "22px";
+  element.style.borderRadius = "9999px";
+  element.style.background = "#ffffff";
+  element.style.border = "2px solid #8a97a0";
+  element.style.boxShadow = "0 3px 8px rgba(24,59,69,0.22)";
+  element.style.cursor = "pointer";
+  element.style.opacity = "0.9";
+  element.setAttribute("title", point.title);
+  element.setAttribute("role", "button");
+  element.setAttribute("aria-label", `Client : ${point.title}`);
+  return element;
+}
+
 /**
  * Carte interactive MapLibre pour l'éditeur de tournées — distincte de
  * RealMap (Leaflet, carte clients) : bibliothèques différentes par choix
@@ -62,16 +91,22 @@ function markerElement(point: TourRunMapPoint, selected: boolean): HTMLDivElemen
  * au montage, marqueurs et tracé mis à jour via des effets dédiés plutôt que
  * recréés à chaque render.
  */
-export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay }: TourRunMapProps) {
+export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect }: TourRunMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
+  const clientMarkersRef = useRef(new Map<string, maplibregl.Marker>());
   const loadedRef = useRef(false);
   const onSelectRef = useRef(onSelect);
+  const onClientSelectRef = useRef(onClientSelect);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
+
+  useEffect(() => {
+    onClientSelectRef.current = onClientSelect;
+  }, [onClientSelect]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -95,10 +130,13 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
     });
     mapRef.current = map;
     const markers = markersRef.current;
+    const clientMarkers = clientMarkersRef.current;
 
     return () => {
       markers.forEach((marker) => marker.remove());
       markers.clear();
+      clientMarkers.forEach((marker) => marker.remove());
+      clientMarkers.clear();
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
@@ -142,6 +180,28 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
       map.fitBounds(bounds, { padding: 56, maxZoom: 14, duration: 400 });
     }
   }, [points, selectedId]);
+
+  // Marqueurs clients (calque optionnel, facultatif) — jamais dans le fitBounds ci-dessus.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const seenIds = new Set(clientPoints.map((point) => point.id));
+    for (const [id, marker] of clientMarkersRef.current) {
+      if (!seenIds.has(id)) {
+        marker.remove();
+        clientMarkersRef.current.delete(id);
+      }
+    }
+
+    for (const point of clientPoints) {
+      if (clientMarkersRef.current.has(point.id)) continue;
+      const element = clientMarkerElement(point);
+      element.addEventListener("click", () => onClientSelectRef.current?.(point.id));
+      const marker = new maplibregl.Marker({ element }).setLngLat([point.lng, point.lat]).addTo(map);
+      clientMarkersRef.current.set(point.id, marker);
+    }
+  }, [clientPoints]);
 
   // Tracé de l'itinéraire — attend que le style soit chargé (source créée dans "load").
   useEffect(() => {

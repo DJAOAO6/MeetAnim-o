@@ -154,6 +154,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
               preferences={editorData.preferences}
               availableAppointments={editorData.availableAppointments}
               cabinet={editorData.cabinet}
+              mapClients={mapClients}
               onClose={() => {
                 setEditorOpen(false);
                 router.push(pathname);

@@ -30,7 +30,8 @@ import {
   type OptimizationComparison,
 } from "@/lib/tour-runs-actions";
 import type { AvailableAppointmentView, SavedPlaceView, TourPreferencesView, TourRunView } from "@/lib/tour-runs";
-import type { TourRunMapPoint } from "@/components/tours/tour-run-map";
+import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
+import type { MapClient } from "@/data/tours";
 
 // MapLibre s'appuie sur canvas/WebGL — jamais rendu côté serveur (même
 // convention que RealMap/Leaflet pour la carte clients).
@@ -43,6 +44,7 @@ type TourRunEditorProps = {
   preferences: TourPreferencesView;
   availableAppointments: AvailableAppointmentView[];
   cabinet: { address: string | null; latitude: number | null; longitude: number | null };
+  mapClients: MapClient[];
   onClose: () => void;
 };
 
@@ -54,11 +56,14 @@ function defaultEndpoint(type: string, savedPlaceId: string | null): EndpointVal
   return { type: type as EndpointValue["type"], savedPlaceId, address: null, latitude: null, longitude: null, label: null };
 }
 
-export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, availableAppointments, cabinet, onClose }: TourRunEditorProps) {
+export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, availableAppointments, cabinet, mapClients, onClose }: TourRunEditorProps) {
   const router = useRouter();
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"map" | "list">("list");
   const [addStopOpen, setAddStopOpen] = useState(false);
+  const [showNearbyClients, setShowNearbyClients] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [addingClientStop, setAddingClientStop] = useState(false);
   const [optimizeComparison, setOptimizeComparison] = useState<OptimizationComparison | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [applyingOptimization, setApplyingOptimization] = useState(false);
@@ -111,6 +116,42 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     if (tourRun.resolvedEnd.coordinates) points.push({ id: "end", lat: tourRun.resolvedEnd.coordinates.lat, lng: tourRun.resolvedEnd.coordinates.lng, label: "A", title: `Arrivée · ${tourRun.resolvedEnd.label}`, color: "#183b45", kind: "end" });
     return points;
   }, [tourRun, selectedStopId]);
+
+  const clientPoints = useMemo<TourRunMapClientPoint[]>(() => {
+    if (!showNearbyClients) return [];
+    return mapClients
+      .filter((client) => client.coordinates != null)
+      .map((client): TourRunMapClientPoint => ({
+        id: client.id,
+        lat: client.coordinates!.lat,
+        lng: client.coordinates!.lng,
+        label: `${client.animalName} — ${client.ownerName}`,
+        title: `${client.animalName} — ${client.ownerName} (${client.city})`,
+      }));
+  }, [mapClients, showNearbyClients]);
+
+  const selectedClient = selectedClientId ? mapClients.find((client) => client.id === selectedClientId) ?? null : null;
+
+  async function handleAddClientAsStop() {
+    if (!tourRun || !selectedClient || !selectedClient.coordinates) return;
+    setAddingClientStop(true);
+    const result = await addManualStopAction({
+      tourRunId: tourRun.id,
+      type: "OTHER",
+      label: `${selectedClient.animalName} — ${selectedClient.ownerName}`,
+      address: selectedClient.city,
+      latitude: selectedClient.coordinates.lat,
+      longitude: selectedClient.coordinates.lng,
+    });
+    setAddingClientStop(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success("Arrêt ajouté à la tournée.");
+    setSelectedClientId(null);
+    router.refresh();
+  }
 
   if (!tourRun) {
     return (
@@ -255,7 +296,34 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
 
       <div className="grid gap-6 lg:grid-cols-[60%_40%]">
         <div className={mobileView === "map" ? "block" : "hidden lg:block"}>
-          <TourRunMap points={mapPoints} routeGeometry={tourRun.routeGeometry} selectedId={selectedStopId} onSelect={setSelectedStopId} heightClassName="h-[420px] lg:h-[620px]" />
+          <button
+            type="button"
+            onClick={() => { setShowNearbyClients((current) => !current); setSelectedClientId(null); }}
+            className={`mb-2 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showNearbyClients ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+          >
+            👥 {showNearbyClients ? "Masquer mes clients" : "Afficher mes clients"}
+          </button>
+          <TourRunMap
+            points={mapPoints}
+            routeGeometry={tourRun.routeGeometry}
+            selectedId={selectedStopId}
+            onSelect={setSelectedStopId}
+            heightClassName="h-[420px] lg:h-[620px]"
+            clientPoints={clientPoints}
+            onClientSelect={setSelectedClientId}
+            overlay={selectedClient ? (
+              <Card className="p-3">
+                <p className="text-xs font-black text-animeo-dark">{selectedClient.animalName} — {selectedClient.ownerName}</p>
+                <p className="mt-0.5 text-[11px] font-semibold text-animeo-muted">{selectedClient.city}</p>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={handleAddClientAsStop} disabled={addingClientStop} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90] disabled:opacity-60">
+                    {addingClientStop ? "Ajout…" : "Ajouter à la tournée"}
+                  </button>
+                  <button type="button" onClick={() => setSelectedClientId(null)} className="rounded-lg bg-animeo-bg px-3 py-1.5 text-xs font-extrabold text-animeo-muted">✕</button>
+                </div>
+              </Card>
+            ) : undefined}
+          />
         </div>
         <Card className={`${mobileView === "list" ? "block" : "hidden lg:block"} overflow-hidden`}>
           <div className="border-b border-[#e5eeeb] p-4">

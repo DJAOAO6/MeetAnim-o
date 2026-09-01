@@ -46,6 +46,25 @@ async function seedAppointment(): Promise<string> {
   return id;
 }
 
+const nearbyClientLastName = "E2ENearbyClientTest";
+const nearbyAnimalName = "RexNearbyClient";
+
+async function seedNearbyClient(): Promise<{ clientId: string; animalId: string }> {
+  const sql = neon(process.env.DATABASE_URL!);
+  const clientId = fakeCuid();
+  const animalId = fakeCuid();
+  // Ville connue de la table statique (coordinatesForCity) — pas besoin
+  // d'Appointment géolocalisé, getMapClients() retombe dessus.
+  await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, "updatedAt") VALUES (${clientId}, 'Prénom', ${nearbyClientLastName}, '0600000000', 'nearby-client-e2e@example.fr', 'Rouen', '1 rue Test', now())`;
+  await sql`INSERT INTO "Animal" (id, "clientId", name, species, breed, age, weight, sex, avatar, "avatarBackground", history, conditions, treatments, notes, "updatedAt") VALUES (${animalId}, ${clientId}, ${nearbyAnimalName}, 'Chien', '', '', '', '', '', '', '', '', '', '', now())`;
+  return { clientId, animalId };
+}
+
+async function cleanupNearbyClient() {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`DELETE FROM "Client" WHERE "lastName" = ${nearbyClientLastName}`;
+}
+
 async function login(page: Page) {
   await page.goto("/login");
   await page.fill('input[type="email"]', testEmail);
@@ -58,10 +77,12 @@ test.describe("Éditeur de tournées interactif", () => {
   test.beforeEach(async () => {
     await clearLoginRateLimit();
     await cleanupTestData();
+    await cleanupNearbyClient();
   });
 
   test.afterEach(async () => {
     await cleanupTestData();
+    await cleanupNearbyClient();
   });
 
   test("créer une tournée, ajouter un rendez-vous et une adresse manuelle, persistance après rechargement", async ({ page }) => {
@@ -113,5 +134,28 @@ test.describe("Éditeur de tournées interactif", () => {
     await page.reload();
     await expect(page.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Pause déjeuner")).toBeVisible();
+  });
+
+  test("affiche les clients à proximité sur la carte et permet d'en ajouter un comme arrêt", async ({ page }) => {
+    await seedNearbyClient();
+    await login(page);
+
+    await page.goto(`/dashboard/tournees?date=${testDateId}`);
+    await page.locator("#tour-run-name").fill(`Tournée ${testOwnerLastName}`);
+    await page.getByRole("button", { name: "Créer la tournée" }).click();
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+
+    // Calque clients désactivé par défaut.
+    await expect(page.getByRole("button", { name: new RegExp(nearbyAnimalName) })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Afficher mes clients" }).click();
+    const clientMarker = page.getByRole("button", { name: new RegExp(nearbyAnimalName) });
+    await expect(clientMarker).toBeVisible({ timeout: 10000 });
+
+    await clientMarker.click();
+    await expect(page.getByText(`${nearbyAnimalName} — Prénom ${nearbyClientLastName}`)).toBeVisible({ timeout: 5000 });
+    await page.getByRole("button", { name: "Ajouter à la tournée", exact: true }).click();
+
+    await expect(page.getByText(new RegExp(nearbyAnimalName))).toBeVisible({ timeout: 10000 });
   });
 });
