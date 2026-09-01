@@ -218,7 +218,7 @@ export function ToursView({ initialTab, initialTours, initialZones, appointments
           zones={zones}
           onClose={() => setTourModal(null)}
           onSave={saveTour}
-          onCreateZone={() => setZoneModal("new")}
+          onZoneCreated={(zone) => setZones((current) => [...current, zone])}
           onDelete={deleteTour}
         />
       ) : null}

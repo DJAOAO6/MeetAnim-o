@@ -55,8 +55,8 @@ test.describe("Gestion des tournées", () => {
     await page.goto("/dashboard/tournees");
   });
 
-  test("créer une zone puis une tournée les persiste réellement en base", async ({ page }) => {
-    // Zone d'abord : une tournée exige une zone existante.
+  test("créer une zone puis une tournée récurrente sur deux zones (dont une créée en ligne) les persiste réellement en base", async ({ page }) => {
+    // Zone d'abord : une tournée exige au moins une zone existante.
     await page.getByRole("button", { name: "Nouvelle zone" }).click();
     let dialog = page.locator('[role="dialog"]').first();
     await dialog.getByPlaceholder("Ex. Zone Le Havre").fill(testZoneName);
@@ -71,16 +71,33 @@ test.describe("Gestion des tournées", () => {
 
     await page.getByRole("button", { name: "Créer une tournée" }).click();
     dialog = page.locator('[role="dialog"]').first();
-    await dialog.getByPlaceholder("Ex. Tournée Le Havre").fill(testTourName);
-    await dialog.locator("select").filter({ has: page.locator(`option:has-text("${testZoneName}")`) }).selectOption({ label: testZoneName });
+    await dialog.locator('input[placeholder="Ex. Secteur Dieppe"]').fill(testTourName);
+
+    // Première zone : déjà existante, sélectionnée dans la liste de puces.
+    await dialog.getByRole("button", { name: testZoneName, exact: true }).click();
+
+    // Deuxième zone : n'existe pas encore, créée en ligne sans quitter l'écran.
+    const secondZoneName = `${testZoneName} Bis`;
+    await dialog.locator('input[placeholder="Rechercher ou créer une zone"]').fill(secondZoneName);
+    await dialog.getByRole("button", { name: `+ Créer la zone "${secondZoneName}"` }).click();
+    await expect(dialog.getByRole("button", { name: secondZoneName, exact: true, pressed: true })).toBeVisible({ timeout: 10000 });
+
+    // Récurrente par défaut (Toutes les semaines) : aucune date d'ancre requise.
     await dialog.getByRole("button", { name: "Créer la tournée" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
-    const [tour] = await sql`SELECT name, "zoneId", status FROM "Tour" WHERE name = ${testTourName}`;
+    const [tour] = await sql`SELECT id, name, "zoneId", status FROM "Tour" WHERE name = ${testTourName}`;
     expect(tour).toBeTruthy();
-    expect(tour.zoneId).toBe(zone.id);
     expect(tour.status).toBe("ACTIVE");
+    const [secondZone] = await sql`SELECT id FROM "Zone" WHERE name = ${secondZoneName}`;
+    expect(secondZone).toBeTruthy();
+    const links = await sql`SELECT "B" FROM "_TourZones" WHERE "A" = ${tour.id}`;
+    const linkedZoneIds = links.map((row: { B: string }) => row.B).sort();
+    expect(linkedZoneIds).toEqual([zone.id, secondZone.id].sort());
+
     await expect(page.getByText(testTourName).first()).toBeVisible();
+
+    await sql`DELETE FROM "Zone" WHERE name = ${secondZoneName}`;
   });
 
   test("désactiver puis réactiver une tournée persiste réellement le changement de statut", async ({ page }) => {

@@ -54,6 +54,11 @@ enum TourStatus {
   INACTIVE
 }
 
+enum TourStartType {
+  CABINET
+  CUSTOM
+}
+
 enum TravelFeeMode {
   FIXED
   ZONE
@@ -472,10 +477,14 @@ model Reminder {
 }
 
 model Zone {
-  id     String @id @default(cuid())
-  name   String
-  cities City[]
-  tours  Tour[]
+  id           String @id @default(cuid())
+  name         String
+  cities       City[]
+  tours        Tour[]
+  // Multi-zone (refonte tournées, formulaire enrichi) : source de vérité
+  // pour le nouveau sélecteur multi-zone. `tours` (ci-dessus, relation
+  // zoneId simple) reste inchangée pour ne rien casser côté existant.
+  toursInZones Tour[] @relation("TourZones")
 }
 
 model City {
@@ -503,16 +512,41 @@ model City {
 model Tour {
   id          String     @id @default(cuid())
   name        String
+  // Valeurs actuelles : "Toutes les semaines" | "Toutes les deux semaines" |
+  // "Tous les mois" | "Une seule fois" — voir src/lib/tour-schedule.ts pour
+  // le calcul de prochaine occurrence de chaque motif. "Une seule fois" =
+  // ponctuelle ; les trois autres = récurrente (le formulaire regroupe ces
+  // deux notions dans ce même champ, pas de colonne "type" séparée).
   recurrence  String
   day         String
+  // Ancre : date de la première occurrence pour un motif récurrent
+  // (quinzaine/mois — nécessaire pour calculer la parité de semaine / le
+  // jour du mois), date exacte pour une tournée ponctuelle. Optionnel pour
+  // rester rétrocompatible avec les tournées hebdomadaires existantes,
+  // créées avant que ce champ ne devienne obligatoire pour les nouveaux
+  // motifs.
   dateId      String?
   dateLabel   String
   startTime   String
   endTime     String
   zoneId      String
   zone        Zone       @relation(fields: [zoneId], references: [id])
+  // Multi-zone (nouveau formulaire) : source de vérité pour l'affichage et
+  // le rattachement des rendez-vous. zoneId/zone ci-dessus ne sont jamais
+  // lus par le nouveau formulaire — conservés uniquement pour ne rien
+  // casser côté existant (auto-renseignés à la première zone sélectionnée
+  // à chaque sauvegarde, voir tours-actions.ts).
+  zones       Zone[]     @relation("TourZones")
   status      TourStatus @default(ACTIVE)
   estimatedKm Float      @default(0)
+
+  startType      TourStartType @default(CABINET)
+  startAddress   String?
+  startLatitude  Float?
+  startLongitude Float?
+  // Limite douce (avertit, ne bloque jamais l'ajout d'un arrêt) — absente = pas de limite.
+  maxStops       Int?
+  note           String?       @db.Text
 
   @@index([zoneId])
 }

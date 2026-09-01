@@ -35,10 +35,20 @@ export function ToursSettingsTab({ initialTours, zones, initialSavedPlaces, init
       name: tour.name,
       recurrence: tour.recurrence,
       day: tour.day,
+      // Champs non éditables depuis ce mini-formulaire de réglages : on les
+      // repasse tels quels pour ne jamais les écraser silencieusement
+      // (saveTourAction écrit tout l'objet, pas une fusion partielle).
+      dateId: tour.dateId ?? null,
       startTime: tour.startTime,
       endTime: tour.endTime,
-      zoneId: tour.zoneId,
+      zoneIds: tour.zoneIds,
       status: tour.status,
+      startType: tour.startType,
+      startAddress: tour.startAddress,
+      startLatitude: tour.startCoordinates?.lat ?? null,
+      startLongitude: tour.startCoordinates?.lng ?? null,
+      maxStops: tour.maxStops,
+      note: tour.note,
     });
     if (!result.ok) {
       notify.error(result.error);

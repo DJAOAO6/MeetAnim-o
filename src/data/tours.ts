@@ -18,16 +18,23 @@ export type Zone = {
 
 export type TourStatus = "Active" | "Inactive";
 
+export type TourRecurrence = "Toutes les semaines" | "Toutes les deux semaines" | "Tous les mois" | "Une seule fois";
+
+export type TourStartType = "Cabinet" | "Adresse personnalisée";
+
 export type Tour = {
   id: string;
   name: string;
-  recurrence: "Toutes les semaines" | "Une seule fois";
+  recurrence: TourRecurrence;
   day: string;
   dateId?: string;
   dateLabel: string;
   startTime: string;
   endTime: string;
+  // Rétrocompatibilité uniquement (voir tours-actions.ts) — le nouveau
+  // formulaire lit/écrit `zoneIds`, jamais `zoneId` directement.
   zoneId: string;
+  zoneIds: string[];
   status: TourStatus;
   appointmentCount: number;
   consultationHours: string;
@@ -41,6 +48,12 @@ export type Tour = {
   // Fin du dernier arrêt + trajet de retour estimé si le cabinet est
   // géocodé — null si la tournée n'a aucun arrêt (mode tournée, phase 2).
   expectedReturnTime: string | null;
+  startType: TourStartType;
+  startAddress: string | null;
+  startCoordinates: Coordinates | null;
+  // Limite douce (avertit, ne bloque jamais l'ajout d'un arrêt) — null = pas de limite.
+  maxStops: number | null;
+  note: string;
 };
 
 export type TourAppointment = {

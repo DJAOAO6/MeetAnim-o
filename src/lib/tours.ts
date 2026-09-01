@@ -12,12 +12,19 @@ import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-f
 import type { AnimalSpecies } from "@/data/species";
 import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
 import type { PublicZone } from "@/data/public-booking";
-import type { Tour as DbTour, TourStatus as DbTourStatus } from "@/generated/prisma/client";
+import type { Tour as DbTour, TourStartType as DbTourStartType, TourStatus as DbTourStatus, Zone as DbZone } from "@/generated/prisma/client";
 
 const statusLabel: Record<DbTourStatus, Tour["status"]> = {
   ACTIVE: "Active",
   INACTIVE: "Inactive",
 };
+
+const startTypeLabel: Record<DbTourStartType, Tour["startType"]> = {
+  CABINET: "Cabinet",
+  CUSTOM: "Adresse personnalisée",
+};
+
+type DbTourWithZones = DbTour & { zones: DbZone[] };
 
 export async function getZones(): Promise<Zone[]> {
   const zones = await prisma.zone.findMany({ include: { cities: true }, orderBy: { name: "asc" } });
@@ -52,7 +59,7 @@ type TourOccurrence = { appointmentCount: number; consultationHours: string; sto
  * tournée (AUDIT_COMPLET.md P2-25 — remplace TourAppointment, une table que
  * seul le script de seed pouvait peupler, jamais l'app réelle).
  */
-async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
+async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
   const dateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
   if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }, expectedReturnTime: null };
 
@@ -65,7 +72,15 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
     },
   });
 
-  const matched = appointments.filter((a) => findMatchingZone(publicZones, a.postalCode ?? undefined, a.city ?? undefined)?.id === tour.zoneId);
+  // Multi-zone (refonte formulaire) : un rendez-vous appartient à la
+  // tournée si sa zone correspond à N'IMPORTE LAQUELLE des zones
+  // sélectionnées — jamais seulement zoneId (relation historique, conservée
+  // uniquement pour ne rien casser côté existant, voir tours-actions.ts).
+  const tourZoneIds = new Set(tour.zones.length > 0 ? tour.zones.map((zone) => zone.id) : [tour.zoneId]);
+  const matched = appointments.filter((a) => {
+    const zoneId = findMatchingZone(publicZones, a.postalCode ?? undefined, a.city ?? undefined)?.id;
+    return zoneId != null && tourZoneIds.has(zoneId);
+  });
   const totalMinutes = matched.reduce((sum, a) => sum + a.duration, 0);
 
   const stops: TourAppointment[] = matched.map((a) => {
@@ -107,7 +122,7 @@ async function computeTourOccurrence(tour: DbTour, publicZones: PublicZone[], to
  * les appellent ensemble.
  */
 const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> => {
-  const [rows, zones, businessProfile] = await Promise.all([prisma.tour.findMany(), getZones(), getBusinessProfile()]);
+  const [rows, zones, businessProfile] = await Promise.all([prisma.tour.findMany({ include: { zones: true } }), getZones(), getBusinessProfile()]);
   const publicZones = zones.map(zoneToPublicShape);
   const todayId = toLocalDateId(new Date());
   const cabinetCoordinates = businessProfile.latitude != null && businessProfile.longitude != null ? { lat: businessProfile.latitude, lng: businessProfile.longitude } : null;
@@ -118,7 +133,7 @@ const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> 
 
 export async function getTours(): Promise<Tour[]> {
   const [rows, occurrences] = await Promise.all([
-    prisma.tour.findMany({ orderBy: { name: "asc" } }),
+    prisma.tour.findMany({ orderBy: { name: "asc" }, include: { zones: true } }),
     getTourOccurrences(),
   ]);
 
@@ -134,6 +149,7 @@ export async function getTours(): Promise<Tour[]> {
       startTime: tour.startTime,
       endTime: tour.endTime,
       zoneId: tour.zoneId,
+      zoneIds: tour.zones.length > 0 ? tour.zones.map((zone) => zone.id) : [tour.zoneId],
       status: statusLabel[tour.status],
       appointmentCount: occurrence?.appointmentCount ?? 0,
       estimatedDistanceKm: occurrence?.estimate.distanceKm ?? null,
@@ -141,6 +157,11 @@ export async function getTours(): Promise<Tour[]> {
       unlocatedStopCount: occurrence?.estimate.unlocatedStopCount ?? 0,
       expectedReturnTime: occurrence?.expectedReturnTime ?? null,
       consultationHours: occurrence?.consultationHours ?? "0h",
+      startType: startTypeLabel[tour.startType],
+      startAddress: tour.startAddress,
+      startCoordinates: tour.startLatitude != null && tour.startLongitude != null ? { lat: tour.startLatitude, lng: tour.startLongitude } : null,
+      maxStops: tour.maxStops,
+      note: tour.note ?? "",
     };
   });
 }
