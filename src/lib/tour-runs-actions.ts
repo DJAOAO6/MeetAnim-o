@@ -10,7 +10,8 @@ import { computeRoute, computeMatrix } from "@/lib/maps/routing-provider";
 import { optimizeStopOrder } from "@/lib/maps/optimization-provider";
 import { reverseGeocode } from "@/lib/maps/geocoding-provider";
 import { haversineDistanceKm } from "@/lib/geo";
-import { minutesToTime, timeToMinutes } from "@/lib/booking-validation";
+import { timeToMinutes } from "@/lib/booking-validation";
+import { chainStopTimings } from "@/lib/tour-timing";
 import { Prisma } from "@/generated/prisma/client";
 import type { TourEndpointType, TourStopType } from "@/generated/prisma/client";
 
@@ -142,33 +143,39 @@ async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolea
  * sur les arrêts suivants, jamais en remontant en arrière.
  */
 async function recomputeStopTimings(tourRunId: string): Promise<void> {
-  const tourRun = await prisma.tourRun.findUnique({ where: { id: tourRunId }, include: { stops: { orderBy: { order: "asc" } } } });
+  const tourRun = await prisma.tourRun.findUnique({
+    where: { id: tourRunId },
+    include: { stops: { orderBy: { order: "asc" }, include: { appointment: { select: { start: true } } } } },
+  });
   if (!tourRun) return;
 
   const preferences = await getOrCreateTourPreferences(tourRun.userId);
-  let cursorMinutes = timeToMinutes(tourRun.departureTime ?? preferences.workHoursStart);
-  const safetyBuffer = tourRun.safetyBufferMinutes;
+  const startMinutes = timeToMinutes(tourRun.departureTime ?? preferences.workHoursStart);
 
-  const updates: { id: string; arrivalTime: string; departureTime: string }[] = [];
+  // Un rendez-vous confirmé doit toujours viser SON horaire réel
+  // (Appointment.start), jamais une valeur déjà recalculée à une passe
+  // précédente — sinon un retard une fois détecté se propagerait comme
+  // nouvelle "heure fixe" à chaque recalcul suivant. Un arrêt manuel
+  // verrouillé n'a pas de meilleure source que sa dernière heure connue.
+  const timings = chainStopTimings(
+    startMinutes,
+    tourRun.safetyBufferMinutes,
+    tourRun.stops.map((stop) => ({
+      legMinutes: stop.legDurationSeconds != null ? Math.round(stop.legDurationSeconds / 60) : 0,
+      locked: stop.locked,
+      fixedTime: stop.locked ? (stop.appointment?.start ?? stop.arrivalTime) : null,
+      serviceMinutes: stop.serviceDurationMinutes ?? 0,
+    })),
+  );
 
-  for (const stop of tourRun.stops) {
-    const legMinutes = stop.legDurationSeconds != null ? Math.round(stop.legDurationSeconds / 60) : 0;
-    let arrivalMinutes = cursorMinutes + legMinutes;
-
-    if (stop.locked && stop.arrivalTime) {
-      // Rendez-vous fixe : son heure fait foi, même si le trajet estimé
-      // suggérerait une arrivée plus tôt (marge d'avance normale).
-      const fixedMinutes = timeToMinutes(stop.arrivalTime);
-      arrivalMinutes = Math.max(arrivalMinutes, fixedMinutes);
-    }
-
-    const serviceMinutes = stop.serviceDurationMinutes ?? 0;
-    const departureMinutes = arrivalMinutes + serviceMinutes;
-    updates.push({ id: stop.id, arrivalTime: minutesToTime(arrivalMinutes % 1440), departureTime: minutesToTime(departureMinutes % 1440) });
-    cursorMinutes = departureMinutes + safetyBuffer;
-  }
-
-  await prisma.$transaction(updates.map((update) => prisma.tourStop.update({ where: { id: update.id }, data: { arrivalTime: update.arrivalTime, departureTime: update.departureTime } })));
+  await prisma.$transaction(
+    tourRun.stops.map((stop, index) =>
+      prisma.tourStop.update({
+        where: { id: stop.id },
+        data: { arrivalTime: timings[index].arrivalTime, departureTime: timings[index].departureTime, lateWarningMinutes: timings[index].lateWarningMinutes },
+      }),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

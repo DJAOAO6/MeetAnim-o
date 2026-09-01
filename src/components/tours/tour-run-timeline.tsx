@@ -33,6 +33,7 @@ type TourRunTimelineProps = {
   onMove: (stopId: string, direction: "up" | "down") => void;
   onRemove: (stopId: string) => void;
   onToggleFlexible: (stopId: string, flexible: boolean) => void;
+  onFindSolution?: () => void;
 };
 
 /**
@@ -41,7 +42,7 @@ type TourRunTimelineProps = {
  * tous les autres, conformément à l'exemple du prompt. Même choix Pointer
  * Events que l'existant (souris/tactile/stylet unifiés, sans dépendance).
  */
-export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove, onRemove, onToggleFlexible }: TourRunTimelineProps) {
+export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove, onRemove, onToggleFlexible, onFindSolution }: TourRunTimelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const rowElements = useRef(new Map<string, HTMLElement>());
@@ -104,6 +105,20 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
               ↓ {stop.legDurationSeconds != null ? formatDurationSeconds(stop.legDurationSeconds) : "—"}
               {stop.legDistanceMeters != null ? ` · ${formatDistanceMeters(stop.legDistanceMeters)}` : ""}
             </p>
+          ) : null}
+          {stop.lateWarningMinutes != null && stop.lateWarningMinutes > 0 ? (
+            <div className="mx-2 mt-2 rounded-xl border border-[#f3c9b3] bg-[#fff1ec] p-3">
+              <p className="text-xs font-black text-[#a9573b]">⚠️ Trajet impossible</p>
+              <p className="mt-1 text-xs font-semibold text-[#8c4a33]">
+                Arrivée prévue vers {stop.arrivalTime} pour un rendez-vous à {stop.appointmentId ? stop.label.split(" — ")[0] : stop.label}
+                {" "}— {stop.lateWarningMinutes} minute{stop.lateWarningMinutes > 1 ? "s" : ""} manquante{stop.lateWarningMinutes > 1 ? "s" : ""}.
+              </p>
+              {onFindSolution ? (
+                <button type="button" onClick={onFindSolution} className="mt-2 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-[#a9573b] shadow-sm transition hover:bg-[#fff7f3]">
+                  Trouver une solution
+                </button>
+              ) : null}
+            </div>
           ) : null}
           <div className="flex items-start gap-1 py-2">
             <div className="flex shrink-0 flex-col items-center gap-1 pt-2">

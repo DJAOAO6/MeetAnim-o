@@ -183,6 +183,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
       onMove={(stopId, direction) => runAction(() => moveStopAction({ tourRunId: tourRun.id, stopId, direction }))}
       onRemove={(stopId) => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId }))}
       onToggleFlexible={(stopId, flexible) => runAction(() => updateStopAction({ tourRunId: tourRun.id, stopId, flexible, locked: !flexible }))}
+      onFindSolution={canOptimize ? handleOptimize : undefined}
     />
   );
 

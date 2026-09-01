@@ -146,6 +146,7 @@ export type TourStopView = {
   timeWindowEnd: string | null;
   legDistanceMeters: number | null;
   legDurationSeconds: number | null;
+  lateWarningMinutes: number | null;
   notes: string | null;
   animalSpecies: string | null;
   price: number | null;
@@ -220,6 +221,7 @@ export function toTourRunView(tourRun: TourRunWithStops, resolvedStart: Resolved
       timeWindowEnd: stop.timeWindowEnd,
       legDistanceMeters: stop.legDistanceMeters,
       legDurationSeconds: stop.legDurationSeconds,
+      lateWarningMinutes: stop.lateWarningMinutes,
       notes: stop.notes,
       animalSpecies: stop.appointment?.animalSpecies ?? null,
       price: stop.appointment?.price ?? null,

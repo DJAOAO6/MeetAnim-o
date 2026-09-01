@@ -671,6 +671,14 @@ model TourStop {
   legDistanceMeters  Int?
   legDurationSeconds Int?
 
+  // Écart en minutes entre l'heure d'arrivée réellement atteignable (calcul
+  // du trajet depuis l'arrêt précédent) et l'heure fixe du rendez-vous —
+  // positif seulement si le trajet arrive effectivement en retard. Calculé
+  // par recomputeStopTimings (tour-runs-actions.ts) à chaque recalcul
+  // d'itinéraire, jamais saisi manuellement ; null tant qu'aucun retard
+  // n'est détecté ou que l'arrêt n'est pas fixe.
+  lateWarningMinutes Int?
+
   notes String? @db.Text
 
   createdAt DateTime @default(now())
