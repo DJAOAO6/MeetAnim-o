@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import { CalendarMonth, type CalendarDayStatus } from "@/components/booking/calendar-month";
 import type { BookingDate, BookingMode, PublicService } from "@/data/public-booking";
@@ -31,6 +31,31 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
   const [selectedMonth, setSelectedMonth] = useState("");
   const [revalidating, setRevalidating] = useState(false);
   const [revalidationError, setRevalidationError] = useState<string | null>(null);
+  const timeSectionRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const skipNextDateScroll = useRef(true);
+  const skipNextActionsScroll = useRef(true);
+
+  // Même principe que ConsultationStep : amène la section "heure" à l'écran
+  // dès qu'une date est choisie (surtout utile en une seule colonne sur
+  // mobile, où le choix de l'heure apparaît sous le calendrier plutôt qu'à
+  // côté), puis amène "Continuer" une fois l'heure choisie — jamais au
+  // premier rendu/restauration d'une session en cours.
+  useEffect(() => {
+    if (skipNextDateScroll.current) {
+      skipNextDateScroll.current = false;
+      return;
+    }
+    if (dateId) timeSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [dateId]);
+
+  useEffect(() => {
+    if (skipNextActionsScroll.current) {
+      skipNextActionsScroll.current = false;
+      return;
+    }
+    if (dateId && time) actionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [dateId, time]);
 
   // Générées depuis les vraies disponibilités du praticien (horaires,
   // vacances, fermetures exceptionnelles), sur une fenêtre glissante
@@ -188,7 +213,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
           </div>
 
           {selectedDate ? (
-            <div>
+            <div ref={timeSectionRef} className="scroll-mt-6">
               <p className="mb-3 text-sm font-black text-animeo-dark">2. Choisissez une heure</p>
               <div className="mb-4 flex items-center gap-2 rounded-2xl bg-animeo-bg px-4 py-3 text-sm font-extrabold text-animeo-dark">
                 <CalendarIcon />
@@ -237,7 +262,9 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
       ) : null}
 
       {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{revalidationError}</p> : null}
-      <BookingActions onBack={onBack} nextDisabled={!dateId || !time} loading={revalidating} />
+      <div ref={actionsRef} className="scroll-mt-6">
+        <BookingActions onBack={onBack} nextDisabled={!dateId || !time} loading={revalidating} />
+      </div>
     </form>
   );
 }

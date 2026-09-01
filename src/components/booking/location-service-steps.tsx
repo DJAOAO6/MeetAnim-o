@@ -24,7 +24,9 @@ function availabilityLabel(service: PublicService) {
 export function ConsultationStep({ professional, serviceId, mode, onServiceChange, onModeChange, onNext }: ConsultationStepProps) {
   const service = professional.services.find((item) => item.id === serviceId);
   const locationRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
   const skipNextScroll = useRef(true);
+  const skipNextActionsScroll = useRef(true);
 
   useEffect(() => {
     if (skipNextScroll.current) {
@@ -36,6 +38,18 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
     }
     if (serviceId) locationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [serviceId]);
+
+  // Une fois prestation + mode choisis, l'étape est complète : amène le
+  // bouton "Continuer" à l'écran plutôt que de laisser l'utilisateur le
+  // chercher en bas de page (mêmes règles que le défilement vers "Où ?"
+  // ci-dessus — jamais au premier rendu/restauration d'une session).
+  useEffect(() => {
+    if (skipNextActionsScroll.current) {
+      skipNextActionsScroll.current = false;
+      return;
+    }
+    if (serviceId && mode) actionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [serviceId, mode]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,7 +148,9 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
         </div>
       ) : null}
 
-      <BookingActions nextDisabled={!serviceId || !mode} />
+      <div ref={actionsRef} className="scroll-mt-6">
+        <BookingActions nextDisabled={!serviceId || !mode} />
+      </div>
     </form>
   );
 }
