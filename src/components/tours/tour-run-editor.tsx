@@ -702,6 +702,12 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
             setAddStopOpen(false);
             await refresh();
           }}
+          onSelectClient={(animalId) => {
+            setAddStopOpen(false);
+            setClientAppointmentError(null);
+            setSelectedClientId(animalId);
+            setAppointmentModalOpen(true);
+          }}
           onClose={() => setAddStopOpen(false)}
         />
       ) : null}

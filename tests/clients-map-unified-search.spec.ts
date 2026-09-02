@@ -71,10 +71,11 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
+// Unification des tournées, phase 2 : l'onglet "Carte clients" de
+// /dashboard/tournees a été supprimé (doublon de cette route déjà présente
+// dans le menu latéral) — /dashboard/carte est directement la bonne page.
 async function openMap(page: Page) {
-  await page.goto("/dashboard/tournees");
-  await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Carte clients" }).click();
+  await page.goto("/dashboard/carte");
 }
 
 test.describe("Carte clients — recherche unifiée (Phase 1)", () => {

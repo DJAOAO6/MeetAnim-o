@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireUser } from "@/lib/auth/dal";
+import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getPublicZones, getTours } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
@@ -388,4 +388,52 @@ export async function findTourPatternForDateAction(dateId: string): Promise<Tour
     startLatitude: match.startLatitude,
     startLongitude: match.startLongitude,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 quater (unification des tournées) : recherche unifiée — troisième
+// source à côté de searchClientsAndAnimalsAction (clients/animaux) et
+// searchPlaces (lieux). Une zone n'a pas de coordonnées propres (Zone/City
+// n'en stockent pas) : un résultat zone ne permet donc jamais de recentrer
+// une carte, contrairement à un client ou un lieu — cohérent avec "coordonnées
+// éventuelles" dans le contrat unique demandé par le prompt.
+// ---------------------------------------------------------------------------
+
+export type ZoneSearchResult = {
+  id: string;
+  name: string;
+  // Ville qui a fait matcher la zone, si ce n'est pas son nom — pour un
+  // sous-libellé explicite ("Zone Rouen Nord · via Bois-Guillaume").
+  matchedCity: string | null;
+  cityCount: number;
+};
+
+export async function searchZonesAction(rawQuery: string): Promise<ZoneSearchResult[]> {
+  // getCurrentUser (jamais requireUser) : une recherche en direct ne doit
+  // jamais déclencher une redirection de session — même convention que
+  // searchClientsAndAnimalsAction (client-search.ts).
+  const user = await getCurrentUser();
+  if (!user) return [];
+
+  const query = rawQuery.trim();
+  if (query.length < 2) return [];
+
+  const zones = await prisma.zone.findMany({
+    where: {
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { cities: { some: { OR: [{ name: { contains: query, mode: "insensitive" } }, { postalCode: { contains: query } }] } } },
+      ],
+    },
+    include: { cities: true },
+    orderBy: { name: "asc" },
+    take: 5,
+  });
+
+  const normalizedQuery = query.toLocaleLowerCase("fr-FR");
+  return zones.map((zone): ZoneSearchResult => {
+    const nameMatches = zone.name.toLocaleLowerCase("fr-FR").includes(normalizedQuery);
+    const matchedCity = nameMatches ? null : zone.cities.find((city) => city.name.toLocaleLowerCase("fr-FR").includes(normalizedQuery) || city.postalCode.includes(query))?.name ?? null;
+    return { id: zone.id, name: zone.name, matchedCity, cityCount: zone.cities.length };
+  });
 }

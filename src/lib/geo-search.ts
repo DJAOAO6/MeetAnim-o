@@ -8,6 +8,11 @@ export type PlaceResult = {
   lat: number;
   lng: number;
   zoom: number;
+  // Phase 3 quater : premier code postal de la commune (une commune peut en
+  // avoir plusieurs — celui-ci suffit pour "ville d'une zone", qui n'en
+  // retient qu'un seul par ville, comme le reste de l'app). Absent pour un
+  // département/une région, qui n'ont pas de code postal.
+  postalCode?: string;
 };
 
 type GeoPoint = { type: "Point"; coordinates: [number, number] };
@@ -17,6 +22,7 @@ type CommuneApiResult = {
   code: string;
   centre?: GeoPoint;
   departement?: { code: string; nom: string };
+  codesPostaux?: string[];
 };
 
 type DepartementOrRegionApiResult = {
@@ -41,7 +47,7 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   const encoded = encodeURIComponent(trimmed);
 
   const [communes, departements, regions] = await Promise.all([
-    fetchJson<CommuneApiResult[]>(`https://geo.api.gouv.fr/communes?nom=${encoded}&fields=nom,code,centre,departement&boost=population&limit=5`),
+    fetchJson<CommuneApiResult[]>(`https://geo.api.gouv.fr/communes?nom=${encoded}&fields=nom,code,centre,departement,codesPostaux&boost=population&limit=5`),
     fetchJson<DepartementOrRegionApiResult[]>(`https://geo.api.gouv.fr/departements?nom=${encoded}&fields=nom,code,chefLieu&limit=3`),
     fetchJson<DepartementOrRegionApiResult[]>(`https://geo.api.gouv.fr/regions?nom=${encoded}&fields=nom,code,chefLieu&limit=3`),
   ]);
@@ -58,6 +64,7 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
       lat: commune.centre.coordinates[1],
       lng: commune.centre.coordinates[0],
       zoom: 12,
+      postalCode: commune.codesPostaux?.[0],
     }));
 
   const zones: Array<DepartementOrRegionApiResult & { type: Exclude<PlaceType, "commune"> }> = [

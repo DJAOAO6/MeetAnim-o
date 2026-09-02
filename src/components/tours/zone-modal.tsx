@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import type { City, Zone } from "@/data/tours";
 
 export type ZoneFormValue = {
@@ -34,6 +35,14 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
 
   function updateCity(id: string, key: "name" | "postalCode", value: string) {
     setCities((current) => current.map((city) => city.id === id ? { ...city, [key]: value } : city));
+  }
+
+  // Phase 3 quater (recherche unifiée) : sélectionner une commune renseigne
+  // la ville ET son code postal (déjà connu de l'API) — sans empêcher une
+  // correction manuelle ensuite si la commune a plusieurs codes postaux.
+  function handleCitySearchSelect(id: string, selection: UnifiedSearchSelection) {
+    if (selection.kind !== "place" || selection.place.type !== "commune") return;
+    setCities((current) => current.map((city) => city.id === id ? { ...city, name: selection.place.label, postalCode: selection.place.postalCode ?? city.postalCode } : city));
   }
 
   function addCity() {
@@ -79,10 +88,17 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
               <div className="space-y-2">
                 {cities.map((city, index) => (
                   <div key={city.id} className="grid grid-cols-[minmax(0,1fr)_120px_36px] gap-2 rounded-2xl bg-animeo-bg p-2">
-                    <label>
+                    <div>
                       <span className="sr-only">Ville {index + 1}</span>
-                      <input value={city.name} onChange={(event) => updateCity(city.id, "name", event.target.value)} placeholder="Ville" className={inputClassName} required />
-                    </label>
+                      <UnifiedSearch
+                        sources={["place"]}
+                        placeTypes={["commune"]}
+                        placeholder="Rechercher une ville"
+                        defaultValue={city.name}
+                        onSelect={(selection) => handleCitySearchSelect(city.id, selection)}
+                        onSubmitFreeText={(text) => updateCity(city.id, "name", text)}
+                      />
+                    </div>
                     <label>
                       <span className="sr-only">Code postal {index + 1}</span>
                       <input value={city.postalCode} onChange={(event) => updateCity(city.id, "postalCode", event.target.value)} placeholder="Code postal" inputMode="numeric" className={inputClassName} required />

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { formatEuros } from "@/lib/format";
 import type { AvailableAppointmentView } from "@/lib/tour-runs";
 import type { GeocodedAddress } from "@/data/geocoding";
@@ -22,12 +23,17 @@ type TourRunAddStopModalProps = {
   availableAppointments: AvailableAppointmentView[];
   onAddAppointments: (appointmentIds: string[]) => Promise<void>;
   onAddManual: (input: { type: string; label: string; address: string | null; latitude: number | null; longitude: number | null }) => Promise<void>;
+  // Phase 3 quater (recherche unifiée) : un animal choisi ici ouvre le
+  // formulaire de création de rendez-vous déjà existant (voir
+  // TourRunAddClientAppointmentModal, phase 3 bis) — jamais un chemin
+  // parallèle, cet écran ne fait que transmettre l'identifiant choisi.
+  onSelectClient: (animalId: string) => void;
   onClose: () => void;
 };
 
-export function TourRunAddStopModal({ availableAppointments, onAddAppointments, onAddManual, onClose }: TourRunAddStopModalProps) {
+export function TourRunAddStopModal({ availableAppointments, onAddAppointments, onAddManual, onSelectClient, onClose }: TourRunAddStopModalProps) {
   const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
-  const [tab, setTab] = useState<"appointments" | "manual">(availableAppointments.length > 0 ? "appointments" : "manual");
+  const [tab, setTab] = useState<"appointments" | "client" | "manual">(availableAppointments.length > 0 ? "appointments" : "client");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
@@ -75,10 +81,22 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
 
         <div className="flex gap-1 border-b border-[#e5eeeb] px-5 pt-3">
           <button type="button" onClick={() => setTab("appointments")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "appointments" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Rendez-vous du jour</button>
+          <button type="button" onClick={() => setTab("client")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "client" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Rechercher un client</button>
           <button type="button" onClick={() => setTab("manual")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "manual" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Adresse manuelle</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5">
+          {tab === "client" ? (
+            <div>
+              <p className="mb-3 text-sm text-animeo-muted">Choisissez un animal — un rendez-vous à domicile sera créé pour lui, à l’heure de votre choix.</p>
+              <UnifiedSearch
+                sources={["animal"]}
+                placeholder="Rechercher un animal ou son propriétaire"
+                onSelect={(selection: UnifiedSearchSelection) => { if (selection.kind === "animal") onSelectClient(selection.animal.id); }}
+                onSubmitFreeText={() => {}}
+              />
+            </div>
+          ) : null}
           {tab === "appointments" ? (
             availableAppointments.length === 0 ? (
               <p className="text-sm font-semibold text-animeo-muted">Tous les rendez-vous de ce jour sont déjà dans la tournée.</p>
@@ -97,7 +115,7 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
                 ))}
               </ul>
             )
-          ) : (
+          ) : tab === "manual" ? (
             <div className="space-y-4">
               <div>
                 <label htmlFor="manual-stop-type" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Type</label>
@@ -122,7 +140,7 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
                 </div>
               ) : null}
             </div>
-          )}
+          ) : null}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-[#e5eeeb] p-5">
@@ -131,11 +149,11 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
             <button type="button" onClick={submitAppointments} disabled={selected.size === 0 || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? "Ajout…" : `Ajouter (${selected.size})`}
             </button>
-          ) : (
+          ) : tab === "manual" ? (
             <button type="button" onClick={submitManual} disabled={!manualLabel.trim() || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? "Ajout…" : "Ajouter comme étape"}
             </button>
-          )}
+          ) : null}
         </div>
       </section>
     </div>

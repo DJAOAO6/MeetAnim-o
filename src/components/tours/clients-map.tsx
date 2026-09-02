@@ -177,6 +177,9 @@ export function ClientsMap({ clients }: ClientsMapProps) {
       setPerimeterRadiusExternally(DEFAULT_PERIMETER_RADIUS_KM);
       return;
     }
+    // "zone"/"address" jamais sélectionnables ici : cette carte n'active
+    // que client/animal/place (voir sources={...} sur <UnifiedSearch>).
+    if (selection.kind !== "client" && selection.kind !== "animal") return;
     const target = selection.kind === "client"
       ? clients.find((client) => client.clientId === selection.client.id)
       : clients.find((client) => client.id === selection.animal.id);
@@ -199,7 +202,7 @@ export function ClientsMap({ clients }: ClientsMapProps) {
     <div className="space-y-6">
       <Card className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="min-w-0 sm:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} /></div>
+          <div className="min-w-0 sm:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} sources={["client", "animal", "place"]} /></div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div ref={speciesPanelRef} className="relative">
