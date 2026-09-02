@@ -136,7 +136,13 @@ test.describe("Éditeur de tournées interactif", () => {
     await expect(page.getByText("Pause déjeuner")).toBeVisible();
   });
 
-  test("affiche les clients à proximité sur la carte et permet d'en ajouter un comme arrêt", async ({ page }) => {
+  // Le clic sur "Ajouter à la tournée" depuis la fiche d'un client de la
+  // carte ouvre désormais un formulaire (crée un vrai rendez-vous à
+  // domicile, phase 3 bis suite) — couvert par
+  // tests/tour-run-add-client-appointment.spec.ts. Ce test-ci reste centré
+  // sur son objet d'origine : le calque clients du secteur (masqué par
+  // défaut, activable, sélection ouvrant la bonne fiche).
+  test("affiche les clients à proximité sur la carte", async ({ page }) => {
     await seedNearbyClient();
     await login(page);
 
@@ -153,9 +159,7 @@ test.describe("Éditeur de tournées interactif", () => {
     await expect(clientMarker).toBeVisible({ timeout: 10000 });
 
     await clientMarker.click();
-    await expect(page.getByText(`${nearbyAnimalName} — Prénom ${nearbyClientLastName}`)).toBeVisible({ timeout: 5000 });
-    await page.getByRole("button", { name: "Ajouter à la tournée", exact: true }).click();
-
-    await expect(page.getByText(new RegExp(nearbyAnimalName))).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`${nearbyAnimalName} — Prénom ${nearbyClientLastName}`, { exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: "Ajouter à la tournée", exact: true })).toBeVisible();
   });
 });

@@ -7,6 +7,7 @@ import { TourDayList } from "@/components/tours/tour-day-list";
 import { NewTourDayModal } from "@/components/tours/new-tour-day-modal";
 import type { Coordinates, MapClient } from "@/data/tours";
 import type { TourDayListData, TourRunEditorData } from "@/lib/tour-runs";
+import type { ServiceSettings } from "@/data/settings";
 
 type ToursViewProps = {
   listData: TourDayListData;
@@ -14,6 +15,7 @@ type ToursViewProps = {
   editorData: TourRunEditorData;
   cabinetCoordinates: Coordinates | null;
   mapClients: MapClient[];
+  homeServices: ServiceSettings[];
   // Vrai quand l'URL d'entrée portait déjà ?date=... (navigation directe vers
   // une journée, ou rechargement de page pendant qu'elle est ouverte) —
   // permet de rouvrir la journée directement plutôt que de retomber sur la
@@ -28,7 +30,7 @@ type ToursViewProps = {
  * TourRunEditor tel quel (sa fusion avec le détail/l'exécution est la
  * phase 3, pas celle-ci).
  */
-export function ToursView({ listData, editorDateId, editorData, cabinetCoordinates, mapClients, explicitDate }: ToursViewProps) {
+export function ToursView({ listData, editorDateId, editorData, cabinetCoordinates, mapClients, homeServices, explicitDate }: ToursViewProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [editorOpen, setEditorOpen] = useState(explicitDate);
@@ -55,6 +57,7 @@ export function ToursView({ listData, editorDateId, editorData, cabinetCoordinat
           availableAppointments={editorData.availableAppointments}
           cabinet={editorData.cabinet}
           mapClients={mapClients}
+          homeServices={homeServices}
           onClose={closeEditor}
         />
       ) : (

@@ -97,6 +97,10 @@ export type MapClient = {
   species: AnimalSpecies;
   breed: string;
   city: string;
+  // Phase 3 bis (suite) : adresse postale du client — pas seulement la
+  // ville — nécessaire pour préremplir "location" d'un rendez-vous créé
+  // depuis la carte (voir TourRunAddClientAppointmentModal).
+  address: string;
   lastConsultation: string;
   nextReminder: string;
   dueForReminder: boolean;

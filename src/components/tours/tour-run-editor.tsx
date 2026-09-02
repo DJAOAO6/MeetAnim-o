@@ -8,16 +8,18 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { notify } from "@/lib/notify";
-import { completeAppointmentAction } from "@/lib/appointments-actions";
+import { completeAppointmentAction, saveAppointmentAction } from "@/lib/appointments-actions";
 import { findMatchingZone } from "@/lib/booking-validation";
 import { geocodeClientAddressAction } from "@/lib/clients-actions";
 import { formatEuros, formatFrenchDate } from "@/lib/format";
 import { haversineDistanceKm } from "@/lib/geo";
 import { formatDistanceMeters, formatDurationSeconds } from "@/lib/maps/map-utils";
 import { buildTourMapsLinks } from "@/lib/tour-maps";
+import { AVERAGE_SPEED_KMH, ROAD_DETOUR_FACTOR } from "@/lib/tour-estimate";
 import { TourRunTimeline } from "@/components/tours/tour-run-timeline";
 import { TourRunEndpointPicker, type EndpointValue } from "@/components/tours/tour-run-endpoint-picker";
 import { TourRunAddStopModal } from "@/components/tours/tour-run-add-stop-modal";
+import { TourRunAddClientAppointmentModal, type ClientAppointmentInput } from "@/components/tours/tour-run-add-client-appointment-modal";
 import { TourRunOptimizeModal } from "@/components/tours/tour-run-optimize-modal";
 import {
   addAppointmentStopsAction,
@@ -39,6 +41,7 @@ import {
 import type { AvailableAppointmentView, SavedPlaceView, TourPreferencesView, TourRunView } from "@/lib/tour-runs";
 import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
 import type { MapClient } from "@/data/tours";
+import type { ServiceSettings } from "@/data/settings";
 
 // MapLibre s'appuie sur canvas/WebGL — jamais rendu côté serveur (même
 // convention que RealMap/Leaflet pour la carte clients).
@@ -52,6 +55,7 @@ type TourRunEditorProps = {
   availableAppointments: AvailableAppointmentView[];
   cabinet: { address: string | null; latitude: number | null; longitude: number | null };
   mapClients: MapClient[];
+  homeServices: ServiceSettings[];
   onClose: () => void;
 };
 
@@ -63,7 +67,7 @@ function defaultEndpoint(type: string, savedPlaceId: string | null): EndpointVal
   return { type: type as EndpointValue["type"], savedPlaceId, address: null, latitude: null, longitude: null, label: null };
 }
 
-export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, availableAppointments, cabinet, mapClients, onClose }: TourRunEditorProps) {
+export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, availableAppointments, cabinet, mapClients, homeServices, onClose }: TourRunEditorProps) {
   const router = useRouter();
   // Avant tout retour anticipé (branche "pas encore de tournée" ci-dessous) :
   // les Hooks doivent s'exécuter dans le même ordre à chaque rendu.
@@ -74,6 +78,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const [showNearbyClients, setShowNearbyClients] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [addingClientStop, setAddingClientStop] = useState(false);
+  const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
   // Phase 3 bis : survol d'un arrêt (timeline → marqueur), rayon du secteur
   // affiché autour de la tournée (calque clients), client en cours de
   // géocodage ("localiser cette adresse" pour un client sans position).
@@ -189,23 +194,70 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
 
   const selectedClient = selectedClientId ? mapClients.find((client) => client.id === selectedClientId) ?? null : null;
 
-  async function handleAddClientAsStop() {
-    if (!tourRun || !selectedClient || !selectedClient.coordinates) return;
+  // Première heure libre estimée après le dernier arrêt (ou le départ, si
+  // la journée est encore vide) — simple proposition affichée dans le
+  // formulaire, jamais imposée : la vraie validation reste entièrement
+  // celle de saveAppointmentAction (conflit, tampon de trajet), pas
+  // recalculée ici. Même formule à vol d'oiseau que checkGeographicWarningAction
+  // (tour-estimate.ts), pas une nouvelle logique.
+  function suggestedStartFor(clientCoordinates: { lat: number; lng: number } | null): string | null {
+    if (!tourRun) return null;
+    const lastStop = tourRun.stops[tourRun.stops.length - 1];
+    const baseTime = lastStop?.departureTime ?? tourRun.departureTime;
+    if (!baseTime) return null;
+    const [hours, minutes] = baseTime.split(":").map(Number);
+    let totalMinutes = hours * 60 + minutes;
+    const fromCoordinates = lastStop?.latitude != null && lastStop?.longitude != null
+      ? { lat: lastStop.latitude, lng: lastStop.longitude }
+      : tourRun.resolvedStart.coordinates;
+    if (fromCoordinates && clientCoordinates) {
+      totalMinutes += Math.round((haversineDistanceKm(fromCoordinates, clientCoordinates) * ROAD_DETOUR_FACTOR / AVERAGE_SPEED_KMH) * 60);
+    }
+    totalMinutes += tourRun.safetyBufferMinutes;
+    const wrapped = ((totalMinutes % 1440) + 1440) % 1440;
+    return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+  }
+
+  const [clientAppointmentError, setClientAppointmentError] = useState<string | null>(null);
+
+  // Crée un vrai rendez-vous à domicile (saveAppointmentAction — mêmes
+  // contrôles de conflit et de tampon de trajet que partout ailleurs dans
+  // l'app), puis l'attache à la journée comme un arrêt normal
+  // (addAppointmentStopsAction, déjà utilisée par "+ Ajouter un arrêt") —
+  // jamais un TourStop manuel sans rendez-vous derrière.
+  async function handleCreateClientAppointment(input: ClientAppointmentInput) {
+    if (!tourRun || !selectedClient) return;
     setAddingClientStop(true);
-    const result = await addManualStopAction({
-      tourRunId: tourRun.id,
-      type: "OTHER",
-      label: `${selectedClient.animalName} — ${selectedClient.ownerName}`,
-      address: selectedClient.city,
-      latitude: selectedClient.coordinates.lat,
-      longitude: selectedClient.coordinates.lng,
+    setClientAppointmentError(null);
+    const result = await saveAppointmentAction({
+      date: dateId,
+      start: input.start,
+      duration: input.duration,
+      clientId: selectedClient.clientId,
+      clientName: selectedClient.ownerName,
+      animalId: selectedClient.id,
+      animalName: selectedClient.animalName,
+      animalSpecies: selectedClient.species,
+      serviceName: input.serviceName,
+      mode: "home",
+      location: selectedClient.address,
+      city: selectedClient.city,
+      latitude: selectedClient.coordinates?.lat,
+      longitude: selectedClient.coordinates?.lng,
+      price: input.price,
+      status: "confirmed",
+      notes: input.notes,
     });
-    setAddingClientStop(false);
     if (!result.ok) {
-      notify.error(result.error);
+      setAddingClientStop(false);
+      setClientAppointmentError(result.error);
       return;
     }
-    notify.success("Arrêt ajouté à la tournée.");
+    const stopResult = await addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [result.appointment.id] });
+    setAddingClientStop(false);
+    if (!stopResult.ok) notify.error(stopResult.error);
+    notify.success("Rendez-vous créé et ajouté à la tournée.");
+    setAppointmentModalOpen(false);
     setSelectedClientId(null);
     router.refresh();
   }
@@ -270,8 +322,13 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const pendingAppointmentStops = appointmentStops.filter((stop) => !stop.completedAt);
   // "En cours" dépend de l'heure murale du navigateur — jamais calculé au
   // premier rendu serveur (toujours "à venir" tant que hasMounted est faux),
-  // pour ne jamais désaccorder le rendu serveur du premier rendu client.
-  const nowHHMM = hasMounted ? new Date().toTimeString().slice(0, 5) : null;
+  // pour ne jamais désaccorder le rendu serveur du premier rendu client. Et
+  // seulement pour la journée d'aujourd'hui : comparer une heure à
+  // l'horloge murale n'a aucun sens pour une journée passée ou future (un
+  // arrêt à 10h d'une tournée du mois prochain ne peut pas être "en cours"
+  // simplement parce qu'il est 10h30 aujourd'hui).
+  const isToday = dateId === new Date().toISOString().slice(0, 10);
+  const nowHHMM = hasMounted && isToday ? new Date().toTimeString().slice(0, 5) : null;
   const currentStop = nowHHMM ? pendingAppointmentStops.find((stop) => stop.arrivalTime != null && stop.arrivalTime <= nowHHMM) ?? null : null;
   const progressStatus: "empty" | "completed" | "inProgress" | "upcoming" =
     appointmentStops.length === 0 ? "empty" :
@@ -454,8 +511,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
                   {selectedClient.dueForReminder ? " · À relancer" : ""}
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <button type="button" onClick={handleAddClientAsStop} disabled={addingClientStop} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90] disabled:opacity-60">
-                    {addingClientStop ? "Ajout…" : "Ajouter à la tournée"}
+                  <button type="button" onClick={() => { setClientAppointmentError(null); setAppointmentModalOpen(true); }} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]">
+                    Ajouter à la tournée
                   </button>
                   <button type="button" onClick={() => setSelectedClientId(null)} className="rounded-lg bg-animeo-bg px-3 py-1.5 text-xs font-extrabold text-animeo-muted">✕</button>
                 </div>
@@ -501,6 +558,18 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
             await refresh();
           }}
           onClose={() => setAddStopOpen(false)}
+        />
+      ) : null}
+
+      {appointmentModalOpen && selectedClient ? (
+        <TourRunAddClientAppointmentModal
+          client={selectedClient}
+          services={homeServices}
+          suggestedStart={suggestedStartFor(selectedClient.coordinates)}
+          submitting={addingClientStop}
+          error={clientAppointmentError}
+          onSubmit={handleCreateClientAppointment}
+          onClose={() => setAppointmentModalOpen(false)}
         />
       ) : null}
 

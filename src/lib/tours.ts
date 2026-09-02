@@ -246,6 +246,7 @@ export async function getMapClients(): Promise<MapClient[]> {
       species: animal.species as AnimalSpecies,
       breed: animal.breed,
       city: animal.client.city,
+      address: animal.client.address,
       lastConsultation: lastConsultation ? formatFrenchDate(lastConsultation) : "Aucune consultation",
       nextReminder: animal.reminderDate ? formatFrenchDate(animal.reminderDate) : "-",
       dueForReminder: reminder?.status === "DUE",

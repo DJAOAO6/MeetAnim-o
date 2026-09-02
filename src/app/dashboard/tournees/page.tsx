@@ -3,6 +3,7 @@ import { ToursView } from "@/components/tours/tours-view";
 import { getMapClients } from "@/lib/tours";
 import { getTourRunEditorData, getTourRunsListData, todayDateId } from "@/lib/tour-runs";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
+import { getServices } from "@/lib/services-actions";
 import { requireUser } from "@/lib/auth/dal";
 
 export const metadata: Metadata = { title: "Tournées" };
@@ -19,11 +20,16 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
   // générée pour `dateId` doit apparaître dans ce même rendu.
   await generateUpcomingTourRuns();
 
-  const [editorData, listData, mapClients] = await Promise.all([
+  const [editorData, listData, mapClients, services] = await Promise.all([
     getTourRunEditorData(user.id, dateId),
     getTourRunsListData(user.id, todayDateId()),
     getMapClients(),
+    getServices(),
   ]);
+  // Phase 3 bis (suite) : "ajouter à cette journée" depuis un client de la
+  // carte crée un vrai rendez-vous à domicile — seules les prestations
+  // actives et proposées à domicile ont un sens dans ce formulaire.
+  const homeServices = services.filter((service) => service.active && service.homeEnabled);
 
   const cabinetCoordinates =
     editorData.cabinet.latitude != null && editorData.cabinet.longitude != null
@@ -37,6 +43,7 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
       editorData={editorData}
       cabinetCoordinates={cabinetCoordinates}
       mapClients={mapClients}
+      homeServices={homeServices}
       explicitDate={Boolean(date)}
     />
   );
