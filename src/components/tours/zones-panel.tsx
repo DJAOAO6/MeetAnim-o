@@ -99,7 +99,7 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
 
           <div className="mt-5 rounded-xl border border-[#f1d89f] bg-[#fff9ec] p-3 text-xs leading-relaxed text-[#8c6118]">
             <Icon name="shield" className="mb-1 h-4 w-4" />
-            {" "}Renommer une zone n’actualise pas les frais de déplacement déjà configurés pour ce nom dans Prestations — pensez à les vérifier après un renommage.
+            {" "}Renommer une zone ou changer ses villes n’actualise pas les frais de déplacement déjà configurés pour ce nom dans Prestations — ces frais s’appliquent directement sur la page de réservation publique : pensez à les vérifier après toute modification, pour ne jamais afficher un tarif erroné à vos clients.
           </div>
         </div>
       </section>

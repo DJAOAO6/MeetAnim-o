@@ -76,3 +76,14 @@ export function nextOccurrenceDateId(tour: Pick<Tour, "day" | "dateId" | "recurr
   }
   return null;
 }
+
+// Formulation "chaque jeudi"/"un jeudi sur deux"/"chaque mois" d'un motif
+// récurrent — vit ici (module pur, sans "server-only") plutôt que dans
+// tour-runs.ts pour rester importable depuis un composant client
+// (tours-settings-tab.tsx, phase 4 de l'unification des tournées) sans
+// entraîner tout le graphe serveur de tour-runs.ts dans le bundle client.
+export const recurrenceMentions: Record<string, (day: string) => string> = {
+  "Toutes les semaines": (day) => `chaque ${day.toLocaleLowerCase("fr-FR")}`,
+  "Toutes les deux semaines": (day) => `un ${day.toLocaleLowerCase("fr-FR")} sur deux`,
+  "Tous les mois": () => "chaque mois",
+};

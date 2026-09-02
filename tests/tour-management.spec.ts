@@ -69,12 +69,10 @@ test.describe("Gestion des tournées — édition depuis Paramètres", () => {
   });
 
   // Créer une zone puis une tournée multi-zone (avec création de zone en
-  // ligne) : n'a plus de chemin d'UI nulle part dans l'application — le
-  // panneau Zones et TourModal (multi-zone) ont été retirés de
-  // /dashboard/tournees en phase 2 et ne sont pas encore relogés dans
-  // Paramètres (phase 4 de PROMPT-TOURNEES-UNIFICATION.md). À restaurer à
-  // ce moment-là plutôt que de rewriter contre un écran provisoire.
-  test.skip("créer une zone puis une tournée récurrente sur deux zones (dont une créée en ligne) les persiste réellement en base", async () => {});
+  // ligne) : le panneau Zones et TourModal ont retrouvé un point de montage
+  // dans Paramètres (phase 4, unification des tournées) — ce scénario est
+  // désormais couvert par tests/tours-master-detail.spec.ts, réactivé et
+  // adapté à ce même écran plutôt que dupliqué ici.
 
   test.beforeEach(async ({ page }) => {
     const sql = neon(process.env.DATABASE_URL!);

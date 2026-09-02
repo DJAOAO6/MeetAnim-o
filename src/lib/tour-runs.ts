@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { haversineDistanceKm } from "@/lib/geo";
 import { findMatchingZone, toLocalDateId } from "@/lib/booking-validation";
-import { nextOccurrenceDateId } from "@/lib/tour-schedule";
+import { nextOccurrenceDateId, recurrenceMentions } from "@/lib/tour-schedule";
 import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-fill";
 import type { Tour } from "@/data/tours";
 import type {
@@ -513,11 +513,6 @@ export type TourDayListData = {
   past: TourDayListItem[];
 };
 
-const recurrenceMentions: Record<string, (day: string) => string> = {
-  "Toutes les semaines": (day) => `chaque ${day.toLocaleLowerCase("fr-FR")}`,
-  "Toutes les deux semaines": (day) => `un ${day.toLocaleLowerCase("fr-FR")} sur deux`,
-  "Tous les mois": () => "chaque mois",
-};
 
 /**
  * Journées datées d'un utilisateur sur une fenêtre glissante (passé proche →
@@ -578,4 +573,25 @@ export async function getTourRunsListData(userId: string, todayId: string): Prom
   past.reverse();
 
   return { upcoming, past };
+}
+
+/**
+ * Phase 4 (unification des tournées) : nombre de journées déjà générées à
+ * venir pour chaque motif récurrent — affiché dans Paramètres ("3
+ * journées déjà générées") pour que la récurrence ne semble jamais un
+ * réglage abstrait sans effet visible. Ne recalcule rien : compte les
+ * TourRun déjà posées par generateUpcomingTourRuns.
+ */
+export async function getUpcomingGeneratedCounts(userId: string): Promise<Record<string, number>> {
+  const today = new Date(`${todayDateId()}T00:00:00.000Z`);
+  const rows = await prisma.tourRun.groupBy({
+    by: ["templateId"],
+    where: { userId, templateId: { not: null }, date: { gte: today } },
+    _count: { _all: true },
+  });
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    if (row.templateId) counts[row.templateId] = row._count._all;
+  }
+  return counts;
 }

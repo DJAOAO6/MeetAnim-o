@@ -5,23 +5,19 @@ import { neon } from "@neondatabase/serverless";
 config({ path: ".env.local" });
 
 /**
- * Refonte tournées — étape 2 : structure maître-détail + panneau zones.
- *
- * Suspendu (unification des tournées, phase 2, PROMPT-TOURNEES-UNIFICATION.md) :
- * /dashboard/tournees est désormais une liste de journées datées — le
- * panneau Zones et TourModal (création multi-zone, "Modifier" en dialog)
- * n'y sont plus accessibles et n'ont pas encore d'équivalent ailleurs dans
- * l'application (leur reloge dans Paramètres est la phase 4 de ce
- * chantier). Gardé tel quel comme référence du comportement attendu plutôt
- * que réécrit à l'aveugle contre un écran qui n'existe pas encore — à
- * réactiver/adapter une fois la phase 4 posée.
+ * Zones et tournées récurrentes — Paramètres (unification des tournées,
+ * phase 4). Le panneau Zones et TourModal (multi-zone, "Modifier" en
+ * dialog) vivent désormais dans Paramètres > Tournées, avec un seul
+ * formulaire fusionné (mini-formulaire + TourModal, voir
+ * tours-settings-tab.tsx) — plus de maître-détail séparé : la tournée
+ * modifiée/créée réapparaît directement dans la liste plate de cet onglet.
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
 const testPassword = "Praticien-Test-2026!";
-const tourName = "Tournée E2E Maître-Détail";
-const zoneAName = "Zone E2E MD A";
-const zoneBName = "Zone E2E MD B";
+const tourName = "Tournée E2E Paramètres";
+const zoneAName = "Zone E2E Param A";
+const zoneBName = "Zone E2E Param B";
 
 async function grantPermission() {
   const sql = neon(process.env.DATABASE_URL!);
@@ -42,7 +38,12 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
-test.describe.skip("Tournées — maître-détail et panneau zones", () => {
+async function openToursSettings(page: Page) {
+  await page.goto("/dashboard/parametres");
+  await page.getByRole("button", { name: "Tournées", exact: true }).click();
+}
+
+test.describe("Paramètres — zones et tournées récurrentes", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeAll(grantPermission);
@@ -50,22 +51,25 @@ test.describe.skip("Tournées — maître-détail et panneau zones", () => {
     const sql = neon(process.env.DATABASE_URL!);
     await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
     await login(page);
-    await page.goto("/dashboard/tournees");
-    await page.waitForTimeout(600);
+    await openToursSettings(page);
   });
   test.afterAll(cleanup);
 
-  test("sélectionner une tournée affiche son détail (arrêts/zones/départ) et 'Modifier' ouvre le formulaire pré-rempli", async ({ page }) => {
+  test("créer une zone (recherche de ville) puis une tournée, et la modifier réouvre le formulaire pré-rempli", async ({ page }) => {
     await page.getByRole("button", { name: /^Zones/ }).click();
     const zonesPanel = page.locator('[role="dialog"][aria-labelledby="zones-panel-title"]');
     await expect(zonesPanel).toBeVisible({ timeout: 10000 });
     await zonesPanel.getByRole("button", { name: "+ Nouvelle zone" }).click();
+
     let dialog = page.locator('[role="dialog"]').filter({ hasText: "Créer une zone" });
     await dialog.getByPlaceholder("Ex. Zone Le Havre").fill(zoneAName);
-    await dialog.getByPlaceholder("Ville").fill("Rouen");
-    await dialog.getByPlaceholder("Code postal").fill("76000");
+    // Recherche unifiée (phase 3 quater) : plus de champs "Ville"/"Code
+    // postal" en texte libre — une commune choisie renseigne les deux.
+    await dialog.getByPlaceholder("Rechercher une ville").fill("Rouen");
+    await dialog.getByRole("option", { name: /Rouen/ }).first().click();
     await dialog.getByRole("button", { name: "Créer la zone" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
+    await expect(zonesPanel.getByText(zoneAName)).toBeVisible({ timeout: 10000 });
     await zonesPanel.getByRole("button", { name: "Fermer" }).click();
     await expect(zonesPanel).toHaveCount(0, { timeout: 10000 });
 
@@ -76,17 +80,14 @@ test.describe.skip("Tournées — maître-détail et panneau zones", () => {
     await dialog.getByRole("button", { name: "Créer la tournée" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
-    // Apparaît dans la liste de gauche et se sélectionne.
-    const listEntry = page.getByRole("button", { name: new RegExp(tourName) });
-    await expect(listEntry).toBeVisible({ timeout: 10000 });
-    await listEntry.click();
+    // Réapparaît directement dans la liste plate (plus de maître-détail) :
+    // nom, secteur et rythme sur la même carte.
+    const card = page.locator("div.p-5").filter({ hasText: tourName }).last();
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await expect(card.getByText(new RegExp(zoneAName))).toBeVisible();
 
-    await expect(page.getByRole("heading", { name: tourName })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(zoneAName, { exact: true })).toBeVisible();
-    await expect(page.getByText(/Prochaine occurrence/)).toBeVisible();
-
-    // Modifier réouvre le formulaire avec le nom déjà rempli.
-    await page.getByRole("button", { name: "Modifier", exact: true }).click();
+    // "Modifier" réouvre le formulaire fusionné (TourModal) avec le nom déjà rempli.
+    await card.getByRole("button", { name: "Modifier", exact: true }).click();
     dialog = page.locator('[role="dialog"]').first();
     await expect(dialog.locator('input[value="' + tourName + '"]')).toBeVisible({ timeout: 10000 });
     await dialog.getByRole("button", { name: "Annuler" }).click();
@@ -106,8 +107,8 @@ test.describe.skip("Tournées — maître-détail et panneau zones", () => {
     await panel.getByRole("button", { name: "+ Nouvelle zone" }).click();
     const zoneDialog = page.locator('[role="dialog"]').filter({ hasText: "Créer une zone" });
     await zoneDialog.getByPlaceholder("Ex. Zone Le Havre").fill(zoneBName);
-    await zoneDialog.getByPlaceholder("Ville").fill("Dieppe");
-    await zoneDialog.getByPlaceholder("Code postal").fill("76200");
+    await zoneDialog.getByPlaceholder("Rechercher une ville").fill("Dieppe");
+    await zoneDialog.getByRole("option", { name: /Dieppe/ }).first().click();
     await zoneDialog.getByRole("button", { name: "Créer la zone" }).click();
     await expect(zoneDialog).toHaveCount(0, { timeout: 10000 });
 
@@ -119,8 +120,10 @@ test.describe.skip("Tournées — maître-détail et panneau zones", () => {
     await page.locator("select").last().selectOption({ label: zoneBName });
     await page.getByRole("button", { name: "Réassigner et supprimer" }).click();
     await expect(page.getByText("Réassigner puis supprimer")).toHaveCount(0, { timeout: 10000 });
+    await panel.getByRole("button", { name: "Fermer" }).click();
 
     // La tournée est désormais rattachée à la nouvelle zone, l'ancienne a disparu.
-    await expect(page.getByRole("button", { name: new RegExp(tourName) })).toBeVisible({ timeout: 10000 });
+    const card = page.locator("div.p-5").filter({ hasText: tourName }).last();
+    await expect(card.getByText(new RegExp(zoneBName))).toBeVisible({ timeout: 10000 });
   });
 });
