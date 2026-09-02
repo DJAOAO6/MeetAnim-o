@@ -9,10 +9,10 @@ import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
-import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
 import { computeAgeLabel } from "@/lib/animal-age";
+import { toAppointment } from "@/lib/appointments";
 import { getPublicZones } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
@@ -59,34 +59,6 @@ function toDate(dateId: string): Date {
   return new Date(`${dateId}T00:00:00.000Z`);
 }
 
-function toAppointment(row: {
-  id: string; date: Date; start: string; duration: number; clientId: string | null; clientName: string;
-  animalId: string | null; animalName: string; animalSpecies: string | null; animal: { species: string } | null;
-  serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
-  postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null;
-}): Appointment {
-  return {
-    id: row.id,
-    date: row.date.toISOString().slice(0, 10),
-    start: row.start,
-    duration: row.duration,
-    clientId: row.clientId ?? undefined,
-    clientName: row.clientName,
-    animalId: row.animalId ?? undefined,
-    animalName: row.animalName,
-    animalSpecies: (row.animal?.species ?? row.animalSpecies ?? undefined) as AnimalSpecies | undefined,
-    serviceName: row.serviceName,
-    mode: modeLabel[row.mode],
-    location: row.location,
-    price: row.price,
-    status: statusLabel[row.status],
-    notes: row.notes,
-    postalCode: row.postalCode ?? undefined,
-    city: row.city ?? undefined,
-    latitude: row.latitude ?? undefined,
-    longitude: row.longitude ?? undefined,
-  };
-}
 
 /**
  * Choisit le bon email de suivi (ou aucun) à partir de la transition de

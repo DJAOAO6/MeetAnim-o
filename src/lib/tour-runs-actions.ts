@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { resolveTourEndpoints, getOrCreateTourPreferences, listSavedPlaces } from "@/lib/tour-runs";
+import { saveAppointmentAction } from "@/lib/appointments-actions";
+import { toAppointment } from "@/lib/appointments";
 import { computeRoute, computeMatrix } from "@/lib/maps/routing-provider";
 import { optimizeStopOrder } from "@/lib/maps/optimization-provider";
 import { reverseGeocode } from "@/lib/maps/geocoding-provider";
@@ -487,7 +489,10 @@ export async function updateStopAction(input: z.infer<typeof updateStopSchema>):
       ...(isManual && data.address !== undefined ? { address: data.address } : {}),
       ...(isManual && data.latitude !== undefined ? { latitude: data.latitude } : {}),
       ...(isManual && data.longitude !== undefined ? { longitude: data.longitude } : {}),
-      ...(data.serviceDurationMinutes !== undefined ? { serviceDurationMinutes: data.serviceDurationMinutes } : {}),
+      // Phase 3 ter : la durée d'un arrêt lié à un rendez-vous vient du
+      // rendez-vous lui-même — voir updateStopScheduleAction, seul chemin
+      // pour la modifier dans ce cas (l'agenda reste la source de vérité).
+      ...(isManual && data.serviceDurationMinutes !== undefined ? { serviceDurationMinutes: data.serviceDurationMinutes } : {}),
       ...(data.flexible !== undefined ? { flexible: data.flexible, locked: data.flexible ? false : stop.locked } : {}),
       ...(data.locked !== undefined ? { locked: data.locked } : {}),
       ...(data.timeWindowStart !== undefined ? { timeWindowStart: data.timeWindowStart } : {}),
@@ -495,6 +500,86 @@ export async function updateStopAction(input: z.infer<typeof updateStopSchema>):
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
     },
   });
+
+  const result = await recomputeAndPersistRoute(data.tourRunId);
+  revalidatePath(TOURS_PATH);
+  return result.degraded ? { ok: false, error: ROUTE_UNAVAILABLE_ERROR } : { ok: true };
+}
+
+const updateStopScheduleSchema = z
+  .object({
+    tourRunId: z.string().cuid(),
+    stopId: z.string().cuid(),
+    start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    durationMinutes: z.number().int().min(5).max(480).optional(),
+  })
+  .refine((value) => value.start !== undefined || value.durationMinutes !== undefined, { message: "empty" });
+
+/**
+ * Phase 3 ter : seul chemin pour changer l'heure ou la durée d'un arrêt.
+ * L'agenda reste la source de vérité — un arrêt lié à un rendez-vous
+ * repasse par saveAppointmentAction (mêmes contrôles de conflit et de
+ * tampon de trajet que partout ailleurs) ; un arrêt manuel (sans
+ * rendez-vous) écrit directement sur TourStop. Poser une heure explicite
+ * verrouille l'arrêt (locked: true) — sinon le chaînage des horaires
+ * (chainStopTimings) l'ignorerait au recalcul suivant, ce qui rendrait le
+ * champ silencieusement sans effet.
+ */
+export async function updateStopScheduleAction(input: z.infer<typeof updateStopScheduleSchema>): Promise<ActionResult> {
+  const user = await requireUser();
+  const parsed = updateStopScheduleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+  const data = parsed.data;
+
+  try {
+    await requireOwnedTourRun(data.tourRunId, user.id);
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const stop = await prisma.tourStop.findFirst({
+    where: { id: data.stopId, tourRunId: data.tourRunId },
+    include: { appointment: true },
+  });
+  if (!stop) return { ok: false, error: GENERIC_ERROR };
+
+  if (stop.appointmentId && stop.appointment) {
+    const current = toAppointment({ ...stop.appointment, animal: null });
+    const result = await saveAppointmentAction({
+      id: current.id,
+      date: current.date,
+      start: data.start ?? current.start,
+      duration: data.durationMinutes ?? current.duration,
+      clientId: current.clientId ?? null,
+      clientName: current.clientName,
+      animalId: current.animalId ?? null,
+      animalName: current.animalName,
+      animalSpecies: current.animalSpecies ?? null,
+      serviceName: current.serviceName,
+      mode: current.mode,
+      location: current.location,
+      price: current.price,
+      status: current.status,
+      notes: current.notes,
+      postalCode: current.postalCode,
+      city: current.city,
+      latitude: current.latitude,
+      longitude: current.longitude,
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+  } else {
+    await prisma.tourStop.update({
+      where: { id: data.stopId },
+      data: {
+        ...(data.start !== undefined ? { arrivalTime: data.start } : {}),
+        ...(data.durationMinutes !== undefined ? { serviceDurationMinutes: data.durationMinutes } : {}),
+      },
+    });
+  }
+
+  if (data.start !== undefined) {
+    await prisma.tourStop.update({ where: { id: data.stopId }, data: { locked: true, flexible: false } });
+  }
 
   const result = await recomputeAndPersistRoute(data.tourRunId);
   revalidatePath(TOURS_PATH);

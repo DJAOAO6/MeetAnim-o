@@ -48,6 +48,11 @@ type TourRunTimelineProps = {
   // avant de les transmettre à TourRunMap) — état purement transitoire,
   // jamais confondu avec la vraie sélection.
   onHoverStop?: (stopId: string | null) => void;
+  // Phase 3 ter : heure/durée d'un arrêt lié à un rendez-vous repassent par
+  // updateStopScheduleAction côté serveur (agenda source de vérité) ; le
+  // créneau imposé (optimisation seulement) reste un simple champ TourStop.
+  onEditSchedule: (stopId: string, patch: { start?: string; durationMinutes?: number }) => void;
+  onEditTimeWindow: (stopId: string, patch: { timeWindowStart: string | null; timeWindowEnd: string | null }) => void;
 };
 
 /**
@@ -56,7 +61,7 @@ type TourRunTimelineProps = {
  * tous les autres, conformément à l'exemple du prompt. Même choix Pointer
  * Events que l'existant (souris/tactile/stylet unifiés, sans dépendance).
  */
-export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove, onRemove, onToggleFlexible, onFindSolution, onComplete, completingId, onHoverStop }: TourRunTimelineProps) {
+export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove, onRemove, onToggleFlexible, onFindSolution, onComplete, completingId, onHoverStop, onEditSchedule, onEditTimeWindow }: TourRunTimelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const rowElements = useRef(new Map<string, HTMLElement>());
@@ -222,9 +227,96 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
               ) : null}
             </div>
           ) : null}
+
+          {stop.id === selectedId ? (
+            <StopDetailPanel stop={stop} onEditSchedule={onEditSchedule} onEditTimeWindow={onEditTimeWindow} />
+          ) : null}
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Phase 3 ter : champs heure/durée/créneau imposé de l'arrêt sélectionné.
+ * Enregistrement immédiat au blur (pas de bouton "enregistrer", conforme
+ * au prompt) — état local resynchronisé depuis les props à chaque
+ * changement (succès comme échec serveur) pour que l'arrêt revienne
+ * visiblement à sa valeur précédente si le serveur refuse.
+ */
+function StopDetailPanel({ stop, onEditSchedule, onEditTimeWindow }: {
+  stop: TourStopView;
+  onEditSchedule: (stopId: string, patch: { start?: string; durationMinutes?: number }) => void;
+  onEditTimeWindow: (stopId: string, patch: { timeWindowStart: string | null; timeWindowEnd: string | null }) => void;
+}) {
+  const durationText = stop.serviceDurationMinutes != null ? String(stop.serviceDurationMinutes) : "";
+
+  const [start, setStart] = useState(stop.arrivalTime ?? "");
+  const [duration, setDuration] = useState(durationText);
+  const [windowStart, setWindowStart] = useState(stop.timeWindowStart ?? "");
+  const [windowEnd, setWindowEnd] = useState(stop.timeWindowEnd ?? "");
+
+  // Resynchronisé depuis la vraie valeur (succès comme échec serveur) à
+  // chaque changement — un champ à la fois (pas une signature combinée) :
+  // valider "heure" déclenche un aller-retour serveur qui rafraîchit les
+  // props de TOUS les champs de ce panneau, un signature combinée aurait
+  // donc écrasé une saisie de "durée" encore en cours ailleurs dans le
+  // panneau. Ajustement pendant le rendu plutôt que dans un effet (même
+  // motif qu'ailleurs dans l'app, pas de cascade de rendus).
+  const [lastArrivalTime, setLastArrivalTime] = useState(stop.arrivalTime ?? "");
+  if ((stop.arrivalTime ?? "") !== lastArrivalTime) {
+    setLastArrivalTime(stop.arrivalTime ?? "");
+    setStart(stop.arrivalTime ?? "");
+  }
+  const [lastDurationText, setLastDurationText] = useState(durationText);
+  if (durationText !== lastDurationText) {
+    setLastDurationText(durationText);
+    setDuration(durationText);
+  }
+  const [lastWindowStart, setLastWindowStart] = useState(stop.timeWindowStart ?? "");
+  if ((stop.timeWindowStart ?? "") !== lastWindowStart) {
+    setLastWindowStart(stop.timeWindowStart ?? "");
+    setWindowStart(stop.timeWindowStart ?? "");
+  }
+  const [lastWindowEnd, setLastWindowEnd] = useState(stop.timeWindowEnd ?? "");
+  if ((stop.timeWindowEnd ?? "") !== lastWindowEnd) {
+    setLastWindowEnd(stop.timeWindowEnd ?? "");
+    setWindowEnd(stop.timeWindowEnd ?? "");
+  }
+
+  function commitStart() {
+    if (start && start !== stop.arrivalTime) onEditSchedule(stop.id, { start });
+  }
+  function commitDuration() {
+    const parsed = Number(duration);
+    if (duration.trim() && Number.isFinite(parsed) && parsed !== stop.serviceDurationMinutes) onEditSchedule(stop.id, { durationMinutes: parsed });
+  }
+  function commitWindow() {
+    const nextStart = windowStart || null;
+    const nextEnd = windowEnd || null;
+    if (nextStart !== stop.timeWindowStart || nextEnd !== stop.timeWindowEnd) onEditTimeWindow(stop.id, { timeWindowStart: nextStart, timeWindowEnd: nextEnd });
+  }
+
+  return (
+    <div className="mx-2 mb-3 space-y-2 rounded-xl bg-animeo-bg p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor={`stop-start-${stop.id}`} className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Heure</label>
+          <input id={`stop-start-${stop.id}`} type="time" value={start} onChange={(event) => setStart(event.target.value)} onBlur={commitStart} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+        </div>
+        <div>
+          <label htmlFor={`stop-duration-${stop.id}`} className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Durée (min)</label>
+          <input id={`stop-duration-${stop.id}`} type="number" min={5} step={5} value={duration} onChange={(event) => setDuration(event.target.value)} onBlur={commitDuration} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+        </div>
+      </div>
+      <div>
+        <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Créneau imposé (optionnel — utilisé par « Optimiser »)</p>
+        <div className="grid grid-cols-2 gap-2">
+          <input aria-label={`Créneau imposé, début, ${stop.label}`} type="time" value={windowStart} onChange={(event) => setWindowStart(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+          <input aria-label={`Créneau imposé, fin, ${stop.label}`} type="time" value={windowEnd} onChange={(event) => setWindowEnd(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+        </div>
+      </div>
+    </div>
   );
 }
 

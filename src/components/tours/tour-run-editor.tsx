@@ -34,6 +34,7 @@ import {
   removeStopAction,
   reorderStopsAction,
   updateStopAction,
+  updateStopScheduleAction,
   updateTourRunEndpointsAction,
   updateTourRunOptionsAction,
   type OptimizationComparison,
@@ -92,6 +93,17 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const [busy, setBusy] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [completingStopId, setCompletingStopId] = useState<string | null>(null);
+  // Phase 3 ter : heure de départ éditable en mode édition (déjà éditable
+  // seulement à la création) — resynchronisée depuis la vraie valeur après
+  // chaque router.refresh() (succès comme échec serveur). Ajustement pendant
+  // le rendu plutôt que dans un effet (même motif qu'ailleurs dans l'app —
+  // notifications-bell.tsx), pas de cascade de rendus supplémentaire.
+  const [departureTimeDraft, setDepartureTimeDraft] = useState(tourRun?.departureTime ?? "");
+  const [lastKnownDepartureTime, setLastKnownDepartureTime] = useState(tourRun?.departureTime ?? "");
+  if ((tourRun?.departureTime ?? "") !== lastKnownDepartureTime) {
+    setLastKnownDepartureTime(tourRun?.departureTime ?? "");
+    setDepartureTimeDraft(tourRun?.departureTime ?? "");
+  }
 
   const [createName, setCreateName] = useState(`Tournée du ${formatFrenchDate(new Date(`${dateId}T00:00:00.000Z`))}`);
   const [createDeparture, setCreateDeparture] = useState(preferences.workHoursStart);
@@ -386,6 +398,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
       onFindSolution={canOptimize ? handleOptimize : undefined}
       onComplete={handleCompleteStop}
       completingId={completingStopId}
+      onEditSchedule={(stopId, patch) => runAction(() => updateStopScheduleAction({ tourRunId: tourRun.id, stopId, ...patch }))}
+      onEditTimeWindow={(stopId, patch) => runAction(() => updateStopAction({ tourRunId: tourRun.id, stopId, timeWindowStart: patch.timeWindowStart, timeWindowEnd: patch.timeWindowEnd }))}
     />
   );
 
@@ -429,7 +443,23 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
           </p>
         ) : null}
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="mt-5">
+          <label htmlFor="tour-run-departure-time-edit" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Heure de départ</label>
+          <input
+            id="tour-run-departure-time-edit"
+            type="time"
+            value={departureTimeDraft}
+            onChange={(event) => setDepartureTimeDraft(event.target.value)}
+            onBlur={() => {
+              if (departureTimeDraft && departureTimeDraft !== tourRun.departureTime) {
+                runAction(() => updateTourRunEndpointsAction({ tourRunId: tourRun.id, departureTime: departureTimeDraft, start: endpointFrom(tourRun.start), end: endpointFrom(tourRun.end) }));
+              }
+            }}
+            className="min-h-11 w-full max-w-[160px] rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-bold text-animeo-dark"
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <TourRunEndpointPicker
             label="Départ"
             value={endpointFrom(tourRun.start)}
