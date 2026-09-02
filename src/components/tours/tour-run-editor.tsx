@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Icon } from "@/components/ui/icon";
+import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { notify } from "@/lib/notify";
+import { completeAppointmentAction } from "@/lib/appointments-actions";
 import { formatEuros, formatFrenchDate } from "@/lib/format";
 import { formatDistanceMeters, formatDurationSeconds } from "@/lib/maps/map-utils";
+import { buildTourMapsLinks } from "@/lib/tour-maps";
 import { TourRunTimeline } from "@/components/tours/tour-run-timeline";
 import { TourRunEndpointPicker, type EndpointValue } from "@/components/tours/tour-run-endpoint-picker";
 import { TourRunAddStopModal } from "@/components/tours/tour-run-add-stop-modal";
@@ -58,6 +62,9 @@ function defaultEndpoint(type: string, savedPlaceId: string | null): EndpointVal
 
 export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, availableAppointments, cabinet, mapClients, onClose }: TourRunEditorProps) {
   const router = useRouter();
+  // Avant tout retour anticipé (branche "pas encore de tournée" ci-dessous) :
+  // les Hooks doivent s'exécuter dans le même ordre à chaque rendu.
+  const hasMounted = useHasMounted();
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"map" | "list">("list");
   const [addStopOpen, setAddStopOpen] = useState(false);
@@ -70,6 +77,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [completingStopId, setCompletingStopId] = useState<string | null>(null);
 
   const [createName, setCreateName] = useState(`Tournée du ${formatFrenchDate(new Date(`${dateId}T00:00:00.000Z`))}`);
   const [createDeparture, setCreateDeparture] = useState(preferences.workHoursStart);
@@ -153,6 +161,21 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     router.refresh();
   }
 
+  // Unification des tournées, phase 3 : marque le rendez-vous lié à l'arrêt
+  // comme réalisé — même action serveur que l'agenda (completeAppointmentAction),
+  // jamais un chemin parallèle propre aux tournées.
+  async function handleCompleteStop(stopId: string, appointmentId: string) {
+    setCompletingStopId(stopId);
+    const result = await completeAppointmentAction(appointmentId);
+    setCompletingStopId(null);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success("Consultation marquée comme réalisée.");
+    router.refresh();
+  }
+
   if (!tourRun) {
     return (
       <div className="space-y-6">
@@ -188,6 +211,35 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const lastStop = tourRun.stops[tourRun.stops.length - 1];
   const estimatedEnd = lastStop?.departureTime ?? tourRun.departureTime;
   const canOptimize = tourRun.stops.filter((stop) => stop.latitude != null && stop.longitude != null).length >= 2 && tourRun.resolvedStart.coordinates != null && tourRun.resolvedEnd.coordinates != null;
+
+  // Unification des tournées, phase 3 : quatre états distincts plutôt qu'un
+  // message générique (une journée à zéro arrêt n'est pas "terminée") —
+  // seuls les arrêts liés à un rendez-vous comptent, un arrêt "autre" (pause,
+  // fournisseur…) n'a pas de notion de réalisé.
+  const appointmentStops = tourRun.stops.filter((stop) => stop.appointmentId);
+  const completedAppointmentStops = appointmentStops.filter((stop) => stop.completedAt);
+  const pendingAppointmentStops = appointmentStops.filter((stop) => !stop.completedAt);
+  // "En cours" dépend de l'heure murale du navigateur — jamais calculé au
+  // premier rendu serveur (toujours "à venir" tant que hasMounted est faux),
+  // pour ne jamais désaccorder le rendu serveur du premier rendu client.
+  const nowHHMM = hasMounted ? new Date().toTimeString().slice(0, 5) : null;
+  const currentStop = nowHHMM ? pendingAppointmentStops.find((stop) => stop.arrivalTime != null && stop.arrivalTime <= nowHHMM) ?? null : null;
+  const progressStatus: "empty" | "completed" | "inProgress" | "upcoming" =
+    appointmentStops.length === 0 ? "empty" :
+    completedAppointmentStops.length === appointmentStops.length ? "completed" :
+    currentStop ? "inProgress" :
+    "upcoming";
+  const progressLabel = {
+    empty: "Aucun arrêt pour l’instant.",
+    completed: "Tous les arrêts sont terminés.",
+    inProgress: `Arrêt en cours : ${currentStop?.label ?? ""}`,
+    upcoming: `${pendingAppointmentStops.length} arrêt${pendingAppointmentStops.length > 1 ? "s" : ""} à venir.`,
+  }[progressStatus];
+
+  const mapsResult = buildTourMapsLinks(
+    tourRun.resolvedStart.coordinates,
+    tourRun.stops.map((stop) => ({ coordinates: stop.latitude != null && stop.longitude != null ? { lat: stop.latitude, lng: stop.longitude } : null })),
+  );
 
   async function handleOptimize() {
     setOptimizing(true);
@@ -225,6 +277,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
       onRemove={(stopId) => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId }))}
       onToggleFlexible={(stopId, flexible) => runAction(() => updateStopAction({ tourRunId: tourRun.id, stopId, flexible, locked: !flexible }))}
       onFindSolution={canOptimize ? handleOptimize : undefined}
+      onComplete={handleCompleteStop}
+      completingId={completingStopId}
     />
   );
 
@@ -244,18 +298,29 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
             </p>
             {consultationMinutes > 0 ? <p className="mt-0.5 text-xs font-semibold text-animeo-muted">{Math.floor(consultationMinutes / 60)}h{String(consultationMinutes % 60).padStart(2, "0")} de consultations</p> : null}
             {tourRun.isRouteEstimate ? <p className="mt-1 text-xs font-bold text-[#8c6118]">≈ Estimation à vol d’oiseau — itinéraire réel indisponible pour le moment.</p> : null}
+            <p className="mt-1.5 text-xs font-extrabold text-animeo-dark">{progressLabel}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {mapsResult.links.map((link) => (
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
+                <Icon name="car" className="h-4 w-4" />
+                {mapsResult.links.length > 1 ? link.label : "Itinéraire complet"}
+              </a>
+            ))}
             <button type="button" onClick={() => setAddStopOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">+ Ajouter un arrêt</button>
             {canOptimize ? (
-              <button type="button" onClick={handleOptimize} disabled={optimizing} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:opacity-60">
+              <button type="button" onClick={handleOptimize} disabled={optimizing} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#d4e2df] px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">
                 {optimizing ? "Calcul…" : "✨ Optimiser"}
               </button>
             ) : null}
             <button type="button" onClick={() => runAction(() => recomputeRouteAction(tourRun.id))} disabled={busy} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#d4e2df] px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">Recalculer</button>
-            <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-4 text-sm font-extrabold text-[#a9573b] transition hover:bg-[#fff1ec]">Supprimer</button>
           </div>
         </div>
+        {mapsResult.excludedStopCount > 0 ? (
+          <p className="mt-2 text-xs font-bold text-[#a9573b]">
+            {mapsResult.excludedStopCount > 1 ? `${mapsResult.excludedStopCount} arrêts sans adresse localisée ne sont pas dans l’itinéraire.` : "1 arrêt sans adresse localisée n’est pas dans l’itinéraire."}
+          </p>
+        ) : null}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <TourRunEndpointPicker
@@ -370,6 +435,15 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
           onClose={() => setDeleteConfirmOpen(false)}
         />
       ) : null}
+
+      {/* Unification des tournées, phase 3 : suppression en lien texte
+          discret plutôt que dans la rangée d'actions primaires — la
+          suppression d'une journée n'est pas un geste courant. */}
+      <div className="text-center">
+        <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="text-xs font-semibold text-animeo-muted underline-offset-2 hover:text-[#a9573b] hover:underline">
+          Supprimer cette journée
+        </button>
+      </div>
     </div>
   );
 }

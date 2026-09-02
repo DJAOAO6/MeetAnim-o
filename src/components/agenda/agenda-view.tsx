@@ -10,7 +10,6 @@ import { BlockedSlotModal } from "@/components/agenda/blocked-slot-modal";
 import { BlockedSlotPopover } from "@/components/agenda/blocked-slot-popover";
 import { DayDetailPanel } from "@/components/agenda/day-detail-panel";
 import { MonthCalendarView, type MonthFilter } from "@/components/agenda/month-calendar-view";
-import { TourDetailModal } from "@/components/agenda/tour-detail-modal";
 import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planner";
 import { YearCalendarView, YearSidePanel, YearStatsRibbon } from "@/components/agenda/year-calendar-view";
 import { PageHeader } from "@/components/layout/page-header";
@@ -18,11 +17,10 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
 import { notify } from "@/lib/notify";
-import { deleteTourAction } from "@/lib/tours-actions";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
-import type { Coordinates, Tour, TourAppointment, Zone } from "@/data/tours";
+import type { Tour, TourAppointment } from "@/data/tours";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -109,13 +107,11 @@ type AgendaViewProps = {
   clients: ClientPickerOption[];
   availability: AvailabilitySettings;
   tours: Tour[];
-  zones: Zone[];
   tourAppointments: Record<string, TourAppointment[]>;
   initialBlockedSlots: BlockedSlot[];
-  cabinetCoordinates: Coordinates | null;
 };
 
-export function AgendaView({ clients, availability, tours, zones, tourAppointments, initialBlockedSlots, cabinetCoordinates }: AgendaViewProps) {
+export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
   const router = useRouter();
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
@@ -140,7 +136,6 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>(initialBlockedSlots);
   const [blockedSlotModalDate, setBlockedSlotModalDate] = useState<string | null>(null);
-  const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const [selectedBlockedSlot, setSelectedBlockedSlot] = useState<{ slot: BlockedSlot; anchorRect: DOMRect } | null>(null);
   const weekDates = getWeekDates(weekOffset);
   const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
@@ -251,19 +246,12 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
     return { ok: true };
   }
 
-  function handleSelectTour(tourId: string) {
-    setSelectedTourId(tourId);
-  }
-
-  async function deleteTour(tourId: string, tourName: string) {
-    const result = await deleteTourAction(tourId);
-    if (!result.ok) {
-      notify.error(result.error);
-      return;
-    }
-    setSelectedTourId(null);
-    notify.success(`${tourName} a été supprimée.`);
-    router.refresh();
+  // Unification des tournées, phase 3 : plus de fenêtre de détail montée
+  // depuis l'agenda (TourExecution, retiré) — un simple lien vers l'écran de
+  // journée unifié, qui reste la seule vue/le seul point de suppression
+  // d'une tournée désormais.
+  function handleSelectTour() {
+    router.push("/dashboard/tournees");
   }
 
   function handleSelectBlockedSlot(id: string, anchorRect: DOMRect) {
@@ -497,21 +485,6 @@ export function AgendaView({ clients, availability, tours, zones, tourAppointmen
           onSave={saveBlockedSlot}
         />
       ) : null}
-
-      {selectedTourId ? (() => {
-        const tour = tours.find((item) => item.id === selectedTourId);
-        if (!tour) return null;
-        return (
-          <TourDetailModal
-            tour={tour}
-            zone={zones.find((zone) => zone.id === tour.zoneId)}
-            appointments={tourAppointments[tour.id] ?? []}
-            cabinetCoordinates={cabinetCoordinates}
-            onClose={() => setSelectedTourId(null)}
-            onDelete={() => deleteTour(tour.id, tour.name)}
-          />
-        );
-      })() : null}
 
       {selectedBlockedSlot ? (
         <BlockedSlotPopover

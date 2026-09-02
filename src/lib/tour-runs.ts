@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { haversineDistanceKm } from "@/lib/geo";
-import { toLocalDateId } from "@/lib/booking-validation";
+import { findMatchingZone, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-fill";
 import type { Tour } from "@/data/tours";
@@ -109,21 +109,29 @@ export async function resolveTourEndpoints(
   return { start, end };
 }
 
-const stopInclude = { appointment: { select: { animalSpecies: true, price: true, clientId: true, animalId: true, status: true, date: true } } } as const;
+const stopInclude = {
+  appointment: {
+    select: { animalSpecies: true, price: true, clientId: true, animalId: true, status: true, date: true, completedAt: true, city: true, postalCode: true, client: { select: { phone: true } } },
+  },
+} as const;
 
-export type TourRunWithStops = DbTourRun & { stops: (DbTourStop & { appointment: { animalSpecies: string | null; price: number; clientId: string | null; animalId: string | null; status: string; date: Date } | null })[] };
+const templateZonesInclude = { template: { select: { zones: { select: { name: true, cities: { select: { name: true, postalCode: true } } } } } } } as const;
+
+type StopAppointment = { animalSpecies: string | null; price: number; clientId: string | null; animalId: string | null; status: string; date: Date; completedAt: Date | null; city: string | null; postalCode: string | null; client: { phone: string } | null };
+
+export type TourRunWithStops = DbTourRun & { stops: (DbTourStop & { appointment: StopAppointment | null })[] } & { template: { zones: { name: string; cities: { name: string; postalCode: string }[] }[] } | null };
 
 export async function getTourRunForDate(userId: string, dateId: string): Promise<TourRunWithStops | null> {
   const date = new Date(`${dateId}T00:00:00.000Z`);
   return prisma.tourRun.findFirst({
     where: { userId, date },
-    include: { stops: { orderBy: { order: "asc" }, include: stopInclude } },
+    include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude },
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getTourRunById(id: string, userId: string): Promise<TourRunWithStops | null> {
-  return prisma.tourRun.findFirst({ where: { id, userId }, include: { stops: { orderBy: { order: "asc" }, include: stopInclude } } });
+  return prisma.tourRun.findFirst({ where: { id, userId }, include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude } });
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +164,14 @@ export type TourStopView = {
   clientId: string | null;
   animalId: string | null;
   appointmentStatus: string | null;
+  // Unification des tournées, phase 3 : source unique pour "Appeler",
+  // "Terminé" et l'avertissement "hors zone" — jamais recalculés côté
+  // client, jamais une donnée dupliquée par rapport à Appointment/Tour.zones.
+  phone: string | null;
+  completedAt: string | null;
+  // null = aucun motif (journée créée à la main, ou motif sans zone) : pas
+  // d'avertissement affiché dans ce cas, faute de référence à comparer.
+  outOfZone: boolean | null;
 };
 
 export type TourRunView = {
@@ -183,7 +199,23 @@ export type TourRunView = {
   stops: TourStopView[];
 };
 
+function formatTimeHHMM(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
 export function toTourRunView(tourRun: TourRunWithStops, resolvedStart: ResolvedEndpoint, resolvedEnd: ResolvedEndpoint): TourRunView {
+  // Zones du motif dont cette journée est issue, dans la forme attendue par
+  // findMatchingZone (booking-validation.ts, déjà testé, pas réécrit ici) —
+  // absent si la journée n'est pas issue d'un motif, auquel cas aucun arrêt
+  // n'est jamais signalé "hors zone" faute de référence.
+  const templateZones = tourRun.template?.zones.map((zone) => ({
+    id: zone.name,
+    name: zone.name,
+    cities: zone.cities.map((city) => city.name),
+    postalCodes: zone.cities.map((city) => city.postalCode),
+    tourDays: [] as string[],
+  })) ?? null;
+
   return {
     id: tourRun.id,
     name: tourRun.name,
@@ -231,6 +263,11 @@ export function toTourRunView(tourRun: TourRunWithStops, resolvedStart: Resolved
       clientId: stop.appointment?.clientId ?? null,
       animalId: stop.appointment?.animalId ?? null,
       appointmentStatus: stop.appointment?.status ?? null,
+      phone: stop.appointment?.client?.phone ?? null,
+      completedAt: stop.appointment?.completedAt ? formatTimeHHMM(stop.appointment.completedAt) : null,
+      outOfZone: templateZones && stop.appointment?.city
+        ? !findMatchingZone(templateZones, stop.appointment.postalCode ?? undefined, stop.appointment.city)
+        : null,
     })),
   };
 }
