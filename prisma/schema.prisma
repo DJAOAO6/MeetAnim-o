@@ -252,6 +252,17 @@ model Client {
   city      String
   address   String
   status    ClientStatus @default(ACTIF)
+
+  // Unification des tournées, phase 3 bis : géocodage à la demande (bouton
+  // "localiser" sur la carte tournées) pour un client qui n'a encore aucun
+  // rendez-vous à domicile géolocalisé — seul moyen de le positionner sans
+  // deviner (jamais de repli par ville, voir coordinatesForCity). Un
+  // rendez-vous à domicile géolocalisé reste prioritaire sur ces champs
+  // quand il existe (voir getMapClients) : c'est la position la plus
+  // récente et la plus fiable.
+  latitude  Float?
+  longitude Float?
+
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 

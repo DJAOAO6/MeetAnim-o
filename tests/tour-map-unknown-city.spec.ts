@@ -10,6 +10,10 @@ config({ path: ".env.local" });
  * être exclu de la carte (position inconnue) plutôt que mal positionné.
  * "Caen" est une vraie ville normande absente des 13 villes codées en dur
  * dans src/data/normandy-cities.ts.
+ *
+ * Cible /dashboard/carte directement (unification des tournées, phase 2 :
+ * l'onglet "Carte clients" de /dashboard/tournees a été supprimé, doublon de
+ * cette route déjà présente dans le menu latéral — voir carte/page.tsx).
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
@@ -53,9 +57,7 @@ test.describe("Carte clients — pas de repli sur Rouen pour une ville inconnue 
   });
 
   test("un client d'une ville hors de la liste des 13 villes est listé mais absent de la carte, jamais positionné à Rouen", async ({ page }) => {
-    await page.goto("/dashboard/tournees");
-    await page.waitForTimeout(600);
-    await page.getByRole("button", { name: "Carte clients" }).click();
+    await page.goto("/dashboard/carte");
 
     const listRow = page.getByText(uniqueAnimalName);
     await expect(listRow).toBeVisible();

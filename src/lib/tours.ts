@@ -2,7 +2,6 @@ import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
-import { coordinatesForCity } from "@/data/normandy-cities";
 import { jitterCoordinates, projectToPercent } from "@/lib/geo";
 import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
@@ -224,9 +223,17 @@ export async function getMapClients(): Promise<MapClient[]> {
 
   return animals.map((animal): MapClient => {
     const geocodedAppointment = animal.appointments[0];
+    // Unification des tournées, phase 3 bis : plus de repli par ville
+    // (coordinatesForCity devinait une position, parfois à des dizaines de
+    // km du vrai domicile) — priorité au dernier rendez-vous à domicile
+    // géolocalisé, puis à un géocodage explicite de la fiche client
+    // (Client.latitude/longitude, posé via le bouton "localiser"), sinon le
+    // client reste sans position plutôt que mal positionné.
     const baseCoordinates = geocodedAppointment && geocodedAppointment.latitude != null && geocodedAppointment.longitude != null
       ? { lat: geocodedAppointment.latitude, lng: geocodedAppointment.longitude }
-      : coordinatesForCity(animal.client.city);
+      : animal.client.latitude != null && animal.client.longitude != null
+        ? { lat: animal.client.latitude, lng: animal.client.longitude }
+        : null;
     const coordinates = baseCoordinates ? jitterCoordinates(baseCoordinates, animal.id) : null;
     const lastConsultation = animal.consultations[0]?.date;
     const reminder = animal.reminders[0];

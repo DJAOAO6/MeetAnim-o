@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { clientInclude, mapAnimal, mapClient } from "@/lib/clients";
 import { buildClientNameWordConditions, clientSearchQuerySchema, MAX_SEARCH_RESULTS_PER_GROUP } from "@/lib/client-search";
+import { geocodeAddress } from "@/lib/geocoding";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { Animal, Client } from "@/data/clients";
 import type { PublicAnimalType } from "@/data/public-booking";
@@ -101,6 +102,27 @@ export async function updateClientAction(clientId: string, input: ClientContactI
   revalidatePath("/dashboard");
 
   return { ok: true, client: mapClient(updated) };
+}
+
+// Unification des tournées, phase 3 bis : géocode l'adresse d'un client sans
+// position (bouton "localiser" sous la carte tournées) — un rendez-vous à
+// domicile déjà géolocalisé reste prioritaire (voir getMapClients), ce
+// géocodage ne sert qu'aux clients qui n'en ont encore aucun.
+export async function geocodeClientAddressAction(clientId: string): Promise<ClientActionResult> {
+  await requireUser();
+
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, address: true, city: true } });
+  if (!client) return { ok: false, error: "Client introuvable." };
+
+  const geocoded = await geocodeAddress(`${client.address}, ${client.city}`);
+  if (!geocoded) return { ok: false, error: "Adresse introuvable, vérifiez son orthographe." };
+
+  await prisma.client.update({ where: { id: clientId }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude } });
+
+  revalidatePath("/dashboard/tournees");
+  revalidatePath("/dashboard/carte");
+
+  return { ok: true };
 }
 
 export type UpdateAnimalInput = {

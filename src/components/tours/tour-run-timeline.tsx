@@ -43,6 +43,11 @@ type TourRunTimelineProps = {
   // "terminables" (voir TourStop.appointmentId, TourStopView.completedAt).
   onComplete: (stopId: string, appointmentId: string) => void;
   completingId: string | null;
+  // Phase 3 bis : survoler un arrêt met en avant son marqueur sur la carte
+  // (voir tour-run-editor.tsx, qui fusionne hoveredStopId et selectedStopId
+  // avant de les transmettre à TourRunMap) — état purement transitoire,
+  // jamais confondu avec la vraie sélection.
+  onHoverStop?: (stopId: string | null) => void;
 };
 
 /**
@@ -51,10 +56,19 @@ type TourRunTimelineProps = {
  * tous les autres, conformément à l'exemple du prompt. Même choix Pointer
  * Events que l'existant (souris/tactile/stylet unifiés, sans dépendance).
  */
-export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove, onRemove, onToggleFlexible, onFindSolution, onComplete, completingId }: TourRunTimelineProps) {
+export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove, onRemove, onToggleFlexible, onFindSolution, onComplete, completingId, onHoverStop }: TourRunTimelineProps) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const rowElements = useRef(new Map<string, HTMLElement>());
+
+  // Phase 3 bis : cliquer un marqueur sur la carte sélectionne l'arrêt (déjà
+  // câblé via selectedId/onSelect) — fait aussi défiler la timeline jusqu'à
+  // lui, ici plutôt que dans tour-run-editor.tsx puisque c'est cette liste
+  // qui connaît la position de chaque ligne.
+  useEffect(() => {
+    if (!selectedId) return;
+    rowElements.current.get(selectedId)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedId]);
 
   function rowIdAtY(clientY: number): string | null {
     for (const [id, element] of rowElements.current) {
@@ -107,6 +121,8 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
             if (element) rowElements.current.set(stop.id, element);
             else rowElements.current.delete(stop.id);
           }}
+          onMouseEnter={() => onHoverStop?.(stop.id)}
+          onMouseLeave={() => onHoverStop?.(null)}
           className={`transition-colors ${draggedId === stop.id ? "opacity-50" : ""} ${overId === stop.id ? "bg-animeo-soft" : ""}`}
         >
           {index > 0 && (stop.legDistanceMeters != null || stop.legDurationSeconds != null) ? (

@@ -53,9 +53,11 @@ async function seedNearbyClient(): Promise<{ clientId: string; animalId: string 
   const sql = neon(process.env.DATABASE_URL!);
   const clientId = fakeCuid();
   const animalId = fakeCuid();
-  // Ville connue de la table statique (coordinatesForCity) — pas besoin
-  // d'Appointment géolocalisé, getMapClients() retombe dessus.
-  await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, "updatedAt") VALUES (${clientId}, 'Prénom', ${nearbyClientLastName}, '0600000000', 'nearby-client-e2e@example.fr', 'Rouen', '1 rue Test', now())`;
+  // Position posée directement sur la fiche client (Client.latitude/
+  // longitude, phase 3 bis) — depuis le retrait du repli par ville dans
+  // getMapClients(), un client sans rendez-vous à domicile géolocalisé ni
+  // position propre resterait "Position inconnue", jamais affiché ici.
+  await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, latitude, longitude, "updatedAt") VALUES (${clientId}, 'Prénom', ${nearbyClientLastName}, '0600000000', 'nearby-client-e2e@example.fr', 'Rouen', '1 rue Test', 49.4432, 1.0999, now())`;
   await sql`INSERT INTO "Animal" (id, "clientId", name, species, breed, age, weight, sex, avatar, "avatarBackground", history, conditions, treatments, notes, "updatedAt") VALUES (${animalId}, ${clientId}, ${nearbyAnimalName}, 'Chien', '', '', '', '', '', '', '', '', '', '', now())`;
   return { clientId, animalId };
 }
@@ -146,7 +148,7 @@ test.describe("Éditeur de tournées interactif", () => {
     // Calque clients désactivé par défaut.
     await expect(page.getByRole("button", { name: new RegExp(nearbyAnimalName) })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Afficher mes clients" }).click();
+    await page.getByRole("button", { name: /Afficher les clients du secteur/ }).click();
     const clientMarker = page.getByRole("button", { name: new RegExp(nearbyAnimalName) });
     await expect(clientMarker).toBeVisible({ timeout: 10000 });
 

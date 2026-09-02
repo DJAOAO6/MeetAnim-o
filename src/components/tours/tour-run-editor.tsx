@@ -9,7 +9,10 @@ import { Icon } from "@/components/ui/icon";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { notify } from "@/lib/notify";
 import { completeAppointmentAction } from "@/lib/appointments-actions";
+import { findMatchingZone } from "@/lib/booking-validation";
+import { geocodeClientAddressAction } from "@/lib/clients-actions";
 import { formatEuros, formatFrenchDate } from "@/lib/format";
+import { haversineDistanceKm } from "@/lib/geo";
 import { formatDistanceMeters, formatDurationSeconds } from "@/lib/maps/map-utils";
 import { buildTourMapsLinks } from "@/lib/tour-maps";
 import { TourRunTimeline } from "@/components/tours/tour-run-timeline";
@@ -71,6 +74,12 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const [showNearbyClients, setShowNearbyClients] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [addingClientStop, setAddingClientStop] = useState(false);
+  // Phase 3 bis : survol d'un arrêt (timeline → marqueur), rayon du secteur
+  // affiché autour de la tournée (calque clients), client en cours de
+  // géocodage ("localiser cette adresse" pour un client sans position).
+  const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
+  const [sectorRadiusKm, setSectorRadiusKm] = useState(15);
+  const [geocodingClientId, setGeocodingClientId] = useState<string | null>(null);
   const [optimizeComparison, setOptimizeComparison] = useState<OptimizationComparison | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [applyingOptimization, setApplyingOptimization] = useState(false);
@@ -112,31 +121,71 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     router.refresh();
   }
 
+  // Survol OU sélection met en avant le même marqueur (phase 3 bis) — le
+  // survol est transitoire et prioritaire sur la sélection réelle pour ce
+  // seul usage visuel, jamais l'inverse.
+  const highlightedStopId = hoveredStopId ?? selectedStopId;
+
   const mapPoints = useMemo<TourRunMapPoint[]>(() => {
     if (!tourRun) return [];
     const points: TourRunMapPoint[] = [];
     if (tourRun.resolvedStart.coordinates) points.push({ id: "start", lat: tourRun.resolvedStart.coordinates.lat, lng: tourRun.resolvedStart.coordinates.lng, label: "D", title: `Départ · ${tourRun.resolvedStart.label}`, color: "#183b45", kind: "start" });
     tourRun.stops.forEach((stop, index) => {
       if (stop.latitude != null && stop.longitude != null) {
-        points.push({ id: stop.id, lat: stop.latitude, lng: stop.longitude, label: String(index + 1), title: stop.label, color: stop.id === selectedStopId ? "#e08a3e" : "#4FAF9F", kind: "stop" });
+        points.push({ id: stop.id, lat: stop.latitude, lng: stop.longitude, label: String(index + 1), title: stop.label, color: stop.id === highlightedStopId ? "#e08a3e" : "#4FAF9F", kind: "stop", legDurationSeconds: stop.legDurationSeconds });
       }
     });
     if (tourRun.resolvedEnd.coordinates) points.push({ id: "end", lat: tourRun.resolvedEnd.coordinates.lat, lng: tourRun.resolvedEnd.coordinates.lng, label: "A", title: `Arrivée · ${tourRun.resolvedEnd.label}`, color: "#183b45", kind: "end" });
     return points;
-  }, [tourRun, selectedStopId]);
+  }, [tourRun, highlightedStopId]);
+
+  // Un client est "du secteur" s'il est dans une zone du motif (par nom de
+  // ville — Client n'a pas de code postal en base) ou à moins de
+  // sectorRadiusKm de l'un des points de la tournée (départ, arrêts,
+  // arrivée) — jamais tous les clients de la base (phase 3 bis).
+  const sectorMatch = useMemo(() => {
+    const referencePoints = mapPoints.map((point) => ({ lat: point.lat, lng: point.lng }));
+    return (client: MapClient): boolean => {
+      if (tourRun?.templateZones && findMatchingZone(tourRun.templateZones, undefined, client.city)) return true;
+      if (!client.coordinates || referencePoints.length === 0) return false;
+      return referencePoints.some((point) => haversineDistanceKm(point, client.coordinates!) <= sectorRadiusKm);
+    };
+  }, [mapPoints, tourRun, sectorRadiusKm]);
+
+  const sectorClients = useMemo(() => mapClients.filter((client) => client.coordinates != null && sectorMatch(client)), [mapClients, sectorMatch]);
+
+  // Listés à part sous la carte plutôt que devinés à une position : voir
+  // getMapClients (plus de repli par ville) et geocodeClientAddressAction
+  // (bouton "localiser"). Uniquement ceux du secteur par zone (la
+  // comparaison par rayon est impossible sans coordonnées).
+  const unlocatedSectorClients = useMemo(
+    () => (tourRun?.templateZones ? mapClients.filter((client) => client.coordinates == null && findMatchingZone(tourRun.templateZones!, undefined, client.city)) : []),
+    [mapClients, tourRun],
+  );
 
   const clientPoints = useMemo<TourRunMapClientPoint[]>(() => {
     if (!showNearbyClients) return [];
-    return mapClients
-      .filter((client) => client.coordinates != null)
-      .map((client): TourRunMapClientPoint => ({
-        id: client.id,
-        lat: client.coordinates!.lat,
-        lng: client.coordinates!.lng,
-        label: `${client.animalName} — ${client.ownerName}`,
-        title: `${client.animalName} — ${client.ownerName} (${client.city})`,
-      }));
-  }, [mapClients, showNearbyClients]);
+    return sectorClients.map((client): TourRunMapClientPoint => ({
+      id: client.id,
+      lat: client.coordinates!.lat,
+      lng: client.coordinates!.lng,
+      label: `${client.animalName} — ${client.ownerName}`,
+      title: `${client.animalName} — ${client.ownerName} (${client.city})${client.dueForReminder ? " · À relancer" : ""}`,
+      dueForReminder: client.dueForReminder,
+    }));
+  }, [sectorClients, showNearbyClients]);
+
+  async function handleGeocodeClient(clientId: string) {
+    setGeocodingClientId(clientId);
+    const result = await geocodeClientAddressAction(clientId);
+    setGeocodingClientId(null);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success("Adresse localisée.");
+    router.refresh();
+  }
 
   const selectedClient = selectedClientId ? mapClients.find((client) => client.id === selectedClientId) ?? null : null;
 
@@ -272,6 +321,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
       stops={tourRun.stops}
       selectedId={selectedStopId}
       onSelect={setSelectedStopId}
+      onHoverStop={setHoveredStopId}
       onReorder={(orderedStopIds) => runAction(() => reorderStopsAction({ tourRunId: tourRun.id, orderedStopIds }))}
       onMove={(stopId, direction) => runAction(() => moveStopAction({ tourRunId: tourRun.id, stopId, direction }))}
       onRemove={(stopId) => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId }))}
@@ -359,27 +409,50 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
         <button type="button" onClick={() => setMobileView("list")} className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-extrabold ${mobileView === "list" ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted"}`}>Tournée</button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[60%_40%]">
+      {/* Timeline à gauche (largeur fixe, comme une liste de travail), carte à
+          droite en pleine hauteur collante — la carte n'est plus un bloc en
+          bas de page, c'est la moitié de l'écran (phase 3 bis). */}
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
+        <Card className={`${mobileView === "list" ? "block" : "hidden lg:block"} overflow-hidden lg:sticky lg:top-6`}>
+          <div className="border-b border-[#e5eeeb] p-4">
+            <h3 className="text-sm font-black uppercase tracking-[0.08em] text-animeo-dark">Ma tournée</h3>
+          </div>
+          <div className="max-h-[620px] overflow-y-auto p-2">{timeline}</div>
+        </Card>
+
         <div className={mobileView === "map" ? "block" : "hidden lg:block"}>
-          <button
-            type="button"
-            onClick={() => { setShowNearbyClients((current) => !current); setSelectedClientId(null); }}
-            className={`mb-2 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showNearbyClients ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
-          >
-            👥 {showNearbyClients ? "Masquer mes clients" : "Afficher mes clients"}
-          </button>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { setShowNearbyClients((current) => !current); setSelectedClientId(null); }}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showNearbyClients ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+            >
+              👥 {showNearbyClients ? "Masquer" : "Afficher"} les clients du secteur ({sectorClients.length})
+            </button>
+            {showNearbyClients ? (
+              <label className="inline-flex items-center gap-1.5 text-xs font-bold text-animeo-muted">
+                Rayon
+                <select value={sectorRadiusKm} onChange={(event) => setSectorRadiusKm(Number(event.target.value))} className="min-h-8 rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-extrabold text-animeo-dark">
+                  {[15, 30, 50].map((km) => <option key={km} value={km}>{km} km</option>)}
+                </select>
+              </label>
+            ) : null}
+          </div>
           <TourRunMap
             points={mapPoints}
             routeGeometry={tourRun.routeGeometry}
-            selectedId={selectedStopId}
+            selectedId={highlightedStopId}
             onSelect={setSelectedStopId}
-            heightClassName="h-[420px] lg:h-[620px]"
+            heightClassName="h-[420px] lg:h-[720px]"
             clientPoints={clientPoints}
             onClientSelect={setSelectedClientId}
             overlay={selectedClient ? (
               <Card className="p-3">
                 <p className="text-xs font-black text-animeo-dark">{selectedClient.animalName} — {selectedClient.ownerName}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-animeo-muted">{selectedClient.city}</p>
+                <p className="mt-0.5 text-[11px] font-semibold text-animeo-muted">
+                  {selectedClient.city} · {selectedClient.lastConsultation}
+                  {selectedClient.dueForReminder ? " · À relancer" : ""}
+                </p>
                 <div className="mt-2 flex gap-2">
                   <button type="button" onClick={handleAddClientAsStop} disabled={addingClientStop} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90] disabled:opacity-60">
                     {addingClientStop ? "Ajout…" : "Ajouter à la tournée"}
@@ -389,13 +462,27 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
               </Card>
             ) : undefined}
           />
+          {showNearbyClients && unlocatedSectorClients.length > 0 ? (
+            <div className="mt-3 rounded-2xl border border-dashed border-[#d9c9a3] bg-[#fffaf0] p-3">
+              <p className="text-xs font-extrabold text-[#8c6118]">Clients du secteur sans adresse localisée</p>
+              <ul className="mt-2 space-y-1.5">
+                {unlocatedSectorClients.map((client) => (
+                  <li key={client.id} className="flex items-center justify-between gap-2 text-xs font-semibold text-animeo-dark">
+                    <span className="truncate">{client.animalName} — {client.ownerName} ({client.city})</span>
+                    <button
+                      type="button"
+                      onClick={() => handleGeocodeClient(client.clientId)}
+                      disabled={geocodingClientId === client.clientId}
+                      className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[11px] font-extrabold text-[#8c6118] shadow-sm transition hover:bg-[#fff3d9] disabled:opacity-60"
+                    >
+                      {geocodingClientId === client.clientId ? "Localisation…" : "Localiser"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
-        <Card className={`${mobileView === "list" ? "block" : "hidden lg:block"} overflow-hidden`}>
-          <div className="border-b border-[#e5eeeb] p-4">
-            <h3 className="text-sm font-black uppercase tracking-[0.08em] text-animeo-dark">Ma tournée</h3>
-          </div>
-          <div className="max-h-[620px] overflow-y-auto p-2">{timeline}</div>
-        </Card>
       </div>
 
       {addStopOpen ? (

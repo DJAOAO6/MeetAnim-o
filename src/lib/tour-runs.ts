@@ -197,6 +197,13 @@ export type TourRunView = {
   avoidFerries: boolean;
   hasOptimizationProposal: boolean;
   stops: TourStopView[];
+  // Unification des tournées, phase 3 bis : zones du motif dont cette
+  // journée est issue (voir outOfZone par arrêt ci-dessus, même donnée),
+  // dans la forme PublicZone attendue par findMatchingZone (booking-
+  // validation.ts, réutilisée telle quelle côté client pour filtrer le
+  // calque clients de la carte par secteur) — null si la journée n'est pas
+  // issue d'un motif.
+  templateZones: { id: string; name: string; cities: string[]; postalCodes: string[]; tourDays: string[] }[] | null;
 };
 
 function formatTimeHHMM(date: Date): string {
@@ -238,6 +245,7 @@ export function toTourRunView(tourRun: TourRunWithStops, resolvedStart: Resolved
     avoidHighways: tourRun.avoidHighways,
     avoidFerries: tourRun.avoidFerries,
     hasOptimizationProposal: tourRun.lastOptimizationProposal != null,
+    templateZones,
     stops: tourRun.stops.map((stop) => ({
       id: stop.id,
       appointmentId: stop.appointmentId,
