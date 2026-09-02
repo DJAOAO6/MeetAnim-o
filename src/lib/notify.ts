@@ -17,10 +17,15 @@ import { toast } from "sonner";
  * pour les erreurs.
  */
 const SUCCESS_DURATION_MS = 4000;
+// Unification des tournées, phase 3 ter : un toast portant une action
+// "annuler" reste affiché plus longtemps — le temps de remarquer le
+// bouton et de décider, pour un geste qui peut déplacer/annuler un
+// rendez-vous (retirer un arrêt, annuler un rendez-vous).
+const UNDO_DURATION_MS = 8000;
 
 export const notify = {
-  success(message: string) {
-    return toast.success(message, { duration: SUCCESS_DURATION_MS });
+  success(message: string, options?: { action?: { label: string; onClick: () => void } }) {
+    return toast.success(message, { duration: options?.action ? UNDO_DURATION_MS : SUCCESS_DURATION_MS, action: options?.action });
   },
   error(message: string) {
     return toast.error(message, { duration: Number.POSITIVE_INFINITY });

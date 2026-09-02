@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { resolveTourEndpoints, getOrCreateTourPreferences, listSavedPlaces } from "@/lib/tour-runs";
-import { saveAppointmentAction } from "@/lib/appointments-actions";
+import { saveAppointmentAction, updateAppointmentStatusAction } from "@/lib/appointments-actions";
 import { toAppointment } from "@/lib/appointments";
 import { computeRoute, computeMatrix } from "@/lib/maps/routing-provider";
 import { optimizeStopOrder } from "@/lib/maps/optimization-provider";
@@ -588,6 +588,18 @@ export async function updateStopScheduleAction(input: z.infer<typeof updateStopS
 
 const removeStopSchema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid() });
 
+async function deleteStopAndReindex(tourRunId: string, stopId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await tx.tourStop.delete({ where: { id: stopId } });
+    const remaining = await tx.tourStop.findMany({ where: { tourRunId }, orderBy: { order: "asc" } });
+    await Promise.all(remaining.map((remainingStop, index) => tx.tourStop.update({ where: { id: remainingStop.id }, data: { order: index } })));
+  });
+}
+
+// Phase 3 ter : "retirer un arrêt" ne touche jamais le rendez-vous — il
+// reste intact dans l'agenda, seule la tournée l'oublie. Pour annuler le
+// vrai rendez-vous, voir cancelAppointmentAndRemoveStopAction ci-dessous :
+// deux gestes distincts, jamais fusionnés dans un même bouton.
 export async function removeStopAction(input: z.infer<typeof removeStopSchema>): Promise<ActionResult> {
   const user = await requireUser();
   const parsed = removeStopSchema.safeParse(input);
@@ -603,11 +615,41 @@ export async function removeStopAction(input: z.infer<typeof removeStopSchema>):
   const stop = await prisma.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
   if (!stop) return { ok: false, error: GENERIC_ERROR };
 
-  await prisma.$transaction(async (tx) => {
-    await tx.tourStop.delete({ where: { id: data.stopId } });
-    const remaining = await tx.tourStop.findMany({ where: { tourRunId: data.tourRunId }, orderBy: { order: "asc" } });
-    await Promise.all(remaining.map((remainingStop, index) => tx.tourStop.update({ where: { id: remainingStop.id }, data: { order: index } })));
-  });
+  await deleteStopAndReindex(data.tourRunId, data.stopId);
+
+  const result = await recomputeAndPersistRoute(data.tourRunId);
+  revalidatePath(TOURS_PATH);
+  return result.degraded ? { ok: false, error: ROUTE_UNAVAILABLE_ERROR } : { ok: true };
+}
+
+/**
+ * Phase 3 ter : "annuler le rendez-vous" — passe par
+ * updateAppointmentStatusAction (même action que l'agenda : email de
+ * suivi au client, synchronisation calendrier, tout ce qui accompagne
+ * déjà une annulation ailleurs dans l'app), puis retire l'arrêt devenu
+ * sans objet. Un rendez-vous annulé n'a plus sa place dans une tournée.
+ */
+const cancelStopAppointmentSchema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid() });
+
+export async function cancelStopAppointmentAction(input: z.infer<typeof cancelStopAppointmentSchema>): Promise<ActionResult> {
+  const user = await requireUser();
+  const parsed = cancelStopAppointmentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+  const data = parsed.data;
+
+  try {
+    await requireOwnedTourRun(data.tourRunId, user.id);
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const stop = await prisma.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
+  if (!stop || !stop.appointmentId) return { ok: false, error: GENERIC_ERROR };
+
+  const cancelResult = await updateAppointmentStatusAction(stop.appointmentId, "cancelled");
+  if (!cancelResult.ok) return { ok: false, error: cancelResult.error };
+
+  await deleteStopAndReindex(data.tourRunId, data.stopId);
 
   const result = await recomputeAndPersistRoute(data.tourRunId);
   revalidatePath(TOURS_PATH);

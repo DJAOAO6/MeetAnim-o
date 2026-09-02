@@ -8,7 +8,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { notify } from "@/lib/notify";
-import { completeAppointmentAction, saveAppointmentAction } from "@/lib/appointments-actions";
+import { completeAppointmentAction, saveAppointmentAction, updateAppointmentStatusAction } from "@/lib/appointments-actions";
 import { findMatchingZone } from "@/lib/booking-validation";
 import { geocodeClientAddressAction } from "@/lib/clients-actions";
 import { formatEuros, formatFrenchDate } from "@/lib/format";
@@ -21,10 +21,12 @@ import { TourRunEndpointPicker, type EndpointValue } from "@/components/tours/to
 import { TourRunAddStopModal } from "@/components/tours/tour-run-add-stop-modal";
 import { TourRunAddClientAppointmentModal, type ClientAppointmentInput } from "@/components/tours/tour-run-add-client-appointment-modal";
 import { TourRunOptimizeModal } from "@/components/tours/tour-run-optimize-modal";
+import { TourRunRemoveStopModal } from "@/components/tours/tour-run-remove-stop-modal";
 import {
   addAppointmentStopsAction,
   addManualStopAction,
   applyOptimizationProposalAction,
+  cancelStopAppointmentAction,
   createTourRunAction,
   deleteTourRunAction,
   dismissOptimizationProposalAction,
@@ -33,13 +35,14 @@ import {
   recomputeRouteAction,
   removeStopAction,
   reorderStopsAction,
+  reverseGeocodeAction,
   updateStopAction,
   updateStopScheduleAction,
   updateTourRunEndpointsAction,
   updateTourRunOptionsAction,
   type OptimizationComparison,
 } from "@/lib/tour-runs-actions";
-import type { AvailableAppointmentView, SavedPlaceView, TourPreferencesView, TourRunView } from "@/lib/tour-runs";
+import type { AvailableAppointmentView, SavedPlaceView, TourPreferencesView, TourRunView, TourStopView } from "@/lib/tour-runs";
 import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
 import type { MapClient } from "@/data/tours";
 import type { ServiceSettings } from "@/data/settings";
@@ -93,6 +96,10 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const [busy, setBusy] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [completingStopId, setCompletingStopId] = useState<string | null>(null);
+  // Phase 3 ter (2/2) : retirer un arrêt lié à un rendez-vous propose un
+  // choix (garder le rendez-vous vs l'annuler) plutôt qu'un seul bouton.
+  const [removeChoiceStopId, setRemoveChoiceStopId] = useState<string | null>(null);
+  const [removingStop, setRemovingStop] = useState(false);
   // Phase 3 ter : heure de départ éditable en mode édition (déjà éditable
   // seulement à la création) — resynchronisée depuis la vraie valeur après
   // chaque router.refresh() (succès comme échec serveur). Ajustement pendant
@@ -146,15 +153,46 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const mapPoints = useMemo<TourRunMapPoint[]>(() => {
     if (!tourRun) return [];
     const points: TourRunMapPoint[] = [];
-    if (tourRun.resolvedStart.coordinates) points.push({ id: "start", lat: tourRun.resolvedStart.coordinates.lat, lng: tourRun.resolvedStart.coordinates.lng, label: "D", title: `Départ · ${tourRun.resolvedStart.label}`, color: "#183b45", kind: "start" });
+    if (tourRun.resolvedStart.coordinates) points.push({ id: "start", lat: tourRun.resolvedStart.coordinates.lat, lng: tourRun.resolvedStart.coordinates.lng, label: "D", title: `Départ · ${tourRun.resolvedStart.label}`, color: "#183b45", kind: "start", draggable: true });
     tourRun.stops.forEach((stop, index) => {
       if (stop.latitude != null && stop.longitude != null) {
-        points.push({ id: stop.id, lat: stop.latitude, lng: stop.longitude, label: String(index + 1), title: stop.label, color: stop.id === highlightedStopId ? "#e08a3e" : "#4FAF9F", kind: "stop", legDurationSeconds: stop.legDurationSeconds });
+        // Phase 3 ter : jamais déplaçable pour un arrêt lié à un rendez-vous
+        // (sa position vient de l'adresse du client) — seul un arrêt manuel
+        // (type OTHER, sans appointmentId) peut être repositionné.
+        points.push({ id: stop.id, lat: stop.latitude, lng: stop.longitude, label: String(index + 1), title: stop.label, color: stop.id === highlightedStopId ? "#e08a3e" : "#4FAF9F", kind: "stop", legDurationSeconds: stop.legDurationSeconds, draggable: !stop.appointmentId });
       }
     });
-    if (tourRun.resolvedEnd.coordinates) points.push({ id: "end", lat: tourRun.resolvedEnd.coordinates.lat, lng: tourRun.resolvedEnd.coordinates.lng, label: "A", title: `Arrivée · ${tourRun.resolvedEnd.label}`, color: "#183b45", kind: "end" });
+    if (tourRun.resolvedEnd.coordinates) points.push({ id: "end", lat: tourRun.resolvedEnd.coordinates.lat, lng: tourRun.resolvedEnd.coordinates.lng, label: "A", title: `Arrivée · ${tourRun.resolvedEnd.label}`, color: "#183b45", kind: "end", draggable: true });
     return points;
   }, [tourRun, highlightedStopId]);
+
+  // Phase 3 ter : glisser un marqueur déplaçable (départ, arrivée, arrêt
+  // manuel — jamais un arrêt lié à un rendez-vous, voir mapPoints ci-
+  // dessus) — géocodage inverse pour un libellé lisible (même action que
+  // "Position actuelle" dans TourRunEndpointPicker), puis persistance via
+  // l'action serveur déjà existante pour ce type de point.
+  async function handlePointDrag(pointId: string, coordinates: { lat: number; lng: number }) {
+    if (!tourRun) return;
+    const reverse = await reverseGeocodeAction({ latitude: coordinates.lat, longitude: coordinates.lng });
+    const label = reverse.ok ? reverse.label : "Position choisie sur la carte";
+
+    if (pointId === "start" || pointId === "end") {
+      const nextEndpoint: EndpointValue = { type: "CUSTOM", savedPlaceId: null, address: label, latitude: coordinates.lat, longitude: coordinates.lng, label };
+      const result = await runAction(() =>
+        updateTourRunEndpointsAction({
+          tourRunId: tourRun.id,
+          departureTime: tourRun.departureTime,
+          start: pointId === "start" ? nextEndpoint : endpointFrom(tourRun.start),
+          end: pointId === "end" ? nextEndpoint : endpointFrom(tourRun.end),
+        }),
+      );
+      if (result.ok) notify.success(`${pointId === "start" ? "Départ" : "Arrivée"} déplacé.`);
+      return;
+    }
+
+    const result = await runAction(() => updateStopAction({ tourRunId: tourRun.id, stopId: pointId, latitude: coordinates.lat, longitude: coordinates.lng, address: label }));
+    if (result.ok) notify.success("Arrêt déplacé.");
+  }
 
   // Un client est "du secteur" s'il est dans une zone du motif (par nom de
   // ville — Client n'a pas de code postal en base) ou à moins de
@@ -289,6 +327,77 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     router.refresh();
   }
 
+  // Phase 3 ter (2/2) : "retirer" (garde le rendez-vous) et "annuler le
+  // rendez-vous" (le supprime) sont deux gestes distincts — un arrêt
+  // manuel (sans rendez-vous) se retire directement, rien à distinguer.
+  function requestRemoveStop(stopId: string) {
+    const stop = tourRun?.stops.find((candidate) => candidate.id === stopId);
+    if (!stop) return;
+    if (stop.appointmentId) setRemoveChoiceStopId(stopId);
+    else handleRemoveFromTour(stopId);
+  }
+
+  async function handleRemoveFromTour(stopId: string) {
+    if (!tourRun) return;
+    const stop = tourRun.stops.find((candidate) => candidate.id === stopId);
+    if (!stop) return;
+    setRemovingStop(true);
+    const result = await removeStopAction({ tourRunId: tourRun.id, stopId });
+    setRemovingStop(false);
+    setRemoveChoiceStopId(null);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success(`« ${stop.label} » retiré de la tournée.`, { action: { label: "Annuler", onClick: () => undoRemoveStop(stop) } });
+    router.refresh();
+  }
+
+  async function undoRemoveStop(stop: TourStopView) {
+    if (!tourRun) return;
+    const result = stop.appointmentId
+      ? await addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [stop.appointmentId] })
+      : await addManualStopAction({ tourRunId: tourRun.id, type: stop.type as "OTHER", label: stop.label, address: stop.address, latitude: stop.latitude, longitude: stop.longitude, serviceDurationMinutes: stop.serviceDurationMinutes });
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success("Arrêt restauré.");
+    router.refresh();
+  }
+
+  async function handleCancelStopAppointment(stopId: string) {
+    if (!tourRun) return;
+    const stop = tourRun.stops.find((candidate) => candidate.id === stopId);
+    if (!stop || !stop.appointmentId) return;
+    setRemovingStop(true);
+    const result = await cancelStopAppointmentAction({ tourRunId: tourRun.id, stopId });
+    setRemovingStop(false);
+    setRemoveChoiceStopId(null);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    notify.success(`Rendez-vous de « ${stop.label} » annulé.`, { action: { label: "Annuler", onClick: () => undoCancelStopAppointment(stop) } });
+    router.refresh();
+  }
+
+  async function undoCancelStopAppointment(stop: TourStopView) {
+    if (!tourRun || !stop.appointmentId) return;
+    const statusResult = await updateAppointmentStatusAction(stop.appointmentId, "confirmed");
+    if (!statusResult.ok) {
+      notify.error(statusResult.error);
+      return;
+    }
+    const stopResult = await addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [stop.appointmentId] });
+    if (!stopResult.ok) {
+      notify.error(stopResult.error);
+      return;
+    }
+    notify.success("Rendez-vous restauré.");
+    router.refresh();
+  }
+
   if (!tourRun) {
     return (
       <div className="space-y-6">
@@ -393,7 +502,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
       onHoverStop={setHoveredStopId}
       onReorder={(orderedStopIds) => runAction(() => reorderStopsAction({ tourRunId: tourRun.id, orderedStopIds }))}
       onMove={(stopId, direction) => runAction(() => moveStopAction({ tourRunId: tourRun.id, stopId, direction }))}
-      onRemove={(stopId) => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId }))}
+      onRemove={requestRemoveStop}
       onToggleFlexible={(stopId, flexible) => runAction(() => updateStopAction({ tourRunId: tourRun.id, stopId, flexible, locked: !flexible }))}
       onFindSolution={canOptimize ? handleOptimize : undefined}
       onComplete={handleCompleteStop}
@@ -501,10 +610,15 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
           bas de page, c'est la moitié de l'écran (phase 3 bis). */}
       <div className="grid gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
         <Card className={`${mobileView === "list" ? "block" : "hidden lg:block"} overflow-hidden lg:sticky lg:top-6`}>
-          <div className="border-b border-[#e5eeeb] p-4">
+          <div className="flex items-center justify-between border-b border-[#e5eeeb] p-4">
             <h3 className="text-sm font-black uppercase tracking-[0.08em] text-animeo-dark">Ma tournée</h3>
+            {busy ? <span className="text-[11px] font-bold text-animeo-muted">Recalcul…</span> : null}
           </div>
-          <div className="max-h-[620px] overflow-y-auto p-2">{timeline}</div>
+          {/* Reste utilisable pendant un recalcul (phase 3 ter) : les
+              distances affichées sont les précédentes jusqu'au prochain
+              router.refresh(), jamais un vide — seule l'interaction est
+              coupée pour éviter d'empiler plusieurs recalculs concurrents. */}
+          <div className={`max-h-[620px] overflow-y-auto p-2 transition-opacity ${busy ? "pointer-events-none opacity-60" : ""}`}>{timeline}</div>
         </Card>
 
         <div className={mobileView === "map" ? "block" : "hidden lg:block"}>
@@ -533,6 +647,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
             heightClassName="h-[420px] lg:h-[720px]"
             clientPoints={clientPoints}
             onClientSelect={setSelectedClientId}
+            onPointDrag={handlePointDrag}
             overlay={selectedClient ? (
               <Card className="p-3">
                 <p className="text-xs font-black text-animeo-dark">{selectedClient.animalName} — {selectedClient.ownerName}</p>
@@ -600,6 +715,16 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
           error={clientAppointmentError}
           onSubmit={handleCreateClientAppointment}
           onClose={() => setAppointmentModalOpen(false)}
+        />
+      ) : null}
+
+      {removeChoiceStopId ? (
+        <TourRunRemoveStopModal
+          stopLabel={tourRun.stops.find((stop) => stop.id === removeChoiceStopId)?.label ?? ""}
+          submitting={removingStop}
+          onRemoveFromTour={() => handleRemoveFromTour(removeChoiceStopId)}
+          onCancelAppointment={() => handleCancelStopAppointment(removeChoiceStopId)}
+          onClose={() => setRemoveChoiceStopId(null)}
         />
       ) : null}
 

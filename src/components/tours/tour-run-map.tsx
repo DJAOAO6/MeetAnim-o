@@ -21,6 +21,11 @@ export type TourRunMapPoint = {
   // "end" (non stocké par arrêt) : pas de pastille dans ces cas plutôt que
   // deviner.
   legDurationSeconds?: number | null;
+  // Phase 3 ter : déplaçable à la souris — jamais pour un arrêt lié à un
+  // rendez-vous (sa position vient de l'adresse du client, un glissement
+  // accidentel donnerait une tournée fausse sans signal) ; seulement le
+  // départ, l'arrivée, et un arrêt manuel (voir tour-run-editor.tsx).
+  draggable?: boolean;
 };
 
 export type TourRunMapClientPoint = {
@@ -47,6 +52,11 @@ type TourRunMapProps = {
   // tournée, dézoomerait toute la carte à chaque activation du calque).
   clientPoints?: TourRunMapClientPoint[];
   onClientSelect?: (id: string) => void;
+  // Phase 3 ter : appelé au relâchement d'un marqueur déplaçable (voir
+  // TourRunMapPoint.draggable) — l'appelant décide de la persistance
+  // (endpoint de tournée ou arrêt manuel), cette carte ne fait que rendre
+  // compte du geste.
+  onPointDrag?: (id: string, coordinates: { lat: number; lng: number }) => void;
 };
 
 const NORMANDY_DEFAULT_CENTER: [number, number] = [1.0999, 49.4432];
@@ -69,7 +79,8 @@ function markerElement(point: TourRunMapPoint, selected: boolean): HTMLDivElemen
   element.style.fontSize = selected ? "18px" : "14px";
   element.style.fontWeight = "800";
   element.style.color = "#fff";
-  element.style.cursor = "pointer";
+  element.style.cursor = point.draggable ? "grab" : "pointer";
+  if (point.draggable) element.style.boxShadow = "0 6px 15px rgba(24,59,69,0.28), 0 0 0 3px rgba(255,255,255,0.55)";
   element.style.transition = "all .15s ease";
   element.textContent = point.label;
   element.setAttribute("title", point.title);
@@ -118,7 +129,7 @@ function legPillElement(label: string): HTMLDivElement {
  * au montage, marqueurs et tracé mis à jour via des effets dédiés plutôt que
  * recréés à chaque render.
  */
-export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect }: TourRunMapProps) {
+export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect, onPointDrag }: TourRunMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
@@ -127,6 +138,7 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
   const loadedRef = useRef(false);
   const onSelectRef = useRef(onSelect);
   const onClientSelectRef = useRef(onClientSelect);
+  const onPointDragRef = useRef(onPointDrag);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -135,6 +147,10 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
   useEffect(() => {
     onClientSelectRef.current = onClientSelect;
   }, [onClientSelect]);
+
+  useEffect(() => {
+    onPointDragRef.current = onPointDrag;
+  }, [onPointDrag]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -197,7 +213,13 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
       }
       const element = markerElement(point, point.id === selectedId);
       element.addEventListener("click", () => onSelectRef.current?.(point.id));
-      const marker = new maplibregl.Marker({ element }).setLngLat([point.lng, point.lat]).addTo(map);
+      const marker = new maplibregl.Marker({ element, draggable: point.draggable ?? false }).setLngLat([point.lng, point.lat]).addTo(map);
+      if (point.draggable) {
+        marker.on("dragend", () => {
+          const { lat, lng } = marker.getLngLat();
+          onPointDragRef.current?.(point.id, { lat, lng });
+        });
+      }
       markersRef.current.set(point.id, marker);
     }
 
