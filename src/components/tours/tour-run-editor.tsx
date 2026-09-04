@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
+import { useGeolocation } from "@/components/ui/use-geolocation";
 import { notify } from "@/lib/notify";
 import { completeAppointmentAction, saveAppointmentAction, updateAppointmentStatusAction } from "@/lib/appointments-actions";
 import { findMatchingZone } from "@/lib/booking-validation";
@@ -80,6 +81,10 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
   const [mobileView, setMobileView] = useState<"map" | "list">("list");
   const [addStopOpen, setAddStopOpen] = useState(false);
   const [showNearbyClients, setShowNearbyClients] = useState(false);
+  // Jamais activée par défaut : la demande d'autorisation du navigateur est
+  // intrusive, ne doit s'afficher qu'à un geste explicite.
+  const [showLiveLocation, setShowLiveLocation] = useState(false);
+  const { position: liveLocation, error: liveLocationError } = useGeolocation(showLiveLocation);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [addingClientStop, setAddingClientStop] = useState(false);
   const [appointmentModalOpen, setAppointmentModalOpen] = useState(false);
@@ -734,6 +739,15 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                 </select>
               </label>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setShowLiveLocation((current) => !current)}
+              aria-pressed={showLiveLocation}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showLiveLocation ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+            >
+              📍 {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
+            </button>
+            {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
           </div>
           <TourRunMap
             points={mapPoints}
@@ -742,6 +756,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             onSelect={setSelectedStopId}
             heightClassName="h-[420px] lg:h-[720px]"
             clientPoints={clientPoints}
+            liveLocation={liveLocation}
             onClientSelect={setSelectedClientId}
             onPointDrag={handlePointDrag}
             defaultCenter={cabinet.latitude != null && cabinet.longitude != null ? [cabinet.longitude, cabinet.latitude] : null}

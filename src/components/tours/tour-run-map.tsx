@@ -63,6 +63,9 @@ type TourRunMapProps = {
   // localisation réelle du praticien (Chantier Tournées T0.1). `null`/absent
   // = repli neutre (vue France entière), jamais une ville précise devinée.
   defaultCenter?: [number, number] | null;
+  // Position réelle du praticien (API Geolocation, voir use-geolocation.ts)
+  // — jamais prise en compte dans le fitBounds, même raison que clientPoints.
+  liveLocation?: { lat: number; lng: number } | null;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -113,6 +116,22 @@ function clientMarkerElement(point: TourRunMapClientPoint): HTMLDivElement {
   return element;
 }
 
+// Point bleu type "position actuelle" (Google/Apple Plans) — jamais la même
+// couleur qu'un marqueur d'arrêt ou de client, pour ne jamais être confondu
+// avec l'un d'eux.
+function liveLocationElement(): HTMLDivElement {
+  const element = document.createElement("div");
+  element.style.width = "16px";
+  element.style.height = "16px";
+  element.style.borderRadius = "9999px";
+  element.style.background = "#1a73e8";
+  element.style.border = "3px solid white";
+  element.style.boxShadow = "0 2px 8px rgba(24,59,69,0.4)";
+  element.setAttribute("title", "Ma position");
+  element.setAttribute("aria-label", "Ma position");
+  return element;
+}
+
 function legPillElement(label: string): HTMLDivElement {
   const element = document.createElement("div");
   element.style.pointerEvents = "none";
@@ -137,12 +156,13 @@ function legPillElement(label: string): HTMLDivElement {
  * au montage, marqueurs et tracé mis à jour via des effets dédiés plutôt que
  * recréés à chaque render.
  */
-export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect, onPointDrag, defaultCenter = null }: TourRunMapProps) {
+export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect, onPointDrag, defaultCenter = null, liveLocation = null }: TourRunMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
   const clientMarkersRef = useRef(new Map<string, maplibregl.Marker>());
   const legMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const liveLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
   const onSelectRef = useRef(onSelect);
   const onClientSelectRef = useRef(onClientSelect);
@@ -287,6 +307,24 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
       clientMarkersRef.current.set(point.id, marker);
     }
   }, [clientPoints]);
+
+  // Position réelle du praticien (calque optionnel) — jamais dans le fitBounds, même raison que clientPoints.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!liveLocation) {
+      liveLocationMarkerRef.current?.remove();
+      liveLocationMarkerRef.current = null;
+      return;
+    }
+
+    if (liveLocationMarkerRef.current) {
+      liveLocationMarkerRef.current.setLngLat([liveLocation.lng, liveLocation.lat]);
+    } else {
+      liveLocationMarkerRef.current = new maplibregl.Marker({ element: liveLocationElement() }).setLngLat([liveLocation.lng, liveLocation.lat]).addTo(map);
+    }
+  }, [liveLocation]);
 
   // Tracé de l'itinéraire — attend que le style soit chargé (source créée
   // dans "load"). Sans géométrie réelle (clé openrouteservice absente ou

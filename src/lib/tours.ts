@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
-import { destinationPoint, jitterCoordinates, projectToPercent } from "@/lib/geo";
+import { destinationPoint, projectToPercent } from "@/lib/geo";
 import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
@@ -268,12 +268,11 @@ export async function getMapClients(near?: { lat: number; lng: number; radiusKm:
     // client (Client.latitude/longitude, géocodées automatiquement à la
     // création/modification, ou via le bouton "localiser" en rattrapage),
     // sinon le client reste sans position plutôt que mal positionné.
-    const baseCoordinates = geocodedAppointment && geocodedAppointment.latitude != null && geocodedAppointment.longitude != null
+    const coordinates = geocodedAppointment && geocodedAppointment.latitude != null && geocodedAppointment.longitude != null
       ? { lat: geocodedAppointment.latitude, lng: geocodedAppointment.longitude }
       : animal.client.latitude != null && animal.client.longitude != null
         ? { lat: animal.client.latitude, lng: animal.client.longitude }
         : null;
-    const coordinates = baseCoordinates ? jitterCoordinates(baseCoordinates, animal.id) : null;
     const lastConsultation = animal.consultations[0]?.date;
     const reminder = animal.reminders[0];
 

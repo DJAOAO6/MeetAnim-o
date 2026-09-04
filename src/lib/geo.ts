@@ -6,14 +6,6 @@ export function projectToPercent(lat: number, lng: number): { x: number; y: numb
   return { x: Math.min(95, Math.max(5, x)), y: Math.min(95, Math.max(5, y)) };
 }
 
-export function jitterCoordinates(base: { lat: number; lng: number }, seed: string): { lat: number; lng: number } {
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  const angle = (hash % 360) * (Math.PI / 180);
-  const distance = 0.004 + ((hash >> 8) % 100 / 100) * 0.006;
-  return { lat: base.lat + Math.cos(angle) * distance, lng: base.lng + Math.sin(angle) * distance };
-}
-
 export function haversineDistanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const earthRadiusKm = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;

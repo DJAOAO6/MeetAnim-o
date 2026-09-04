@@ -52,6 +52,11 @@ type RealMapProps = {
   // localisation réelle du praticien (Chantier Tournées T0.1). `null`/absent
   // = repli neutre (vue France entière), jamais une ville précise devinée.
   defaultCenter?: [number, number] | null;
+  // Position réelle du praticien (API Geolocation, voir use-geolocation.ts)
+  // — un point distinct des clients/arrêts, jamais pris en compte dans le
+  // fitBounds (sinon un praticien loin de sa tournée dézoomerait toute la
+  // carte à chaque activation).
+  liveLocation?: { lat: number; lng: number } | null;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -101,6 +106,16 @@ function CircleResizeHandle({ circle, onRadiusChange }: { circle: RealMapCircle;
     </Marker>
   );
 }
+
+// Point bleu type "position actuelle" (Google/Apple Plans) — jamais la même
+// couleur qu'un marqueur client (couleurs par espèce) ou tournée, pour ne
+// jamais être confondu avec un arrêt.
+const liveLocationIcon = L.divIcon({
+  className: "",
+  html: '<span style="display:block;width:16px;height:16px;border-radius:9999px;background:#1a73e8;border:3px solid white;box-shadow:0 2px 8px rgba(24,59,69,0.4);"></span>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
 
 function markerIcon(point: RealMapPoint, selected: boolean) {
   const size = selected ? 42 : 34;
@@ -155,7 +170,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -181,6 +196,9 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
             radius={circle.radiusKm * 1000}
             pathOptions={{ color: "#4FAF9F", fillColor: "#4FAF9F", fillOpacity: 0.12, weight: 2 }}
           />
+        ) : null}
+        {liveLocation ? (
+          <Marker position={[liveLocation.lat, liveLocation.lng]} icon={liveLocationIcon} title="Ma position" zIndexOffset={1000} />
         ) : null}
         {circle && circleHandle && onCircleRadiusChange ? (
           <CircleResizeHandle key={`${circle.lat}:${circle.lng}:${circleHandleResetKey}`} circle={circle} onRadiusChange={onCircleRadiusChange} />

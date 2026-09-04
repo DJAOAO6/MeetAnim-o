@@ -7,6 +7,7 @@ import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { useGeolocation } from "@/components/ui/use-geolocation";
 import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { haversineDistanceKm } from "@/lib/geo";
 import type { AnimalSpecies, MapClient } from "@/data/tours";
@@ -41,6 +42,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const [dueOnly, setDueOnly] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(clients[0]?.id ?? "");
+  // Jamais activée par défaut : la demande d'autorisation du navigateur est
+  // intrusive, ne doit s'afficher qu'à un geste explicite.
+  const [showLiveLocation, setShowLiveLocation] = useState(false);
+  const { position: liveLocation, error: liveLocationError } = useGeolocation(showLiveLocation);
 
   const [focus, setFocus] = useState<{ lat: number; lng: number; zoom: number; token: string } | null>(null);
   const [perimeterCenter, setPerimeterCenter] = useState<PerimeterCenter | null>(null);
@@ -324,6 +329,17 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span>
             </div>
           </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowLiveLocation((current) => !current)}
+              aria-pressed={showLiveLocation}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showLiveLocation ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+            >
+              📍 {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
+            </button>
+            {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
+          </div>
           <RealMap
             points={points}
             selectedId={selectedClient?.id}
@@ -336,6 +352,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             circleHandleResetKey={circleHandleResetKey}
             focus={focus}
             defaultCenter={cabinetCoordinates ? [cabinetCoordinates.lat, cabinetCoordinates.lng] : null}
+            liveLocation={liveLocation}
           />
         </Card>
 
