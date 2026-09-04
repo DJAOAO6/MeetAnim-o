@@ -20,10 +20,9 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
   // générée pour `dateId` doit apparaître dans ce même rendu.
   await generateUpcomingTourRuns();
 
-  const [editorData, listData, mapClients, services] = await Promise.all([
+  const [editorData, listData, services] = await Promise.all([
     getTourRunEditorData(user.id, dateId),
     getTourRunsListData(user.id, todayDateId()),
-    getMapClients(),
     getServices(),
   ]);
   // Phase 3 bis (suite) : "ajouter à cette journée" depuis un client de la
@@ -35,6 +34,13 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
     editorData.cabinet.latitude != null && editorData.cabinet.longitude != null
       ? { lat: editorData.cabinet.latitude, lng: editorData.cabinet.longitude }
       : null;
+
+  // Phase 3 bis, correctif : ne charge que les clients potentiellement
+  // pertinents pour une tournée (large rectangle autour du cabinet, 100 km —
+  // au-delà du plus grand rayon réglable côté écran) plutôt que la base
+  // entière à chaque chargement — /dashboard/carte, elle, veut vraiment
+  // tout le monde et n'est pas concernée par ce filtre.
+  const mapClients = await getMapClients(cabinetCoordinates ? { ...cabinetCoordinates, radiusKm: 100 } : undefined);
 
   return (
     <ToursView

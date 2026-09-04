@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
-import { jitterCoordinates, projectToPercent } from "@/lib/geo";
+import { destinationPoint, jitterCoordinates, projectToPercent } from "@/lib/geo";
 import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
@@ -203,8 +203,46 @@ export async function getPublicZones(): Promise<PublicZone[]> {
   }));
 }
 
-export async function getMapClients(): Promise<MapClient[]> {
+/**
+ * Rectangle englobant (approximation simple, sans PostGIS) autour d'un
+ * centre — utilisé pour pré-filtrer côté SQL plutôt qu'après coup en
+ * mémoire. Assez large par construction (voir `getMapClients`) pour ne
+ * jamais couper un client réellement dans le secteur d'une tournée : le
+ * filtrage fin (zone exacte, rayon exact) reste fait par l'appelant.
+ */
+function boundingBoxAround(center: { lat: number; lng: number }, radiusKm: number) {
+  const north = destinationPoint(center, radiusKm, 0);
+  const east = destinationPoint(center, radiusKm, 90);
+  const south = destinationPoint(center, radiusKm, 180);
+  const west = destinationPoint(center, radiusKm, 270);
+  return { minLat: south.lat, maxLat: north.lat, minLng: west.lng, maxLng: east.lng };
+}
+
+/**
+ * Sans argument : tous les clients (utilisé par /dashboard/carte, dont
+ * c'est justement l'objet). Avec `near` : ne renvoie que les animaux dont
+ * le client est géographiquement proche de ce point — utilisé par l'écran
+ * de journée (phase 3 bis), qui n'a besoin que du secteur de la tournée,
+ * jamais de la base entière. Le filtrage exact (zone/rayon réglable) reste
+ * fait côté appelant sur ce sous-ensemble déjà réduit.
+ */
+export async function getMapClients(near?: { lat: number; lng: number; radiusKm: number }): Promise<MapClient[]> {
+  const bbox = near ? boundingBoxAround(near, near.radiusKm) : null;
+
   const animals = await prisma.animal.findMany({
+    where: bbox
+      ? {
+          OR: [
+            // Coordonnées propres à la fiche client (géocodage manuel).
+            { client: { latitude: { gte: bbox.minLat, lte: bbox.maxLat }, longitude: { gte: bbox.minLng, lte: bbox.maxLng } } },
+            // Ou un rendez-vous à domicile géolocalisé dans le rectangle.
+            { appointments: { some: { mode: "DOMICILE", latitude: { gte: bbox.minLat, lte: bbox.maxLat }, longitude: { gte: bbox.minLng, lte: bbox.maxLng } } } },
+            // Client sans aucune coordonnée : conservé (listé à part côté
+            // appelant comme "sans adresse localisée", jamais deviné).
+            { client: { latitude: null }, appointments: { none: { mode: "DOMICILE", latitude: { not: null } } } },
+          ],
+        }
+      : undefined,
     include: {
       client: true,
       consultations: { orderBy: { date: "desc" }, take: 1 },
@@ -274,25 +312,3 @@ export async function getWeeklyHomeAppointmentCount(): Promise<number> {
   });
 }
 
-export async function getToursPageData() {
-  const [zones, tours, stops, mapClients, businessProfile] = await Promise.all([
-    getZones(),
-    getTours(),
-    getTourStops(),
-    getMapClients(),
-    getBusinessProfile(),
-  ]);
-
-  const cabinetCoordinates: Coordinates | null = businessProfile.latitude != null && businessProfile.longitude != null
-    ? { lat: businessProfile.latitude, lng: businessProfile.longitude }
-    : null;
-
-  return {
-    zones,
-    tours,
-    appointments: stops,
-    mapClients,
-    cabinetCoordinates,
-    cabinetAddress: businessProfile.address ? `${businessProfile.address}, ${businessProfile.city}` : businessProfile.city || null,
-  };
-}

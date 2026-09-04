@@ -108,13 +108,19 @@ test.describe("Éditeur de tournées interactif", () => {
     // L'éditeur se recharge (router.refresh) avec la tournée créée.
     await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
 
-    // Ajout du rendez-vous du jour.
+    // Ajout du rendez-vous du jour (le panneau "à placer", en arrière-plan,
+    // affiche aussi ce nom — on scope à la modale pour lever l'ambiguïté).
     await page.getByRole("button", { name: "+ Ajouter un arrêt" }).click();
-    await expect(page.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
-    await page.getByText("RexE2ETourRun").click();
-    await page.getByRole("button", { name: /^Ajouter \(1\)$/ }).click();
+    const addStopDialog = page.locator('[role="dialog"]').first();
+    await expect(addStopDialog.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
+    await addStopDialog.getByText("RexE2ETourRun").click();
+    await addStopDialog.getByRole("button", { name: /^Ajouter \(1\)$/ }).click();
 
-    await expect(page.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
+    // Scopé à la timeline ("Ma tournée") : le panneau "à placer" en
+    // arrière-plan peut afficher le même nom tant que le rafraîchissement
+    // serveur n'a pas retiré ce rendez-vous de la liste des non-placés.
+    const timelineCard = page.getByRole("heading", { name: "Ma tournée", exact: true }).locator("xpath=ancestor::*[contains(@class,'rounded-')][1]");
+    await expect(timelineCard.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
 
     // Ajout d'une adresse manuelle.
     await page.getByRole("button", { name: "+ Ajouter un arrêt" }).click();
@@ -122,15 +128,15 @@ test.describe("Éditeur de tournées interactif", () => {
     await page.locator("#manual-stop-label").fill("Pause déjeuner");
     await page.getByRole("button", { name: "Ajouter comme étape" }).click();
 
-    await expect(page.getByText("Pause déjeuner")).toBeVisible({ timeout: 10000 });
+    await expect(timelineCard.getByText("Pause déjeuner")).toBeVisible({ timeout: 10000 });
 
     // KPI mis à jour : au moins 1 RDV compté dans l'en-tête.
     await expect(page.getByText(/1 RDV/)).toBeVisible();
 
     // Persistance : rechargement complet, les deux arrêts doivent réapparaître.
     await page.reload();
-    await expect(page.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Pause déjeuner")).toBeVisible();
+    await expect(timelineCard.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
+    await expect(timelineCard.getByText("Pause déjeuner")).toBeVisible();
   });
 
   // Le clic sur "Ajouter à la tournée" depuis la fiche d'un client de la
