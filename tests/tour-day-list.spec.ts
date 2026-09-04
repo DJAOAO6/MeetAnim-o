@@ -136,7 +136,7 @@ test.describe("Page Tournées — liste de journées datées", () => {
 
     await login(page);
     await page.goto("/dashboard/tournees");
-    await page.getByRole("button", { name: "+ Nouvelle journée" }).click();
+    await page.getByRole("button", { name: "Nouvelle journée" }).click();
 
     await page.locator("#new-tour-day-date").fill(dateId);
     await page.locator("#new-tour-day-name").fill("E2E Liste — Créée");

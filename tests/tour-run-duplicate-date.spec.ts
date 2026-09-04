@@ -65,7 +65,7 @@ test.describe("Création d'une journée — pas de doublon sur une même date", 
     await login(page);
 
     await page.goto("/dashboard/tournees");
-    await page.getByRole("button", { name: "+ Nouvelle journée" }).click();
+    await page.getByRole("button", { name: "Nouvelle journée" }).click();
     await page.locator("#new-tour-day-date").fill(testDateId);
     await page.locator("#new-tour-day-name").fill(`Tournée en trop ${testOwnerLastName}`);
     await page.getByRole("button", { name: "Créer la journée" }).click();
