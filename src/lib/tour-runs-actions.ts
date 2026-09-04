@@ -13,9 +13,9 @@ import { optimizeStopOrder } from "@/lib/maps/optimization-provider";
 import { reverseGeocode } from "@/lib/maps/geocoding-provider";
 import { haversineDistanceKm } from "@/lib/geo";
 import { timeToMinutes } from "@/lib/booking-validation";
-import { chainStopTimings } from "@/lib/tour-timing";
+import { chainStopTimings, type StopTimingResult } from "@/lib/tour-timing";
 import { Prisma } from "@/generated/prisma/client";
-import type { TourEndpointType, TourStopType } from "@/generated/prisma/client";
+import type { TourEndpointType, TourStopType, TourRun as DbTourRun, TourStop as DbTourStop, Appointment as DbAppointment } from "@/generated/prisma/client";
 
 const TOURS_PATH = "/dashboard/tournees";
 
@@ -178,6 +178,76 @@ async function recomputeStopTimings(tourRunId: string): Promise<void> {
       }),
     ),
   );
+}
+
+/**
+ * Calcule les horaires qu'un ordre d'arrêts PROPOSÉ produirait, sans rien
+ * écrire en base — même logique que recomputeAndPersistRoute/
+ * recomputeStopTimings (route réelle, repli à vol d'oiseau si
+ * openrouteservice échoue), mais pour un ordre hypothétique. Sert à savoir,
+ * avant d'appliquer un réordonnancement, si l'heure d'un rendez-vous en
+ * serait changée (phase 3 ter : « jamais en silence »).
+ */
+async function computeTimingsForOrder(
+  tourRun: DbTourRun,
+  orderedStops: Array<DbTourStop & { appointment: DbAppointment | null }>,
+): Promise<Map<string, StopTimingResult>> {
+  const savedPlaces = await listSavedPlaces(tourRun.userId);
+  const { start, end } = await resolveTourEndpoints(tourRun, orderedStops, savedPlaces);
+
+  const locatedStops = orderedStops.filter((stop) => stop.latitude != null && stop.longitude != null);
+  const legMinutesByStopId = new Map<string, number>();
+
+  if (locatedStops.length > 0) {
+    const points: { lat: number; lng: number }[] = [];
+    if (start.coordinates) points.push(start.coordinates);
+    for (const stop of locatedStops) points.push({ lat: stop.latitude!, lng: stop.longitude! });
+    if (end.coordinates) points.push(end.coordinates);
+
+    if (points.length >= 2) {
+      try {
+        const route = await computeRoute(points, {
+          avoidTolls: tourRun.avoidTolls,
+          avoidHighways: tourRun.avoidHighways,
+          avoidFerries: tourRun.avoidFerries,
+          preference: mapPreference(tourRun.optimizationPreference),
+        });
+        locatedStops.forEach((stop, index) => {
+          const legIndex = start.coordinates ? index : index - 1;
+          const leg = legIndex >= 0 ? route.legs[legIndex] : undefined;
+          legMinutesByStopId.set(stop.id, leg ? Math.round(leg.durationSeconds / 60) : 0);
+        });
+      } catch {
+        const ROAD_DETOUR_FACTOR = 1.3;
+        const AVERAGE_SPEED_KMH = 60;
+        let previous = start.coordinates;
+        for (const stop of locatedStops) {
+          const coords = { lat: stop.latitude!, lng: stop.longitude! };
+          const km = previous ? haversineDistanceKm(previous, coords) * ROAD_DETOUR_FACTOR : 0;
+          legMinutesByStopId.set(stop.id, Math.round((km / AVERAGE_SPEED_KMH) * 60));
+          previous = coords;
+        }
+      }
+    }
+  }
+
+  const preferences = await getOrCreateTourPreferences(tourRun.userId);
+  const startMinutes = timeToMinutes(tourRun.departureTime ?? preferences.workHoursStart);
+
+  const timings = chainStopTimings(
+    startMinutes,
+    tourRun.safetyBufferMinutes,
+    orderedStops.map((stop) => ({
+      legMinutes: legMinutesByStopId.get(stop.id) ?? 0,
+      locked: stop.locked,
+      fixedTime: stop.locked ? (stop.appointment?.start ?? stop.arrivalTime) : null,
+      serviceMinutes: stop.serviceDurationMinutes ?? 0,
+    })),
+  );
+
+  const result = new Map<string, StopTimingResult>();
+  orderedStops.forEach((stop, index) => result.set(stop.id, timings[index]));
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -656,25 +726,64 @@ export async function cancelStopAppointmentAction(input: z.infer<typeof cancelSt
   return result.degraded ? { ok: false, error: ROUTE_UNAVAILABLE_ERROR } : { ok: true };
 }
 
-const reorderStopsSchema = z.object({ tourRunId: z.string().cuid(), orderedStopIds: z.array(z.string().cuid()).min(1).max(50) });
+const reorderStopsSchema = z.object({
+  tourRunId: z.string().cuid(),
+  orderedStopIds: z.array(z.string().cuid()).min(1).max(50),
+  // Phase 3 ter : un réordonnancement ne doit jamais déplacer un rendez-vous
+  // en silence. Un premier appel non confirmé ne fait qu'annoncer les
+  // horaires proposés (needsConfirmation) ; l'utilisatrice les valide avant
+  // qu'ils soient réellement appliqués aux rendez-vous.
+  confirmed: z.boolean().optional(),
+});
 
-export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchema>): Promise<ActionResult> {
+export type ReorderTimeChange = { stopId: string; label: string; currentTime: string; proposedTime: string };
+export type ReorderResult = { ok: true } | { ok: false; error: string } | { ok: false; needsConfirmation: true; changes: ReorderTimeChange[]; orderedStopIds: string[] };
+
+export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchema>): Promise<ReorderResult> {
   const user = await requireUser();
   const parsed = reorderStopsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
 
+  let tourRun: DbTourRun;
   try {
-    await requireOwnedTourRun(data.tourRunId, user.id);
+    tourRun = await requireOwnedTourRun(data.tourRunId, user.id);
   } catch {
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const existing = await prisma.tourStop.findMany({ where: { tourRunId: data.tourRunId }, select: { id: true } });
-  const existingIds = new Set(existing.map((row) => row.id));
+  const stops = await prisma.tourStop.findMany({ where: { tourRunId: data.tourRunId }, include: { appointment: true } });
+  const existingIds = new Set(stops.map((row) => row.id));
   const requestedIds = new Set(data.orderedStopIds);
   if (existingIds.size !== requestedIds.size || [...existingIds].some((id) => !requestedIds.has(id))) {
     return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const stopById = new Map(stops.map((stop) => [stop.id, stop]));
+  const orderedStops = data.orderedStopIds.map((id) => stopById.get(id)!);
+
+  const proposedTimings = await computeTimingsForOrder(tourRun, orderedStops);
+  const changes: ReorderTimeChange[] = [];
+  for (const stop of orderedStops) {
+    if (stop.locked || !stop.appointmentId || !stop.appointment) continue;
+    const proposed = proposedTimings.get(stop.id);
+    if (!proposed || proposed.arrivalTime === stop.appointment.start) continue;
+    changes.push({ stopId: stop.id, label: stop.label, currentTime: stop.appointment.start, proposedTime: proposed.arrivalTime });
+  }
+
+  if (changes.length > 0 && !data.confirmed) {
+    return { ok: false, needsConfirmation: true, changes, orderedStopIds: data.orderedStopIds };
+  }
+
+  // Les rendez-vous affectés sont synchronisés AVANT que l'ordre ne soit
+  // persisté : si l'un d'eux est refusé (conflit détecté par
+  // saveAppointmentAction), rien n'est modifié — ni les rendez-vous, ni
+  // l'ordre des arrêts, message d'erreur affiché tel quel.
+  for (const change of changes) {
+    const stop = stopById.get(change.stopId)!;
+    const current = toAppointment({ ...stop.appointment!, animal: null });
+    const saved = await saveAppointmentAction({ ...current, start: change.proposedTime });
+    if (!saved.ok) return { ok: false, error: saved.error };
   }
 
   // Deux passes (offset temporaire puis ordre final) pour ne jamais violer
@@ -689,9 +798,9 @@ export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchem
   return result.degraded ? { ok: false, error: ROUTE_UNAVAILABLE_ERROR } : { ok: true };
 }
 
-export async function moveStopAction(input: { tourRunId: string; stopId: string; direction: "up" | "down" }): Promise<ActionResult> {
+export async function moveStopAction(input: { tourRunId: string; stopId: string; direction: "up" | "down"; confirmed?: boolean }): Promise<ReorderResult> {
   const user = await requireUser();
-  const schema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid(), direction: z.enum(["up", "down"]) });
+  const schema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid(), direction: z.enum(["up", "down"]), confirmed: z.boolean().optional() });
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -710,7 +819,7 @@ export async function moveStopAction(input: { tourRunId: string; stopId: string;
   const ordered = [...stops];
   [ordered[index], ordered[swapWith]] = [ordered[swapWith], ordered[index]];
 
-  return reorderStopsAction({ tourRunId: data.tourRunId, orderedStopIds: ordered.map((stop) => stop.id) });
+  return reorderStopsAction({ tourRunId: data.tourRunId, orderedStopIds: ordered.map((stop) => stop.id), confirmed: data.confirmed });
 }
 
 // ---------------------------------------------------------------------------
@@ -833,7 +942,7 @@ export async function optimizeTourRunAction(tourRunId: string): Promise<Optimize
   }
 }
 
-export async function applyOptimizationProposalAction(tourRunId: string): Promise<ActionResult> {
+export async function applyOptimizationProposalAction(tourRunId: string, confirmed?: boolean): Promise<ReorderResult> {
   const user = await requireUser();
   const parsedId = z.string().cuid().safeParse(tourRunId);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
@@ -853,7 +962,13 @@ export async function applyOptimizationProposalAction(tourRunId: string): Promis
   const rest = stops.filter((stop) => !proposedFirst.includes(stop.id)).map((stop) => stop.id);
   const finalOrder = [...proposedFirst, ...rest];
 
-  await reorderStopsAction({ tourRunId: parsedId.data, orderedStopIds: finalOrder });
+  // Même garde-fou que le réordonnancement manuel (phase 3 ter) : appliquer
+  // une proposition d'optimisation peut aussi décaler des rendez-vous
+  // réels — la proposition (distance/durée) n'est PAS consommée tant que
+  // ce second niveau de confirmation n'a pas eu lieu.
+  const result = await reorderStopsAction({ tourRunId: parsedId.data, orderedStopIds: finalOrder, confirmed });
+  if (!result.ok) return result;
+
   await prisma.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: Prisma.DbNull } });
   revalidatePath(TOURS_PATH);
   return { ok: true };

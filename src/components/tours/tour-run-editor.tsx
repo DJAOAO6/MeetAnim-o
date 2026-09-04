@@ -21,6 +21,7 @@ import { TourRunEndpointPicker, type EndpointValue } from "@/components/tours/to
 import { TourRunAddStopModal } from "@/components/tours/tour-run-add-stop-modal";
 import { TourRunAddClientAppointmentModal, type ClientAppointmentInput } from "@/components/tours/tour-run-add-client-appointment-modal";
 import { TourRunOptimizeModal } from "@/components/tours/tour-run-optimize-modal";
+import { TourRunReorderConfirmModal } from "@/components/tours/tour-run-reorder-confirm-modal";
 import { TourRunRemoveStopModal } from "@/components/tours/tour-run-remove-stop-modal";
 import {
   addAppointmentStopsAction,
@@ -41,6 +42,7 @@ import {
   updateTourRunEndpointsAction,
   updateTourRunOptionsAction,
   type OptimizationComparison,
+  type ReorderTimeChange,
 } from "@/lib/tour-runs-actions";
 import type { AvailableAppointmentView, SavedPlaceView, TourPreferencesView, TourRunView, TourStopView } from "@/lib/tour-runs";
 import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
@@ -92,6 +94,12 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
   const [optimizeComparison, setOptimizeComparison] = useState<OptimizationComparison | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [applyingOptimization, setApplyingOptimization] = useState(false);
+  // Phase 3 ter : un réordonnancement (manuel ou via "Optimiser") qui
+  // décalerait l'heure d'un rendez-vous s'arrête ici avant d'écrire quoi
+  // que ce soit — jamais en silence. `source` détermine quelle action
+  // serveur ré-appeler avec confirmed:true.
+  const [pendingReorder, setPendingReorder] = useState<{ orderedStopIds: string[]; changes: ReorderTimeChange[]; source: "manual" | "optimize" } | null>(null);
+  const [applyingReorder, setApplyingReorder] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -481,9 +489,19 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
 
   async function handleApplyOptimization() {
     setApplyingOptimization(true);
-    await applyOptimizationProposalAction(tourRun!.id);
+    const result = await applyOptimizationProposalAction(tourRun!.id);
     setApplyingOptimization(false);
     setOptimizeComparison(null);
+
+    if (!result.ok) {
+      if ("error" in result) {
+        notify.error(result.error);
+        await refresh();
+      } else {
+        setPendingReorder({ orderedStopIds: result.orderedStopIds, changes: result.changes, source: "optimize" });
+      }
+      return;
+    }
     notify.success("Proposition appliquée.");
     router.refresh();
   }
@@ -494,14 +512,68 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     router.refresh();
   }
 
+  async function performReorder(orderedStopIds: string[]) {
+    setBusy(true);
+    const result = await reorderStopsAction({ tourRunId: tourRun!.id, orderedStopIds });
+    setBusy(false);
+
+    if (!result.ok) {
+      if ("error" in result) {
+        notify.error(result.error);
+      } else {
+        setPendingReorder({ orderedStopIds: result.orderedStopIds, changes: result.changes, source: "manual" });
+        return;
+      }
+    }
+    await refresh();
+  }
+
+  async function performMove(stopId: string, direction: "up" | "down") {
+    setBusy(true);
+    const result = await moveStopAction({ tourRunId: tourRun!.id, stopId, direction });
+    setBusy(false);
+
+    if (!result.ok) {
+      if ("error" in result) {
+        notify.error(result.error);
+      } else {
+        setPendingReorder({ orderedStopIds: result.orderedStopIds, changes: result.changes, source: "manual" });
+        return;
+      }
+    }
+    await refresh();
+  }
+
+  async function confirmPendingReorder() {
+    if (!pendingReorder) return;
+    setApplyingReorder(true);
+
+    const result =
+      pendingReorder.source === "optimize"
+        ? await applyOptimizationProposalAction(tourRun!.id, true)
+        : await reorderStopsAction({ tourRunId: tourRun!.id, orderedStopIds: pendingReorder.orderedStopIds, confirmed: true });
+
+    setApplyingReorder(false);
+    const changeCount = pendingReorder.changes.length;
+    setPendingReorder(null);
+
+    if (!result.ok) {
+      notify.error("error" in result ? result.error : "Une erreur est survenue. Réessayez.");
+      await refresh();
+      return;
+    }
+    notify.success(changeCount > 1 ? `${changeCount} rendez-vous replacés.` : "Rendez-vous replacé.");
+    await refresh();
+  }
+
   const timeline = (
     <TourRunTimeline
       stops={tourRun.stops}
       selectedId={selectedStopId}
       onSelect={setSelectedStopId}
       onHoverStop={setHoveredStopId}
-      onReorder={(orderedStopIds) => runAction(() => reorderStopsAction({ tourRunId: tourRun.id, orderedStopIds }))}
-      onMove={(stopId, direction) => runAction(() => moveStopAction({ tourRunId: tourRun.id, stopId, direction }))}
+      onReorder={(orderedStopIds) => performReorder(orderedStopIds)}
+      onMove={(stopId, direction) => performMove(stopId, direction)}
       onRemove={requestRemoveStop}
       onToggleFlexible={(stopId, flexible) => runAction(() => updateStopAction({ tourRunId: tourRun.id, stopId, flexible, locked: !flexible }))}
       onFindSolution={canOptimize ? handleOptimize : undefined}
@@ -736,6 +808,10 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
 
       {optimizeComparison ? (
         <TourRunOptimizeModal comparison={optimizeComparison} applying={applyingOptimization} onApply={handleApplyOptimization} onDismiss={handleDismissOptimization} />
+      ) : null}
+
+      {pendingReorder ? (
+        <TourRunReorderConfirmModal changes={pendingReorder.changes} applying={applyingReorder} onConfirm={confirmPendingReorder} onCancel={() => setPendingReorder(null)} />
       ) : null}
 
       {deleteConfirmOpen ? (
