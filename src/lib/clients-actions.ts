@@ -42,6 +42,7 @@ export type ClientContactInput = {
   phone: string;
   email: string;
   city: string;
+  postalCode: string;
   address: string;
 };
 
@@ -57,7 +58,15 @@ export async function createClientAction(input: ClientContactInput): Promise<Cli
   if (email && !emailPattern.test(email)) return { ok: false, error: "Email invalide." };
 
   const created = await prisma.client.create({
-    data: { firstName, lastName, phone: input.phone.trim(), email, city: input.city.trim(), address: input.address.trim() },
+    data: {
+      firstName,
+      lastName,
+      phone: input.phone.trim(),
+      email,
+      city: input.city.trim(),
+      postalCode: input.postalCode.trim() || null,
+      address: input.address.trim(),
+    },
     include: clientInclude,
   });
   await logAudit({ userId: user.id, action: "CLIENT_CREATED", entityType: "Client", entityId: created.id });
@@ -84,7 +93,15 @@ export async function updateClientAction(clientId: string, input: ClientContactI
   const [updated] = await prisma.$transaction([
     prisma.client.update({
       where: { id: clientId },
-      data: { firstName, lastName, phone: input.phone.trim(), email, city: input.city.trim(), address: input.address.trim() },
+      data: {
+        firstName,
+        lastName,
+        phone: input.phone.trim(),
+        email,
+        city: input.city.trim(),
+        postalCode: input.postalCode.trim() || null,
+        address: input.address.trim(),
+      },
       include: clientInclude,
     }),
     // Appointment.clientName est dénormalisé pour rester la seule source

@@ -158,6 +158,8 @@ enum AuditAction {
   CALENDAR_DISCONNECTED
   CALENDAR_SETTINGS_UPDATED
   CALENDAR_FEED_TOKEN_REGENERATED
+  CLIENTS_IMPORTED
+  CLIENT_IMPORT_UNDONE
 }
 
 model User {
@@ -190,6 +192,7 @@ model User {
   tourRuns            TourRun[]
   savedPlaces         SavedPlace[]
   tourPreferences     TourPreferences?
+  clientImports       ClientImport[]
 
   @@index([email])
 }
@@ -243,15 +246,52 @@ model RateLimitEvent {
   @@index([key, createdAt])
 }
 
+enum ClientImportStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  UNDONE
+}
+
+// Import de fichiers clients (CSV/Excel) : trace un import pour permettre le
+// compteur de résultat et surtout l'annulation (bouton "Annuler cet import"),
+// voir clients-import-actions.ts.
+model ClientImport {
+  id             String             @id @default(cuid())
+  userId         String?
+  user           User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fileName       String
+  totalRows      Int
+  conflictPolicy String
+  createdClients Int                @default(0)
+  createdAnimals Int                @default(0)
+  mergedClients  Int                @default(0)
+  skippedRows    Int                @default(0)
+  errorRows      Int                @default(0)
+  status         ClientImportStatus @default(RUNNING)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  clients Client[]
+  animals Animal[]
+
+  @@index([userId, createdAt])
+}
+
 model Client {
-  id        String       @id @default(cuid())
-  firstName String
-  lastName  String
-  phone     String
-  email     String
-  city      String
-  address   String
-  status    ClientStatus @default(ACTIF)
+  id         String       @id @default(cuid())
+  firstName  String
+  lastName   String
+  phone      String
+  email      String
+  city       String
+  // Import de fichiers clients (D8) : un fichier client contient toujours un
+  // code postal, dont on a besoin séparément de `city`/`address` — le
+  // concaténer casserait le rattachement aux zones (computeTotalPrice compare
+  // `city` par nom).
+  postalCode String?
+  address    String
+  status     ClientStatus @default(ACTIF)
 
   // Unification des tournées, phase 3 bis : géocodage à la demande (bouton
   // "localiser" sur la carte tournées) pour un client qui n'a encore aucun
@@ -263,8 +303,14 @@ model Client {
   latitude  Float?
   longitude Float?
 
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Import de fichiers clients (D9) : porté uniquement par les fiches créées
+  // par l'import (jamais par une fiche existante seulement complétée), pour
+  // que l'annulation ne supprime que ce que l'import a réellement créé.
+  importId String?
+  import   ClientImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
 
   animals      Animal[]
   appointments Appointment[]
@@ -272,6 +318,7 @@ model Client {
 
   @@index([lastName, firstName])
   @@index([email])
+  @@index([importId])
 }
 
 model Animal {
@@ -302,12 +349,17 @@ model Animal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Import de fichiers clients (D9), même logique que Client.importId.
+  importId String?
+  import   ClientImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
+
   consultations Consultation[]
   documents     AnimalDocument[]
   appointments  Appointment[]
   reminders     Reminder[]
 
   @@index([clientId])
+  @@index([importId])
 }
 
 model Consultation {

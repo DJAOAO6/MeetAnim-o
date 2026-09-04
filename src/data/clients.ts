@@ -46,6 +46,7 @@ export type Client = {
   phone: string;
   email: string;
   city: string;
+  postalCode: string;
   address: string;
   status: "Actif" | "Inactif";
   lastConsultation: string;

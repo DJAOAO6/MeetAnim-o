@@ -83,6 +83,7 @@ export function mapClient(client: DbClientWithAnimals): Client {
     phone: client.phone,
     email: client.email,
     city: client.city,
+    postalCode: client.postalCode ?? "",
     address: client.address,
     status: client.status === "ACTIF" ? "Actif" : "Inactif",
     lastConsultation: lastConsultation ? formatFrenchDate(lastConsultation) : "Aucune consultation",

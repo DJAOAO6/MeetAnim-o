@@ -21,6 +21,7 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
     phone: client?.phone ?? "",
     email: client?.email ?? "",
     city: client?.city ?? "",
+    postalCode: client?.postalCode ?? "",
     address: client?.address ?? "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
               <Field label="Nom"><input value={draft.lastName} onChange={(event) => update("lastName", event.target.value)} className={inputClassName} required /></Field>
               <Field label="Téléphone"><input value={draft.phone} onChange={(event) => update("phone", event.target.value)} className={inputClassName} placeholder="06 12 34 56 78" /></Field>
               <Field label="Email"><input type="email" value={draft.email} onChange={(event) => update("email", event.target.value)} className={inputClassName} placeholder="vous@exemple.fr" /></Field>
+              <Field label="Code postal"><input value={draft.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={inputClassName} /></Field>
               <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
               <Field label="Adresse"><input value={draft.address} onChange={(event) => update("address", event.target.value)} className={inputClassName} /></Field>
             </div>
