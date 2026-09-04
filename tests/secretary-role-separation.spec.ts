@@ -41,11 +41,14 @@ test.describe("Séparation des rôles — compte Secrétariat", () => {
     await expect(page).not.toHaveURL(/\/dashboard\/statistiques/);
   });
 
-  test("aucun bouton de suppression de client n'est proposé (DELETE_CLIENTS absent)", async ({ page }) => {
+  test("aucun moyen de supprimer un client n'est proposé (DELETE_CLIENTS absent)", async ({ page }) => {
     await loginAsSecretary(page);
     await page.goto("/dashboard/clients");
     await page.waitForTimeout(800);
-    await expect(page.getByRole("button", { name: "Supprimer ce client" })).toHaveCount(0);
+    // Suppression façon Gmail (case à cocher → bandeau groupé) : ni la case
+    // ni le bandeau ne doivent apparaître sans la permission DELETE_CLIENTS.
+    await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Supprimer" })).toHaveCount(0);
   });
 
   test("les prestations sont visibles mais en lecture seule, avec un message explicite", async ({ page }) => {

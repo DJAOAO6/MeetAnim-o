@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
-import { createClientAction, deleteClientAction, type ClientContactInput } from "@/lib/clients-actions";
+import { createClientAction, deleteClientsAction, type ClientContactInput } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 
@@ -53,6 +53,10 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   const [creatingClient, setCreatingClient] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [importingClients, setImportingClients] = useState(false);
+  // Suppression façon Gmail : jamais de bouton visible sur une fiche, une
+  // sélection (case à cocher) fait apparaître un bandeau d'action groupée.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deletingSelected, startDeleteSelected] = useTransition();
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -76,10 +80,55 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
     return sorted;
   }, [localClients, query, speciesFilter, statusFilter, sortBy]);
 
-  function handleDeleted(clientId: string, label: string) {
-    setLocalClients((current) => current.filter((client) => client.id !== clientId));
-    notify.success(`${label} a été supprimé.`);
-    router.refresh();
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    const visibleIds = filteredClients.map((client) => client.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      visibleIds.forEach((id) => {
+        if (allVisibleSelected) next.delete(id);
+        else next.add(id);
+      });
+      return next;
+    });
+  }
+
+  function deleteSelected() {
+    const count = selectedIds.size;
+    const confirmMessage = count === 1
+      ? "Supprimer définitivement cette fiche client et ses animaux ? Cette action est irréversible."
+      : `Supprimer définitivement ces ${count} fiches clients et leurs animaux ? Cette action est irréversible.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    const ids = Array.from(selectedIds);
+    startDeleteSelected(async () => {
+      const result = await deleteClientsAction(ids);
+      if (result.deletedIds.length > 0) {
+        const deletedSet = new Set(result.deletedIds);
+        setLocalClients((current) => current.filter((client) => !deletedSet.has(client.id)));
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          result.deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+      if (result.failedNames.length === 0) {
+        notify.success(result.deletedIds.length > 1 ? `${result.deletedIds.length} clients ont été supprimés.` : "Le client a été supprimé.");
+      } else {
+        notify.error(`Échec pour : ${result.failedNames.join(", ")}.`);
+      }
+      router.refresh();
+    });
   }
 
   async function saveNewClient(input: ClientContactInput) {
@@ -178,6 +227,22 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
         </div>
       </Card>
 
+      {canDelete && selectedIds.size > 0 ? (
+        <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgba(24,59,69,0.22)] sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white/10 px-2 font-black">{selectedIds.size}</span>
+            <p className="font-extrabold">{selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}</p>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Annuler</button>
+            <button type="button" onClick={deleteSelected} disabled={deletingSelected} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-error px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#c23a3a] disabled:cursor-not-allowed disabled:opacity-60">
+              <TrashIcon />
+              {deletingSelected ? "Suppression…" : "Supprimer"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
           <div>
@@ -194,6 +259,17 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
               <table className="w-full min-w-[980px] border-collapse text-left">
                 <thead className="bg-[#fbfdfc] text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
                   <tr>
+                    {canDelete ? (
+                      <th className="w-12 px-6 py-3.5">
+                        <input
+                          type="checkbox"
+                          checked={filteredClients.length > 0 && filteredClients.every((client) => selectedIds.has(client.id))}
+                          onChange={toggleAllVisible}
+                          aria-label="Sélectionner tous les clients affichés"
+                          className="h-4 w-4 accent-[#4FAF9F]"
+                        />
+                      </th>
+                    ) : null}
                     <th className="px-6 py-3.5">Client</th>
                     <th className="px-4 py-3.5">Coordonnées</th>
                     <th className="px-4 py-3.5">Ville</th>
@@ -203,13 +279,29 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#edf2f0]">
-                  {filteredClients.map((client) => <ClientTableRow key={client.id} client={client} canDelete={canDelete} onDeleted={handleDeleted} />)}
+                  {filteredClients.map((client) => (
+                    <ClientTableRow
+                      key={client.id}
+                      client={client}
+                      canDelete={canDelete}
+                      selected={selectedIds.has(client.id)}
+                      onToggleSelected={() => toggleSelected(client.id)}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
 
             <div className="grid gap-4 p-4 sm:grid-cols-2 lg:hidden">
-              {filteredClients.map((client) => <ClientMobileCard key={client.id} client={client} canDelete={canDelete} onDeleted={handleDeleted} />)}
+              {filteredClients.map((client) => (
+                <ClientMobileCard
+                  key={client.id}
+                  client={client}
+                  canDelete={canDelete}
+                  selected={selectedIds.has(client.id)}
+                  onToggleSelected={() => toggleSelected(client.id)}
+                />
+              ))}
             </div>
           </>
         ) : (
@@ -234,32 +326,14 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   );
 }
 
-function useDeleteClient(client: Client, onDeleted: (clientId: string, label: string) => void) {
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function deleteClient() {
-    const label = `${client.firstName} ${client.lastName}`;
-    if (!window.confirm(`Supprimer définitivement la fiche de ${label} et tous ses animaux ? Cette action est irréversible.`)) return;
-    startTransition(async () => {
-      setError(null);
-      const result = await deleteClientAction(client.id);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      onDeleted(client.id, label);
-    });
-  }
-
-  return { deleteClient, pending, error };
-}
-
-function ClientTableRow({ client, canDelete, onDeleted }: { client: Client; canDelete: boolean; onDeleted: (clientId: string, label: string) => void }) {
-  const { deleteClient, pending, error } = useDeleteClient(client, onDeleted);
-
+function ClientTableRow({ client, canDelete, selected, onToggleSelected }: { client: Client; canDelete: boolean; selected: boolean; onToggleSelected: () => void }) {
   return (
-    <tr className={`transition hover:bg-animeo-bg/70 ${pending ? "opacity-50" : ""}`}>
+    <tr className={`transition ${selected ? "bg-animeo-soft/55" : "hover:bg-animeo-bg/70"}`}>
+      {canDelete ? (
+        <td className="px-6 py-4">
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 accent-[#4FAF9F]" />
+        </td>
+      ) : null}
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           <AnimalAvatarStack animals={client.animals} />
@@ -291,28 +365,26 @@ function ClientTableRow({ client, canDelete, onDeleted }: { client: Client; canD
       </td>
       <td className="px-4 py-4 text-sm font-semibold text-animeo-muted">{client.lastConsultation}</td>
       <td className="px-6 py-4">
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end">
           <ClientLink id={client.id} />
-          {canDelete ? <button type="button" disabled={pending} onClick={deleteClient} title="Supprimer ce client" aria-label="Supprimer ce client" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffe4e4] text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-[#ffd2d2] hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"><TrashIcon /></button> : null}
         </div>
-        {error ? <p role="alert" className="mt-1.5 text-right text-[11px] font-bold text-animeo-error">{error}</p> : null}
       </td>
     </tr>
   );
 }
 
-function ClientMobileCard({ client, canDelete, onDeleted }: { client: Client; canDelete: boolean; onDeleted: (clientId: string, label: string) => void }) {
-  const { deleteClient, pending, error } = useDeleteClient(client, onDeleted);
-
+function ClientMobileCard({ client, canDelete, selected, onToggleSelected }: { client: Client; canDelete: boolean; selected: boolean; onToggleSelected: () => void }) {
   return (
-    <article className={`rounded-2xl border border-[#e1ebe8] bg-white p-4 ${pending ? "opacity-50" : ""}`}>
+    <article className={`rounded-2xl border p-4 ${selected ? "border-animeo bg-animeo-soft/50" : "border-[#e1ebe8] bg-white"}`}>
       <div className="flex items-center gap-3">
+        {canDelete ? (
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 shrink-0 accent-[#4FAF9F]" />
+        ) : null}
         <AnimalAvatarStack animals={client.animals} />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</h3>
           <p className="text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
         </div>
-        {canDelete ? <button type="button" disabled={pending} onClick={deleteClient} title="Supprimer ce client" aria-label="Supprimer ce client" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffe4e4] text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-[#ffd2d2] hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"><TrashIcon /></button> : null}
       </div>
       <dl className="mt-4 space-y-2 text-sm">
         <InfoLine label="Téléphone" value={client.phone} />
@@ -321,7 +393,6 @@ function ClientMobileCard({ client, canDelete, onDeleted }: { client: Client; ca
         <InfoLine label={`Animaux (${client.animals.length})`} value={animalNames(client)} />
         <InfoLine label="Dernière consultation" value={client.lastConsultation} />
       </dl>
-      {error ? <p role="alert" className="mt-2 text-xs font-bold text-animeo-error">{error}</p> : null}
       <ClientLink id={client.id} fullWidth />
     </article>
   );

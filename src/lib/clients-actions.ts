@@ -56,6 +56,41 @@ export async function deleteClientAction(clientId: string): Promise<ClientAction
   return { ok: true };
 }
 
+export type BulkDeleteClientsResult = { deletedIds: string[]; failedNames: string[] };
+
+/**
+ * Suppression groupée (bandeau de sélection façon Gmail, liste clients) —
+ * même mécanique que sendRemindersBulkAction : chaque suppression est
+ * indépendante (Promise.allSettled), l'échec d'une fiche ne doit jamais
+ * bloquer les autres.
+ */
+export async function deleteClientsAction(clientIds: string[]): Promise<BulkDeleteClientsResult> {
+  const user = await requireUser();
+  if (!hasPermission(user, "DELETE_CLIENTS")) return { deletedIds: [], failedNames: [] };
+  if (clientIds.length === 0) return { deletedIds: [], failedNames: [] };
+
+  const clients = await prisma.client.findMany({ where: { id: { in: clientIds } }, select: { id: true, firstName: true, lastName: true } });
+
+  const results = await Promise.allSettled(clients.map(async (client) => {
+    await prisma.client.delete({ where: { id: client.id } });
+    await logAudit({ userId: user.id, action: "CLIENT_DELETED", entityType: "Client", entityId: client.id });
+    return client.id;
+  }));
+
+  const deletedIds: string[] = [];
+  const failedNames: string[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") deletedIds.push(result.value);
+    else failedNames.push(`${clients[index].firstName} ${clients[index].lastName}`);
+  });
+
+  revalidatePath("/dashboard/clients");
+  revalidatePath("/dashboard/carte");
+  revalidatePath("/dashboard/rappels");
+
+  return { deletedIds, failedNames };
+}
+
 export type ClientContactInput = {
   firstName: string;
   lastName: string;
