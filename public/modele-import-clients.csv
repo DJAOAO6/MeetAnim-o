@@ -1,0 +1,4 @@
+﻿Prénom;Nom;Téléphone;Email;Adresse;Code postal;Ville;Nom animal;Espèce;Race;Sexe;Poids;Date de naissance;Antécédents;Traitements;Historique;Notes
+Marie;Dupont;06 12 34 56 78;marie.dupont@exemple.fr;12 rue des Lilas;76000;Rouen;Luna;Chien;Golden Retriever;Femelle;28 kg;15/03/2020;Aucun antécédent notable.;Aucun traitement en cours.;RAS;Très sociable.
+Marie;Dupont;06 12 34 56 78;marie.dupont@exemple.fr;12 rue des Lilas;76000;Rouen;Oscar;Chat;Européen;Mâle castré;5 kg;10/06/2018;RAS;RAS;RAS;Craintif au début, se détend vite.
+Thomas;Martin;06 98 76 54 32;thomas.martin@exemple.fr;5 avenue de la Mer;76600;Le Havre;Rex;Chien;Labrador;Mâle;30 kg;2019;RAS;RAS;RAS;RAS

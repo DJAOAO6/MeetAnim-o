@@ -1,11 +1,10 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { decodeSpreadsheetBytes } from "@/lib/import/decode-file";
-import { parseDelimitedText } from "@/lib/import/csv-parse";
+import { readSpreadsheet } from "@/lib/import/read-spreadsheet";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = [".csv", ".tsv", ".txt"];
+const ACCEPTED_EXTENSIONS = [".csv", ".tsv", ".txt", ".xlsx"];
 
 export type FileReadResult = { fileName: string; headers: string[]; rows: string[][] };
 
@@ -24,7 +23,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
     setError(null);
 
     if (!hasAcceptedExtension(file.name)) {
-      setError("Format non pris en charge. Utilisez un fichier .csv, .tsv ou .txt.");
+      setError("Format non pris en charge. Utilisez un fichier .csv, .tsv, .txt ou .xlsx.");
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
@@ -34,9 +33,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
 
     setReading(true);
     try {
-      const bytes = await file.arrayBuffer();
-      const text = decodeSpreadsheetBytes(bytes);
-      const { headers, rows } = parseDelimitedText(text);
+      const { headers, rows } = await readSpreadsheet(file);
 
       if (headers.length === 0 || rows.length === 0) {
         setError("Ce fichier est vide ou n'a pas pu être lu. Vérifiez qu'il contient bien une ligne d'en-têtes et au moins une ligne de données.");
@@ -60,9 +57,12 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-animeo-muted">
-        Une ligne par animal : un client qui a plusieurs animaux occupe plusieurs lignes avec les mêmes coordonnées.
-      </p>
+      <div className="flex flex-col gap-1 text-sm text-animeo-muted sm:flex-row sm:items-center sm:justify-between">
+        <p>Une ligne par animal : un client qui a plusieurs animaux occupe plusieurs lignes avec les mêmes coordonnées.</p>
+        <a href="/modele-import-clients.csv" download className="shrink-0 font-extrabold text-animeo underline underline-offset-2 hover:text-[#3a8a7d]">
+          Télécharger un modèle
+        </a>
+      </div>
 
       <div
         role="button"
@@ -85,7 +85,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
         <UploadIcon />
         <div>
           <p className="font-extrabold text-animeo-dark">Glissez votre fichier ici, ou cliquez pour le choisir</p>
-          <p className="mt-1 text-xs text-animeo-muted">CSV, TSV ou TXT — 5 Mo maximum</p>
+          <p className="mt-1 text-xs text-animeo-muted">CSV, TSV, TXT ou Excel (.xlsx) — 5 Mo maximum</p>
         </div>
         <input
           ref={inputRef}
@@ -99,6 +99,8 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
           }}
         />
       </div>
+
+      <p className="text-xs text-animeo-muted">Pour un classeur Excel, seule la première feuille est prise en compte.</p>
 
       {reading ? <p className="text-sm font-semibold text-animeo-muted">Lecture du fichier…</p> : null}
       {error ? <p role="alert" className="rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}

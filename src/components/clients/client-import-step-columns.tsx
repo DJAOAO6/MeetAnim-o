@@ -57,6 +57,7 @@ export function ClientImportStepColumns({
                     <select
                       value={currentField}
                       onChange={(event) => setColumnField(columnIndex, (event.target.value || "") as ImportField | "")}
+                      aria-label={`Champ Animéo pour la colonne « ${header || "sans en-tête"} »`}
                       className="h-10 w-full max-w-xs rounded-xl border border-[#d9e5e2] bg-white px-3 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo"
                     >
                       <option value="">Ne pas importer</option>
