@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
@@ -122,10 +122,24 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
     router.refresh();
   }
 
+  // Phase 3 ter, correctif : un second geste ne doit jamais rester bloqué
+  // derrière un recalcul en cours. `busy` reste un indicateur global
+  // (l'écran passe en "recalcul" plutôt que de perdre ses distances), mais
+  // n'est plus jamais posé à `false` par une réponse devenue périmée — sans
+  // ce garde-fou, deux appels imbriqués pouvaient afficher "prêt" alors que
+  // le premier tournait encore, laissant lancer un troisième geste sur un
+  // état pas encore stabilisé. Les Server Actions ne s'annulent pas
+  // vraiment côté réseau (pas d'AbortController possible ici) : ce compteur
+  // de génération est l'équivalent honnête accessible — seul le dernier
+  // geste compte pour l'état affiché, router.refresh() reflète de toute
+  // façon l'état réel en base à la fin.
+  const actionGeneration = useRef(0);
+
   async function runAction<T extends { ok: boolean; error?: string }>(action: () => Promise<T>): Promise<T> {
+    const generation = (actionGeneration.current += 1);
     setBusy(true);
     const result = await action();
-    setBusy(false);
+    if (generation === actionGeneration.current) setBusy(false);
     if (!result.ok && result.error) notify.error(result.error);
     await refresh();
     return result;
@@ -468,9 +482,10 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
   }
 
   async function performReorder(orderedStopIds: string[]) {
+    const generation = (actionGeneration.current += 1);
     setBusy(true);
     const result = await reorderStopsAction({ tourRunId: tourRun!.id, orderedStopIds });
-    setBusy(false);
+    if (generation === actionGeneration.current) setBusy(false);
 
     if (!result.ok) {
       if ("error" in result) {
@@ -484,9 +499,10 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
   }
 
   async function performMove(stopId: string, direction: "up" | "down") {
+    const generation = (actionGeneration.current += 1);
     setBusy(true);
     const result = await moveStopAction({ tourRunId: tourRun!.id, stopId, direction });
-    setBusy(false);
+    if (generation === actionGeneration.current) setBusy(false);
 
     if (!result.ok) {
       if ("error" in result) {
@@ -692,11 +708,13 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             <h3 className="text-sm font-black uppercase tracking-[0.08em] text-animeo-dark">Ma tournée</h3>
             {busy ? <span className="text-[11px] font-bold text-animeo-muted">Recalcul…</span> : null}
           </div>
-          {/* Reste utilisable pendant un recalcul (phase 3 ter) : les
-              distances affichées sont les précédentes jusqu'au prochain
-              router.refresh(), jamais un vide — seule l'interaction est
-              coupée pour éviter d'empiler plusieurs recalculs concurrents. */}
-          <div className={`max-h-[620px] overflow-y-auto p-2 transition-opacity ${busy ? "pointer-events-none opacity-60" : ""}`}>{timeline}</div>
+          {/* Reste utilisable pendant un recalcul (phase 3 ter, correctif) :
+              les distances affichées sont les précédentes jusqu'au prochain
+              router.refresh(), jamais un vide, et l'interaction n'est plus
+              coupée — un second geste prend le dessus (voir le compteur de
+              génération de runAction) plutôt que de rester bloqué derrière
+              un premier recalcul encore en cours. */}
+          <div className={`max-h-[620px] overflow-y-auto p-2 transition-opacity ${busy ? "opacity-60" : ""}`}>{timeline}</div>
         </Card>
 
         <div className={mobileView === "map" ? "block" : "hidden lg:block"}>
