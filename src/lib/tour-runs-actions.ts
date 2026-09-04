@@ -285,6 +285,14 @@ export async function createTourRunAction(input: z.infer<typeof createTourRunSch
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
 
+  // L'index unique (templateId, date, userId) ne protège pas ce chemin :
+  // une création manuelle a toujours templateId=null, et Postgres ne
+  // considère jamais deux NULL comme en conflit — vérification explicite
+  // pour garder l'invariant "un seul objet visible par date" (audit de
+  // conformité, constat n°8).
+  const existing = await prisma.tourRun.findFirst({ where: { userId: user.id, date: new Date(`${data.dateId}T00:00:00.000Z`) }, select: { id: true } });
+  if (existing) return { ok: false, error: "Une journée existe déjà pour cette date." };
+
   const tourRun = await prisma.tourRun.create({
     data: {
       userId: user.id,
