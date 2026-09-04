@@ -43,7 +43,7 @@ import {
   type OptimizationComparison,
   type ReorderTimeChange,
 } from "@/lib/tour-runs-actions";
-import type { AvailableAppointmentView, SavedPlaceView, TourRunView, TourStopView } from "@/lib/tour-runs";
+import type { AvailableAppointmentView, SavedPlaceView, StopToRemove, TourRunView, TourStopView } from "@/lib/tour-runs";
 import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
 import type { MapClient } from "@/data/tours";
 import type { ServiceSettings } from "@/data/settings";
@@ -57,6 +57,10 @@ type TourRunEditorProps = {
   tourRun: TourRunView | null;
   savedPlaces: SavedPlaceView[];
   availableAppointments: AvailableAppointmentView[];
+  // Phase 1.3 : réconciliation live avec l'agenda — calculée côté serveur
+  // mais restée invisible en interface (audit de conformité, constat n°2).
+  unplacedHomeAppointments: AvailableAppointmentView[];
+  stopsToRemove: StopToRemove[];
   cabinet: { address: string | null; latitude: number | null; longitude: number | null };
   mapClients: MapClient[];
   homeServices: ServiceSettings[];
@@ -67,7 +71,7 @@ function endpointFrom(value: TourRunView["start"]): EndpointValue {
   return { type: value.type as EndpointValue["type"], savedPlaceId: value.savedPlaceId, address: value.address, latitude: value.latitude, longitude: value.longitude, label: value.label };
 }
 
-export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointments, cabinet, mapClients, homeServices, onClose }: TourRunEditorProps) {
+export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointments, unplacedHomeAppointments, stopsToRemove, cabinet, mapClients, homeServices, onClose }: TourRunEditorProps) {
   const router = useRouter();
   // Avant tout retour anticipé (branche "pas encore de tournée" ci-dessous) :
   // les Hooks doivent s'exécuter dans le même ordre à chaque rendu.
@@ -573,6 +577,57 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
           <p className="mt-2 text-xs font-bold text-[#a9573b]">
             {mapsResult.excludedStopCount > 1 ? `${mapsResult.excludedStopCount} arrêts sans adresse localisée ne sont pas dans l’itinéraire.` : "1 arrêt sans adresse localisée n’est pas dans l’itinéraire."}
           </p>
+        ) : null}
+
+        {/* Phase 1.3 : réconciliation live avec l'agenda, source de vérité
+            des rendez-vous — jamais résolue automatiquement, seulement
+            signalée pour que l'utilisatrice décide en un clic. */}
+        {stopsToRemove.length > 0 ? (
+          <div className="mt-3 rounded-xl bg-[#fff1ec] p-3">
+            <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.06em] text-[#a9573b]">
+              {stopsToRemove.length > 1 ? `${stopsToRemove.length} arrêts à retirer` : "1 arrêt à retirer"}
+            </p>
+            <ul className="space-y-1.5">
+              {stopsToRemove.map((stop) => (
+                <li key={stop.stopId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-bold text-animeo-dark">
+                    {stop.label} <span className="font-semibold text-[#a9573b]">— {stop.reason === "cancelled" ? "rendez-vous annulé" : "rendez-vous déplacé à une autre date"}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId: stop.stopId }))}
+                    disabled={busy}
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe4d9] disabled:opacity-60"
+                  >
+                    Retirer
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {unplacedHomeAppointments.length > 0 ? (
+          <div className="mt-3 rounded-xl bg-animeo-soft p-3">
+            <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.06em] text-animeo-dark">
+              {unplacedHomeAppointments.length > 1 ? `${unplacedHomeAppointments.length} rendez-vous à placer` : "1 rendez-vous à placer"}
+            </p>
+            <ul className="space-y-1.5">
+              {unplacedHomeAppointments.map((appointment) => (
+                <li key={appointment.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-bold text-animeo-dark">{appointment.start} · {appointment.animalName} — {appointment.clientName}</span>
+                  <button
+                    type="button"
+                    onClick={() => runAction(() => addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [appointment.id] }))}
+                    disabled={busy}
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-white/70 disabled:opacity-60"
+                  >
+                    Ajouter à la tournée
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         <div className="mt-5">

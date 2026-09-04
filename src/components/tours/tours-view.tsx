@@ -62,6 +62,8 @@ export function ToursView({ listData, editorDateId, editorData, cabinetCoordinat
           tourRun={editorData.tourRun}
           savedPlaces={editorData.savedPlaces}
           availableAppointments={editorData.availableAppointments}
+          unplacedHomeAppointments={editorData.unplacedHomeAppointments}
+          stopsToRemove={editorData.stopsToRemove}
           cabinet={editorData.cabinet}
           mapClients={mapClients}
           homeServices={homeServices}
