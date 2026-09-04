@@ -95,18 +95,15 @@ test.describe("Éditeur de tournées interactif", () => {
     // (unification des tournées, phase 2) : "+ Nouvelle journée" sur
     // /dashboard/tournees ouvre une modale qui crée la TourRun puis navigue
     // vers ?date=... — équivalent ici à naviguer directement sur la date de
-    // test, qui rouvre l'éditeur avec son propre formulaire de création
-    // (aucune TourRun n'existe encore pour ce jour).
+    // test. Depuis le correctif "un seul chemin de création", naviguer sur
+    // une date sans TourRun ouvre automatiquement cette même modale
+    // (NewTourDayModal) plutôt qu'un second formulaire dédié à l'éditeur.
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
 
-    // Naviguer avec ?date= rouvre l'éditeur directement (voir explicitDate,
-    // tours-view.tsx) — comme aucune tournée n'existe encore pour ce jour,
-    // le formulaire de création s'affiche tout de suite.
-    // Formulaire de création — départ/arrivée par défaut (Cabinet), on valide directement.
-    const nameInput = page.locator("#tour-run-name");
+    const nameInput = page.locator("#new-tour-day-name");
     await expect(nameInput).toBeVisible({ timeout: 10000 });
     await nameInput.fill(`Tournée ${testOwnerLastName}`);
-    await page.getByRole("button", { name: "Créer la tournée" }).click();
+    await page.getByRole("button", { name: "Créer la journée" }).click();
 
     // L'éditeur se recharge (router.refresh) avec la tournée créée.
     await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
@@ -147,8 +144,8 @@ test.describe("Éditeur de tournées interactif", () => {
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await page.locator("#tour-run-name").fill(`Tournée ${testOwnerLastName}`);
-    await page.getByRole("button", { name: "Créer la tournée" }).click();
+    await page.locator("#new-tour-day-name").fill(`Tournée ${testOwnerLastName}`);
+    await page.getByRole("button", { name: "Créer la journée" }).click();
     await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
 
     // Calque clients désactivé par défaut.

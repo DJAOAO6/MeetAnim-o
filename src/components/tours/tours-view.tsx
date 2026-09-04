@@ -29,6 +29,11 @@ type ToursViewProps = {
  * journées datées, un seul point de création. Ouvrir une journée réutilise
  * TourRunEditor tel quel (sa fusion avec le détail/l'exécution est la
  * phase 3, pas celle-ci).
+ *
+ * Un seul chemin de création (correctif) : naviguer directement vers une
+ * date sans TourRun (ex. lien direct, F5) ouvre désormais NewTourDayModal
+ * — le même formulaire que "+ Nouvelle journée" — plutôt qu'un second
+ * formulaire dupliqué à l'intérieur de TourRunEditor.
  */
 export function ToursView({ listData, editorDateId, editorData, cabinetCoordinates, mapClients, homeServices, explicitDate }: ToursViewProps) {
   const router = useRouter();
@@ -46,14 +51,16 @@ export function ToursView({ listData, editorDateId, editorData, cabinetCoordinat
     router.push(pathname);
   }
 
+  const showEditor = editorOpen && editorData.tourRun != null;
+  const needsCreation = editorOpen && editorData.tourRun == null;
+
   return (
     <>
-      {editorOpen ? (
+      {showEditor ? (
         <TourRunEditor
           dateId={editorDateId}
           tourRun={editorData.tourRun}
           savedPlaces={editorData.savedPlaces}
-          preferences={editorData.preferences}
           availableAppointments={editorData.availableAppointments}
           cabinet={editorData.cabinet}
           mapClients={mapClients}
@@ -71,12 +78,15 @@ export function ToursView({ listData, editorDateId, editorData, cabinetCoordinat
         />
       )}
 
-      {newDayModalOpen ? (
+      {newDayModalOpen || needsCreation ? (
         <NewTourDayModal
           defaultDateId={editorDateId}
           savedPlaces={editorData.savedPlaces}
           cabinetAvailable={editorData.cabinet.latitude != null}
-          onClose={() => setNewDayModalOpen(false)}
+          onClose={() => {
+            setNewDayModalOpen(false);
+            if (needsCreation) closeEditor();
+          }}
           onCreated={(dateId) => {
             setNewDayModalOpen(false);
             openDay(dateId);

@@ -28,7 +28,6 @@ import {
   addManualStopAction,
   applyOptimizationProposalAction,
   cancelStopAppointmentAction,
-  createTourRunAction,
   deleteTourRunAction,
   dismissOptimizationProposalAction,
   moveStopAction,
@@ -44,7 +43,7 @@ import {
   type OptimizationComparison,
   type ReorderTimeChange,
 } from "@/lib/tour-runs-actions";
-import type { AvailableAppointmentView, SavedPlaceView, TourPreferencesView, TourRunView, TourStopView } from "@/lib/tour-runs";
+import type { AvailableAppointmentView, SavedPlaceView, TourRunView, TourStopView } from "@/lib/tour-runs";
 import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
 import type { MapClient } from "@/data/tours";
 import type { ServiceSettings } from "@/data/settings";
@@ -57,7 +56,6 @@ type TourRunEditorProps = {
   dateId: string;
   tourRun: TourRunView | null;
   savedPlaces: SavedPlaceView[];
-  preferences: TourPreferencesView;
   availableAppointments: AvailableAppointmentView[];
   cabinet: { address: string | null; latitude: number | null; longitude: number | null };
   mapClients: MapClient[];
@@ -69,11 +67,7 @@ function endpointFrom(value: TourRunView["start"]): EndpointValue {
   return { type: value.type as EndpointValue["type"], savedPlaceId: value.savedPlaceId, address: value.address, latitude: value.latitude, longitude: value.longitude, label: value.label };
 }
 
-function defaultEndpoint(type: string, savedPlaceId: string | null): EndpointValue {
-  return { type: type as EndpointValue["type"], savedPlaceId, address: null, latitude: null, longitude: null, label: null };
-}
-
-export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, availableAppointments, cabinet, mapClients, homeServices, onClose }: TourRunEditorProps) {
+export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointments, cabinet, mapClients, homeServices, onClose }: TourRunEditorProps) {
   const router = useRouter();
   // Avant tout retour anticipé (branche "pas encore de tournée" ci-dessous) :
   // les Hooks doivent s'exécuter dans le même ordre à chaque rendu.
@@ -120,13 +114,6 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     setDepartureTimeDraft(tourRun?.departureTime ?? "");
   }
 
-  const [createName, setCreateName] = useState(`Tournée du ${formatFrenchDate(new Date(`${dateId}T00:00:00.000Z`))}`);
-  const [createDeparture, setCreateDeparture] = useState(preferences.workHoursStart);
-  const [createStart, setCreateStart] = useState<EndpointValue>(defaultEndpoint(preferences.defaultStartType, preferences.defaultStartSavedPlaceId));
-  const [createEnd, setCreateEnd] = useState<EndpointValue>(
-    preferences.returnToStart ? { type: "SAME_AS_START", savedPlaceId: null, address: null, latitude: null, longitude: null, label: null } : defaultEndpoint(preferences.defaultEndType, preferences.defaultEndSavedPlaceId),
-  );
-
   async function refresh() {
     router.refresh();
   }
@@ -138,19 +125,6 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     if (!result.ok && result.error) notify.error(result.error);
     await refresh();
     return result;
-  }
-
-  async function handleCreate() {
-    if (!createName.trim()) return;
-    setBusy(true);
-    const result = await createTourRunAction({ name: createName.trim(), dateId, departureTime: createDeparture, start: createStart, end: createEnd });
-    setBusy(false);
-    if (!result.ok) {
-      notify.error(result.error);
-      return;
-    }
-    notify.success("Tournée créée.");
-    router.refresh();
   }
 
   // Survol OU sélection met en avant le même marqueur (phase 3 bis) — le
@@ -406,34 +380,11 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, preferences, avail
     router.refresh();
   }
 
-  if (!tourRun) {
-    return (
-      <div className="space-y-6">
-        <EditorHeader dateId={dateId} onClose={onClose} onChangeDate={(next) => router.push(`/dashboard/tournees?date=${next}`)} />
-        <Card className="mx-auto max-w-lg p-6">
-          <h2 className="text-lg font-black text-animeo-dark">Nouvelle tournée</h2>
-          <p className="mt-1 text-sm text-animeo-muted">Définissez le départ et l’arrivée, vous pourrez ajouter vos arrêts juste après.</p>
-
-          <div className="mt-5 space-y-4">
-            <div>
-              <label htmlFor="tour-run-name" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Nom</label>
-              <input id="tour-run-name" type="text" value={createName} onChange={(event) => setCreateName(event.target.value)} className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-semibold text-animeo-dark" />
-            </div>
-            <div>
-              <label htmlFor="tour-run-departure-time" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Heure de départ</label>
-              <input id="tour-run-departure-time" type="time" value={createDeparture} onChange={(event) => setCreateDeparture(event.target.value)} className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-semibold text-animeo-dark" />
-            </div>
-            <TourRunEndpointPicker label="Départ" value={createStart} onChange={setCreateStart} savedPlaces={savedPlaces} cabinetAvailable={cabinet.latitude != null} />
-            <TourRunEndpointPicker label="Arrivée" value={createEnd} onChange={setCreateEnd} savedPlaces={savedPlaces} cabinetAvailable={cabinet.latitude != null} allowMirrorStart />
-          </div>
-
-          <button type="button" onClick={handleCreate} disabled={busy || !createName.trim()} className="mt-6 w-full rounded-xl bg-animeo px-5 py-3 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
-            {busy ? "Création…" : "Créer la tournée"}
-          </button>
-        </Card>
-      </div>
-    );
-  }
+  // Unification des tournées, correctif "un seul chemin de création" :
+  // TourRunEditor n'est monté que pour une date qui a déjà une TourRun
+  // (voir ToursView) — plus de formulaire de création interne dupliqué,
+  // le seul chemin de création reste NewTourDayModal.
+  if (!tourRun) return null;
 
   const appointmentStopCount = tourRun.stops.filter((stop) => stop.type === "APPOINTMENT").length;
   const consultationMinutes = tourRun.stops.reduce((sum, stop) => sum + (stop.serviceDurationMinutes ?? 0), 0);
