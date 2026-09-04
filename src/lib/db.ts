@@ -1,11 +1,14 @@
 import "server-only";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+// DB_URL est injectée par Iridflow (attach_db_to_site) pour une base hébergée
+// sur la plateforme ; DATABASE_URL reste la variable utilisée en dev/Neon.
 function createPrismaClient() {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
+  const connectionString = process.env.DATABASE_URL ?? process.env.DB_URL;
+  const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
 }
 

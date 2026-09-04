@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import bcrypt from "bcryptjs";
 import { faker } from "@faker-js/faker/locale/fr";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, type VisitMode, type ReminderDelay, type ReminderStatus } from "../src/generated/prisma/client";
 import { NORMANDY_CITIES as CITIES } from "../src/data/normandy-cities";
 
@@ -11,7 +11,7 @@ function bcryptHash(password: string): Promise<string> {
 
 config({ path: ".env.local" });
 
-const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 const FRENCH_MONTHS: Record<string, number> = {

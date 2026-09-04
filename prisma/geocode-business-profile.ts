@@ -1,10 +1,10 @@
 import { config } from "dotenv";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 config({ path: ".env.local" });
 
-const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 const IGN_SEARCH_URL = "https://data.geopf.fr/geocodage/search";
