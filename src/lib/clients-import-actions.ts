@@ -155,7 +155,9 @@ function indexClient(index: ClientIndex, client: ClientCandidate): void {
   index.byNameCity.set(nameCityKey(client.lastName, client.firstName, client.city), client);
 }
 
-function findExistingClient(index: ClientIndex, row: ImportRowPayload): ClientCandidate | null {
+type IdentityFields = { email: string; phone: string; lastName: string; firstName: string; city: string };
+
+function findExistingClient(index: ClientIndex, row: IdentityFields): ClientCandidate | null {
   if (row.email) {
     const match = index.byEmail.get(row.email.toLowerCase());
     if (match) return match;
@@ -166,6 +168,45 @@ function findExistingClient(index: ClientIndex, row: ImportRowPayload): ClientCa
     if (match) return match;
   }
   return index.byNameCity.get(nameCityKey(row.lastName, row.firstName, row.city)) ?? null;
+}
+
+// --- checkClientMatchesAction ---------------------------------------------
+// Lecture seule : permet à l'assistant d'import (phase 3) d'annoncer, avant
+// de rien écrire, quelles lignes du fichier correspondent déjà à une fiche
+// en base (mêmes compteurs "nouveaux clients"/"fiches existantes complétées"
+// que l'étape de vérification). Un seul aller-retour par ouverture de
+// l'étape, pas de plafond de lot — lecture seule et bon marché.
+
+const matchCandidateSchema = z.object({
+  lineNumber: z.number().int().min(2),
+  firstName: z.string().trim().max(200),
+  lastName: z.string().trim().max(200),
+  phone: z.string().trim().max(50),
+  email: z.string().trim().max(320),
+  city: z.string().trim().max(200),
+});
+
+const checkMatchesSchema = z.object({
+  candidates: z.array(matchCandidateSchema).min(1).max(MAX_TOTAL_ROWS),
+});
+
+export type MatchCandidate = z.infer<typeof matchCandidateSchema>;
+export type ClientMatch = { lineNumber: number; existing: boolean };
+export type CheckClientMatchesResult = { ok: true; matches: ClientMatch[] } | { ok: false; error: string };
+
+export async function checkClientMatchesAction(candidates: MatchCandidate[]): Promise<CheckClientMatchesResult> {
+  await requireUser();
+
+  const parsed = checkMatchesSchema.safeParse({ candidates });
+  if (!parsed.success) return { ok: false, error: "Données invalides." };
+
+  const index = await loadClientIndex();
+  const matches = parsed.data.candidates.map((candidate) => ({
+    lineNumber: candidate.lineNumber,
+    existing: findExistingClient(index, candidate) !== null,
+  }));
+
+  return { ok: true, matches };
 }
 
 export type ImportClientsChunkResult = { ok: true; results: RowResult[] } | { ok: false; error: string };

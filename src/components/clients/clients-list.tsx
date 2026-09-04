@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { ClientEditModal } from "@/components/clients/client-edit-modal";
+import { ClientImportModal } from "@/components/clients/client-import-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -32,12 +33,26 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   const router = useRouter();
 
   const [localClients, setLocalClients] = useState(clients);
+  // Les créations/suppressions individuelles s'appliquent en optimiste sur
+  // localClients (voir plus bas), mais un import en masse ne connaît que des
+  // compteurs, pas les fiches elles-mêmes — router.refresh() redonne au
+  // Server Component parent des `clients` à jour, qu'il faut resynchroniser
+  // ici plutôt que de rester bloqué sur l'état du tout premier rendu.
+  // Ajustement pendant le rendu (recommandation React officielle pour "reset
+  // un état local quand une prop change") plutôt qu'un effet, qui
+  // déclencherait un rendu en cascade évitable.
+  const [previousClients, setPreviousClients] = useState(clients);
+  if (clients !== previousClients) {
+    setPreviousClients(clients);
+    setLocalClients(clients);
+  }
   const [query, setQuery] = useState(initialQuery);
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("Tous");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Tous les statuts");
   const [sortBy, setSortBy] = useState<SortOption>("name");
   const [creatingClient, setCreatingClient] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
+  const [importingClients, setImportingClients] = useState(false);
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -87,14 +102,23 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
         title="Clients"
         description="Retrouvez vos propriétaires, leurs coordonnées et tous leurs animaux."
         action={
-          <button
-            type="button"
-            onClick={() => setCreatingClient(true)}
-            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
-          >
-            <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
-            Nouveau client
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setImportingClients(true)}
+              className="inline-flex items-center rounded-2xl border border-[#d4e2df] bg-white px-5 py-3 font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
+            >
+              Importer des clients
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreatingClient(true)}
+              className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+            >
+              <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
+              Nouveau client
+            </button>
+          </>
         }
       />
 
@@ -201,6 +225,10 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
 
       {creatingClient ? (
         <ClientEditModal saving={savingClient} onClose={() => setCreatingClient(false)} onSave={saveNewClient} />
+      ) : null}
+
+      {importingClients ? (
+        <ClientImportModal onClose={() => setImportingClients(false)} onImported={() => router.refresh()} />
       ) : null}
     </>
   );
