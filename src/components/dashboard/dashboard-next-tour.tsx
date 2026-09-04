@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { SimulatedMap } from "@/components/tours/simulated-map";
 import { referenceDate } from "@/components/dashboard/dashboard-date";
+import { buildTourMapsLinks } from "@/lib/tour-maps";
 import type { Tour, TourAppointment, Zone } from "@/data/tours";
 
 const weekdayOrder = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
@@ -39,6 +40,10 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
 
   const zone = zones.find((item) => item.id === nextTour?.zoneId);
   const appointments = nextTour ? tourAppointments[nextTour.id] ?? [] : [];
+  const mapsResult = buildTourMapsLinks(
+    nextTour?.startCoordinates ?? null,
+    appointments.map((appointment) => ({ coordinates: appointment.coordinates })),
+  );
   // Un arrêt sans position réelle n'apparaît pas sur la carte (simulée) —
   // jamais de position devinée.
   const points = appointments
@@ -72,9 +77,17 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
             <span>{nextTour.day} · {nextTour.startTime}</span>
           </div>
           <SimulatedMap points={points} heightClassName="h-40" showLabels={false} />
-          <Link href="/dashboard/tournees" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">
-            Voir la tournée
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {mapsResult.links.map((link) => (
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-animeo px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
+                <Icon name="car" className="h-4 w-4" />
+                {mapsResult.links.length > 1 ? link.label : "Itinéraire"}
+              </a>
+            ))}
+            <Link href="/dashboard/tournees" className="flex flex-1 items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">
+              Voir la tournée
+            </Link>
+          </div>
         </>
       ) : (
         <>

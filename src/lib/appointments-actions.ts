@@ -314,8 +314,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   let row;
   try {
     row = input.id
-      ? await prisma.appointment.update({ where: { id: input.id }, data, include: { animal: { select: { species: true } } } })
-      : await prisma.appointment.create({ data, include: { animal: { select: { species: true } } } });
+      ? await prisma.appointment.update({ where: { id: input.id }, data, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } })
+      : await prisma.appointment.create({ data, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
       return { ok: false, error: "Ce créneau vient d’être pris par un autre rendez-vous. Choisissez une autre heure." };
@@ -362,7 +362,7 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
     return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 
-  const row = await prisma.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } } } });
+  const row = await prisma.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status } });
   revalidatePath("/dashboard");
 
@@ -413,7 +413,7 @@ export async function completeAppointmentAction(id: string): Promise<CompleteApp
     return { ok: false, error: "Ce rendez-vous ne peut plus être marqué comme réalisé." };
   }
 
-  const row = await prisma.appointment.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() }, include: { animal: { select: { species: true } } } });
+  const row = await prisma.appointment.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status: "completed" } });
 
   if (current.animalId) {

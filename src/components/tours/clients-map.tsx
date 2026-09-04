@@ -18,6 +18,7 @@ const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) =
 
 type ClientsMapProps = {
   clients: MapClient[];
+  cabinetCoordinates?: { lat: number; lng: number } | null;
 };
 
 type PerimeterCenter = { lat: number; lng: number; label: string };
@@ -33,7 +34,7 @@ const PERIMETER_RADIUS_TIERS = [15, 30, 50];
 // paliers restent.
 const CIRCLE_HANDLE_MIN_WIDTH_QUERY = "(min-width: 640px)";
 
-export function ClientsMap({ clients }: ClientsMapProps) {
+export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
   const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>([]);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
@@ -334,6 +335,7 @@ export function ClientsMap({ clients }: ClientsMapProps) {
             onCircleRadiusChange={handleCircleRadiusChange}
             circleHandleResetKey={circleHandleResetKey}
             focus={focus}
+            defaultCenter={cabinetCoordinates ? [cabinetCoordinates.lat, cabinetCoordinates.lng] : null}
           />
         </Card>
 

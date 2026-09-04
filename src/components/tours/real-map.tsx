@@ -47,7 +47,16 @@ type RealMapProps = {
   // centre) sans l'interrompre pendant un glisser en cours — voir
   // CircleResizeHandle ci-dessous.
   circleHandleResetKey?: number;
+  // Centre initial quand `points` est vide (cabinet géocodé, en général) —
+  // sans quoi la carte s'ouvrait sur Rouen en dur, quelle que soit la
+  // localisation réelle du praticien (Chantier Tournées T0.1). `null`/absent
+  // = repli neutre (vue France entière), jamais une ville précise devinée.
+  defaultCenter?: [number, number] | null;
 };
+
+// Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
+// France métropolitaine, dézoomée — jamais une ville précise en dur.
+const NEUTRAL_DEFAULT_CENTER: [number, number] = [46.6, 2.5];
 
 const circleHandleIcon = L.divIcon({
   className: "",
@@ -146,17 +155,19 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0 }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
-    if (points.length === 0) return [49.4432, 1.0999];
-    return [points[0].lat, points[0].lng];
-  }, [points]);
+    if (points.length > 0) return [points[0].lat, points[0].lng];
+    if (defaultCenter) return defaultCenter;
+    return NEUTRAL_DEFAULT_CENTER;
+  }, [points, defaultCenter]);
+  const zoom = points.length > 0 || defaultCenter ? 12 : 5;
   const selectedPoint = points.find((point) => point.id === selectedId);
   const mapRef = useRef<L.Map | null>(null);
 
   return (
     <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName}`}>
-      <MapContainer center={center} zoom={12} scrollWheelZoom className="h-full w-full" ref={mapRef}>
+      <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full" ref={mapRef}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

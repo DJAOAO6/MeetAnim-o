@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { hasPermission } from "@/lib/auth/permissions";
 import { deleteAnimalAction, deleteClientAction, updateClientAction, type ClientContactInput } from "@/lib/clients-actions";
+import { toTelHref } from "@/lib/phone";
 import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
@@ -195,7 +196,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
                 </span>
               </div>
               <div className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                <ContactItem icon={<PhoneIcon />} value={clientInfo.phone} />
+                <ContactItem icon={<PhoneIcon />} value={clientInfo.phone} href={toTelHref(clientInfo.phone) ?? undefined} />
                 <ContactItem icon={<MailIcon />} value={clientInfo.email} />
                 <ContactItem icon={<LocationIcon />} value={clientInfo.address} wide />
               </div>
@@ -374,11 +375,15 @@ function ActionButton({ label, onClick }: { label: string; onClick: () => void }
   );
 }
 
-function ContactItem({ icon, value, wide = false }: { icon: React.ReactNode; value: string; wide?: boolean }) {
+function ContactItem({ icon, value, href, wide = false }: { icon: React.ReactNode; value: string; href?: string; wide?: boolean }) {
   return (
     <div className={`flex items-start gap-2 text-animeo-muted ${wide ? "sm:col-span-2" : ""}`}>
       <span className="mt-0.5 shrink-0 text-animeo">{icon}</span>
-      <span className="font-semibold">{value}</span>
+      {href ? (
+        <a href={href} className="font-semibold text-animeo-dark hover:text-animeo hover:underline">{value}</a>
+      ) : (
+        <span className="font-semibold">{value}</span>
+      )}
     </div>
   );
 }

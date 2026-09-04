@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClientsMap } from "@/components/tours/clients-map";
 import { PageHeader } from "@/components/layout/page-header";
 import { getMapClients } from "@/lib/tours";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { requireUser } from "@/lib/auth/dal";
 
 export const metadata: Metadata = { title: "Carte clients" };
@@ -14,12 +15,13 @@ export const metadata: Metadata = { title: "Carte clients" };
  */
 export default async function CartePage() {
   await requireUser();
-  const mapClients = await getMapClients();
+  const [mapClients, profile] = await Promise.all([getMapClients(), getBusinessProfile()]);
+  const cabinetCoordinates = profile.latitude != null && profile.longitude != null ? { lat: profile.latitude, lng: profile.longitude } : null;
 
   return (
     <>
       <PageHeader title="Carte clients" description="Visualisez vos clients et leurs animaux sur une carte." />
-      <ClientsMap clients={mapClients} />
+      <ClientsMap clients={mapClients} cabinetCoordinates={cabinetCoordinates} />
     </>
   );
 }

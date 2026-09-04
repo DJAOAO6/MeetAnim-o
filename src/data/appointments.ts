@@ -10,6 +10,7 @@ export type Appointment = {
   duration: number;
   clientId?: string;
   clientName: string;
+  clientPhone?: string;
   animalId?: string;
   animalName: string;
   animalSpecies?: AnimalSpecies;

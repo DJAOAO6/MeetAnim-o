@@ -744,6 +744,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             clientPoints={clientPoints}
             onClientSelect={setSelectedClientId}
             onPointDrag={handlePointDrag}
+            defaultCenter={cabinet.latitude != null && cabinet.longitude != null ? [cabinet.longitude, cabinet.latitude] : null}
             overlay={selectedClient ? (
               <Card className="p-3">
                 <p className="text-xs font-black text-animeo-dark">{selectedClient.animalName} — {selectedClient.ownerName}</p>

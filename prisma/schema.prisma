@@ -293,15 +293,18 @@ model Client {
   address    String
   status     ClientStatus @default(ACTIF)
 
-  // Unification des tournées, phase 3 bis : géocodage à la demande (bouton
-  // "localiser" sur la carte tournées) pour un client qui n'a encore aucun
-  // rendez-vous à domicile géolocalisé — seul moyen de le positionner sans
-  // deviner (jamais de repli par ville, voir coordinatesForCity). Un
+  // Coordonnées réelles, géocodées automatiquement à la création/
+  // modification (adresse changée) — jamais de repli par ville qui
+  // devinerait une position. `geocodedAt` distingue "jamais tenté" (null)
+  // de "tenté et échoué" (adresse invalide, API indisponible) : sans lui,
+  // un géocodage manuel via le bouton "localiser" ne pourrait pas savoir
+  // s'il retente une vraie nouveauté ou un échec déjà connu. Un
   // rendez-vous à domicile géolocalisé reste prioritaire sur ces champs
   // quand il existe (voir getMapClients) : c'est la position la plus
   // récente et la plus fiable.
-  latitude  Float?
-  longitude Float?
+  latitude   Float?
+  longitude  Float?
+  geocodedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -319,6 +322,7 @@ model Client {
   @@index([lastName, firstName])
   @@index([email])
   @@index([importId])
+  @@index([latitude, longitude])
 }
 
 model Animal {

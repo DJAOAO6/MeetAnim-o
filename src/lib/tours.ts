@@ -262,11 +262,12 @@ export async function getMapClients(near?: { lat: number; lng: number; radiusKm:
   return animals.map((animal): MapClient => {
     const geocodedAppointment = animal.appointments[0];
     // Unification des tournées, phase 3 bis : plus de repli par ville
-    // (coordinatesForCity devinait une position, parfois à des dizaines de
-    // km du vrai domicile) — priorité au dernier rendez-vous à domicile
-    // géolocalisé, puis à un géocodage explicite de la fiche client
-    // (Client.latitude/longitude, posé via le bouton "localiser"), sinon le
-    // client reste sans position plutôt que mal positionné.
+    // (coordinatesForCity, supprimée depuis, devinait une position, parfois
+    // à des dizaines de km du vrai domicile) — priorité au dernier
+    // rendez-vous à domicile géolocalisé, puis aux coordonnées de la fiche
+    // client (Client.latitude/longitude, géocodées automatiquement à la
+    // création/modification, ou via le bouton "localiser" en rattrapage),
+    // sinon le client reste sans position plutôt que mal positionné.
     const baseCoordinates = geocodedAppointment && geocodedAppointment.latitude != null && geocodedAppointment.longitude != null
       ? { lat: geocodedAppointment.latitude, lng: geocodedAppointment.longitude }
       : animal.client.latitude != null && animal.client.longitude != null

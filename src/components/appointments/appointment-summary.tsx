@@ -8,6 +8,7 @@ import { notify } from "@/lib/notify";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
+import { toTelHref } from "@/lib/phone";
 
 const statusStyles: Record<AppointmentStatus, string> = {
   pending: "bg-[#fff1d5] text-[#986216]",
@@ -108,20 +109,26 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
       </div>
 
       <div className="border-t border-[#dce8e5] bg-white p-4 sm:p-5">
-        {appointment.clientId || isHomeVisit ? (
-          <div className="mb-2 grid grid-cols-2 gap-2">
+        {appointment.clientId || isHomeVisit || appointment.clientPhone ? (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {appointment.clientPhone ? (
+              <a href={toTelHref(appointment.clientPhone) ?? undefined} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+                <Icon name="phone" className="h-3.5 w-3.5" />
+                Appeler
+              </a>
+            ) : null}
             {appointment.clientId ? (
-              <a href={`/dashboard/clients/${appointment.clientId}`} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+              <a href={`/dashboard/clients/${appointment.clientId}`} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
                 <Icon name="clients" className="h-3.5 w-3.5" />
                 Fiche client
               </a>
-            ) : <span />}
+            ) : null}
             {isHomeVisit ? (
-              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
                 <Icon name="map" className="h-3.5 w-3.5" />
                 Itinéraire
               </a>
-            ) : <span />}
+            ) : null}
           </div>
         ) : null}
         {appointment.status === "confirmed" ? (

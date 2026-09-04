@@ -57,9 +57,17 @@ type TourRunMapProps = {
   // (endpoint de tournée ou arrêt manuel), cette carte ne fait que rendre
   // compte du geste.
   onPointDrag?: (id: string, coordinates: { lat: number; lng: number }) => void;
+  // Centre initial tant qu'aucun point n'est encore affiché (cabinet
+  // géocodé, en général), au format [lng, lat] (convention MapLibre) —
+  // sans quoi la carte s'ouvrait sur Rouen en dur, quelle que soit la
+  // localisation réelle du praticien (Chantier Tournées T0.1). `null`/absent
+  // = repli neutre (vue France entière), jamais une ville précise devinée.
+  defaultCenter?: [number, number] | null;
 };
 
-const NORMANDY_DEFAULT_CENTER: [number, number] = [1.0999, 49.4432];
+// Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
+// France métropolitaine, dézoomée — jamais une ville précise en dur.
+const NEUTRAL_DEFAULT_CENTER: [number, number] = [2.5, 46.6];
 const ROUTE_SOURCE_ID = "tour-run-route";
 const ROUTE_LAYER_ID = "tour-run-route-line";
 const EMPTY_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [] } };
@@ -129,7 +137,7 @@ function legPillElement(label: string): HTMLDivElement {
  * au montage, marqueurs et tracé mis à jour via des effets dédiés plutôt que
  * recréés à chaque render.
  */
-export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect, onPointDrag }: TourRunMapProps) {
+export function TourRunMap({ points, routeGeometry, selectedId, onSelect, heightClassName = "h-[500px]", overlay, clientPoints = [], onClientSelect, onPointDrag, defaultCenter = null }: TourRunMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef(new Map<string, maplibregl.Marker>());
@@ -157,8 +165,8 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: getMapStyleUrl(),
-      center: NORMANDY_DEFAULT_CENTER,
-      zoom: 10,
+      center: defaultCenter ?? NEUTRAL_DEFAULT_CENTER,
+      zoom: defaultCenter ? 10 : 5,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.on("load", () => {
@@ -188,7 +196,9 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
       mapRef.current = null;
       loadedRef.current = false;
     };
-    // Une seule instance pour la vie du composant — points/routeGeometry sont gérés par les effets ci-dessous.
+    // Une seule instance pour la vie du composant — points/routeGeometry sont gérés par les effets ci-dessous ;
+    // defaultCenter n'est lu qu'à ce montage initial, jamais pour recentrer une carte déjà ouverte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Marqueurs : diff plutôt que recréation totale (évite un flash à chaque changement d'arrêt).

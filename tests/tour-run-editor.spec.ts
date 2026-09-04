@@ -53,11 +53,21 @@ async function seedNearbyClient(): Promise<{ clientId: string; animalId: string 
   const sql = neon(process.env.DATABASE_URL!);
   const clientId = fakeCuid();
   const animalId = fakeCuid();
+  // Positionné juste à côté du cabinet réellement géocodé (jamais Rouen en
+  // dur, Chantier Tournées T0.1) : la carte (vide, aucun arrêt) s'ouvre
+  // désormais centrée sur le cabinet, pas sur une position fixe — ce
+  // client doit donc rester visible quelle que soit l'adresse du cabinet.
+  // Décalage vers le sud-ouest (jamais nord-est) : reste loin du contrôle de
+  // zoom MapLibre en haut à droite de la carte, qui intercepterait sinon le
+  // clic si le marqueur tombait juste dessous.
+  const [cabinet] = await sql`SELECT latitude, longitude FROM "BusinessProfile" LIMIT 1`;
+  const latitude = (cabinet?.latitude ?? 49.4432) - 0.005;
+  const longitude = (cabinet?.longitude ?? 1.0999) - 0.005;
   // Position posée directement sur la fiche client (Client.latitude/
   // longitude, phase 3 bis) — depuis le retrait du repli par ville dans
   // getMapClients(), un client sans rendez-vous à domicile géolocalisé ni
   // position propre resterait "Position inconnue", jamais affiché ici.
-  await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, latitude, longitude, "updatedAt") VALUES (${clientId}, 'Prénom', ${nearbyClientLastName}, '0600000000', 'nearby-client-e2e@example.fr', 'Rouen', '1 rue Test', 49.4432, 1.0999, now())`;
+  await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, latitude, longitude, "updatedAt") VALUES (${clientId}, 'Prénom', ${nearbyClientLastName}, '0600000000', 'nearby-client-e2e@example.fr', 'Barentin', '1 rue Test', ${latitude}, ${longitude}, now())`;
   await sql`INSERT INTO "Animal" (id, "clientId", name, species, breed, age, weight, sex, avatar, "avatarBackground", history, conditions, treatments, notes, "updatedAt") VALUES (${animalId}, ${clientId}, ${nearbyAnimalName}, 'Chien', '', '', '', '', '', '', '', '', '', '', now())`;
   return { clientId, animalId };
 }

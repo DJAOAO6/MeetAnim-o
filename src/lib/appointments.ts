@@ -31,6 +31,7 @@ export function toAppointment(row: {
   animalId: string | null; animalName: string; animalSpecies: string | null; animal: { species: string } | null;
   serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
   postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null;
+  client?: { phone: string } | null;
 }): Appointment {
   return {
     id: row.id,
@@ -39,6 +40,7 @@ export function toAppointment(row: {
     duration: row.duration,
     clientId: row.clientId ?? undefined,
     clientName: row.clientName,
+    clientPhone: row.client?.phone ?? undefined,
     animalId: row.animalId ?? undefined,
     animalName: row.animalName,
     animalSpecies: (row.animal?.species ?? row.animalSpecies ?? undefined) as AnimalSpecies | undefined,
@@ -58,7 +60,7 @@ export function toAppointment(row: {
 export async function getAppointments(): Promise<Appointment[]> {
   const appointments = await prisma.appointment.findMany({
     orderBy: { date: "asc" },
-    include: { animal: { select: { species: true } } },
+    include: { animal: { select: { species: true } }, client: { select: { phone: true } } },
   });
 
   return appointments.map((appointment) => ({
@@ -68,6 +70,7 @@ export async function getAppointments(): Promise<Appointment[]> {
     duration: appointment.duration,
     clientId: appointment.clientId ?? undefined,
     clientName: appointment.clientName,
+    clientPhone: appointment.client?.phone ?? undefined,
     animalId: appointment.animalId ?? undefined,
     animalName: appointment.animalName,
     animalSpecies: (appointment.animal?.species ?? appointment.animalSpecies ?? undefined) as AnimalSpecies | undefined,

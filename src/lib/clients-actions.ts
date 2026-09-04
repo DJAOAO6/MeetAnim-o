@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -14,6 +15,25 @@ import type { PublicAnimalType } from "@/data/public-booking";
 import type { AnimalSpecies } from "@/data/species";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Géocode une fiche client en arrière-plan (after(), jamais dans le chemin
+ * critique de l'enregistrement — une adresse introuvable ou l'API IGN
+ * indisponible ne doit jamais empêcher de créer/modifier un client).
+ * `geocodedAt` est posé dans tous les cas (succès ou échec, geocodeAddress
+ * ne lève jamais) pour ne pas retenter en boucle à chaque page vue ; le
+ * bouton "localiser" reste le rattrapage manuel explicite pour un échec.
+ * Coordonnées effacées si le géocodage échoue : après un changement
+ * d'adresse, mieux vaut "position inconnue" qu'une ancienne position
+ * devenue fausse.
+ */
+async function geocodeClientInBackground(clientId: string, address: string, city: string): Promise<void> {
+  const geocoded = await geocodeAddress(`${address}, ${city}`);
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { latitude: geocoded?.latitude ?? null, longitude: geocoded?.longitude ?? null, geocodedAt: new Date() },
+  });
+}
 
 export type ClientActionResult = { ok: true } | { ok: false; error: string };
 
@@ -71,6 +91,10 @@ export async function createClientAction(input: ClientContactInput): Promise<Cli
   });
   await logAudit({ userId: user.id, action: "CLIENT_CREATED", entityType: "Client", entityId: created.id });
 
+  if (created.address && created.city) {
+    after(() => geocodeClientInBackground(created.id, created.address, created.city).catch(() => {}));
+  }
+
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/carte");
 
@@ -80,7 +104,7 @@ export async function createClientAction(input: ClientContactInput): Promise<Cli
 export async function updateClientAction(clientId: string, input: ClientContactInput): Promise<ClientResult> {
   const user = await requireUser();
 
-  const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+  const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true, address: true, city: true } });
   if (!existing) return { ok: false, error: "Client introuvable." };
 
   const firstName = input.firstName.trim();
@@ -112,6 +136,15 @@ export async function updateClientAction(clientId: string, input: ClientContactI
   ]);
   await logAudit({ userId: user.id, action: "CLIENT_UPDATED", entityType: "Client", entityId: clientId });
 
+  // Re-géocode seulement si l'adresse a réellement changé — jamais à
+  // chaque modification (téléphone, email…) qui n'a rien à voir avec la
+  // position.
+  if (updated.address !== existing.address || updated.city !== existing.city) {
+    if (updated.address && updated.city) {
+      after(() => geocodeClientInBackground(clientId, updated.address, updated.city).catch(() => {}));
+    }
+  }
+
   revalidatePath(`/dashboard/clients/${clientId}`);
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/carte");
@@ -134,7 +167,7 @@ export async function geocodeClientAddressAction(clientId: string): Promise<Clie
   const geocoded = await geocodeAddress(`${client.address}, ${client.city}`);
   if (!geocoded) return { ok: false, error: "Adresse introuvable, vérifiez son orthographe." };
 
-  await prisma.client.update({ where: { id: clientId }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude } });
+  await prisma.client.update({ where: { id: clientId }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude, geocodedAt: new Date() } });
 
   revalidatePath("/dashboard/tournees");
   revalidatePath("/dashboard/carte");
