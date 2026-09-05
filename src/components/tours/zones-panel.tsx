@@ -26,15 +26,28 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
   const [reassigning, setReassigning] = useState<Zone | null>(null);
   const [targetZoneId, setTargetZoneId] = useState("");
   const [simpleDeleteTarget, setSimpleDeleteTarget] = useState<Zone | null>(null);
+  // Aucune autre zone vers laquelle réassigner : le seul chemin possible est
+  // de retirer d'abord cette zone des tournées qui l'utilisent (bouton
+  // "Modifier"/"Supprimer" juste au-dessus, section Tournées récurrentes) —
+  // sans cet écran, le formulaire de réassignation s'affichait avec une
+  // liste vide et un bouton en permanence désactivé, une impasse silencieuse.
+  const [blockedDelete, setBlockedDelete] = useState<Zone | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function tourCountFor(zoneId: string): number {
     return tours.filter((tour) => tour.zoneIds.includes(zoneId)).length;
   }
 
+  function toursUsing(zoneId: string): Tour[] {
+    return tours.filter((tour) => tour.zoneIds.includes(zoneId));
+  }
+
   function startDelete(zone: Zone) {
     const count = tourCountFor(zone.id);
-    if (count > 0) {
+    const hasReassignTarget = zones.some((candidate) => candidate.id !== zone.id);
+    if (count > 0 && !hasReassignTarget) {
+      setBlockedDelete(zone);
+    } else if (count > 0) {
       setReassigning(zone);
       setTargetZoneId(zones.find((candidate) => candidate.id !== zone.id)?.id ?? "");
     } else {
@@ -135,6 +148,28 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
           onConfirm={() => { onDeleteZone(simpleDeleteTarget); setSimpleDeleteTarget(null); }}
           onClose={() => setSimpleDeleteTarget(null)}
         />
+      ) : null}
+
+      {blockedDelete ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#102f37]/55 p-4" role="presentation">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+            <h3 className="text-base font-medium text-animeo-dark">Impossible de supprimer « {blockedDelete.name} »</h3>
+            <p className="mt-2 text-sm text-animeo-muted">
+              C’est la seule zone existante, et elle est utilisée par {toursUsing(blockedDelete.id).length > 1 ? "ces tournées" : "cette tournée"} :
+            </p>
+            <ul className="mt-2 space-y-1">
+              {toursUsing(blockedDelete.id).map((tour) => (
+                <li key={tour.id} className="rounded-lg bg-animeo-bg px-3 py-2 text-sm font-medium text-animeo-dark">{tour.name}</li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm text-animeo-muted">
+              Supprimez ou modifiez d’abord {toursUsing(blockedDelete.id).length > 1 ? "ces tournées" : "cette tournée"} (section « Tournées récurrentes »), ou créez une autre zone pour pouvoir réassigner celle-ci.
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button type="button" onClick={() => setBlockedDelete(null)} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-[#459e90]">Compris</button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

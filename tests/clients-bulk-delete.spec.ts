@@ -8,7 +8,9 @@ config({ path: ".env.local" });
  * Liste clients : la suppression individuelle par bouton (visible sur
  * chaque ligne) est retirée au profit d'une sélection façon Gmail (case à
  * cocher → bandeau d'action groupée) — jamais de bouton de suppression
- * visible directement sur une fiche.
+ * visible directement sur une fiche. Les cases à cocher elles-mêmes restent
+ * masquées tant que le mode sélection n'est pas activé via le bouton
+ * "Sélectionner".
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
@@ -71,12 +73,26 @@ test.describe("Clients — suppression groupée façon Gmail", () => {
     await cleanupClients();
   });
 
-  test("aucun bouton de suppression n'est visible directement sur une fiche client", async ({ page }) => {
+  test("aucun bouton de suppression ni case à cocher visible avant d'activer la sélection", async ({ page }) => {
     await seedClients(1);
     await page.goto(`/dashboard/clients?q=${testLastNamePrefix}`);
     await page.waitForTimeout(600);
     await expect(page.getByText(`Prénom ${testLastNamePrefix}0`).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Supprimer/ })).toHaveCount(0);
+    await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Sélectionner" })).toBeVisible();
+  });
+
+  test("le bouton Sélectionner fait apparaître les cases à cocher", async ({ page }) => {
+    await seedClients(1);
+    await page.goto(`/dashboard/clients?q=${testLastNamePrefix}`);
+    await page.waitForTimeout(600);
+
+    await page.getByRole("button", { name: "Sélectionner" }).click();
+    await expect(page.getByRole("checkbox", { name: `Sélectionner Prénom ${testLastNamePrefix}0` })).toBeVisible();
+
+    await page.getByRole("button", { name: "Terminé" }).click();
+    await expect(page.locator('input[type="checkbox"]')).toHaveCount(0);
   });
 
   test("sélectionner plusieurs clients puis confirmer les supprime réellement en base", async ({ page }) => {
@@ -85,6 +101,7 @@ test.describe("Clients — suppression groupée façon Gmail", () => {
 
     await page.goto(`/dashboard/clients?q=${testLastNamePrefix}`);
     await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Sélectionner" }).click();
 
     for (let index = 0; index < 3; index += 1) {
       await page.getByRole("checkbox", { name: `Sélectionner Prénom ${testLastNamePrefix}${index}` }).check();
@@ -101,16 +118,17 @@ test.describe("Clients — suppression groupée façon Gmail", () => {
     expect(Number(remaining[0].count)).toBe(0);
   });
 
-  test("annuler la sélection referme le bandeau sans rien supprimer", async ({ page }) => {
+  test("désélectionner referme le bandeau sans rien supprimer", async ({ page }) => {
     await seedClients(1);
     const sql = neon(process.env.DATABASE_URL!);
 
     await page.goto(`/dashboard/clients?q=${testLastNamePrefix}`);
     await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Sélectionner" }).click();
 
     await page.getByRole("checkbox", { name: `Sélectionner Prénom ${testLastNamePrefix}0` }).check();
     await expect(page.getByText("1 client sélectionné")).toBeVisible();
-    await page.getByRole("button", { name: "Annuler" }).click();
+    await page.getByRole("button", { name: "Désélectionner" }).click();
     await expect(page.getByText("1 client sélectionné")).toHaveCount(0);
 
     const remaining = await sql`SELECT count(*) FROM "Client" WHERE "lastName" LIKE ${testLastNamePrefix + "%"}`;

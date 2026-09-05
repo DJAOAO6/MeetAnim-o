@@ -42,14 +42,32 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
+async function cleanupE2EListFixtures() {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`DELETE FROM "TourRun" WHERE name LIKE 'E2E Liste%' OR name = ${tourName}`;
+  await sql`DELETE FROM "Tour" WHERE name = ${tourName}`;
+  await sql`DELETE FROM "Zone" WHERE name = ${zoneName}`;
+}
+
 test.describe("Page Tournées — liste de journées datées", () => {
   test.describe.configure({ mode: "serial" });
 
+  // Filet de sécurité si une exécution précédente a planté avant son
+  // afterAll (voir le commentaire ci-dessous sur la portée du nettoyage).
+  test.beforeAll(async () => {
+    await cleanupE2EListFixtures();
+  });
+
+  // Le motif "Tournée E2E Liste" créé ci-dessous est ACTIF (récurrence
+  // hebdomadaire réelle) : generateUpcomingTourRuns() tourne à chaque
+  // chargement de /dashboard/tournees, par N'IMPORTE QUEL utilisateur (le
+  // motif Tour n'a pas de userId, voir tour-run-generation.ts) — une vraie
+  // visite du praticien pendant que ce test tourne génère donc des journées
+  // fantômes SUR SON PROPRE COMPTE, pas seulement sur celui du test.
+  // cleanupE2EListFixtures nettoie par nom (jamais un nom qu'un vrai
+  // praticien choisirait) plutôt que scopé à testUserId, pour rattraper ces cas.
   test.afterAll(async () => {
-    const sql = neon(process.env.DATABASE_URL!);
-    await sql`DELETE FROM "TourRun" WHERE "userId" = ${testUserId} AND (name LIKE 'E2E Liste%' OR name = ${tourName})`;
-    await sql`DELETE FROM "Tour" WHERE name = ${tourName}`;
-    await sql`DELETE FROM "Zone" WHERE name = ${zoneName}`;
+    await cleanupE2EListFixtures();
   });
 
   test("affiche Aujourd'hui, À venir (avec mention du motif) et Passées, chacune avec le bon résumé", async ({ page }) => {

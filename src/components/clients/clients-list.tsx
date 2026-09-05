@@ -53,10 +53,18 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   const [creatingClient, setCreatingClient] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [importingClients, setImportingClients] = useState(false);
-  // Suppression façon Gmail : jamais de bouton visible sur une fiche, une
-  // sélection (case à cocher) fait apparaître un bandeau d'action groupée.
+  // Suppression façon Gmail : jamais de bouton visible sur une fiche. Les
+  // cases à cocher elles-mêmes restent masquées tant que le mode sélection
+  // n'est pas activé explicitement (bouton "Sélectionner") — pas seulement
+  // le bandeau d'action groupée, qui n'apparaît qu'une fois une sélection faite.
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingSelected, startDeleteSelected] = useTransition();
+
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }
 
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
@@ -124,6 +132,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
       }
       if (result.failedNames.length === 0) {
         notify.success(result.deletedIds.length > 1 ? `${result.deletedIds.length} clients ont été supprimés.` : "Le client a été supprimé.");
+        setSelectionMode(false);
       } else {
         notify.error(`Échec pour : ${result.failedNames.join(", ")}.`);
       }
@@ -227,14 +236,14 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
         </div>
       </Card>
 
-      {canDelete && selectedIds.size > 0 ? (
+      {canDelete && selectionMode && selectedIds.size > 0 ? (
         <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgba(24,59,69,0.22)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white/10 px-2 font-black">{selectedIds.size}</span>
             <p className="font-extrabold">{selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Annuler</button>
+            <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Désélectionner</button>
             <button type="button" onClick={deleteSelected} disabled={deletingSelected} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-error px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#c23a3a] disabled:cursor-not-allowed disabled:opacity-60">
               <TrashIcon />
               {deletingSelected ? "Suppression…" : "Supprimer"}
@@ -244,13 +253,23 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
       ) : null}
 
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
+        <div className="flex items-center justify-between gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
           <div>
             <h2 className="text-lg font-extrabold text-animeo-dark">Liste des propriétaires</h2>
             <p className="mt-0.5 text-sm text-animeo-muted">
               {filteredClients.length} résultat{filteredClients.length > 1 ? "s" : ""}
             </p>
           </div>
+          {canDelete ? (
+            <button
+              type="button"
+              onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+              aria-pressed={selectionMode}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-extrabold transition ${selectionMode ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
+            >
+              {selectionMode ? "Terminé" : "Sélectionner"}
+            </button>
+          ) : null}
         </div>
 
         {filteredClients.length > 0 ? (
@@ -259,7 +278,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
               <table className="w-full min-w-[980px] border-collapse text-left">
                 <thead className="bg-[#fbfdfc] text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
                   <tr>
-                    {canDelete ? (
+                    {canDelete && selectionMode ? (
                       <th className="w-12 px-6 py-3.5">
                         <input
                           type="checkbox"
@@ -283,7 +302,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
                     <ClientTableRow
                       key={client.id}
                       client={client}
-                      canDelete={canDelete}
+                      selectionMode={canDelete && selectionMode}
                       selected={selectedIds.has(client.id)}
                       onToggleSelected={() => toggleSelected(client.id)}
                     />
@@ -297,7 +316,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
                 <ClientMobileCard
                   key={client.id}
                   client={client}
-                  canDelete={canDelete}
+                  selectionMode={canDelete && selectionMode}
                   selected={selectedIds.has(client.id)}
                   onToggleSelected={() => toggleSelected(client.id)}
                 />
@@ -326,10 +345,10 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   );
 }
 
-function ClientTableRow({ client, canDelete, selected, onToggleSelected }: { client: Client; canDelete: boolean; selected: boolean; onToggleSelected: () => void }) {
+function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: { client: Client; selectionMode: boolean; selected: boolean; onToggleSelected: () => void }) {
   return (
     <tr className={`transition ${selected ? "bg-animeo-soft/55" : "hover:bg-animeo-bg/70"}`}>
-      {canDelete ? (
+      {selectionMode ? (
         <td className="px-6 py-4">
           <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 accent-[#4FAF9F]" />
         </td>
@@ -373,11 +392,11 @@ function ClientTableRow({ client, canDelete, selected, onToggleSelected }: { cli
   );
 }
 
-function ClientMobileCard({ client, canDelete, selected, onToggleSelected }: { client: Client; canDelete: boolean; selected: boolean; onToggleSelected: () => void }) {
+function ClientMobileCard({ client, selectionMode, selected, onToggleSelected }: { client: Client; selectionMode: boolean; selected: boolean; onToggleSelected: () => void }) {
   return (
     <article className={`rounded-2xl border p-4 ${selected ? "border-animeo bg-animeo-soft/50" : "border-[#e1ebe8] bg-white"}`}>
       <div className="flex items-center gap-3">
-        {canDelete ? (
+        {selectionMode ? (
           <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 shrink-0 accent-[#4FAF9F]" />
         ) : null}
         <AnimalAvatarStack animals={client.animals} />
