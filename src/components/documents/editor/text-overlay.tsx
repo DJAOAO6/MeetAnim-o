@@ -4,6 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect } from "react";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
+import { labelForVariable, resolveVariable } from "@/lib/documents/variables";
 import type { DocumentTextElement } from "@/lib/documents/content";
 
 type TextOverlayProps = {
@@ -20,6 +21,7 @@ type TextOverlayProps = {
  */
 export function TextOverlay({ readOnly }: TextOverlayProps) {
   const content = useDocumentStore((state) => state.content);
+  const variableContext = useDocumentStore((state) => state.variableContext);
   const currentPageIndex = useDocumentStore((state) => state.currentPageIndex);
   const editingTextId = useDocumentStore((state) => state.editingTextId);
 
@@ -31,10 +33,13 @@ export function TextOverlay({ readOnly }: TextOverlayProps) {
   return (
     <div className="pointer-events-none absolute inset-0">
       {textElements.map((element) =>
-        editingTextId === element.id && !readOnly ? (
+        // Un bloc lié à une variable Animéo n'est jamais éditable en texte
+        // libre (sa valeur vient d'une fiche, pas d'une frappe) — voir
+        // editor-toolbar.tsx pour l'insertion de ces blocs.
+        editingTextId === element.id && !readOnly && !element.variableBinding ? (
           <EditableTextBlock key={element.id} element={element} />
         ) : (
-          <StaticTextBlock key={element.id} element={element} />
+          <StaticTextBlock key={element.id} element={element} variableContext={variableContext} />
         ),
       )}
     </div>
@@ -55,12 +60,20 @@ function blockStyle(element: DocumentTextElement): React.CSSProperties {
   };
 }
 
-function StaticTextBlock({ element }: { element: DocumentTextElement }) {
+function StaticTextBlock({ element, variableContext }: { element: DocumentTextElement; variableContext: ReturnType<typeof useDocumentStore.getState>["variableContext"] }) {
+  const html = element.variableBinding
+    ? `<p>${escapeHtml(resolveVariable(element.variableBinding, variableContext)) || `<span class="text-animeo-muted">${escapeHtml(labelForVariable(element.variableBinding))}</span>`}</p>`
+    : element.html || "<p class=\"text-animeo-muted\">Texte…</p>";
+
   return (
     // pointer-events-none : les clics traversent jusqu'au rectangle fantôme
     // Konva en dessous (sélection/déplacement), voir canvas-stage.tsx.
-    <div style={blockStyle(element)} className="pointer-events-none text-sm text-animeo-dark [&_p]:m-0" dangerouslySetInnerHTML={{ __html: element.html || "<p class=\"text-animeo-muted\">Texte…</p>" }} />
+    <div style={blockStyle(element)} className="pointer-events-none text-sm text-animeo-dark [&_p]:m-0" dangerouslySetInnerHTML={{ __html: html }} />
   );
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function EditableTextBlock({ element }: { element: DocumentTextElement }) {

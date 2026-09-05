@@ -1,4 +1,5 @@
 import type { DocumentContent } from "@/lib/documents/content";
+import type { DocumentVariableContext } from "@/lib/documents/variables";
 
 export type StudioDocumentStatus = "Brouillon" | "Finalisé";
 
@@ -19,6 +20,7 @@ export type StudioDocumentDetail = StudioDocumentSummary & {
   templateId: string | null;
   content: DocumentContent;
   pdfBase64: string | null;
+  variableContext: DocumentVariableContext;
 };
 
 export type StudioDocumentTemplateSummary = {

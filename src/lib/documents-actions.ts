@@ -6,9 +6,11 @@ import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { formatFrenchDate } from "@/lib/format";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { createEmptyDocumentContent, type DocumentContent } from "@/lib/documents/content";
+import type { DocumentVariableContext } from "@/lib/documents/variables";
 import { Prisma } from "@/generated/prisma/client";
-import type { StudioDocumentDetail, StudioDocumentStatus, StudioDocumentSummary } from "@/data/documents";
+import type { StudioDocumentDetail, StudioDocumentStatus, StudioDocumentSummary, StudioDocumentTemplateSummary } from "@/data/documents";
 
 const DOCUMENTS_PATH = "/dashboard/documents";
 
@@ -47,9 +49,38 @@ export async function getDocumentsForAnimal(animalId: string): Promise<StudioDoc
   return rows.map(mapSummary);
 }
 
+export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSummary[]> {
+  await requireUser();
+  const rows = await prisma.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
+  return rows.map((row) => ({ id: row.id, name: row.name, species: row.species, thumbnail: row.thumbnail, isBuiltIn: row.isBuiltIn }));
+}
+
+const detailInclude = {
+  client: { select: { firstName: true, lastName: true, phone: true, email: true, address: true } },
+  animal: { select: { name: true, species: true, breed: true, sex: true, weight: true, birthDate: true } },
+  appointment: { select: { date: true, start: true, serviceName: true, location: true } },
+} as const;
+
+/**
+ * Contexte de résolution des variables (src/lib/documents/variables.ts) —
+ * calculé une fois côté serveur à partir des vraies fiches liées au
+ * document, jamais recalculé dans le navigateur. `professional` vient
+ * toujours du même profil (singleton, getBusinessProfile) ; les trois
+ * autres sont absents si le document n'est lié à aucune fiche.
+ */
+async function buildVariableContext(row: Prisma.StudioDocumentGetPayload<{ include: typeof detailInclude }>): Promise<DocumentVariableContext> {
+  const professional = await getBusinessProfile();
+  return {
+    professional: { company: professional.company, phone: professional.phone, email: professional.email, address: professional.address },
+    client: row.client,
+    animal: row.animal ? { ...row.animal, birthDate: row.animal.birthDate ? formatFrenchDate(row.animal.birthDate) : null } : null,
+    appointment: row.appointment ? { ...row.appointment, date: formatFrenchDate(row.appointment.date) } : null,
+  };
+}
+
 export async function getDocument(id: string): Promise<StudioDocumentDetail | null> {
   await requireUser();
-  const row = await prisma.studioDocument.findUnique({ where: { id }, include: summaryInclude });
+  const row = await prisma.studioDocument.findUnique({ where: { id }, include: { ...summaryInclude, ...detailInclude } });
   if (!row) return null;
   return {
     ...mapSummary(row),
@@ -59,6 +90,7 @@ export async function getDocument(id: string): Promise<StudioDocumentDetail | nu
     templateId: row.templateId,
     content: row.contentJson as unknown as DocumentContent,
     pdfBase64: row.pdfBase64,
+    variableContext: await buildVariableContext(row),
   };
 }
 

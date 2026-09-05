@@ -1,10 +1,14 @@
 import { create } from "zustand";
 import type { DocumentContent, DocumentElement } from "@/lib/documents/content";
+import type { DocumentVariableContext } from "@/lib/documents/variables";
 
 const MAX_HISTORY = 50;
 
+const EMPTY_VARIABLE_CONTEXT: DocumentVariableContext = { professional: null, client: null, animal: null, appointment: null };
+
 type DocumentStoreState = {
   content: DocumentContent;
+  variableContext: DocumentVariableContext;
   currentPageIndex: number;
   selectedElementId: string | null;
   // Distinct de la sélection : un texte peut être sélectionné (déplaçable,
@@ -17,11 +21,12 @@ type DocumentStoreState = {
   past: DocumentContent[];
   future: DocumentContent[];
 
-  loadContent: (content: DocumentContent) => void;
+  loadContent: (content: DocumentContent, variableContext?: DocumentVariableContext) => void;
   setCurrentPageIndex: (index: number) => void;
   selectElement: (id: string | null) => void;
   setEditingText: (id: string | null) => void;
   addElement: (element: DocumentElement) => void;
+  addElements: (elements: DocumentElement[]) => void;
   updateElement: (id: string, patch: Partial<DocumentElement>) => void;
   removeElement: (id: string) => void;
   duplicateSelected: () => void;
@@ -58,13 +63,14 @@ function pushHistory(state: DocumentStoreState): Pick<DocumentStoreState, "past"
 
 export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   content: { formatVersion: 1, pageSize: "A4_PORTRAIT", pages: [{ id: "page-1", elements: [] }] },
+  variableContext: EMPTY_VARIABLE_CONTEXT,
   currentPageIndex: 0,
   selectedElementId: null,
   editingTextId: null,
   past: [],
   future: [],
 
-  loadContent: (content) => set({ content, currentPageIndex: 0, selectedElementId: null, editingTextId: null, past: [], future: [] }),
+  loadContent: (content, variableContext) => set({ content, variableContext: variableContext ?? EMPTY_VARIABLE_CONTEXT, currentPageIndex: 0, selectedElementId: null, editingTextId: null, past: [], future: [] }),
 
   setCurrentPageIndex: (index) => set({ currentPageIndex: index, selectedElementId: null, editingTextId: null }),
 
@@ -78,6 +84,18 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       ...pushHistory(state),
       content: withPageElements(state.content, state.currentPageIndex, [...page.elements, element]),
       selectedElementId: element.id,
+    };
+  }),
+
+  // Insertion groupée (Smart Blocks, editor-toolbar.tsx) — un seul instantané
+  // d'historique pour tout le groupe, jamais un par élément (un "Annuler"
+  // devrait retirer le bloc entier d'un coup, pas élément par élément).
+  addElements: (elements) => set((state) => {
+    const page = currentPage(state);
+    return {
+      ...pushHistory(state),
+      content: withPageElements(state.content, state.currentPageIndex, [...page.elements, ...elements]),
+      selectedElementId: null,
     };
   }),
 

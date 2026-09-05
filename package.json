@@ -10,7 +10,8 @@
     "test": "playwright test",
     "test:unit": "node --import tsx --test tests-unit/**/*.test.ts",
     "geocode:profile": "node --import tsx prisma/geocode-business-profile.ts",
-    "geocode:clients": "node --import tsx prisma/geocode-clients.ts"
+    "geocode:clients": "node --import tsx prisma/geocode-clients.ts",
+    "seed:document-templates": "node --import tsx prisma/seed-document-templates.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

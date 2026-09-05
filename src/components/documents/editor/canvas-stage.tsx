@@ -114,8 +114,8 @@ export function CanvasStage({ readOnly }: CanvasStageProps) {
                 stroke={selectedElementId === element.id ? "#4FAF9F" : "transparent"}
                 dash={[4, 4]}
                 strokeWidth={1}
-                onDblClick={() => setEditingText(element.id)}
-                onDblTap={() => setEditingText(element.id)}
+                onDblClick={() => { if (!element.variableBinding) setEditingText(element.id); }}
+                onDblTap={() => { if (!element.variableBinding) setEditingText(element.id); }}
               />
             );
           }
