@@ -34,7 +34,10 @@ type AuditAction =
   | "CALENDAR_SETTINGS_UPDATED"
   | "CALENDAR_FEED_TOKEN_REGENERATED"
   | "CLIENTS_IMPORTED"
-  | "CLIENT_IMPORT_UNDONE";
+  | "CLIENT_IMPORT_UNDONE"
+  | "DOCUMENT_CREATED"
+  | "DOCUMENT_FINALIZED"
+  | "DOCUMENT_DELETED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun

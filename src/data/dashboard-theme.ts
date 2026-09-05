@@ -23,6 +23,7 @@ export type NavigationAssetKey =
   | "map"
   | "reminders"
   | "services"
+  | "documents"
   | "stats"
   | "settings"
   | "admin";

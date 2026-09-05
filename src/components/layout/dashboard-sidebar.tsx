@@ -35,6 +35,7 @@ const navigation: NavigationItem[] = [
   { label: "Carte clients", href: "/dashboard/carte", icon: "map", assetKey: "map" },
   { label: "Rappels clients", href: "/dashboard/rappels", icon: "bell", assetKey: "reminders" },
   { label: "Prestations", href: "/dashboard/prestations", icon: "services", assetKey: "services" },
+  { label: "Documents", href: "/dashboard/documents", icon: "document", assetKey: "documents" },
 ];
 
 const statisticsItem: NavigationItem = { label: "Statistiques", href: "/dashboard/statistiques", icon: "stats", assetKey: "stats" };

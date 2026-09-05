@@ -49,6 +49,11 @@ enum DocumentType {
   IMAGE
 }
 
+enum StudioDocumentStatus {
+  DRAFT
+  FINALIZED
+}
+
 enum TourStatus {
   ACTIVE
   INACTIVE
@@ -160,6 +165,9 @@ enum AuditAction {
   CALENDAR_FEED_TOKEN_REGENERATED
   CLIENTS_IMPORTED
   CLIENT_IMPORT_UNDONE
+  DOCUMENT_CREATED
+  DOCUMENT_FINALIZED
+  DOCUMENT_DELETED
 }
 
 model User {
@@ -184,15 +192,17 @@ model User {
   // tant que l'utilisateur n'a jamais généré son lien.
   icsFeedToken String? @unique
 
-  auditLogs           AuditLog[]
-  passwordResetTokens PasswordResetToken[]
-  twoFactorCodes      TwoFactorCode[]
-  blockedSlots        BlockedSlot[]
-  calendarConnections CalendarConnection[]
-  tourRuns            TourRun[]
-  savedPlaces         SavedPlace[]
-  tourPreferences     TourPreferences?
-  clientImports       ClientImport[]
+  auditLogs               AuditLog[]
+  passwordResetTokens     PasswordResetToken[]
+  twoFactorCodes          TwoFactorCode[]
+  blockedSlots            BlockedSlot[]
+  calendarConnections     CalendarConnection[]
+  tourRuns                TourRun[]
+  savedPlaces             SavedPlace[]
+  tourPreferences         TourPreferences?
+  clientImports           ClientImport[]
+  studioDocuments         StudioDocument[]
+  studioDocumentTemplates StudioDocumentTemplate[]
 
   @@index([email])
 }
@@ -315,9 +325,10 @@ model Client {
   importId String?
   import   ClientImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
 
-  animals      Animal[]
-  appointments Appointment[]
-  reminders    Reminder[]
+  animals         Animal[]
+  appointments    Appointment[]
+  reminders       Reminder[]
+  studioDocuments StudioDocument[]
 
   @@index([lastName, firstName])
   @@index([email])
@@ -357,10 +368,11 @@ model Animal {
   importId String?
   import   ClientImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
 
-  consultations Consultation[]
-  documents     AnimalDocument[]
-  appointments  Appointment[]
-  reminders     Reminder[]
+  consultations   Consultation[]
+  documents       AnimalDocument[]
+  appointments    Appointment[]
+  reminders       Reminder[]
+  studioDocuments StudioDocument[]
 
   @@index([clientId])
   @@index([importId])
@@ -394,6 +406,75 @@ model AnimalDocument {
   createdAt DateTime @default(now())
 
   @@index([animalId])
+}
+
+// Studio de documents (2026-09) : comptes rendus de consultation et
+// documents professionnels construits dans l'éditeur Konva/Tiptap — sans
+// rapport avec AnimalDocument ci-dessus (coquille jamais utilisée en
+// pratique, conservée telle quelle). `contentJson` n'est jamais sur-normalisé
+// en table séparée : un document est une arborescence de pages/éléments,
+// mieux représentée en JSON qu'en lignes relationnelles (même choix que
+// Service.zoneFees / BusinessProfile.availability).
+model StudioDocument {
+  id     String               @id @default(cuid())
+  title  String
+  status StudioDocumentStatus @default(DRAFT)
+
+  clientId      String?
+  client        Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  animalId      String?
+  animal        Animal?                 @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  // Un rendez-vous n'a jamais plus d'un compte rendu (1:1) — "recréer" en
+  // recrée un second reviendrait à en avoir deux pour le même rendez-vous,
+  // jamais voulu ; dupliquer un document existant n'est pas concerné (le
+  // duplicata n'est plus rattaché à ce rendez-vous, voir duplicateDocumentAction).
+  appointmentId String?                 @unique
+  appointment   Appointment?            @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  templateId    String?
+  template      StudioDocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  createdByUserId String
+  createdByUser   User   @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  contentJson Json
+  // Dernier PDF finalisé (régénéré à chaque finalisation) et miniature
+  // d'aperçu (régénérée à l'enregistrement) — même convention base64/Text
+  // que le reste de l'app (BusinessProfile.photo, Client n'a pas de photo
+  // mais Animal.photo, Service.photoUrl...), pas de stockage objet en Phase 1.
+  pdfBase64   String? @db.Text
+  thumbnail   String? @db.Text
+
+  finalizedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([clientId])
+  @@index([animalId])
+  @@index([createdByUserId])
+}
+
+model StudioDocumentTemplate {
+  id      String  @id @default(cuid())
+  name    String
+  // null = toutes espèces (ex. "Compte rendu classique") ; sinon la valeur
+  // Animal.species exacte (ex. "Chien") pour la sélection automatique de
+  // template depuis un rendez-vous.
+  species String?
+
+  contentJson Json
+  thumbnail   String? @db.Text
+  // Modèles fournis par Animéo (seed), jamais modifiables/supprimables par
+  // un professionnel — distingue "mon modèle" de "modèle Animéo" dans la
+  // bibliothèque, voir documents-actions.ts.
+  isBuiltIn   Boolean @default(false)
+
+  createdByUserId String?
+  createdByUser   User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  documents StudioDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Appointment {
@@ -431,6 +512,7 @@ model Appointment {
 
   calendarEvents AppointmentCalendarEvent[]
   tourStops      TourStop[]
+  studioDocument StudioDocument?
 
   @@index([clientId])
   @@index([animalId])
