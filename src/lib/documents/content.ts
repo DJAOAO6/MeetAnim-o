@@ -65,6 +65,9 @@ export type DocumentDiagramElement = {
   species: "dog";
   view: "profile-left";
   markers: DiagramMarker[];
+  // Légende générée automatiquement à partir de `markers` — jamais éditée
+  // à la main, seulement affichée/masquée.
+  showLegend: boolean;
 };
 
 export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement;

@@ -9,12 +9,16 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 /**
- * Modèles fournis par Animéo (Studio de documents, étape 3) — script
+ * Modèles fournis par Animéo (Studio de documents, étapes 3-4) — script
  * autonome (comme geocode-clients.ts, geocode-business-profile.ts), jamais
- * importé par l'app. Ré-exécutable sans effet de bord : ne crée un modèle
- * que si aucun modèle "isBuiltIn" du même nom n'existe déjà (pas de
- * contrainte unique sur `name`, un check-then-create explicite est donc
- * plus sûr qu'un upsert Prisma ici).
+ * importé par l'app. Ré-exécutable sans effet de bord : un modèle "isBuiltIn"
+ * n'est jamais modifiable depuis l'app (StudioDocumentTemplate.isBuiltIn,
+ * voir schema.prisma), donc son contenu est entièrement piloté par ce
+ * fichier — le script met à jour le contentJson d'un modèle existant du
+ * même nom plutôt que de l'ignorer, pour que la base reste synchronisée
+ * avec le code après un changement de layout (pas de contrainte unique sur
+ * `name`, un check-then-create-ou-update explicite est donc plus sûr qu'un
+ * upsert Prisma ici).
  */
 
 function classicContent(): DocumentContent {
@@ -52,20 +56,36 @@ function classicContent(): DocumentContent {
   };
 }
 
+function dogContent(): DocumentContent {
+  const base = classicContent();
+  const page = base.pages[0];
+  // Remplace le bloc "Observations" par le schéma animalier (étape 4) :
+  // silhouette + repères + légende à gauche, observations libres réduites
+  // à droite, recommandations décalées d'autant plus bas.
+  const elements = page.elements
+    .filter((element) => element.id !== "el-observations")
+    .map((element) => (element.id === "el-recommendations" ? { ...element, y: 744 } : element));
+  elements.push(
+    { id: "el-diagram", type: "diagram", x: 32, y: 470, width: 380, height: 260, rotation: 0, species: "dog", view: "profile-left", markers: [], showLegend: true },
+    { id: "el-observations-short", type: "text", x: 430, y: 470, width: 332, height: 260, rotation: 0, html: "<p><strong>Observations</strong></p><p></p>" },
+  );
+  return { ...base, pages: [{ ...page, elements }] };
+}
+
 const templates: { name: string; species: string | null; content: DocumentContent }[] = [
   { name: "Compte rendu classique", species: null, content: classicContent() },
-  // Même structure que le modèle classique pour l'instant — la
-  // bibliothèque de schémas (chien profil gauche) arrive à l'étape 4 et
-  // enrichira ce modèle avec un élément "diagram" dédié.
-  { name: "Compte rendu chien", species: "Chien", content: classicContent() },
+  { name: "Compte rendu chien", species: "Chien", content: dogContent() },
 ];
 
 async function main() {
   let created = 0;
+  let updated = 0;
   for (const template of templates) {
     const existing = await prisma.studioDocumentTemplate.findFirst({ where: { name: template.name, isBuiltIn: true } });
     if (existing) {
-      console.log(`Déjà présent, ignoré : « ${template.name} ».`);
+      await prisma.studioDocumentTemplate.update({ where: { id: existing.id }, data: { contentJson: template.content } });
+      updated += 1;
+      console.log(`Mis à jour : « ${template.name} ».`);
       continue;
     }
     await prisma.studioDocumentTemplate.create({
@@ -74,7 +94,7 @@ async function main() {
     created += 1;
     console.log(`Créé : « ${template.name} ».`);
   }
-  console.log(`Terminé : ${created} modèle(s) créé(s).`);
+  console.log(`Terminé : ${created} modèle(s) créé(s), ${updated} mis à jour.`);
 }
 
 main()

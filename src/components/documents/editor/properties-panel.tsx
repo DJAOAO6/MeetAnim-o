@@ -1,6 +1,8 @@
 "use client";
 
 import { useDocumentStore } from "@/components/documents/editor/document-store";
+import { updateMarkerPresetsAction } from "@/lib/documents/marker-presets-actions";
+import type { DocumentDiagramElement } from "@/lib/documents/content";
 
 const numberFieldClassName = "h-9 w-full rounded-lg border border-[#d9e5e2] bg-animeo-bg px-2.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white";
 
@@ -56,6 +58,8 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
         </div>
       ) : null}
 
+      {element.type === "diagram" ? <DiagramProperties element={element} readOnly={readOnly} /> : null}
+
       {!readOnly ? (
         <div className="flex gap-2 border-t border-[#e5eeeb] pt-4">
           <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-[#d4e2df] px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
@@ -98,5 +102,103 @@ function ColorField({ label, value, onChange, disabled }: { label: string; value
         className="h-9 w-full cursor-pointer rounded-lg border border-[#d9e5e2] bg-white p-1"
       />
     </label>
+  );
+}
+
+/**
+ * Panneau du schéma animalier (étape 4) : choix du préréglage à poser (le
+ * clic effectif a lieu sur le canvas, voir canvas-stage.tsx), liste des
+ * repères déjà posés (suppression uniquement ici, pas de glisser sur le
+ * canvas — hors périmètre Phase 1), bascule de la légende, et renommage des
+ * préréglages (partagés par tout le cabinet, voir marker-presets-actions.ts
+ * — un repère déjà posé garde son libellé d'origine, jamais changé
+ * rétroactivement).
+ */
+function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElement; readOnly: boolean }) {
+  const markerPresets = useDocumentStore((state) => state.markerPresets);
+  const setMarkerPresets = useDocumentStore((state) => state.setMarkerPresets);
+  const placingMarkerPresetId = useDocumentStore((state) => state.placingMarkerPresetId);
+  const setPlacingMarkerPreset = useDocumentStore((state) => state.setPlacingMarkerPreset);
+  const updateElement = useDocumentStore((state) => state.updateElement);
+
+  function removeMarker(markerId: string) {
+    updateElement(element.id, { markers: element.markers.filter((marker) => marker.id !== markerId) });
+  }
+
+  async function renamePreset(presetId: string, label: string) {
+    const next = markerPresets.map((preset) => (preset.id === presetId ? { ...preset, label } : preset));
+    setMarkerPresets(next);
+    await updateMarkerPresetsAction(next);
+  }
+
+  return (
+    <>
+      <div>
+        <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Repères</p>
+        {placingMarkerPresetId ? (
+          <p className="mb-2 rounded-lg bg-animeo-soft px-2.5 py-2 text-[11px] font-bold text-animeo-dark">Cliquez sur le schéma pour poser le repère…</p>
+        ) : null}
+        <div className="flex flex-wrap gap-1.5">
+          {markerPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              disabled={readOnly}
+              onClick={() => setPlacingMarkerPreset(placingMarkerPresetId === preset.id ? null : preset.id)}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                placingMarkerPresetId === preset.id ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"
+              }`}
+            >
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: preset.color }} />
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {element.markers.length > 0 ? (
+        <div>
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Repères posés</p>
+          <ul className="space-y-1">
+            {element.markers.map((marker, index) => (
+              <li key={marker.id} className="flex items-center justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-semibold text-animeo-dark">
+                <span className="truncate">{index + 1}. {marker.label}</span>
+                {!readOnly ? (
+                  <button type="button" onClick={() => removeMarker(marker.id)} aria-label={`Supprimer le repère ${index + 1}`} className="shrink-0 text-animeo-error">
+                    ×
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <label className="flex items-center gap-2 text-xs font-extrabold text-animeo-dark">
+        <input type="checkbox" checked={element.showLegend} disabled={readOnly} onChange={(event) => updateElement(element.id, { showLegend: event.target.checked })} />
+        Afficher la légende
+      </label>
+
+      <div>
+        <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Renommer les repères</p>
+        <div className="space-y-1.5">
+          {markerPresets.map((preset) => (
+            <label key={preset.id} className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: preset.color }} />
+              <input
+                aria-label={`Renommer le repère ${preset.label}`}
+                defaultValue={preset.label}
+                disabled={readOnly}
+                onBlur={(event) => {
+                  const value = event.target.value.trim();
+                  if (value && value !== preset.label) renamePreset(preset.id, value);
+                }}
+                className="h-8 w-full rounded-lg border border-[#d9e5e2] bg-animeo-bg px-2 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import type { DocumentContent } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
+import type { MarkerPreset } from "@/lib/documents/marker-presets";
 
 export type StudioDocumentStatus = "Brouillon" | "Finalisé";
 
@@ -21,6 +22,7 @@ export type StudioDocumentDetail = StudioDocumentSummary & {
   content: DocumentContent;
   pdfBase64: string | null;
   variableContext: DocumentVariableContext;
+  markerPresets: MarkerPreset[];
 };
 
 export type StudioDocumentTemplateSummary = {

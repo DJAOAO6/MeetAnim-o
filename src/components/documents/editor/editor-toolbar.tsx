@@ -48,6 +48,10 @@ export function EditorToolbar({ readOnly }: { readOnly: boolean }) {
     insert({ id: newElementId("shape"), type: "shape", shape: "line", ...DEFAULT_POSITION, width: 200, height: 2, rotation: 0, fill: "#183b45", stroke: "#183b45" });
   }
 
+  function addDogDiagram() {
+    insert({ id: newElementId("diagram"), type: "diagram", ...DEFAULT_POSITION, width: 380, height: 250, rotation: 0, species: "dog", view: "profile-left", markers: [], showLegend: true });
+  }
+
   function addImage() {
     const input = window.document.createElement("input");
     input.type = "file";
@@ -113,6 +117,7 @@ export function EditorToolbar({ readOnly }: { readOnly: boolean }) {
     { label: "Cercle", onClick: addCircle, icon: <CircleIcon /> },
     { label: "Ligne", onClick: addLine, icon: <LineIcon /> },
     { label: "Image", onClick: addImage, icon: <ImageIcon /> },
+    { label: "Schéma (chien)", onClick: addDogDiagram, icon: <DogIcon /> },
   ];
 
   const smartBlocks: { label: string; onClick: () => void }[] = [
@@ -212,6 +217,16 @@ function CircleIcon() {
 
 function LineIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="h-5 w-5"><path d="M4 12h16" /></svg>;
+}
+
+function DogIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M6 10c-1.5-1-2.5-.5-2.5 1S5 13 6 12.5" />
+      <path d="M6 10c0-3 2.5-5 6-5s6 2.5 6 6c0 3-1.5 4.5-1.5 7.5H8c0-2.5-2-3.5-2-6.5Z" />
+      <circle cx="9.5" cy="9.5" r="0.8" fill="currentColor" />
+    </svg>
+  );
 }
 
 function ImageIcon() {

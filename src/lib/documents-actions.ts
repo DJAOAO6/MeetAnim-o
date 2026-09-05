@@ -9,6 +9,7 @@ import { formatFrenchDate } from "@/lib/format";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { createEmptyDocumentContent, type DocumentContent } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
+import { getMarkerPresets } from "@/lib/documents/marker-presets-actions";
 import { Prisma } from "@/generated/prisma/client";
 import type { StudioDocumentDetail, StudioDocumentStatus, StudioDocumentSummary, StudioDocumentTemplateSummary } from "@/data/documents";
 
@@ -82,6 +83,7 @@ export async function getDocument(id: string): Promise<StudioDocumentDetail | nu
   await requireUser();
   const row = await prisma.studioDocument.findUnique({ where: { id }, include: { ...summaryInclude, ...detailInclude } });
   if (!row) return null;
+  const [variableContext, markerPresets] = await Promise.all([buildVariableContext(row), getMarkerPresets()]);
   return {
     ...mapSummary(row),
     clientId: row.clientId,
@@ -90,7 +92,8 @@ export async function getDocument(id: string): Promise<StudioDocumentDetail | nu
     templateId: row.templateId,
     content: row.contentJson as unknown as DocumentContent,
     pdfBase64: row.pdfBase64,
-    variableContext: await buildVariableContext(row),
+    variableContext,
+    markerPresets,
   };
 }
 

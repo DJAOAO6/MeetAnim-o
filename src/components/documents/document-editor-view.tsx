@@ -44,7 +44,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   // Charge le contenu serveur dans le store une seule fois au montage — pas
   // à chaque rendu, sinon toute frappe locale serait écrasée par la prop.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadContent(document.content, document.variableContext); }, [document.id]);
+  useEffect(() => { loadContent(document.content, document.variableContext, document.markerPresets); }, [document.id]);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(true);

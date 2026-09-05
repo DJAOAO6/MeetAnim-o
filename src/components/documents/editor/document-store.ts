@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { DocumentContent, DocumentElement } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
+import { DEFAULT_MARKER_PRESETS, type MarkerPreset } from "@/lib/documents/marker-presets";
 
 const MAX_HISTORY = 50;
 
@@ -9,22 +10,29 @@ const EMPTY_VARIABLE_CONTEXT: DocumentVariableContext = { professional: null, cl
 type DocumentStoreState = {
   content: DocumentContent;
   variableContext: DocumentVariableContext;
+  markerPresets: MarkerPreset[];
   currentPageIndex: number;
   selectedElementId: string | null;
   // Distinct de la sélection : un texte peut être sélectionné (déplaçable,
   // redimensionnable) sans être en cours de frappe — seul un double-clic
   // bascule ici, voir text-overlay.tsx.
   editingTextId: string | null;
+  // Non null pendant qu'un repère est en cours de pose sur le schéma
+  // animalier (étape 4) : le prochain clic sur le schéma pose un marqueur
+  // avec ce préréglage, voir canvas-stage.tsx et properties-panel.tsx.
+  placingMarkerPresetId: string | null;
   // Pile d'annulation/rétablissement par snapshot complet du contenu — le
   // plus simple à raisonner correctement pour cette étape (pas de patchs
   // différentiels), amplement suffisant vu la taille d'un document.
   past: DocumentContent[];
   future: DocumentContent[];
 
-  loadContent: (content: DocumentContent, variableContext?: DocumentVariableContext) => void;
+  loadContent: (content: DocumentContent, variableContext?: DocumentVariableContext, markerPresets?: MarkerPreset[]) => void;
+  setMarkerPresets: (presets: MarkerPreset[]) => void;
   setCurrentPageIndex: (index: number) => void;
   selectElement: (id: string | null) => void;
   setEditingText: (id: string | null) => void;
+  setPlacingMarkerPreset: (presetId: string | null) => void;
   addElement: (element: DocumentElement) => void;
   addElements: (elements: DocumentElement[]) => void;
   updateElement: (id: string, patch: Partial<DocumentElement>) => void;
@@ -64,19 +72,35 @@ function pushHistory(state: DocumentStoreState): Pick<DocumentStoreState, "past"
 export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   content: { formatVersion: 1, pageSize: "A4_PORTRAIT", pages: [{ id: "page-1", elements: [] }] },
   variableContext: EMPTY_VARIABLE_CONTEXT,
+  markerPresets: DEFAULT_MARKER_PRESETS,
   currentPageIndex: 0,
   selectedElementId: null,
   editingTextId: null,
+  placingMarkerPresetId: null,
   past: [],
   future: [],
 
-  loadContent: (content, variableContext) => set({ content, variableContext: variableContext ?? EMPTY_VARIABLE_CONTEXT, currentPageIndex: 0, selectedElementId: null, editingTextId: null, past: [], future: [] }),
+  loadContent: (content, variableContext, markerPresets) => set({
+    content,
+    variableContext: variableContext ?? EMPTY_VARIABLE_CONTEXT,
+    markerPresets: markerPresets ?? DEFAULT_MARKER_PRESETS,
+    currentPageIndex: 0,
+    selectedElementId: null,
+    editingTextId: null,
+    placingMarkerPresetId: null,
+    past: [],
+    future: [],
+  }),
+
+  setMarkerPresets: (presets) => set({ markerPresets: presets }),
 
   setCurrentPageIndex: (index) => set({ currentPageIndex: index, selectedElementId: null, editingTextId: null }),
 
   selectElement: (id) => set({ selectedElementId: id }),
 
   setEditingText: (id) => set((state) => ({ editingTextId: id, selectedElementId: id ?? state.selectedElementId })),
+
+  setPlacingMarkerPreset: (presetId) => set({ placingMarkerPresetId: presetId }),
 
   addElement: (element) => set((state) => {
     const page = currentPage(state);

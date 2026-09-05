@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Stage, Layer, Rect, Line, Circle, Image as KonvaImage, Transformer } from "react-konva";
+import { Stage, Layer, Rect, Line, Circle, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
 import type Konva from "konva";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
 import { useHtmlImage } from "@/components/documents/editor/use-html-image";
-import type { DocumentElement } from "@/lib/documents/content";
+import { DOG_DIAGRAM_VIEWBOX, dogDiagramDataUri } from "@/lib/documents/dog-diagram";
+import { colorForPreset } from "@/lib/documents/marker-presets";
+import type { DocumentDiagramElement, DocumentElement } from "@/lib/documents/content";
 
 type CanvasStageProps = {
   readOnly: boolean;
@@ -120,19 +122,7 @@ export function CanvasStage({ readOnly }: CanvasStageProps) {
             );
           }
 
-          // "diagram" : arrive à l'étape 4, simple emplacement réservé pour l'instant.
-          return (
-            <Rect
-              key={element.id}
-              {...common}
-              width={element.width}
-              height={element.height}
-              fill="#f7faf9"
-              stroke="#d9e5e2"
-              dash={[4, 4]}
-              strokeWidth={1}
-            />
-          );
+          return <DiagramElement key={element.id} element={element} common={common} readOnly={readOnly} />;
         })}
 
         {!readOnly ? <Transformer ref={transformerRef} rotateEnabled boundBoxFunc={(oldBox, newBox) => (newBox.width < 20 || newBox.height < 20 ? oldBox : newBox)} /> : null}
@@ -144,4 +134,118 @@ export function CanvasStage({ readOnly }: CanvasStageProps) {
 function ImageElement({ src, width, height, ...konvaProps }: { src: string; width: number; height: number } & Record<string, unknown>) {
   const image = useHtmlImage(src);
   return <KonvaImage {...konvaProps} image={image ?? undefined} width={width} height={height} />;
+}
+
+type ElementCommonProps = {
+  id: string;
+  x: number;
+  y: number;
+  rotation: number;
+  draggable: boolean;
+  ref: (node: Konva.Node | null) => void;
+  onClick: () => void;
+  onTap: () => void;
+  onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => void;
+  onTransformEnd: () => void;
+};
+
+const LEGEND_WIDTH = 150;
+const LEGEND_ROW_HEIGHT = 18;
+
+/**
+ * Schéma animalier (étape 4) : silhouette (image raster générée depuis un
+ * SVG maison, voir dog-diagram.ts) + repères numérotés posés au clic +
+ * légende générée automatiquement. Les repères vivent en coordonnées
+ * relatives (0..1) à l'image du schéma elle-même (pas à toute la boîte de
+ * l'élément) pour rester collés au dessin même si la légende est
+ * affichée/masquée ou l'élément redimensionné.
+ */
+function DiagramElement({ element, common, readOnly }: { element: DocumentDiagramElement; common: ElementCommonProps; readOnly: boolean }) {
+  const image = useHtmlImage(dogDiagramDataUri());
+  const markerPresets = useDocumentStore((state) => state.markerPresets);
+  const placingMarkerPresetId = useDocumentStore((state) => state.placingMarkerPresetId);
+  const selectedElementId = useDocumentStore((state) => state.selectedElementId);
+  const setPlacingMarkerPreset = useDocumentStore((state) => state.setPlacingMarkerPreset);
+  const updateElement = useDocumentStore((state) => state.updateElement);
+  const selectElement = useDocumentStore((state) => state.selectElement);
+  const groupRef = useRef<Konva.Group>(null);
+
+  const legendWidth = element.showLegend ? Math.min(LEGEND_WIDTH, element.width * 0.45) : 0;
+  const pictureWidth = Math.max(20, element.width - legendWidth);
+  const pictureHeight = element.height;
+  const ratio = DOG_DIAGRAM_VIEWBOX.width / DOG_DIAGRAM_VIEWBOX.height;
+  let drawWidth = pictureWidth;
+  let drawHeight = drawWidth / ratio;
+  if (drawHeight > pictureHeight) {
+    drawHeight = pictureHeight;
+    drawWidth = drawHeight * ratio;
+  }
+  const drawOffsetX = (pictureWidth - drawWidth) / 2;
+  const drawOffsetY = (pictureHeight - drawHeight) / 2;
+
+  function handleClick() {
+    selectElement(element.id);
+    if (!placingMarkerPresetId || readOnly) return;
+    const pointer = groupRef.current?.getRelativePointerPosition();
+    if (!pointer) return;
+    const localX = pointer.x - drawOffsetX;
+    const localY = pointer.y - drawOffsetY;
+    if (localX < 0 || localY < 0 || localX > drawWidth || localY > drawHeight) return;
+
+    const marker = {
+      id: `marker-${Date.now()}-${Math.round(Math.random() * 1000)}`,
+      x: localX / drawWidth,
+      y: localY / drawHeight,
+      presetId: placingMarkerPresetId,
+      label: markerPresets.find((preset) => preset.id === placingMarkerPresetId)?.label ?? placingMarkerPresetId,
+    };
+    updateElement(element.id, { markers: [...element.markers, marker] });
+    setPlacingMarkerPreset(null);
+  }
+
+  const isPlacing = placingMarkerPresetId !== null && selectedElementId === element.id;
+
+  return (
+    <Group
+      {...common}
+      ref={(node) => {
+        common.ref(node);
+        groupRef.current = node;
+      }}
+      onClick={handleClick}
+      onTap={handleClick}
+    >
+      {image ? <KonvaImage image={image} x={drawOffsetX} y={drawOffsetY} width={drawWidth} height={drawHeight} listening={false} /> : null}
+
+      {element.markers.map((marker, index) => {
+        const markerX = drawOffsetX + marker.x * drawWidth;
+        const markerY = drawOffsetY + marker.y * drawHeight;
+        const color = colorForPreset(marker.presetId, markerPresets);
+        return (
+          <Group key={marker.id} x={markerX} y={markerY} listening={false}>
+            <Circle radius={11} fill={color} stroke="#ffffff" strokeWidth={2} />
+            <Text text={String(index + 1)} fontSize={11} fontStyle="bold" fill="#ffffff" width={22} height={22} x={-11} y={-8} align="center" />
+          </Group>
+        );
+      })}
+
+      {element.showLegend ? (
+        <Group x={pictureWidth + 10} y={4} listening={false}>
+          <Text text="Légende" fontSize={11} fontStyle="bold" fill="#183b45" />
+          {element.markers.map((marker, index) => (
+            <Group key={marker.id} y={LEGEND_ROW_HEIGHT * (index + 1)}>
+              <Circle x={6} y={6} radius={5} fill={colorForPreset(marker.presetId, markerPresets)} />
+              <Text x={18} y={0} text={`${index + 1}. ${marker.label}`} fontSize={10.5} fill="#183b45" width={legendWidth - 18} wrap="word" />
+            </Group>
+          ))}
+        </Group>
+      ) : null}
+
+      <Rect x={0} y={0} width={element.width} height={element.height} fill="#000000" opacity={0} listening={!readOnly} />
+
+      {isPlacing ? (
+        <Rect x={0} y={0} width={element.width} height={element.height} stroke="#4FAF9F" dash={[6, 4]} strokeWidth={2} listening={false} />
+      ) : null}
+    </Group>
+  );
 }

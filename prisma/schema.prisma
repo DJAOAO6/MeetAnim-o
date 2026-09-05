@@ -727,6 +727,11 @@ model BusinessProfile {
   homeAvailable            Boolean  @default(true)
   availability             Json?
   reminderSettings         Json?
+  // Repères du schéma animalier du Studio de documents (étape 4) : 5
+  // préréglages par défaut si null, renommables par le personnel — partagés
+  // par tout le cabinet, pas propres à un utilisateur (même modèle que le
+  // reste de BusinessProfile), voir src/lib/documents/marker-presets.ts.
+  markerPresets            Json?
   // Page publique de réservation — refonte profil (2026-09) : le "bio"
   // existant devient le contenu détaillé de "À propos" ; tagline est le
   // texte très court affiché dans le bandeau d'en-tête, pour ne jamais
