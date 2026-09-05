@@ -1,42 +1,107 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { EditorToolbar } from "@/components/documents/editor/editor-toolbar";
+import { PropertiesPanel } from "@/components/documents/editor/properties-panel";
+import { TextOverlay } from "@/components/documents/editor/text-overlay";
+import { useDocumentStore } from "@/components/documents/editor/document-store";
+import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
 import { Icon } from "@/components/ui/icon";
 import { saveDocumentAction } from "@/lib/documents-actions";
 import { notify } from "@/lib/notify";
 import type { StudioDocumentDetail } from "@/data/documents";
+
+// Konva a besoin de `window` — jamais rendu côté serveur, même convention
+// que RealMap/TourRunMap (dynamic + ssr:false).
+const CanvasStage = dynamic(() => import("@/components/documents/editor/canvas-stage").then((mod) => mod.CanvasStage), {
+  ssr: false,
+  loading: () => <div className="flex h-full w-full items-center justify-center text-sm font-bold text-animeo-muted">Chargement de l’éditeur…</div>,
+});
 
 type DocumentEditorViewProps = {
   document: StudioDocumentDetail;
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+const AUTOSAVE_DELAY_MS = 2000;
 
-/**
- * Squelette de l'éditeur (Studio de documents, étape 1) — plein écran via un
- * overlay `fixed inset-0` plutôt qu'une restructuration du layout dashboard
- * partagé (DashboardSidebar/main), pour ne pas toucher au reste des pages :
- * z-[70] passe au-dessus de la sidebar (z-[60]) et de l'en-tête mobile (z-40).
- * Le canvas Konva/Tiptap réel arrive à l'étape 2 — pour l'instant seuls le
- * titre et le statut sont réellement modifiables.
- */
 export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   const [title, setTitle] = useState(document.title);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const readOnly = document.status === "Finalisé";
+  const [previewMode, setPreviewMode] = useState(false);
+  const readOnly = document.status === "Finalisé" || previewMode;
+
+  const loadContent = useDocumentStore((state) => state.loadContent);
+  const content = useDocumentStore((state) => state.content);
+  const undo = useDocumentStore((state) => state.undo);
+  const redo = useDocumentStore((state) => state.redo);
+  const duplicateSelected = useDocumentStore((state) => state.duplicateSelected);
+  const removeSelected = useDocumentStore((state) => state.removeSelected);
+  const editingTextId = useDocumentStore((state) => state.editingTextId);
+
+  // Charge le contenu serveur dans le store une seule fois au montage — pas
+  // à chaque rendu, sinon toute frappe locale serait écrasée par la prop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadContent(document.content); }, [document.id]);
+
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextAutosaveRef = useRef(true);
+
+  useEffect(() => {
+    if (readOnly) return;
+    if (skipNextAutosaveRef.current) {
+      // Le premier passage suit loadContent() ci-dessus — pas une vraie
+      // modification, ne déclenche jamais d'appel serveur immédiat.
+      skipNextAutosaveRef.current = false;
+      return;
+    }
+    setSaveState("saving");
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(async () => {
+      const result = await saveDocumentAction(document.id, { content });
+      setSaveState(result.ok ? "saved" : "error");
+      if (!result.ok) notify.error(result.error);
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, readOnly]);
 
   async function handleTitleBlur() {
     if (readOnly || title.trim() === document.title) return;
     setSaveState("saving");
-    const result = await saveDocumentAction(document.id, { title, content: document.content });
-    if (!result.ok) {
-      setSaveState("error");
-      notify.error(result.error);
-      return;
-    }
-    setSaveState("saved");
+    const result = await saveDocumentAction(document.id, { title, content });
+    setSaveState(result.ok ? "saved" : "error");
+    if (!result.ok) notify.error(result.error);
   }
+
+  // Raccourcis clavier essentiels (§26 du prompt) — jamais actifs pendant la
+  // frappe dans un bloc de texte (Ctrl+D y supprimerait un mot, pas dupliquer
+  // l'élément) ni en lecture seule.
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (readOnly || editingTextId) return;
+      const meta = event.ctrlKey || event.metaKey;
+      if (meta && event.key.toLowerCase() === "z" && event.shiftKey) {
+        event.preventDefault();
+        redo();
+      } else if (meta && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        undo();
+      } else if (meta && event.key.toLowerCase() === "d") {
+        event.preventDefault();
+        duplicateSelected();
+      } else if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        removeSelected();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [readOnly, editingTextId, undo, redo, duplicateSelected, removeSelected]);
 
   const saveLabel: Record<SaveState, string> = {
     idle: "",
@@ -44,6 +109,8 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
     saved: "✓ Enregistré",
     error: "Échec de l’enregistrement",
   };
+
+  const { width, height } = PAGE_DIMENSIONS[content.pageSize];
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-animeo-bg">
@@ -66,15 +133,35 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           {document.status}
         </span>
 
-        {saveLabel[saveState] ? <span className="text-xs font-bold text-animeo-muted">{saveLabel[saveState]}</span> : null}
+        {!previewMode && saveLabel[saveState] ? <span className="text-xs font-bold text-animeo-muted">{saveLabel[saveState]}</span> : null}
+
+        <div className="ml-auto flex gap-2">
+          <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-xl border border-[#d4e2df] px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+            {previewMode ? "Reprendre l’édition" : "Aperçu"}
+          </button>
+          <button type="button" disabled title="Arrive dans une prochaine étape" className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white opacity-50">
+            Finaliser
+          </button>
+        </div>
       </header>
 
-      <div className="flex flex-1 items-center justify-center overflow-auto p-6">
-        <div className="flex aspect-[210/297] w-full max-w-md flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#d9e5e2] bg-white text-center">
-          <Icon name="document" className="h-10 w-10 text-animeo-muted" />
-          <p className="max-w-[240px] text-sm font-bold text-animeo-dark">L’éditeur graphique arrive dans une prochaine étape.</p>
-          <p className="max-w-[240px] text-xs text-animeo-muted">Pour l’instant, vous pouvez créer, renommer et supprimer des documents.</p>
+      <div className="flex flex-1 overflow-hidden">
+        {!previewMode ? <EditorToolbar readOnly={readOnly} /> : null}
+
+        {/* items-start (jamais items-center) : une page A4 (1123px) dépasse
+            presque toujours la hauteur de la fenêtre — centrer verticalement
+            un enfant plus grand que son conteneur pousse la moitié du
+            contenu en overflow négatif, inaccessible au défilement (bug
+            classique flex + overflow-auto). Aligné en haut, comme n'importe
+            quel document qu'on lit de haut en bas. */}
+        <div className="flex flex-1 items-start justify-center overflow-auto p-6">
+          <div className="relative" style={{ width, height }}>
+            <CanvasStage readOnly={readOnly} />
+            <TextOverlay readOnly={readOnly} />
+          </div>
         </div>
+
+        {!previewMode ? <PropertiesPanel readOnly={readOnly} /> : null}
       </div>
     </div>
   );
