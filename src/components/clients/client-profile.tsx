@@ -241,6 +241,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
           />
           <AnimalRecord
             animal={selectedAnimal}
+            clientId={clientInfo.id}
             photo={animalPhotos[animalPhotoKey(clientInfo.id, selectedAnimal.id)] ?? selectedAnimal.photo}
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}

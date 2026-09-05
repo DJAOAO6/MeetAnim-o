@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { completeAppointmentAction, type SuggestedReminder } from "@/lib/appointments-actions";
 import { saveReminderAction } from "@/lib/reminders-actions";
+import { createDocumentAction, getDocumentIdForAppointment, getDocumentTemplates } from "@/lib/documents-actions";
+import { pickDefaultTemplate } from "@/lib/documents/templates";
 import { notify } from "@/lib/notify";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -38,6 +40,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
   const isHomeVisit = appointment.mode === "home";
   const [completing, setCompleting] = useState(false);
   const [reminderPrompt, setReminderPrompt] = useState<SuggestedReminder | null>(null);
+  const [creatingDocument, setCreatingDocument] = useState(false);
 
   // "Terminer" ne modifie jamais l'appointment affiché ici en place (pas de
   // resynchronisation live du prop appointment entre popover et contexte,
@@ -76,6 +79,36 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
     setReminderPrompt(null);
     router.refresh();
     onBack();
+  }
+
+  /**
+   * Rouvre le compte rendu existant s'il y en a déjà un pour ce rendez-vous
+   * (contrainte unique sur appointmentId) plutôt que d'échouer sur une
+   * seconde création — le type d'animal choisit automatiquement le modèle
+   * le plus adapté s'il en existe un (pickDefaultTemplate).
+   */
+  async function handleCreateDocument() {
+    setCreatingDocument(true);
+    const existingId = await getDocumentIdForAppointment(appointment.id);
+    if (existingId) {
+      router.push(`/dashboard/documents/${existingId}`);
+      return;
+    }
+    const templates = await getDocumentTemplates();
+    const template = pickDefaultTemplate(appointment.animalSpecies ?? null, templates);
+    const result = await createDocumentAction({
+      title: `Compte rendu — ${appointment.animalName}`,
+      clientId: appointment.clientId,
+      animalId: appointment.animalId,
+      appointmentId: appointment.id,
+      templateId: template?.id,
+    });
+    setCreatingDocument(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    router.push(`/dashboard/documents/${result.id}`);
   }
 
   return (
@@ -134,6 +167,12 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
         {appointment.status === "confirmed" ? (
           <button type="button" onClick={handleComplete} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9] disabled:cursor-not-allowed disabled:opacity-60">
             {completing ? "…" : "Consultation réalisée"}
+          </button>
+        ) : null}
+        {appointment.status === "completed" ? (
+          <button type="button" onClick={handleCreateDocument} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9] disabled:cursor-not-allowed disabled:opacity-60">
+            <Icon name="document" className="h-4 w-4" />
+            {creatingDocument ? "…" : "Créer le compte rendu"}
           </button>
         ) : null}
         <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">

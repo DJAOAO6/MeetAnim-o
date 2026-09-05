@@ -2,14 +2,20 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
+import type Konva from "konva";
 import { EditorToolbar } from "@/components/documents/editor/editor-toolbar";
 import { PropertiesPanel } from "@/components/documents/editor/properties-panel";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
+import { compositeDocumentPageImage, downscaleImage } from "@/components/documents/editor/export-pdf";
 import { Icon } from "@/components/ui/icon";
-import { saveDocumentAction } from "@/lib/documents-actions";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { finalizeDocumentAction, saveDocumentAction } from "@/lib/documents-actions";
 import { notify } from "@/lib/notify";
 import type { StudioDocumentDetail } from "@/data/documents";
 
@@ -28,9 +34,12 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 const AUTOSAVE_DELAY_MS = 2000;
 
 export function DocumentEditorView({ document }: DocumentEditorViewProps) {
+  const router = useRouter();
   const [title, setTitle] = useState(document.title);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [previewMode, setPreviewMode] = useState(false);
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   const readOnly = document.status === "Finalisé" || previewMode;
 
   const loadContent = useDocumentStore((state) => state.loadContent);
@@ -40,6 +49,12 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   const duplicateSelected = useDocumentStore((state) => state.duplicateSelected);
   const removeSelected = useDocumentStore((state) => state.removeSelected);
   const editingTextId = useDocumentStore((state) => state.editingTextId);
+  const selectElement = useDocumentStore((state) => state.selectElement);
+  const setEditingText = useDocumentStore((state) => state.setEditingText);
+  const setPlacingMarkerPreset = useDocumentStore((state) => state.setPlacingMarkerPreset);
+
+  const stageRef = useRef<Konva.Stage>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   // Charge le contenu serveur dans le store une seule fois au montage — pas
   // à chaque rendu, sinon toute frappe locale serait écrasée par la prop.
@@ -76,6 +91,55 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
     const result = await saveDocumentAction(document.id, { title, content });
     setSaveState(result.ok ? "saved" : "error");
     if (!result.ok) notify.error(result.error);
+  }
+
+  /**
+   * Export PDF V1 (étape 5) : rendu client, image par page — le Stage Konva
+   * (formes/images/schéma) et la surcouche DOM (texte réel) sont capturés
+   * séparément puis composés (export-pdf.ts), voir le plan pour le choix et
+   * ses limites (texte rasterisé, pas sélectionnable — export vectoriel
+   * hors périmètre Phase 1). Efface sélection/édition/pose de repère avant
+   * la capture pour ne jamais figer un état d'interaction dans le PDF.
+   */
+  async function handleFinalize() {
+    setConfirmFinalize(false);
+    if (readOnly || finalizing) return;
+    const stage = stageRef.current;
+    const overlay = overlayRef.current;
+    if (!stage || !overlay) {
+      notify.error("L’éditeur n’est pas encore prêt, réessayez dans un instant.");
+      return;
+    }
+
+    setFinalizing(true);
+    try {
+      selectElement(null);
+      setEditingText(null);
+      setPlacingMarkerPreset(null);
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const pixelRatio = 2;
+      const stageDataUrl = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
+      const overlayDataUrl = await toPng(overlay, { pixelRatio, width, height, backgroundColor: "transparent" });
+      const pageImage = await compositeDocumentPageImage(stageDataUrl, overlayDataUrl, width * pixelRatio, height * pixelRatio);
+
+      const pdf = new jsPDF({ unit: "px", format: [width, height] });
+      pdf.addImage(pageImage, "JPEG", 0, 0, width, height);
+      const pdfBase64 = pdf.output("datauristring");
+      const thumbnail = await downscaleImage(pageImage, 320);
+
+      const result = await finalizeDocumentAction(document.id, { pdfBase64, thumbnail });
+      if (!result.ok) {
+        notify.error(result.error);
+        return;
+      }
+      notify.success("Document finalisé.");
+      router.refresh();
+    } catch {
+      notify.error("Impossible de générer le PDF. Réessayez.");
+    } finally {
+      setFinalizing(false);
+    }
   }
 
   // Raccourcis clavier essentiels (§26 du prompt) — jamais actifs pendant la
@@ -139,8 +203,13 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-xl border border-[#d4e2df] px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
             {previewMode ? "Reprendre l’édition" : "Aperçu"}
           </button>
-          <button type="button" disabled title="Arrive dans une prochaine étape" className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white opacity-50">
-            Finaliser
+          <button
+            type="button"
+            disabled={readOnly || finalizing}
+            onClick={() => setConfirmFinalize(true)}
+            className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {finalizing ? "Finalisation…" : "Finaliser"}
           </button>
         </div>
       </header>
@@ -156,13 +225,26 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
             quel document qu'on lit de haut en bas. */}
         <div className="flex flex-1 items-start justify-center overflow-auto p-6">
           <div className="relative" style={{ width, height }}>
-            <CanvasStage readOnly={readOnly} />
-            <TextOverlay readOnly={readOnly} />
+            <CanvasStage readOnly={readOnly} stageRef={stageRef} />
+            <div ref={overlayRef} className="pointer-events-none absolute inset-0">
+              <TextOverlay readOnly={readOnly} />
+            </div>
           </div>
         </div>
 
         {!previewMode ? <PropertiesPanel readOnly={readOnly} /> : null}
       </div>
+
+      {confirmFinalize ? (
+        <ConfirmModal
+          title="Finaliser ce document ?"
+          message="Le document sera verrouillé : plus aucune modification directe. Pour le corriger ensuite, vous devrez le dupliquer."
+          confirmLabel="Finaliser"
+          destructive={false}
+          onConfirm={handleFinalize}
+          onClose={() => setConfirmFinalize(false)}
+        />
+      ) : null}
     </div>
   );
 }

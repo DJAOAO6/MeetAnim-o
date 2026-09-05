@@ -1,19 +1,26 @@
 "use client";
 
 import Image from "next/image";
-import { useState, type ChangeEvent } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { AnimalEditModal } from "@/components/clients/animal-edit-modal";
 import { Card } from "@/components/ui/card";
+import { createDocumentAction, getDocumentsForAnimal, getDocumentTemplates } from "@/lib/documents-actions";
+import { pickDefaultTemplate } from "@/lib/documents/templates";
+import { notify } from "@/lib/notify";
 import type { Animal } from "@/data/clients";
+import type { StudioDocumentSummary } from "@/data/documents";
 
 type AnimalRecordProps = {
   animal: Animal;
+  clientId: string;
   photo?: string;
   onPhotoChange: (photo: string | null) => void;
   onAnimalUpdated: (animal: Animal) => void;
 };
 
-export function AnimalRecord({ animal, photo, onPhotoChange, onAnimalUpdated }: AnimalRecordProps) {
+export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalUpdated }: AnimalRecordProps) {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -86,6 +93,8 @@ export function AnimalRecord({ animal, photo, onPhotoChange, onAnimalUpdated }: 
       </Card>
 
       <ConsultationHistory animal={animal} />
+
+      <DocumentsHistory animal={animal} clientId={clientId} />
 
       {editing ? (
         <AnimalEditModal
@@ -177,6 +186,95 @@ function ConsultationHistory({ animal }: { animal: Animal }) {
           </article>
         ))}
       </div>
+    </Card>
+  );
+}
+
+/**
+ * Comptes rendus du Studio de documents liés à cet animal (étape 5). Seule
+ * section de la fiche animal à récupérer ses données après le montage
+ * plutôt que via les props serveur déjà chargées (comme `consultations`) :
+ * `getDocumentsForAnimal` ne renvoie les documents que d'UN animal, alors
+ * que changer d'animal ici est un simple état client (AnimalSelector dans
+ * client-profile.tsx, pas une navigation) — y ajouter systématiquement les
+ * documents de tous les animaux via getClientById alourdirait toutes les
+ * autres consommations de `Animal` (tournées, statistiques, import...) pour
+ * un besoin propre à cette seule section.
+ */
+function DocumentsHistory({ animal, clientId }: { animal: Animal; clientId: string }) {
+  const router = useRouter();
+  // Associe chaque résultat à l'animal pour lequel il a été chargé plutôt
+  // que de réinitialiser à null en tête d'effet (setState synchrone dans un
+  // effet, cascading renders) : le "Chargement…" se déduit à la lecture en
+  // comparant `loaded.animalId` à l'animal affiché, jamais posé par l'effet.
+  const [loaded, setLoaded] = useState<{ animalId: string; documents: StudioDocumentSummary[] } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const documents = loaded?.animalId === animal.id ? loaded.documents : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    getDocumentsForAnimal(animal.id).then((result) => {
+      if (!cancelled) setLoaded({ animalId: animal.id, documents: result });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [animal.id]);
+
+  async function handleCreate() {
+    setCreating(true);
+    const templates = await getDocumentTemplates();
+    const template = pickDefaultTemplate(animal.species, templates);
+    const result = await createDocumentAction({
+      title: `Compte rendu — ${animal.name}`,
+      clientId,
+      animalId: animal.id,
+      templateId: template?.id,
+    });
+    setCreating(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+    router.push(`/dashboard/documents/${result.id}`);
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
+        <div>
+          <h2 className="text-lg font-extrabold text-animeo-dark">Comptes rendus</h2>
+          <p className="mt-0.5 text-sm text-animeo-muted">Studio de documents, propre à {animal.name}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleCreate}
+          disabled={creating}
+          className="shrink-0 rounded-xl bg-animeo px-3.5 py-2 text-xs font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {creating ? "…" : "Nouveau compte rendu"}
+        </button>
+      </div>
+
+      {documents === null ? (
+        <p className="p-5 text-sm font-semibold text-animeo-muted sm:p-6">Chargement…</p>
+      ) : documents.length === 0 ? (
+        <p className="p-5 text-sm font-semibold text-animeo-muted sm:p-6">Aucun compte rendu pour {animal.name}.</p>
+      ) : (
+        <div className="divide-y divide-[#edf2f0]">
+          {documents.map((document) => (
+            <Link key={document.id} href={`/dashboard/documents/${document.id}`} className="flex items-center justify-between gap-3 p-4 transition hover:bg-animeo-bg sm:px-6">
+              <span className="min-w-0">
+                <span className="block truncate font-extrabold text-animeo-dark">{document.title}</span>
+                <span className="mt-0.5 block text-xs font-semibold text-animeo-muted">{document.updatedAt}</span>
+              </span>
+              <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1d5] text-[#986216]"}`}>
+                {document.status}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

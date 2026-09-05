@@ -50,6 +50,18 @@ export async function getDocumentsForAnimal(animalId: string): Promise<StudioDoc
   return rows.map(mapSummary);
 }
 
+/**
+ * Un rendez-vous n'a jamais plus d'un compte rendu (contrainte unique sur
+ * appointmentId) — utilisé par "Créer le compte rendu" (appointment-summary.tsx)
+ * pour rouvrir le document existant plutôt que d'échouer sur le P2002 d'une
+ * seconde création.
+ */
+export async function getDocumentIdForAppointment(appointmentId: string): Promise<string | null> {
+  await requireUser();
+  const row = await prisma.studioDocument.findUnique({ where: { appointmentId }, select: { id: true } });
+  return row?.id ?? null;
+}
+
 export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSummary[]> {
   await requireUser();
   const rows = await prisma.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });

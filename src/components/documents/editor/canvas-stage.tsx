@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { Stage, Layer, Rect, Line, Circle, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
 import type Konva from "konva";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
@@ -12,16 +12,19 @@ import type { DocumentDiagramElement, DocumentElement } from "@/lib/documents/co
 
 type CanvasStageProps = {
   readOnly: boolean;
+  // Exposé au parent pour l'export PDF (étape 5) — stage.toDataURL(), voir
+  // export-pdf.ts. Optionnel : les tests/usages qui ne finalisent jamais un
+  // document n'ont pas besoin de le fournir.
+  stageRef?: RefObject<Konva.Stage | null>;
 };
 
 /**
  * Rendu Konva des éléments forme/image + un rectangle "fantôme" (bordure
  * pointillée, jamais rempli) pour chaque bloc de texte — le texte lui-même
  * est rendu par la surcouche DOM (text-overlay.tsx), jamais par Konva.Text,
- * pour une édition réellement agréable (voir le plan). Les schémas
- * (diagram) arrivent à l'étape 4 : simple rectangle d'attente ici.
+ * pour une édition réellement agréable (voir le plan).
  */
-export function CanvasStage({ readOnly }: CanvasStageProps) {
+export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   const content = useDocumentStore((state) => state.content);
   const currentPageIndex = useDocumentStore((state) => state.currentPageIndex);
   const selectedElementId = useDocumentStore((state) => state.selectedElementId);
@@ -63,6 +66,7 @@ export function CanvasStage({ readOnly }: CanvasStageProps) {
 
   return (
     <Stage
+      ref={stageRef}
       width={width}
       height={height}
       className="rounded-2xl bg-white shadow-[0_8px_30px_rgba(24,59,69,0.08)]"
