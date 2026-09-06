@@ -2,9 +2,12 @@
 
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { TextStyleKit } from "@tiptap/extension-text-style";
+import TextAlign from "@tiptap/extension-text-align";
 import { useEffect } from "react";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { labelForVariable, resolveVariable } from "@/lib/documents/variables";
+import { TextFormatToolbar, TOOLBAR_HEIGHT } from "@/components/documents/editor/text-format-toolbar";
 import type { DocumentTextElement } from "@/lib/documents/content";
 
 type TextOverlayProps = {
@@ -80,8 +83,13 @@ function EditableTextBlock({ element }: { element: DocumentTextElement }) {
   const updateElement = useDocumentStore((state) => state.updateElement);
   const setEditingText = useDocumentStore((state) => state.setEditingText);
 
+  // TextStyleKit (couleur/taille) et TextAlign s'ajoutent à StarterKit sans
+  // toucher au schéma : ces extensions sérialisent juste des `style="..."`
+  // inline dans le HTML déjà stocké tel quel dans `element.html` (aucun champ
+  // Prisma/DocumentTextElement nouveau). Underline est déjà inclus par
+  // StarterKit lui-même (non désactivé), pas besoin de l'ajouter à part.
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, TextStyleKit, TextAlign.configure({ types: ["paragraph"] })],
     content: element.html || "<p></p>",
     immediatelyRender: false,
     onUpdate: ({ editor: instance }) => updateElement(element.id, { html: instance.getHTML() }),
@@ -93,12 +101,21 @@ function EditableTextBlock({ element }: { element: DocumentTextElement }) {
   }, [editor]);
 
   return (
-    <div style={{ ...blockStyle(element), pointerEvents: "auto" }} className="rounded outline outline-2 outline-animeo">
-      <EditorContent
-        editor={editor}
-        className="h-full w-full text-sm text-animeo-dark [&_.tiptap]:h-full [&_.tiptap]:outline-none [&_p]:m-0"
-        onBlur={() => setEditingText(null)}
-      />
-    </div>
+    <>
+      {editor ? (
+        <div
+          style={{ position: "absolute", left: element.x, top: Math.max(0, element.y - TOOLBAR_HEIGHT - 6), pointerEvents: "auto" }}
+        >
+          <TextFormatToolbar editor={editor} />
+        </div>
+      ) : null}
+      <div style={{ ...blockStyle(element), pointerEvents: "auto" }} className="rounded outline outline-2 outline-animeo">
+        <EditorContent
+          editor={editor}
+          className="h-full w-full text-sm text-animeo-dark [&_.tiptap]:h-full [&_.tiptap]:outline-none [&_p]:m-0"
+          onBlur={() => setEditingText(null)}
+        />
+      </div>
+    </>
   );
 }
