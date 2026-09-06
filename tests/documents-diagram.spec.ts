@@ -53,6 +53,7 @@ test.describe("Documents — schéma animalier et repères (étape 4)", () => {
     const title = `${testTitle} Pose`;
     await createAndOpenDocument(page, title);
 
+    await page.getByRole("button", { name: "Schémas" }).click();
     await page.getByRole("button", { name: "Schéma (chien)" }).click();
     await page.waitForTimeout(300);
 
@@ -82,6 +83,7 @@ test.describe("Documents — schéma animalier et repères (étape 4)", () => {
     const title = `${testTitle} Suppr`;
     await createAndOpenDocument(page, title);
 
+    await page.getByRole("button", { name: "Schémas" }).click();
     await page.getByRole("button", { name: "Schéma (chien)" }).click();
     await page.waitForTimeout(300);
     await page.getByRole("button", { name: "Tension" }).click();
@@ -105,6 +107,7 @@ test.describe("Documents — schéma animalier et repères (étape 4)", () => {
     const title = `${testTitle} Legende`;
     await createAndOpenDocument(page, title);
 
+    await page.getByRole("button", { name: "Schémas" }).click();
     await page.getByRole("button", { name: "Schéma (chien)" }).click();
     await page.waitForTimeout(300);
 
@@ -122,6 +125,7 @@ test.describe("Documents — schéma animalier et repères (étape 4)", () => {
     const title = `${testTitle} Renomme`;
     await createAndOpenDocument(page, title);
 
+    await page.getByRole("button", { name: "Schémas" }).click();
     await page.getByRole("button", { name: "Schéma (chien)" }).click();
     await page.waitForTimeout(300);
 

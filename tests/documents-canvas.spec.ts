@@ -54,6 +54,7 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     await createAndOpenDocument(page, title);
 
     await page.getByRole("button", { name: "Texte" }).click();
+    await page.getByRole("button", { name: "Bloc de texte" }).click();
     await page.waitForTimeout(300);
     await page.keyboard.type("Observation clinique");
     await page.keyboard.press("Tab");
@@ -71,6 +72,7 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     const title = `${testTitle} Forme`;
     await createAndOpenDocument(page, title);
 
+    await page.getByRole("button", { name: "Formes" }).click();
     await page.getByRole("button", { name: "Rectangle" }).click();
     await page.waitForTimeout(300);
 
@@ -92,6 +94,7 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     const title = `${testTitle} DupSuppr`;
     await createAndOpenDocument(page, title);
 
+    await page.getByRole("button", { name: "Formes" }).click();
     await page.getByRole("button", { name: "Cercle" }).click();
     await page.waitForTimeout(300);
     await page.getByRole("button", { name: "Dupliquer" }).click();
@@ -119,7 +122,8 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     await page.waitForTimeout(600);
 
     await expect(page.getByText("FINALISÉ")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Texte" })).toBeDisabled();
+    await page.getByRole("button", { name: "Texte" }).click();
+    await expect(page.getByRole("button", { name: "Bloc de texte" })).toBeDisabled();
     await expect(page.getByLabel("Titre du document")).toBeDisabled();
   });
 });

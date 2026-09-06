@@ -69,7 +69,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
       ref={stageRef}
       width={width}
       height={height}
-      className="rounded-2xl bg-white shadow-[0_8px_30px_rgba(24,59,69,0.08)]"
+      className="bg-white shadow-[0_2px_8px_rgba(15,23,23,0.12),0_16px_40px_rgba(15,23,23,0.08)]"
       onMouseDown={(event) => {
         if (event.target === event.target.getStage()) selectElement(null);
       }}

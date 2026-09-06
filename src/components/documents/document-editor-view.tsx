@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import type Konva from "konva";
-import { EditorToolbar } from "@/components/documents/editor/editor-toolbar";
+import { StudioSidebar } from "@/components/documents/editor/studio-sidebar";
 import { PropertiesPanel } from "@/components/documents/editor/properties-panel";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
@@ -177,9 +177,9 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   const { width, height } = PAGE_DIMENSIONS[content.pageSize];
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-animeo-bg">
-      <header className="flex flex-wrap items-center gap-3 border-b border-[#dce8e5] bg-white px-4 py-3 sm:px-6">
-        <Link href="/dashboard/documents" className="flex items-center gap-1.5 text-sm font-extrabold text-animeo-muted transition hover:text-animeo-dark">
+    <div className="fixed inset-0 z-[70] flex flex-col bg-neutral-100">
+      <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-2.5 sm:px-5">
+        <Link href="/dashboard/documents" className="flex items-center gap-1.5 text-sm font-semibold text-neutral-500 transition hover:text-neutral-800">
           <Icon name="arrow" className="h-4 w-4 rotate-180" />
           Retour
         </Link>
@@ -190,24 +190,24 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           onChange={(event) => setTitle(event.target.value)}
           onBlur={handleTitleBlur}
           disabled={readOnly}
-          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-base font-black text-animeo-dark outline-none transition hover:border-[#d9e5e2] focus:border-animeo focus:bg-animeo-bg disabled:hover:border-transparent"
+          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-bold text-neutral-800 outline-none transition hover:border-neutral-200 focus:border-animeo focus:bg-neutral-50 disabled:hover:border-transparent"
         />
 
-        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1d5] text-[#986216]"}`}>
+        <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1d5] text-[#986216]"}`}>
           {document.status}
         </span>
 
-        {!previewMode && saveLabel[saveState] ? <span className="text-xs font-bold text-animeo-muted">{saveLabel[saveState]}</span> : null}
+        {!previewMode && saveLabel[saveState] ? <span className="text-xs font-semibold text-neutral-500">{saveLabel[saveState]}</span> : null}
 
         <div className="ml-auto flex gap-2">
-          <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-xl border border-[#d4e2df] px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+          <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-md border border-neutral-200 px-3.5 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50">
             {previewMode ? "Reprendre l’édition" : "Aperçu"}
           </button>
           <button
             type="button"
             disabled={readOnly || finalizing}
             onClick={() => setConfirmFinalize(true)}
-            className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-animeo px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {finalizing ? "Finalisation…" : "Finaliser"}
           </button>
@@ -215,7 +215,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {!previewMode ? <EditorToolbar readOnly={readOnly} /> : null}
+        {!previewMode ? <StudioSidebar readOnly={readOnly} /> : null}
 
         {/* items-start (jamais items-center) : une page A4 (1123px) dépasse
             presque toujours la hauteur de la fenêtre — centrer verticalement
@@ -223,7 +223,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
             contenu en overflow négatif, inaccessible au défilement (bug
             classique flex + overflow-auto). Aligné en haut, comme n'importe
             quel document qu'on lit de haut en bas. */}
-        <div className="flex flex-1 items-start justify-center overflow-auto p-6">
+        <div className="flex flex-1 items-start justify-center overflow-auto p-8">
           <div className="relative" style={{ width, height }}>
             <CanvasStage readOnly={readOnly} stageRef={stageRef} />
             <div ref={overlayRef} className="pointer-events-none absolute inset-0">

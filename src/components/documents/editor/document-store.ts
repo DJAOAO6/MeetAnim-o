@@ -7,6 +7,11 @@ const MAX_HISTORY = 50;
 
 const EMPTY_VARIABLE_CONTEXT: DocumentVariableContext = { professional: null, client: null, animal: null, appointment: null };
 
+// Rail du Studio (étape 6) — une seule catégorie ouverte à la fois, jamais
+// persistée (ni en base, ni dans l'historique undo/redo : ce n'est pas du
+// contenu du document, juste l'état d'affichage de l'éditeur).
+export type SidebarCategory = "text" | "shapes" | "images" | "diagram" | "blocks" | "data";
+
 type DocumentStoreState = {
   content: DocumentContent;
   variableContext: DocumentVariableContext;
@@ -21,6 +26,7 @@ type DocumentStoreState = {
   // animalier (étape 4) : le prochain clic sur le schéma pose un marqueur
   // avec ce préréglage, voir canvas-stage.tsx et properties-panel.tsx.
   placingMarkerPresetId: string | null;
+  openSidebarCategory: SidebarCategory | null;
   // Pile d'annulation/rétablissement par snapshot complet du contenu — le
   // plus simple à raisonner correctement pour cette étape (pas de patchs
   // différentiels), amplement suffisant vu la taille d'un document.
@@ -33,6 +39,7 @@ type DocumentStoreState = {
   selectElement: (id: string | null) => void;
   setEditingText: (id: string | null) => void;
   setPlacingMarkerPreset: (presetId: string | null) => void;
+  setSidebarCategory: (category: SidebarCategory | null) => void;
   addElement: (element: DocumentElement) => void;
   addElements: (elements: DocumentElement[]) => void;
   updateElement: (id: string, patch: Partial<DocumentElement>) => void;
@@ -77,6 +84,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   selectedElementId: null,
   editingTextId: null,
   placingMarkerPresetId: null,
+  openSidebarCategory: null,
   past: [],
   future: [],
 
@@ -88,6 +96,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     selectedElementId: null,
     editingTextId: null,
     placingMarkerPresetId: null,
+    openSidebarCategory: null,
     past: [],
     future: [],
   }),
@@ -101,6 +110,8 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   setEditingText: (id) => set((state) => ({ editingTextId: id, selectedElementId: id ?? state.selectedElementId })),
 
   setPlacingMarkerPreset: (presetId) => set({ placingMarkerPresetId: presetId }),
+
+  setSidebarCategory: (category) => set({ openSidebarCategory: category }),
 
   addElement: (element) => set((state) => {
     const page = currentPage(state);

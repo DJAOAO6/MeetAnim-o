@@ -74,6 +74,7 @@ test.describe("Documents — templates, variables et Smart Blocks (étape 3)", (
     await page.waitForURL(/\/dashboard\/documents\/[a-z0-9]+/, { timeout: 10000 });
     await page.waitForTimeout(600);
 
+    await page.getByRole("button", { name: "Données" }).click();
     await page.getByRole("button", { name: "Nom du cabinet" }).click();
     await page.waitForTimeout(2500);
 
@@ -99,6 +100,7 @@ test.describe("Documents — templates, variables et Smart Blocks (étape 3)", (
     await page.waitForURL(/\/dashboard\/documents\/[a-z0-9]+/, { timeout: 10000 });
     await page.waitForTimeout(600);
 
+    await page.getByRole("button", { name: "Blocs" }).click();
     await page.getByRole("button", { name: "Carte animal" }).click();
     await page.waitForTimeout(2500);
 

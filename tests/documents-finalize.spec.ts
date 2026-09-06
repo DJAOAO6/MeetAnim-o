@@ -63,7 +63,8 @@ test.describe("Documents — finalisation et export PDF (étape 5)", () => {
     expect(row.thumbnail as string).toMatch(/^data:image\/jpeg/);
 
     await expect(page.getByText("Finalisé", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Texte" })).toBeDisabled();
+    await page.getByRole("button", { name: "Texte" }).click();
+    await expect(page.getByRole("button", { name: "Bloc de texte" })).toBeDisabled();
     await expect(page.getByLabel("Titre du document")).toBeDisabled();
     await expect(page.getByRole("button", { name: "Finaliser" })).toBeDisabled();
   });
