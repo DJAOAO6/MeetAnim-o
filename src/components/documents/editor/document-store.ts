@@ -62,6 +62,9 @@ type DocumentStoreState = {
   addElements: (elements: DocumentElement[]) => void;
   updateElement: (id: string, patch: Partial<DocumentElement>) => void;
   removeElement: (id: string) => void;
+  setElementHidden: (id: string, hidden: boolean) => void;
+  moveElementUp: (id: string) => void;
+  moveElementDown: (id: string) => void;
   duplicateSelected: () => void;
   removeSelected: () => void;
   addPage: () => void;
@@ -187,6 +190,38 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       content: withPageElements(state.content, state.currentPageIndex, elements),
       selectedElementId: state.selectedElementId === id ? null : state.selectedElementId,
     };
+  }),
+
+  // Panneau Calques (étape 11) — un élément masqué est absent du rendu
+  // (canvas-stage.tsx/text-overlay.tsx filtrent sur `hidden`) et donc aussi
+  // de l'export PDF, sans code spécifique à l'export. La sélection reste
+  // possible depuis Calques même masqué (aucun changement nécessaire côté
+  // `selectElement`, déjà appelable depuis n'importe où).
+  setElementHidden: (id, hidden) => set((state) => {
+    const page = currentPage(state);
+    const elements = page.elements.map((element) => (element.id === id ? ({ ...element, hidden } as DocumentElement) : element));
+    return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
+  }),
+
+  // L'ordre du tableau `elements` EST l'ordre de rendu Konva (dernier =
+  // premier plan) — "monter" un élément le déplace donc vers la fin du
+  // tableau, "descendre" vers le début, convention Figma/Illustrator.
+  moveElementUp: (id) => set((state) => {
+    const page = currentPage(state);
+    const index = page.elements.findIndex((element) => element.id === id);
+    if (index === -1 || index === page.elements.length - 1) return state;
+    const elements = [...page.elements];
+    [elements[index], elements[index + 1]] = [elements[index + 1], elements[index]];
+    return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
+  }),
+
+  moveElementDown: (id) => set((state) => {
+    const page = currentPage(state);
+    const index = page.elements.findIndex((element) => element.id === id);
+    if (index <= 0) return state;
+    const elements = [...page.elements];
+    [elements[index], elements[index - 1]] = [elements[index - 1], elements[index]];
+    return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
   }),
 
   duplicateSelected: () => {

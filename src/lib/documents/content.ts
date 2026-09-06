@@ -19,6 +19,11 @@ export type DocumentTextElement = {
   // Ex. "animal.name" — présent uniquement si ce bloc reflète une variable
   // Animéo plutôt qu'un texte libre (src/lib/documents/variables.ts).
   variableBinding?: string;
+  // Masqué depuis le panneau Calques (étape 11) — absent du rendu ET de
+  // l'export PDF (les deux filtrent sur ce champ, aucun code spécifique à
+  // l'export). `undefined`/`false` = visible, comportement des documents
+  // déjà enregistrés avant l'étape 11 inchangé.
+  hidden?: boolean;
 };
 
 export type DocumentImageElement = {
@@ -31,6 +36,7 @@ export type DocumentImageElement = {
   rotation: number;
   // Data URI (convention base64-dans-Postgres de toute l'app, voir le plan).
   src: string;
+  hidden?: boolean;
 };
 
 export type DocumentShapeElement = {
@@ -44,6 +50,11 @@ export type DocumentShapeElement = {
   rotation: number;
   fill: string;
   stroke: string;
+  // Optionnels, valeur par défaut = comportement déjà codé en dur avant
+  // l'étape 11 (1 et 4) — aucune migration des documents existants.
+  strokeWidth?: number;
+  cornerRadius?: number;
+  hidden?: boolean;
 };
 
 export type DiagramMarker = {
@@ -68,6 +79,7 @@ export type DocumentDiagramElement = {
   // Légende générée automatiquement à partir de `markers` — jamais éditée
   // à la main, seulement affichée/masquée.
   showLegend: boolean;
+  hidden?: boolean;
 };
 
 export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement;

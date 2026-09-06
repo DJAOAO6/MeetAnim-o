@@ -8,7 +8,7 @@ import { toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import type Konva from "konva";
 import { StudioSidebar } from "@/components/documents/editor/studio-sidebar";
-import { PropertiesPanel } from "@/components/documents/editor/properties-panel";
+import { InspectorTabs } from "@/components/documents/editor/inspector-tabs";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
 import { ZoomControl } from "@/components/documents/editor/zoom-control";
 import { PagesFooterBar } from "@/components/documents/editor/pages-footer-bar";
@@ -274,7 +274,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           {!previewMode ? <PagesFooterBar readOnly={readOnly || finalizing} /> : null}
         </div>
 
-        {!previewMode ? <PropertiesPanel readOnly={readOnly} /> : null}
+        {!previewMode ? <InspectorTabs readOnly={readOnly} /> : null}
       </div>
 
       {confirmFinalize ? (

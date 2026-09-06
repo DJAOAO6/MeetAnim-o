@@ -77,7 +77,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
       <Layer>
         <Rect x={0} y={0} width={width} height={height} fill="#ffffff" listening={false} />
 
-        {page.elements.map((element) => {
+        {page.elements.filter((element) => !element.hidden).map((element) => {
           const common = {
             id: element.id,
             x: element.x,
@@ -97,12 +97,23 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
           if (element.type === "shape") {
             if (element.shape === "circle") {
               const radius = Math.min(element.width, element.height) / 2;
-              return <Circle key={element.id} {...common} radius={radius} fill={element.fill} stroke={element.stroke} strokeWidth={1} />;
+              return <Circle key={element.id} {...common} radius={radius} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth ?? 1} />;
             }
             if (element.shape === "line") {
-              return <Line key={element.id} {...common} points={[0, 0, element.width, 0]} stroke={element.stroke || element.fill} strokeWidth={2} />;
+              return <Line key={element.id} {...common} points={[0, 0, element.width, 0]} stroke={element.stroke || element.fill} strokeWidth={element.strokeWidth ?? 2} />;
             }
-            return <Rect key={element.id} {...common} width={element.width} height={element.height} fill={element.fill} stroke={element.stroke} strokeWidth={1} cornerRadius={4} />;
+            return (
+              <Rect
+                key={element.id}
+                {...common}
+                width={element.width}
+                height={element.height}
+                fill={element.fill}
+                stroke={element.stroke}
+                strokeWidth={element.strokeWidth ?? 1}
+                cornerRadius={element.cornerRadius ?? 4}
+              />
+            );
           }
 
           if (element.type === "image") {

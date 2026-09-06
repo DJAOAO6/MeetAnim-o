@@ -19,14 +19,14 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
 
   if (!element) {
     return (
-      <aside className="hidden w-64 shrink-0 border-l border-[#dce8e5] bg-white p-4 lg:block">
+      <div className="p-4">
         <p className="text-sm text-animeo-muted">Sélectionnez un élément pour modifier ses propriétés.</p>
-      </aside>
+      </div>
     );
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 space-y-5 overflow-y-auto border-l border-[#dce8e5] bg-white p-4 lg:block">
+    <div className="space-y-5 p-4">
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Position</p>
         <div className="grid grid-cols-2 gap-2">
@@ -54,6 +54,22 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           <div className="grid grid-cols-2 gap-2">
             <ColorField label="Remplissage" value={element.fill} onChange={(value) => updateElement(element.id, { fill: value })} disabled={readOnly} />
             <ColorField label="Contour" value={element.stroke} onChange={(value) => updateElement(element.id, { stroke: value })} disabled={readOnly} />
+            <NumberField
+              label="Épais."
+              ariaLabel="Épaisseur de contour"
+              value={element.strokeWidth ?? (element.shape === "line" ? 2 : 1)}
+              onChange={(value) => updateElement(element.id, { strokeWidth: Math.max(0, value) })}
+              disabled={readOnly}
+            />
+            {element.shape === "rect" ? (
+              <NumberField
+                label="Rayon"
+                ariaLabel="Rayon d'angle"
+                value={element.cornerRadius ?? 4}
+                onChange={(value) => updateElement(element.id, { cornerRadius: Math.max(0, value) })}
+                disabled={readOnly}
+              />
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -70,7 +86,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           </button>
         </div>
       ) : null}
-    </aside>
+    </div>
   );
 }
 

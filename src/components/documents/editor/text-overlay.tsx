@@ -31,7 +31,7 @@ export function TextOverlay({ readOnly }: TextOverlayProps) {
   const page = content.pages[currentPageIndex];
   if (!page) return null;
 
-  const textElements = page.elements.filter((element): element is DocumentTextElement => element.type === "text");
+  const textElements = page.elements.filter((element): element is DocumentTextElement => element.type === "text" && !element.hidden);
 
   return (
     <div className="pointer-events-none absolute inset-0">
