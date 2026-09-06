@@ -9,6 +9,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createDocumentAction, deleteDocumentAction } from "@/lib/documents-actions";
+import { TemplateThumbnailSketch } from "@/components/documents/editor/template-thumbnail-sketch";
 import { notify } from "@/lib/notify";
 import type { StudioDocumentSummary, StudioDocumentTemplateSummary } from "@/data/documents";
 
@@ -136,9 +137,9 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
 
       {creating ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="new-document-title" className="w-full max-w-md rounded-[18px] bg-white p-6 shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+          <section role="dialog" aria-modal="true" aria-labelledby="new-document-title" className="w-full max-w-2xl rounded-[18px] bg-white p-6 shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
             <h2 id="new-document-title" className="text-lg font-black text-animeo-dark">Nouveau document</h2>
-            <label className="mt-4 block">
+            <label className="mt-4 block max-w-sm">
               <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Titre</span>
               <input
                 autoFocus
@@ -149,20 +150,21 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
               />
             </label>
             {templates.length > 0 ? (
-              <fieldset className="mt-4">
-                <legend className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Modèle</legend>
-                <div className="grid grid-cols-2 gap-2">
+              <fieldset className="mt-5">
+                <legend className="mb-2 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Modèle</legend>
+                <div className="grid max-h-96 grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
                   <button
                     type="button"
                     onClick={() => setSelectedTemplateId(null)}
                     aria-pressed={selectedTemplateId === null}
-                    className={`rounded-xl border px-3.5 py-2.5 text-left text-sm font-extrabold transition ${
-                      selectedTemplateId === null
-                        ? "border-animeo bg-animeo-soft text-animeo-dark"
-                        : "border-[#d9e5e2] bg-animeo-bg text-animeo-dark hover:border-animeo"
+                    className={`overflow-hidden rounded-xl border-2 text-left transition ${
+                      selectedTemplateId === null ? "border-animeo" : "border-[#e5eceb] hover:border-animeo/50"
                     }`}
                   >
-                    Vierge
+                    <div className="flex items-center justify-center bg-animeo-bg" style={{ aspectRatio: "794 / 1123" }}>
+                      <Icon name="document" className="h-6 w-6 text-animeo-muted" />
+                    </div>
+                    <p className="px-2.5 py-2 text-xs font-extrabold text-animeo-dark">Vierge</p>
                   </button>
                   {templates.map((template) => (
                     <button
@@ -170,13 +172,17 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                       type="button"
                       onClick={() => setSelectedTemplateId(template.id)}
                       aria-pressed={selectedTemplateId === template.id}
-                      className={`rounded-xl border px-3.5 py-2.5 text-left text-sm font-extrabold transition ${
-                        selectedTemplateId === template.id
-                          ? "border-animeo bg-animeo-soft text-animeo-dark"
-                          : "border-[#d9e5e2] bg-animeo-bg text-animeo-dark hover:border-animeo"
+                      className={`overflow-hidden rounded-xl border-2 text-left transition ${
+                        selectedTemplateId === template.id ? "border-animeo" : "border-[#e5eceb] hover:border-animeo/50"
                       }`}
                     >
-                      {template.name}
+                      <TemplateThumbnailSketch layoutSketch={template.layoutSketch} />
+                      <div className="px-2.5 py-2">
+                        <p className="truncate text-xs font-extrabold text-animeo-dark">{template.name}</p>
+                        {template.species ? (
+                          <span className="mt-1 inline-block rounded-full bg-animeo-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-animeo-muted">{template.species}</span>
+                        ) : null}
+                      </div>
                     </button>
                   ))}
                 </div>

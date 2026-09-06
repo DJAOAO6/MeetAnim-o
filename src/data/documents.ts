@@ -1,6 +1,8 @@
-import type { DocumentContent } from "@/lib/documents/content";
+import type { DocumentContent, DocumentLayoutSketchItem } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
 import type { MarkerPreset } from "@/lib/documents/marker-presets";
+
+export type { DocumentLayoutSketchItem };
 
 export type StudioDocumentStatus = "Brouillon" | "Finalisé";
 
@@ -31,4 +33,5 @@ export type StudioDocumentTemplateSummary = {
   species: string | null;
   thumbnail: string | null;
   isBuiltIn: boolean;
+  layoutSketch: DocumentLayoutSketchItem[];
 };

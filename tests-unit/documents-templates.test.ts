@@ -4,8 +4,8 @@ import { pickDefaultTemplate } from "../src/lib/documents/templates";
 import type { StudioDocumentTemplateSummary } from "../src/data/documents";
 
 const templates: StudioDocumentTemplateSummary[] = [
-  { id: "t-classic", name: "Compte rendu classique", species: null, thumbnail: null, isBuiltIn: true },
-  { id: "t-dog", name: "Compte rendu chien", species: "Chien", thumbnail: null, isBuiltIn: true },
+  { id: "t-classic", name: "Compte rendu classique", species: null, thumbnail: null, isBuiltIn: true, layoutSketch: [] },
+  { id: "t-dog", name: "Compte rendu chien", species: "Chien", thumbnail: null, isBuiltIn: true, layoutSketch: [] },
 ];
 
 test("pickDefaultTemplate choisit le modèle dont l'espèce correspond exactement", () => {

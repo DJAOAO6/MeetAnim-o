@@ -7,7 +7,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { formatFrenchDate } from "@/lib/format";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
-import { createEmptyDocumentContent, type DocumentContent } from "@/lib/documents/content";
+import { buildLayoutSketch, createEmptyDocumentContent, type DocumentContent } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
 import { getMarkerPresets } from "@/lib/documents/marker-presets-actions";
 import { Prisma } from "@/generated/prisma/client";
@@ -65,7 +65,14 @@ export async function getDocumentIdForAppointment(appointmentId: string): Promis
 export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSummary[]> {
   await requireUser();
   const rows = await prisma.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
-  return rows.map((row) => ({ id: row.id, name: row.name, species: row.species, thumbnail: row.thumbnail, isBuiltIn: row.isBuiltIn }));
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    species: row.species,
+    thumbnail: row.thumbnail,
+    isBuiltIn: row.isBuiltIn,
+    layoutSketch: buildLayoutSketch(row.contentJson as unknown as DocumentContent),
+  }));
 }
 
 const detailInclude = {

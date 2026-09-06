@@ -86,3 +86,24 @@ export type DocumentContent = {
 export function createEmptyDocumentContent(pageSize: DocumentPageSize = "A4_PORTRAIT"): DocumentContent {
   return { formatVersion: 1, pageSize, pages: [{ id: "page-1", elements: [] }] };
 }
+
+export type DocumentLayoutSketchItem = { type: string; x: number; y: number; width: number; height: number; fill?: string };
+
+/**
+ * Réduit le contenu d'un document en géométrie/couleurs pures — pour la
+ * galerie de modèles (étape 7) : jamais `html`/`src` (texte réel ou image
+ * base64), pour ne jamais exposer le contenu d'un modèle dans une simple
+ * liste ni l'alourdir. Un croquis de mise en page, pas une capture d'écran.
+ */
+export function buildLayoutSketch(content: DocumentContent): DocumentLayoutSketchItem[] {
+  const page = content.pages[0];
+  if (!page) return [];
+  return page.elements.map((element) => ({
+    type: element.type,
+    x: element.x,
+    y: element.y,
+    width: element.width,
+    height: element.height,
+    fill: element.type === "shape" ? element.fill : undefined,
+  }));
+}
