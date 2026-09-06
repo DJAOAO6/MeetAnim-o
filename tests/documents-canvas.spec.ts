@@ -97,7 +97,7 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     await page.getByRole("button", { name: "Formes" }).click();
     await page.getByRole("button", { name: "Cercle" }).click();
     await page.waitForTimeout(300);
-    await page.getByRole("button", { name: "Dupliquer" }).click();
+    await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
     await page.waitForTimeout(2500);
 
     const [afterDuplicate] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;

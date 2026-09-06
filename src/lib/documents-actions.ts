@@ -75,6 +75,20 @@ export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSumm
   }));
 }
 
+/**
+ * Contenu complet d'un modèle (html/variableBinding réels) — jamais exposé
+ * par getDocumentTemplates()/layoutSketch (géométrie seule, pour la
+ * galerie). Utilisé uniquement quand l'utilisateur choisit explicitement
+ * d'insérer un modèle (création de document, ou "Modèles" du rail —
+ * étape 10), jamais dans une liste.
+ */
+export async function getDocumentTemplateContent(templateId: string): Promise<DocumentContent | null> {
+  await requireUser();
+  const row = await prisma.studioDocumentTemplate.findUnique({ where: { id: templateId }, select: { contentJson: true } });
+  if (!row) return null;
+  return row.contentJson as unknown as DocumentContent;
+}
+
 const detailInclude = {
   client: { select: { firstName: true, lastName: true, phone: true, email: true, address: true } },
   animal: { select: { name: true, species: true, breed: true, sex: true, weight: true, birthDate: true } },

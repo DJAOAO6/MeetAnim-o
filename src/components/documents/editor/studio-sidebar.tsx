@@ -1,6 +1,7 @@
 "use client";
 
 import { useDocumentStore, type SidebarCategory } from "@/components/documents/editor/document-store";
+import { TemplatesPanel } from "@/components/documents/editor/panels/templates-panel";
 import { TextPanel } from "@/components/documents/editor/panels/text-panel";
 import { ShapesPanel } from "@/components/documents/editor/panels/shapes-panel";
 import { ImagesPanel } from "@/components/documents/editor/panels/images-panel";
@@ -9,6 +10,7 @@ import { SmartBlocksPanel } from "@/components/documents/editor/panels/smart-blo
 import { AnimeoDataPanel } from "@/components/documents/editor/panels/animeo-data-panel";
 
 const CATEGORIES: { id: SidebarCategory; label: string; icon: React.ReactNode }[] = [
+  { id: "templates", label: "Modèles", icon: <TemplatesIcon /> },
   { id: "text", label: "Texte", icon: <TextIcon /> },
   { id: "shapes", label: "Formes", icon: <ShapesIcon /> },
   { id: "images", label: "Images", icon: <ImageIcon /> },
@@ -56,6 +58,7 @@ export function StudioSidebar({ readOnly }: { readOnly: boolean }) {
 
       {openSidebarCategory ? (
         <div className="absolute inset-y-0 left-14 z-10 shadow-sm lg:relative lg:inset-auto lg:left-auto lg:z-auto lg:shadow-none">
+          {openSidebarCategory === "templates" ? <TemplatesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "text" ? <TextPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "shapes" ? <ShapesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "images" ? <ImagesPanel readOnly={readOnly} /> : null}
@@ -65,6 +68,15 @@ export function StudioSidebar({ readOnly }: { readOnly: boolean }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function TemplatesIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <rect x="4" y="3" width="16" height="18" rx="1.5" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
+    </svg>
   );
 }
 

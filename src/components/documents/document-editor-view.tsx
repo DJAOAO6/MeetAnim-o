@@ -10,6 +10,8 @@ import type Konva from "konva";
 import { StudioSidebar } from "@/components/documents/editor/studio-sidebar";
 import { PropertiesPanel } from "@/components/documents/editor/properties-panel";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
+import { ZoomControl } from "@/components/documents/editor/zoom-control";
+import { PagesFooterBar } from "@/components/documents/editor/pages-footer-bar";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
 import { compositeDocumentPageImage, downscaleImage } from "@/components/documents/editor/export-pdf";
@@ -52,6 +54,10 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   const selectElement = useDocumentStore((state) => state.selectElement);
   const setEditingText = useDocumentStore((state) => state.setEditingText);
   const setPlacingMarkerPreset = useDocumentStore((state) => state.setPlacingMarkerPreset);
+  const zoomLevel = useDocumentStore((state) => state.zoomLevel);
+  const setZoom = useDocumentStore((state) => state.setZoom);
+  const currentPageIndex = useDocumentStore((state) => state.currentPageIndex);
+  const setCurrentPageIndex = useDocumentStore((state) => state.setCurrentPageIndex);
 
   const stageRef = useRef<Konva.Stage>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -94,12 +100,19 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   }
 
   /**
-   * Export PDF V1 (étape 5) : rendu client, image par page — le Stage Konva
-   * (formes/images/schéma) et la surcouche DOM (texte réel) sont capturés
-   * séparément puis composés (export-pdf.ts), voir le plan pour le choix et
-   * ses limites (texte rasterisé, pas sélectionnable — export vectoriel
-   * hors périmètre Phase 1). Efface sélection/édition/pose de repère avant
-   * la capture pour ne jamais figer un état d'interaction dans le PDF.
+   * Export PDF V1 (étapes 5 et 10) : rendu client, image par page — le
+   * Stage Konva (formes/images/schéma) et la surcouche DOM (texte réel)
+   * sont capturés séparément puis composés (export-pdf.ts), voir le plan
+   * pour le choix et ses limites (texte rasterisé, pas sélectionnable —
+   * export vectoriel hors périmètre Phase 1). Efface sélection/édition/pose
+   * de repère avant la capture pour ne jamais figer un état d'interaction
+   * dans le PDF. Le zoom est forcé à 100 % pendant l'export : `stage.toDataURL()`
+   * est toujours en résolution native (indépendant de toute transformation
+   * CSS), mais la capture DOM de la surcouche texte (html-to-image) hérite,
+   * elle, du `transform: scale()` d'un ancêtre — sans ce reset, les deux
+   * couches composées ne correspondraient plus si le zoom n'était pas à 100 %
+   * au moment de finaliser. Boucle sur toutes les pages du document : sans
+   * ça, le contenu des pages 2+ serait silencieusement absent du PDF final.
    */
   async function handleFinalize() {
     setConfirmFinalize(false);
@@ -112,22 +125,35 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
     }
 
     setFinalizing(true);
+    const originalPageIndex = currentPageIndex;
     try {
       selectElement(null);
       setEditingText(null);
       setPlacingMarkerPreset(null);
+      setZoom(1);
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       const pixelRatio = 2;
-      const stageDataUrl = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
-      const overlayDataUrl = await toPng(overlay, { pixelRatio, width, height, backgroundColor: "transparent" });
-      const pageImage = await compositeDocumentPageImage(stageDataUrl, overlayDataUrl, width * pixelRatio, height * pixelRatio);
+      let pdf: jsPDF | null = null;
+      let thumbnail = "";
+      for (let pageIndex = 0; pageIndex < content.pages.length; pageIndex += 1) {
+        setCurrentPageIndex(pageIndex);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-      const pdf = new jsPDF({ unit: "px", format: [width, height] });
-      pdf.addImage(pageImage, "JPEG", 0, 0, width, height);
-      const pdfBase64 = pdf.output("datauristring");
-      const thumbnail = await downscaleImage(pageImage, 320);
+        const stageDataUrl = stage.toDataURL({ pixelRatio, mimeType: "image/png" });
+        const overlayDataUrl = await toPng(overlay, { pixelRatio, width, height, backgroundColor: "transparent" });
+        const pageImage = await compositeDocumentPageImage(stageDataUrl, overlayDataUrl, width * pixelRatio, height * pixelRatio);
 
+        if (!pdf) {
+          pdf = new jsPDF({ unit: "px", format: [width, height] });
+        } else {
+          pdf.addPage([width, height], "portrait");
+        }
+        pdf.addImage(pageImage, "JPEG", 0, 0, width, height);
+        if (pageIndex === 0) thumbnail = await downscaleImage(pageImage, 320);
+      }
+
+      const pdfBase64 = pdf!.output("datauristring");
       const result = await finalizeDocumentAction(document.id, { pdfBase64, thumbnail });
       if (!result.ok) {
         notify.error(result.error);
@@ -138,6 +164,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
     } catch {
       notify.error("Impossible de générer le PDF. Réessayez.");
     } finally {
+      setCurrentPageIndex(originalPageIndex);
       setFinalizing(false);
     }
   }
@@ -217,19 +244,34 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
       <div className="flex flex-1 overflow-hidden">
         {!previewMode ? <StudioSidebar readOnly={readOnly} /> : null}
 
-        {/* items-start (jamais items-center) : une page A4 (1123px) dépasse
-            presque toujours la hauteur de la fenêtre — centrer verticalement
-            un enfant plus grand que son conteneur pousse la moitié du
-            contenu en overflow négatif, inaccessible au défilement (bug
-            classique flex + overflow-auto). Aligné en haut, comme n'importe
-            quel document qu'on lit de haut en bas. */}
-        <div className="flex flex-1 items-start justify-center overflow-auto p-8">
-          <div className="relative" style={{ width, height }}>
-            <CanvasStage readOnly={readOnly} stageRef={stageRef} />
-            <div ref={overlayRef} className="pointer-events-none absolute inset-0">
-              <TextOverlay readOnly={readOnly} />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Conteneur non défilant : ancre le zoom (bas-droite) à un point fixe
+              du viewport, indépendant du défilement du canevas en dessous. */}
+          <div className="relative flex-1 overflow-hidden">
+            {/* items-start (jamais items-center) : une page A4 (1123px) dépasse
+                presque toujours la hauteur de la fenêtre — centrer verticalement
+                un enfant plus grand que son conteneur pousse la moitié du
+                contenu en overflow négatif, inaccessible au défilement (bug
+                classique flex + overflow-auto). Aligné en haut, comme n'importe
+                quel document qu'on lit de haut en bas. */}
+            <div className="absolute inset-0 flex items-start justify-center overflow-auto p-8">
+              {/* Conteneur "de taille" : ses dimensions réelles (mises à
+                  l'échelle du zoom) pilotent les bornes de défilement — un
+                  `transform: scale()` seul ne change pas la boîte de mise en
+                  page de son conteneur, voir le plan. */}
+              <div style={{ width: width * zoomLevel, height: height * zoomLevel }}>
+                <div className="relative" style={{ width, height, transform: `scale(${zoomLevel})`, transformOrigin: "top left" }}>
+                  <CanvasStage readOnly={readOnly} stageRef={stageRef} />
+                  <div ref={overlayRef} className="pointer-events-none absolute inset-0">
+                    <TextOverlay readOnly={readOnly} />
+                  </div>
+                </div>
+              </div>
             </div>
+            <ZoomControl />
           </div>
+
+          {!previewMode ? <PagesFooterBar readOnly={readOnly || finalizing} /> : null}
         </div>
 
         {!previewMode ? <PropertiesPanel readOnly={readOnly} /> : null}
