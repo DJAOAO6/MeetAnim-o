@@ -46,10 +46,24 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
     return <p className="p-4 text-sm text-neutral-500">Aucun élément sur cette page.</p>;
   }
 
+  // Deux éléments du même type ("Rectangle", "Texte"...) ont le même
+  // libellé de base sur un document riche — on ne les distingue que quand
+  // ça arrive réellement, pour ne jamais changer un libellé déjà unique.
+  const baseLabels = rows.map(({ element }) => elementLabel(element));
+  const labelCounts = new Map<string, number>();
+  for (const label of baseLabels) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  const seenCounts = new Map<string, number>();
+
   return (
     <ul className="divide-y divide-neutral-100 p-2">
-      {rows.map(({ element, index }) => {
-        const label = elementLabel(element);
+      {rows.map(({ element, index }, rowIndex) => {
+        const baseLabel = baseLabels[rowIndex];
+        let label = baseLabel;
+        if ((labelCounts.get(baseLabel) ?? 0) > 1) {
+          const seen = (seenCounts.get(baseLabel) ?? 0) + 1;
+          seenCounts.set(baseLabel, seen);
+          label = `${baseLabel} (${seen})`;
+        }
         const hidden = Boolean(element.hidden);
         const isSelected = element.id === selectedElementId;
         return (

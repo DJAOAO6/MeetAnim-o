@@ -128,4 +128,17 @@ test.describe("Documents — inspecteur à onglets et Calques (étape 11)", () =
     expect(content.pages[0].elements[0].strokeWidth).toBe(6);
     expect(content.pages[0].elements[0].cornerRadius).toBe(20);
   });
+
+  test("deux rectangles sur la même page ont des libellés distincts dans Calques", async ({ page }) => {
+    const title = `${testTitle} DuplicateLabels`;
+    await createAndOpenDocument(page, title);
+    await insertShapeAndClosePanel(page, "Rectangle");
+    await insertShapeAndClosePanel(page, "Rectangle");
+
+    await page.getByRole("tab", { name: "Calques" }).click();
+    await expect(page.getByRole("button", { name: "Rectangle (1)", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Rectangle (2)", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Masquer Rectangle (1)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Masquer Rectangle (2)" })).toBeVisible();
+  });
 });
