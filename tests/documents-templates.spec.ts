@@ -112,8 +112,10 @@ test.describe("Documents — templates, variables et Smart Blocks (étape 3)", (
     await page.waitForTimeout(2500);
 
     const [afterInsert] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
+    // 1 rect + 6 champs (légende + valeur) enrichis à l'étape 9 = 13, plus
+    // seulement les 6 éléments d'origine de l'étape 3.
     const contentAfterInsert = afterInsert.contentJson as { pages: { elements: unknown[] }[] };
-    expect(contentAfterInsert.pages[0].elements.length).toBe(6);
+    expect(contentAfterInsert.pages[0].elements.length).toBe(13);
 
     await page.keyboard.press("Control+z");
     await page.waitForTimeout(2500);

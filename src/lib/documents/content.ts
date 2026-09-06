@@ -87,6 +87,16 @@ export function createEmptyDocumentContent(pageSize: DocumentPageSize = "A4_PORT
   return { formatVersion: 1, pageSize, pages: [{ id: "page-1", elements: [] }] };
 }
 
+/**
+ * Légende de champ en petites majuscules — même style inline utilisé par les
+ * modèles seedés (prisma/seed-document-templates.ts) et les Smart Blocks
+ * (editor/panels/smart-blocks-panel.tsx), pour ne l'écrire qu'à un seul
+ * endroit. Du texte libre (`html`), pas un nouveau mécanisme de rendu.
+ */
+export function captionHtml(label: string): string {
+  return `<p style="margin:0;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a97a0">${label}</p>`;
+}
+
 export type DocumentLayoutSketchItem = { type: string; x: number; y: number; width: number; height: number; fill?: string };
 
 /**
