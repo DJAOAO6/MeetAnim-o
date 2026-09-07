@@ -100,7 +100,7 @@ test.describe("Documents — fond de page, ColorPicker et opacité (étape 16)",
     // sélecteur de contour doit proposer cette couleur dans la section
     // "Couleurs du document" (déjà utilisée par le remplissage du même élément).
     await page.getByRole("button", { name: "Contour" }).click();
-    await expect(page.getByRole("button", { name: "#e4f5ef" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "#e4f5ef", exact: true })).toBeVisible();
   });
 
   test("changer l'opacité d'une forme persiste opacity et se reflète sur le rendu Konva", async ({ page }) => {
