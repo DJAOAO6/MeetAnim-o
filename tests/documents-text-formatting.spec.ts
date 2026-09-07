@@ -84,7 +84,12 @@ test.describe("Documents — barre de formatage du texte (étape 8)", () => {
     await createAndOpenDocument(page, title);
     await addAndEditTextBlock(page, "Texte coloré");
 
-    await page.locator('input[type="color"]').fill("#ff0000");
+    // Étape 16 : le <input type="color"> brut a été remplacé par le
+    // ColorPicker réutilisable (bouton + popover avec champ Hex).
+    await page.getByRole("button", { name: "Couleur du texte" }).click();
+    const hexInput = page.getByRole("dialog", { name: "Couleur du texte" }).getByRole("textbox");
+    await hexInput.fill("#ff0000");
+    await hexInput.press("Enter");
     await page.waitForTimeout(2500);
 
     const html = await readContentHtml(title);

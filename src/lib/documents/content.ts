@@ -24,6 +24,9 @@ export type DocumentTextElement = {
   // l'export). `undefined`/`false` = visible, comportement des documents
   // déjà enregistrés avant l'étape 11 inchangé.
   hidden?: boolean;
+  // 0-1, optionnel — absent = 1 (opaque), comportement déjà codé en dur
+  // avant l'étape 16, aucune migration des documents existants.
+  opacity?: number;
 };
 
 export type DocumentImageElement = {
@@ -37,6 +40,7 @@ export type DocumentImageElement = {
   // Data URI (convention base64-dans-Postgres de toute l'app, voir le plan).
   src: string;
   hidden?: boolean;
+  opacity?: number;
 };
 
 export type DocumentShapeElement = {
@@ -55,6 +59,7 @@ export type DocumentShapeElement = {
   strokeWidth?: number;
   cornerRadius?: number;
   hidden?: boolean;
+  opacity?: number;
 };
 
 export type DiagramMarker = {
@@ -80,13 +85,21 @@ export type DocumentDiagramElement = {
   // à la main, seulement affichée/masquée.
   showLegend: boolean;
   hidden?: boolean;
+  opacity?: number;
 };
 
 export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement;
 
+// Couleur unie uniquement dans ce chantier (étape 16) — dégradé/image de
+// fond explicitement hors périmètre, voir le plan ("ne surcharge pas
+// inutilement le modèle"). Absent = blanc, comportement actuel inchangé,
+// aucune migration des documents existants.
+export type DocumentPageBackground = { type: "color"; value: string };
+
 export type DocumentPage = {
   id: string;
   elements: DocumentElement[];
+  background?: DocumentPageBackground;
 };
 
 export type DocumentContent = {
@@ -107,6 +120,25 @@ export function createEmptyDocumentContent(pageSize: DocumentPageSize = "A4_PORT
  */
 export function captionHtml(label: string): string {
   return `<p style="margin:0;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a97a0">${label}</p>`;
+}
+
+/**
+ * Couleurs réellement utilisées dans le document courant (étape 16) — pour
+ * la section "Couleurs du document" du ColorPicker. Dérivées uniquement des
+ * formes (fill/stroke) : le texte peut porter une couleur par caractère via
+ * Tiptap, en extraire une liste fiable depuis le HTML serait un chantier à
+ * part, hors périmètre ici.
+ */
+export function collectDocumentColors(content: DocumentContent): string[] {
+  const colors = new Set<string>();
+  for (const page of content.pages) {
+    for (const element of page.elements) {
+      if (element.type !== "shape") continue;
+      if (element.fill && element.fill !== "transparent") colors.add(element.fill);
+      if (element.stroke && element.stroke !== "transparent") colors.add(element.stroke);
+    }
+  }
+  return Array.from(colors);
 }
 
 export type DocumentLayoutSketchItem = { type: string; x: number; y: number; width: number; height: number; fill?: string };

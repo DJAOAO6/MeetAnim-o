@@ -4,11 +4,11 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TextStyleKit } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { labelForVariable, resolveVariable } from "@/lib/documents/variables";
 import { TextFormatToolbar, TOOLBAR_HEIGHT } from "@/components/documents/editor/text-format-toolbar";
-import type { DocumentTextElement } from "@/lib/documents/content";
+import { collectDocumentColors, type DocumentTextElement } from "@/lib/documents/content";
 
 type TextOverlayProps = {
   readOnly: boolean;
@@ -58,6 +58,7 @@ function blockStyle(element: DocumentTextElement): React.CSSProperties {
     height: element.height,
     transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
     transformOrigin: "top left",
+    opacity: element.opacity ?? 1,
     padding: 4,
     overflow: "hidden",
   };
@@ -82,6 +83,12 @@ function escapeHtml(value: string): string {
 function EditableTextBlock({ element }: { element: DocumentTextElement }) {
   const updateElement = useDocumentStore((state) => state.updateElement);
   const setEditingText = useDocumentStore((state) => state.setEditingText);
+  // Dérivé du contenu APRÈS le sélecteur, jamais dedans : `collectDocumentColors`
+  // crée un nouveau tableau à chaque appel, et un sélecteur Zustand qui
+  // renvoie une référence neuve à chaque lecture déclenche une boucle de
+  // rendu infinie (useSyncExternalStore croit le store changé en permanence).
+  const content = useDocumentStore((state) => state.content);
+  const documentColors = collectDocumentColors(content);
 
   // TextStyleKit (couleur/taille) et TextAlign s'ajoutent à StarterKit sans
   // toucher au schéma : ces extensions sérialisent juste des `style="..."`
@@ -100,22 +107,34 @@ function EditableTextBlock({ element }: { element: DocumentTextElement }) {
     // Focus une seule fois à l'entrée en édition — pas à chaque frappe.
   }, [editor]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sortir du mode édition seulement quand le focus quitte VRAIMENT ce bloc
+  // (éditeur + barre flottante), pas dès qu'il se déplace vers un contrôle
+  // de la barre (ColorPicker/FontPicker ont un vrai champ texte qui a besoin
+  // du focus réel pour être utilisable — `relatedTarget` est l'élément qui
+  // reçoit le focus, on ne quitte que s'il est hors de ce conteneur).
+  function handleBlur(event: React.FocusEvent) {
+    if (containerRef.current?.contains(event.relatedTarget as Node | null)) return;
+    setEditingText(null);
+  }
+
   return (
-    <>
+    <div ref={containerRef}>
       {editor ? (
         <div
           style={{ position: "absolute", left: element.x, top: Math.max(0, element.y - TOOLBAR_HEIGHT - 6), pointerEvents: "auto" }}
         >
-          <TextFormatToolbar editor={editor} />
+          <TextFormatToolbar editor={editor} documentColors={documentColors} />
         </div>
       ) : null}
       <div style={{ ...blockStyle(element), pointerEvents: "auto" }} className="rounded outline outline-2 outline-animeo">
         <EditorContent
           editor={editor}
           className="h-full w-full text-sm text-animeo-dark [&_.tiptap]:h-full [&_.tiptap]:outline-none [&_p]:m-0"
-          onBlur={() => setEditingText(null)}
+          onBlur={handleBlur}
         />
       </div>
-    </>
+    </div>
   );
 }

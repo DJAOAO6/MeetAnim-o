@@ -1,6 +1,8 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
+import { ColorPicker } from "@/components/documents/editor/color-picker";
+import { FontPicker } from "@/components/documents/editor/font-picker";
 
 export const TOOLBAR_HEIGHT = 38;
 
@@ -15,7 +17,7 @@ const FONT_SIZES = ["12px", "14px", "16px", "18px", "24px"];
  * (sinon `onBlur` sur EditorContent sortirait immédiatement du mode édition
  * à chaque clic sur un bouton de la barre).
  */
-export function TextFormatToolbar({ editor }: { editor: Editor }) {
+export function TextFormatToolbar({ editor, documentColors = [] }: { editor: Editor; documentColors?: string[] }) {
   function preventFocusSteal(event: React.MouseEvent) {
     event.preventDefault();
   }
@@ -27,6 +29,10 @@ export function TextFormatToolbar({ editor }: { editor: Editor }) {
       style={{ height: TOOLBAR_HEIGHT }}
       className="flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-1.5 shadow-sm"
     >
+      <FontPicker value={(editor.getAttributes("textStyle").fontFamily as string | undefined) ?? ""} onChange={(cssVar) => editor.chain().focus().setFontFamily(cssVar).run()} />
+
+      <Divider />
+
       <ToggleButton editor={editor} label="Gras" active={editor.isActive("bold")} onMouseDown={preventFocusSteal} onClick={() => editor.chain().focus().toggleBold().run()}>
         <span className="font-black">G</span>
       </ToggleButton>
@@ -63,15 +69,13 @@ export function TextFormatToolbar({ editor }: { editor: Editor }) {
 
       <Divider />
 
-      <label className="flex items-center">
-        <span className="sr-only">Couleur du texte</span>
-        <input
-          type="color"
-          onMouseDown={preventFocusSteal}
-          onChange={(event) => editor.chain().focus().setColor(event.target.value).run()}
-          className="h-6 w-6 cursor-pointer rounded border border-neutral-200 p-0"
-        />
-      </label>
+      <ColorPicker
+        size="sm"
+        label="Couleur du texte"
+        value={(editor.getAttributes("textStyle").color as string | undefined) ?? "#183b45"}
+        onChange={(color) => editor.chain().focus().setColor(color).run()}
+        documentColors={documentColors}
+      />
 
       <label className="flex items-center">
         <span className="sr-only">Taille du texte</span>

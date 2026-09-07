@@ -83,6 +83,8 @@ type DocumentStoreState = {
   addPage: () => void;
   duplicatePage: (index: number) => void;
   removePage: (index: number) => void;
+  // `color: null` retire le fond (retour au blanc par défaut).
+  setPageBackground: (pageIndex: number, color: string | null) => void;
   insertPageFromTemplate: (elements: DocumentElement[]) => void;
   undo: () => void;
   redo: () => void;
@@ -375,6 +377,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     const newPage: DocumentPage = {
       id: `page-${Date.now()}`,
       elements: cloned.elements.map((element) => ({ ...element, id: newElementIdForClone(element.type) })),
+      background: cloned.background,
     };
     const pages = [...state.content.pages.slice(0, index + 1), newPage, ...state.content.pages.slice(index + 1)];
     return {
@@ -400,6 +403,12 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       selectedElementIds: [],
       editingTextId: null,
     };
+  }),
+
+  // Fond de page (étape 16) — couleur unie uniquement, voir content.ts.
+  setPageBackground: (pageIndex, color) => set((state) => {
+    const pages = state.content.pages.map((page, index) => (index === pageIndex ? { ...page, background: color ? { type: "color" as const, value: color } : undefined } : page));
+    return { ...pushHistory(state), content: { ...state.content, pages } };
   }),
 
   // Catégorie "Modèles" du rail (étape 10) : "insérer comme nouvelle page",

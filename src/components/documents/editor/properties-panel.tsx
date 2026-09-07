@@ -2,7 +2,8 @@
 
 import { useDocumentStore, useSelectedElementId } from "@/components/documents/editor/document-store";
 import { updateMarkerPresetsAction } from "@/lib/documents/marker-presets-actions";
-import type { DocumentDiagramElement } from "@/lib/documents/content";
+import { ColorPicker } from "@/components/documents/editor/color-picker";
+import { collectDocumentColors, type DocumentDiagramElement } from "@/lib/documents/content";
 
 const numberFieldClassName = "h-9 w-full rounded-lg border border-[#d9e5e2] bg-animeo-bg px-2.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white";
 
@@ -14,9 +15,11 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
   const updateElement = useDocumentStore((state) => state.updateElement);
   const duplicateSelected = useDocumentStore((state) => state.duplicateSelected);
   const removeSelected = useDocumentStore((state) => state.removeSelected);
+  const setPageBackground = useDocumentStore((state) => state.setPageBackground);
 
   const page = content.pages[currentPageIndex];
   const element = page?.elements.find((item) => item.id === selectedElementId);
+  const documentColors = collectDocumentColors(content);
 
   // Sélection multiple (étape 13) : pas d'édition de propriétés groupée dans
   // ce chantier (voir le plan, hors périmètre) — seulement dupliquer/
@@ -40,13 +43,42 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
     );
   }
 
-  if (!element) {
+  // Fond de page (étape 16) : affiché quand aucun élément n'est sélectionné,
+  // plutôt qu'un simple message — la page elle-même est alors "sélectionnée"
+  // au sens propriétés. Couleur unie uniquement, voir content.ts.
+  if (!element && page) {
     return (
-      <div className="p-4">
+      <div className="space-y-4 p-4">
         <p className="text-sm text-animeo-muted">Sélectionnez un élément pour modifier ses propriétés.</p>
+        <div className="border-t border-[#e5eeeb] pt-4">
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Fond de page</p>
+          <div className="flex items-center gap-2">
+            <div className="w-16">
+              <ColorPicker
+                label="Fond de page"
+                value={page.background?.value ?? "#ffffff"}
+                onChange={(color) => setPageBackground(currentPageIndex, color)}
+                documentColors={documentColors}
+                disabled={readOnly}
+              />
+            </div>
+            {page.background ? (
+              <button
+                type="button"
+                onClick={() => setPageBackground(currentPageIndex, null)}
+                disabled={readOnly}
+                className="text-xs font-bold text-animeo-muted underline decoration-dotted hover:text-animeo-dark disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Retirer le fond
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   }
+
+  if (!element) return null;
 
   return (
     <div className="space-y-5 p-4">
@@ -75,8 +107,14 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
         <div>
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Style</p>
           <div className="grid grid-cols-2 gap-2">
-            <ColorField label="Remplissage" value={element.fill} onChange={(value) => updateElement(element.id, { fill: value })} disabled={readOnly} />
-            <ColorField label="Contour" value={element.stroke} onChange={(value) => updateElement(element.id, { stroke: value })} disabled={readOnly} />
+            <div>
+              <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Remplissage</span>
+              <ColorPicker label="Remplissage" value={element.fill} onChange={(value) => updateElement(element.id, { fill: value })} documentColors={documentColors} disabled={readOnly} />
+            </div>
+            <div>
+              <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Contour</span>
+              <ColorPicker label="Contour" value={element.stroke} onChange={(value) => updateElement(element.id, { stroke: value })} documentColors={documentColors} disabled={readOnly} />
+            </div>
             <NumberField
               label="Épais."
               ariaLabel="Épaisseur de contour"
@@ -96,6 +134,24 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           </div>
         </div>
       ) : null}
+
+      <div>
+        <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Opacité</p>
+        <div className="flex items-center gap-2">
+          <input
+            aria-label="Opacité"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round((element.opacity ?? 1) * 100)}
+            disabled={readOnly}
+            onChange={(event) => updateElement(element.id, { opacity: Number(event.target.value) / 100 })}
+            className="h-2 flex-1 accent-animeo"
+          />
+          <span className="w-10 shrink-0 text-right text-xs font-bold text-animeo-dark">{Math.round((element.opacity ?? 1) * 100)}%</span>
+        </div>
+      </div>
 
       {element.type === "diagram" ? <DiagramProperties element={element} readOnly={readOnly} /> : null}
 
@@ -124,21 +180,6 @@ function NumberField({ label, ariaLabel, value, onChange, disabled }: { label: s
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
         className={numberFieldClassName}
-      />
-    </label>
-  );
-}
-
-function ColorField({ label, value, onChange, disabled }: { label: string; value: string; onChange: (value: string) => void; disabled: boolean }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[10px] font-bold text-animeo-muted">{label}</span>
-      <input
-        type="color"
-        value={value || "#ffffff"}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full cursor-pointer rounded-lg border border-[#d9e5e2] bg-white p-1"
       />
     </label>
   );

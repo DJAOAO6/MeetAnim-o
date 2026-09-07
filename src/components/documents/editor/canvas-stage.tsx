@@ -8,9 +8,8 @@ import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
 import { useHtmlImage } from "@/components/documents/editor/use-html-image";
 import { DOG_DIAGRAM_VIEWBOX, dogDiagramDataUri } from "@/lib/documents/dog-diagram";
 import { colorForPreset } from "@/lib/documents/marker-presets";
+import { computeGuides, type Box, type SmartGuide } from "@/components/documents/editor/smart-guides";
 import type { DocumentDiagramElement, DocumentElement } from "@/lib/documents/content";
-
-type Box = { x: number; y: number; width: number; height: number };
 
 function rectsIntersect(a: Box, b: Box): boolean {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -22,6 +21,13 @@ function rectsIntersect(a: Box, b: Box): boolean {
 // rapide (voir le plan, étape 13).
 function hasShiftKey(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): boolean {
   return "shiftKey" in event.evt && event.evt.shiftKey === true;
+}
+
+const SNAP_THRESHOLD_PX = 4;
+
+function guidesEqual(a: SmartGuide[], b: SmartGuide[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((guide, index) => guide.orientation === b[index].orientation && guide.position === b[index].position);
 }
 
 type CanvasStageProps = {
@@ -46,6 +52,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   const selectElements = useDocumentStore((state) => state.selectElements);
   const setEditingText = useDocumentStore((state) => state.setEditingText);
   const updateElement = useDocumentStore((state) => state.updateElement);
+  const zoomLevel = useDocumentStore((state) => state.zoomLevel);
 
   const page = content.pages[currentPageIndex];
   const { width, height } = PAGE_DIMENSIONS[content.pageSize];
@@ -54,6 +61,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   const nodeRefs = useRef(new Map<string, Konva.Node>());
   const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<Box | null>(null);
+  const [activeGuides, setActiveGuides] = useState<SmartGuide[]>([]);
 
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -64,6 +72,25 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   }, [selectedElementIds, page?.elements]);
 
   if (!page) return null;
+
+  // Repères intelligents + snapping (étape 15) — calculés à partir de la
+  // position LIVE du nœud Konva (jamais du store) à chaque frame de drag, et
+  // committés dans le store seulement à onDragEnd (updateElement, inchangé) :
+  // zéro changement à la granularité de l'historique existante. Alt/Option
+  // enfoncé désactive repères et snap pour ce déplacement.
+  function handleDragMove(element: DocumentElement, event: Konva.KonvaEventObject<DragEvent>) {
+    if (event.evt.altKey) {
+      if (activeGuides.length > 0) setActiveGuides([]);
+      return;
+    }
+    const node = event.target;
+    const movingBox: Box = { x: node.x(), y: node.y(), width: element.width, height: element.height };
+    const otherBoxes = page.elements.filter((other) => other.id !== element.id && !selectedElementIds.includes(other.id) && !other.hidden);
+    const threshold = SNAP_THRESHOLD_PX / zoomLevel;
+    const result = computeGuides(movingBox, { width, height }, otherBoxes, threshold);
+    node.position({ x: result.x, y: result.y });
+    if (!guidesEqual(result.guides, activeGuides)) setActiveGuides(result.guides);
+  }
 
   function handleTransformEnd(element: DocumentElement) {
     const node = nodeRefs.current.get(element.id);
@@ -119,7 +146,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
       }}
     >
       <Layer>
-        <Rect x={0} y={0} width={width} height={height} fill="#ffffff" listening={false} />
+        <Rect x={0} y={0} width={width} height={height} fill={page.background?.value ?? "#ffffff"} listening={false} />
 
         {page.elements.filter((element) => !element.hidden).map((element) => {
           const common = {
@@ -127,6 +154,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
             x: element.x,
             y: element.y,
             rotation: element.rotation,
+            opacity: element.opacity ?? 1,
             draggable: !readOnly,
             ref: (node: Konva.Node | null) => {
               if (node) nodeRefs.current.set(element.id, node);
@@ -134,7 +162,11 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
             },
             onClick: (event: Konva.KonvaEventObject<MouseEvent>) => selectElement(element.id, { additive: hasShiftKey(event) }),
             onTap: () => selectElement(element.id),
-            onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => updateElement(element.id, { x: event.target.x(), y: event.target.y() }),
+            onDragMove: (event: Konva.KonvaEventObject<DragEvent>) => handleDragMove(element, event),
+            onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => {
+              setActiveGuides([]);
+              updateElement(element.id, { x: event.target.x(), y: event.target.y() });
+            },
             onTransformEnd: () => handleTransformEnd(element),
           };
 
@@ -189,6 +221,25 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
         {marqueeRect ? (
           <Rect {...marqueeRect} fill="rgba(79,175,159,0.1)" stroke="#4FAF9F" dash={[4, 4]} strokeWidth={1} listening={false} />
         ) : null}
+
+        {/* Repères intelligents (étape 15) — derniers enfants de CETTE même
+            couche (pas une deuxième <Layer>, qui créerait un second <canvas>
+            DOM empilé au-dessus et casserait les clics réels/Playwright sur
+            le premier) : au sein d'une couche Konva, l'ordre des enfants fait
+            déjà le z-order, donc toujours au-dessus sans nouveau canvas.
+            Purement visuel, jamais persisté, jamais capturé par l'export PDF
+            (au moment de la capture, plus aucun drag n'est en cours et cette
+            liste est donc déjà vide). */}
+        {activeGuides.map((guide, index) => (
+          <Line
+            key={`${guide.orientation}-${index}`}
+            points={guide.orientation === "vertical" ? [guide.position, 0, guide.position, height] : [0, guide.position, width, guide.position]}
+            stroke="#ff4d6d"
+            strokeWidth={1}
+            dash={[4, 4]}
+            listening={false}
+          />
+        ))}
       </Layer>
     </Stage>
   );
@@ -204,10 +255,12 @@ type ElementCommonProps = {
   x: number;
   y: number;
   rotation: number;
+  opacity: number;
   draggable: boolean;
   ref: (node: Konva.Node | null) => void;
   onClick: (event: Konva.KonvaEventObject<MouseEvent>) => void;
   onTap: () => void;
+  onDragMove: (event: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => void;
   onTransformEnd: () => void;
 };
