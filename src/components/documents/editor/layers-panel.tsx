@@ -110,7 +110,13 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
                 aria-label={locked ? `Déverrouiller ${label}` : `Verrouiller ${label}`}
                 onClick={() => setElementLocked(element.id, !locked)}
                 disabled={readOnly}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                // Cadenas fermé et ouvert ne se distinguent que par la
+                // position de l'anse, illisible à 14px dans une liste de
+                // plusieurs calques : la couleur porte l'état, comme le badge
+                // du canevas (selection-lock-badge.tsx).
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 ${
+                  locked ? "text-animeo" : "text-neutral-500"
+                }`}
               >
                 {locked ? <LockIcon /> : <UnlockIcon />}
               </button>
