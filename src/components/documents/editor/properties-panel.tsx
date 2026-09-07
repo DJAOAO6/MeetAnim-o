@@ -170,7 +170,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
             <NumberField
               label="Épais."
               ariaLabel="Épaisseur de trait"
-              value={element.strokeWidth ?? 1.8}
+              value={element.strokeWidth ?? 2}
               onChange={(value) => updateElement(element.id, { strokeWidth: Math.max(0, value) })}
               disabled={readOnly}
             />

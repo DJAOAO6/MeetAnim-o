@@ -308,8 +308,17 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
                 {...common}
                 data={icon?.path ?? ""}
                 stroke={element.color}
-                strokeWidth={element.strokeWidth ?? 1.8}
-                fill="none"
+                strokeWidth={element.strokeWidth ?? 2}
+                // Jamais fill="none" : Konva teste `!!this.fill()` pour
+                // décider s'il faut peindre un remplissage — la CHAÎNE
+                // "none" est non vide donc considérée vraie, Konva tente
+                // alors `context.fillStyle = "none"`, une couleur CSS
+                // invalide que Canvas2D ignore silencieusement en gardant
+                // le fillStyle précédent du contexte partagé (souvent
+                // noir) — d'où l'icône qui apparaissait pleine. Omettre
+                // fill (pas de prop du tout) fait que Konva ne peint aucun
+                // remplissage, contrairement à SVG où fill="none" est un
+                // mot-clé compris nativement.
                 lineCap="round"
                 lineJoin="round"
                 scaleX={element.width / 24}
