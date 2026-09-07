@@ -52,6 +52,7 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
   const selectedElementIds = useDocumentStore((state) => state.selectedElementIds);
   const selectElement = useDocumentStore((state) => state.selectElement);
   const setElementHidden = useDocumentStore((state) => state.setElementHidden);
+  const setElementLocked = useDocumentStore((state) => state.setElementLocked);
   const moveElementUp = useDocumentStore((state) => state.moveElementUp);
   const moveElementDown = useDocumentStore((state) => state.moveElementDown);
 
@@ -81,6 +82,7 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
           label = `${baseLabel} (${seen})`;
         }
         const hidden = Boolean(element.hidden);
+        const locked = Boolean(element.locked);
         const isSelected = selectedElementIds.includes(element.id);
         return (
           <li key={element.id}>
@@ -101,6 +103,16 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {hidden ? <EyeOffIcon /> : <EyeIcon />}
+              </button>
+              <button
+                type="button"
+                aria-pressed={locked}
+                aria-label={locked ? `Déverrouiller ${label}` : `Verrouiller ${label}`}
+                onClick={() => setElementLocked(element.id, !locked)}
+                disabled={readOnly}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {locked ? <LockIcon /> : <UnlockIcon />}
               </button>
               <button
                 type="button"
@@ -141,6 +153,22 @@ function EyeOffIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
       <path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.24 4.24M9.9 4.24A10.4 10.4 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-3.15 3.9M6.1 6.1C3.6 7.9 2 11 2 12s3.5 7 10 7c1.1 0 2.14-.15 3.1-.42" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function UnlockIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z M7 11V7a5 5 0 0 1 9.9-1" />
     </svg>
   );
 }

@@ -27,6 +27,12 @@ export type DocumentTextElement = {
   // 0-1, optionnel — absent = 1 (opaque), comportement déjà codé en dur
   // avant l'étape 16, aucune migration des documents existants.
   opacity?: number;
+  // Verrouillage (étape 25) — un élément verrouillé reste visible et
+  // sélectionnable (au clic simple, jamais par glisser) mais ne peut plus
+  // être déplacé/redimensionné/tourné/dupliqué/supprimé/aligné (voir
+  // document-store.ts et canvas-stage.tsx). `undefined`/`false` = déverrouillé,
+  // aucune migration des documents existants.
+  locked?: boolean;
 };
 
 export type DocumentImageElement = {
@@ -41,6 +47,8 @@ export type DocumentImageElement = {
   src: string;
   hidden?: boolean;
   opacity?: number;
+  // Verrouillage (étape 25) — voir le commentaire sur DocumentTextElement.locked.
+  locked?: boolean;
 };
 
 export type DocumentShapeElement = {
@@ -70,6 +78,8 @@ export type DocumentShapeElement = {
   cornerRadius?: number;
   hidden?: boolean;
   opacity?: number;
+  // Verrouillage (étape 25) — voir le commentaire sur DocumentTextElement.locked.
+  locked?: boolean;
 };
 
 export type DiagramMarker = {
@@ -96,6 +106,8 @@ export type DocumentDiagramElement = {
   showLegend: boolean;
   hidden?: boolean;
   opacity?: number;
+  // Verrouillage (étape 25) — voir le commentaire sur DocumentTextElement.locked.
+  locked?: boolean;
 };
 
 export type DocumentIconElement = {
@@ -116,6 +128,8 @@ export type DocumentIconElement = {
   strokeWidth?: number;
   hidden?: boolean;
   opacity?: number;
+  // Verrouillage (étape 25) — voir le commentaire sur DocumentTextElement.locked.
+  locked?: boolean;
 };
 
 export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement | DocumentIconElement;

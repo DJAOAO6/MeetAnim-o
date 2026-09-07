@@ -90,7 +90,12 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
     finishMarqueeRef.current = () => {
       if (!marqueeStartRef.current) return;
       if (marqueeRect && (marqueeRect.width > 3 || marqueeRect.height > 3)) {
-        const ids = page?.elements.filter((element) => !element.hidden && rectsIntersect(marqueeRect, element)).map((element) => element.id) ?? [];
+        // Un élément verrouillé n'est jamais embarqué par un glisser rapide
+        // (évite de l'inclure accidentellement dans une suppression groupée)
+        // — le clic simple reste la seule façon de le sélectionner (voir
+        // `common.onClick` plus bas), un élément masqué reste exclu comme
+        // avant l'étape 25.
+        const ids = page?.elements.filter((element) => !element.hidden && !element.locked && rectsIntersect(marqueeRect, element)).map((element) => element.id) ?? [];
         selectElements(ids);
       }
       marqueeStartRef.current = null;
@@ -109,7 +114,14 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   useEffect(() => {
     const transformer = transformerRef.current;
     if (!transformer) return;
-    const nodes = selectedElementIds.map((id) => nodeRefs.current.get(id)).filter((node): node is Konva.Node => Boolean(node));
+    // Verrouillage (étape 25) — un élément verrouillé n'affiche jamais de
+    // poignées de redimensionnement/rotation (il reste sélectionnable, voir
+    // `onClick`/`onTap` plus bas, mais figé visuellement partout).
+    const lockedIds = new Set((page?.elements ?? []).filter((element) => element.locked).map((element) => element.id));
+    const nodes = selectedElementIds
+      .filter((id) => !lockedIds.has(id))
+      .map((id) => nodeRefs.current.get(id))
+      .filter((node): node is Konva.Node => Boolean(node));
     transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
   }, [selectedElementIds, page?.elements]);
@@ -215,7 +227,11 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
             y: element.y,
             rotation: element.rotation,
             opacity: element.opacity ?? 1,
-            draggable: !readOnly,
+            // Verrouillage (étape 25) — le clic simple reste possible sur un
+            // élément verrouillé (onClick/onTap ci-dessous, inchangés) : c'est
+            // la seule façon de le retrouver et de le déverrouiller depuis le
+            // canevas. Seul le déplacement est bloqué ici.
+            draggable: !readOnly && !element.locked,
             ref: (node: Konva.Node | null) => {
               if (node) nodeRefs.current.set(element.id, node);
               else nodeRefs.current.delete(element.id);

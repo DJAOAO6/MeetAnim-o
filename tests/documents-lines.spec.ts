@@ -123,7 +123,9 @@ test.describe("Documents — catégorie Lignes & flèches (étape 20)", () => {
 
     await page.getByRole("button", { name: "Lignes" }).click();
     await page.getByRole("button", { name: "Ligne", exact: true }).click();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Lignes" }).click();
+    await page.waitForTimeout(600);
 
     // La ligne est insérée à DEFAULT_POSITION (60,60), largeur 200, hauteur
     // 2 — la poignée droite du Transformer se trouve donc vers (260, 61).
@@ -137,8 +139,11 @@ test.describe("Documents — catégorie Lignes & flèches (étape 20)", () => {
     const handleX = canvasBox.x + 60 + 200;
     const handleY = canvasBox.y + 60 + 1;
     await page.mouse.move(handleX, handleY);
+    await page.waitForTimeout(150);
     await page.mouse.down();
-    await page.mouse.move(handleX + 80, handleY, { steps: 10 });
+    await page.waitForTimeout(50);
+    await page.mouse.move(handleX + 80, handleY, { steps: 15 });
+    await page.waitForTimeout(50);
     await page.mouse.up();
     await page.waitForTimeout(2500);
 

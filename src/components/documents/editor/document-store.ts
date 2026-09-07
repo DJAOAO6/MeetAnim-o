@@ -74,6 +74,7 @@ type DocumentStoreState = {
   updateElement: (id: string, patch: Partial<DocumentElement>) => void;
   removeElement: (id: string) => void;
   setElementHidden: (id: string, hidden: boolean) => void;
+  setElementLocked: (id: string, locked: boolean) => void;
   moveElementUp: (id: string) => void;
   moveElementDown: (id: string) => void;
   duplicateSelected: () => void;
@@ -96,6 +97,16 @@ function currentPage(state: Pick<DocumentStoreState, "content" | "currentPageInd
 
 function withPageElements(content: DocumentContent, pageIndex: number, elements: DocumentElement[]): DocumentContent {
   return { ...content, pages: content.pages.map((page, index) => (index === pageIndex ? { ...page, elements } : page)) };
+}
+
+// Verrouillage (étape 25) — un élément verrouillé reste sélectionnable (pour
+// le retrouver et le déverrouiller) mais Suppr/Ctrl+D/alignement/distribution
+// doivent l'ignorer silencieusement s'il fait partie de la sélection
+// courante. Factorisé ici plutôt que dupliqué dans les 4 actions qui en ont
+// besoin (duplicateSelected/removeSelected/alignSelected/distributeSelected).
+function unlockedSelectedIds(page: DocumentPage, selectedElementIds: string[]): Set<string> {
+  const lockedIds = new Set(page.elements.filter((element) => element.locked).map((element) => element.id));
+  return new Set(selectedElementIds.filter((id) => !lockedIds.has(id)));
 }
 
 // Copie profonde volontairement simple (JSON) — le contenu d'un document
@@ -239,6 +250,18 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
   }),
 
+  // Même mécanisme exact que setElementHidden ci-dessus (pushHistory + map
+  // immuable) — verrouiller/déverrouiller est donc annulable au même titre
+  // que n'importe quelle autre mutation. L'application concrète du
+  // verrouillage (bloquer drag/resize/suppression...) se fait ailleurs
+  // (canvas-stage.tsx, properties-panel.tsx, unlockedSelectedIds ci-dessus) —
+  // cette action ne fait que persister le flag.
+  setElementLocked: (id, locked) => set((state) => {
+    const page = currentPage(state);
+    const elements = page.elements.map((element) => (element.id === id ? ({ ...element, locked } as DocumentElement) : element));
+    return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
+  }),
+
   // L'ordre du tableau `elements` EST l'ordre de rendu Konva (dernier =
   // premier plan) — "monter" un élément le déplace donc vers la fin du
   // tableau, "descendre" vers le début, convention Figma/Illustrator.
@@ -266,7 +289,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   // d'historique et un seul Ctrl+Z n'annulerait qu'un tiers de l'opération.
   duplicateSelected: () => set((state) => {
     const page = currentPage(state);
-    const selectedIds = new Set(state.selectedElementIds);
+    const selectedIds = unlockedSelectedIds(page, state.selectedElementIds);
     const selected = page.elements.filter((element) => selectedIds.has(element.id));
     if (selected.length === 0) return state;
     const copies = selected.map((element) => ({ ...element, id: newElementIdForClone(element.type), x: element.x + 16, y: element.y + 16 }) as DocumentElement);
@@ -278,14 +301,17 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   }),
 
   removeSelected: () => set((state) => {
-    const selectedIds = new Set(state.selectedElementIds);
-    if (selectedIds.size === 0) return state;
     const page = currentPage(state);
+    const selectedIds = unlockedSelectedIds(page, state.selectedElementIds);
+    if (selectedIds.size === 0) return state;
     const elements = page.elements.filter((element) => !selectedIds.has(element.id));
     return {
       ...pushHistory(state),
       content: withPageElements(state.content, state.currentPageIndex, elements),
-      selectedElementIds: [],
+      // Les éléments verrouillés (donc ignorés ci-dessus) restent sélectionnés
+      // après coup, pas de désélection totale — cohérent avec le fait qu'ils
+      // n'ont pas été touchés.
+      selectedElementIds: state.selectedElementIds.filter((id) => !selectedIds.has(id)),
     };
   }),
 
@@ -294,7 +320,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   // cas). Un seul instantané d'historique pour tous les éléments déplacés.
   alignSelected: (edge) => set((state) => {
     const page = currentPage(state);
-    const selectedIds = new Set(state.selectedElementIds);
+    const selectedIds = unlockedSelectedIds(page, state.selectedElementIds);
     const selected = page.elements.filter((element) => selectedIds.has(element.id));
     if (selected.length < 2) return state;
 
@@ -324,7 +350,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   // (2 éléments n'ont qu'un seul intervalle, rien à égaliser).
   distributeSelected: (axis) => set((state) => {
     const page = currentPage(state);
-    const selectedIds = new Set(state.selectedElementIds);
+    const selectedIds = unlockedSelectedIds(page, state.selectedElementIds);
     const selected = page.elements.filter((element) => selectedIds.has(element.id));
     if (selected.length < 3) return state;
 

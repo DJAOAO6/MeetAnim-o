@@ -86,28 +86,37 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
   // blocage du Transformer déjà corrigé dans canvas-stage.tsx.
   const isThinLine = element.type === "shape" && (element.shape === "line" || element.shape === "arrow" || element.shape === "chevron");
   const minHeight = isThinLine ? 2 : 20;
+  // Verrouillage (étape 25) — un élément verrouillé est visuellement gelé
+  // partout, pas seulement sur le canevas : tous les champs d'édition
+  // passent désactivés, comme si le document entier était en lecture seule
+  // pour CET élément précisément.
+  const fieldsDisabled = readOnly || Boolean(element.locked);
 
   return (
     <div className="space-y-5 p-4">
+      {element.locked ? (
+        <p className="rounded-lg bg-animeo-bg px-2.5 py-2 text-[11px] font-bold text-animeo-muted">Élément verrouillé — déverrouillez-le depuis Calques ou le cadenas sur le canevas pour le modifier.</p>
+      ) : null}
+
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Position</p>
         <div className="grid grid-cols-2 gap-2">
-          <NumberField label="X" ariaLabel="Position X" value={element.x} onChange={(value) => updateElement(element.id, { x: value })} disabled={readOnly} />
-          <NumberField label="Y" ariaLabel="Position Y" value={element.y} onChange={(value) => updateElement(element.id, { y: value })} disabled={readOnly} />
+          <NumberField label="X" ariaLabel="Position X" value={element.x} onChange={(value) => updateElement(element.id, { x: value })} disabled={fieldsDisabled} />
+          <NumberField label="Y" ariaLabel="Position Y" value={element.y} onChange={(value) => updateElement(element.id, { y: value })} disabled={fieldsDisabled} />
         </div>
       </div>
 
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Taille</p>
         <div className="grid grid-cols-2 gap-2">
-          <NumberField label="L" ariaLabel="Largeur" value={element.width} onChange={(value) => updateElement(element.id, { width: Math.max(20, value) })} disabled={readOnly} />
-          <NumberField label="H" ariaLabel="Hauteur" value={element.height} onChange={(value) => updateElement(element.id, { height: Math.max(minHeight, value) })} disabled={readOnly} />
+          <NumberField label="L" ariaLabel="Largeur" value={element.width} onChange={(value) => updateElement(element.id, { width: Math.max(20, value) })} disabled={fieldsDisabled} />
+          <NumberField label="H" ariaLabel="Hauteur" value={element.height} onChange={(value) => updateElement(element.id, { height: Math.max(minHeight, value) })} disabled={fieldsDisabled} />
         </div>
       </div>
 
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Rotation</p>
-        <NumberField label="°" ariaLabel="Rotation" value={element.rotation} onChange={(value) => updateElement(element.id, { rotation: value })} disabled={readOnly} />
+        <NumberField label="°" ariaLabel="Rotation" value={element.rotation} onChange={(value) => updateElement(element.id, { rotation: value })} disabled={fieldsDisabled} />
       </div>
 
       {element.type === "shape" ? (
@@ -116,18 +125,18 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Remplissage</span>
-              <ColorPicker label="Remplissage" value={element.fill} onChange={(value) => updateElement(element.id, { fill: value })} documentColors={documentColors} disabled={readOnly} />
+              <ColorPicker label="Remplissage" value={element.fill} onChange={(value) => updateElement(element.id, { fill: value })} documentColors={documentColors} disabled={fieldsDisabled} />
             </div>
             <div>
               <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Contour</span>
-              <ColorPicker label="Contour" value={element.stroke} onChange={(value) => updateElement(element.id, { stroke: value })} documentColors={documentColors} disabled={readOnly} />
+              <ColorPicker label="Contour" value={element.stroke} onChange={(value) => updateElement(element.id, { stroke: value })} documentColors={documentColors} disabled={fieldsDisabled} />
             </div>
             <NumberField
               label="Épais."
               ariaLabel="Épaisseur de contour"
               value={element.strokeWidth ?? (element.shape === "line" ? 2 : 1)}
               onChange={(value) => updateElement(element.id, { strokeWidth: Math.max(0, value) })}
-              disabled={readOnly}
+              disabled={fieldsDisabled}
             />
             {element.shape === "rect" ? (
               <NumberField
@@ -135,7 +144,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
                 ariaLabel="Rayon d'angle"
                 value={element.cornerRadius ?? 4}
                 onChange={(value) => updateElement(element.id, { cornerRadius: Math.max(0, value) })}
-                disabled={readOnly}
+                disabled={fieldsDisabled}
               />
             ) : null}
           </div>
@@ -145,7 +154,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
               <input
                 type="checkbox"
                 checked={element.dashed ?? false}
-                disabled={readOnly}
+                disabled={fieldsDisabled}
                 onChange={(event) => updateElement(element.id, { dashed: event.target.checked })}
               />
               Pointillé
@@ -157,7 +166,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
               <input
                 type="checkbox"
                 checked={element.doubleArrow ?? false}
-                disabled={readOnly}
+                disabled={fieldsDisabled}
                 onChange={(event) => updateElement(element.id, { doubleArrow: event.target.checked })}
               />
               Double flèche
@@ -172,14 +181,14 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Couleur</span>
-              <ColorPicker label="Couleur de l'icône" value={element.color} onChange={(value) => updateElement(element.id, { color: value })} documentColors={documentColors} disabled={readOnly} />
+              <ColorPicker label="Couleur de l'icône" value={element.color} onChange={(value) => updateElement(element.id, { color: value })} documentColors={documentColors} disabled={fieldsDisabled} />
             </div>
             <NumberField
               label="Épais."
               ariaLabel="Épaisseur de trait"
               value={element.strokeWidth ?? 2}
               onChange={(value) => updateElement(element.id, { strokeWidth: Math.max(0, value) })}
-              disabled={readOnly}
+              disabled={fieldsDisabled}
             />
           </div>
         </div>
@@ -195,7 +204,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
             max={100}
             step={1}
             value={Math.round((element.opacity ?? 1) * 100)}
-            disabled={readOnly}
+            disabled={fieldsDisabled}
             onChange={(event) => updateElement(element.id, { opacity: Number(event.target.value) / 100 })}
             className="h-2 flex-1 accent-animeo"
           />
@@ -203,9 +212,9 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
         </div>
       </div>
 
-      {element.type === "diagram" ? <DiagramProperties element={element} readOnly={readOnly} /> : null}
+      {element.type === "diagram" ? <DiagramProperties element={element} readOnly={fieldsDisabled} /> : null}
 
-      {!readOnly ? (
+      {!fieldsDisabled ? (
         <div className="flex gap-2 border-t border-[#e5eeeb] pt-4">
           <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-[#d4e2df] px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
             Dupliquer

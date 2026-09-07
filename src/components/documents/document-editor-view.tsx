@@ -11,6 +11,7 @@ import { StudioSidebar } from "@/components/documents/editor/studio-sidebar";
 import { InspectorTabs } from "@/components/documents/editor/inspector-tabs";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
 import { AlignmentToolbar } from "@/components/documents/editor/alignment-toolbar";
+import { SelectionLockBadge } from "@/components/documents/editor/selection-lock-badge";
 import { ZoomControl } from "@/components/documents/editor/zoom-control";
 import { PagesFooterBar } from "@/components/documents/editor/pages-footer-bar";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
@@ -311,6 +312,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
                       par l'export PDF (html-to-image), la barre d'alignement ne
                       doit jamais pouvoir s'y retrouver, même par accident de timing. */}
                   {!previewMode ? <AlignmentToolbar readOnly={readOnly} /> : null}
+                  {!previewMode ? <SelectionLockBadge readOnly={readOnly} /> : null}
                 </div>
               </div>
             </div>
