@@ -3,7 +3,12 @@
 // documents déjà enregistrés (voir prisma/schema.prisma, commentaire sur
 // StudioDocument : JSON plutôt que sur-normalisé en table séparée).
 
-export type DocumentPageSize = "A4_PORTRAIT" | "A4_LANDSCAPE";
+// A4 : compte rendu (portrait/paysage). POSTER_A3_PORTRAIT : affiche
+// (étape 26). SOCIAL_SQUARE/SOCIAL_PORTRAIT : posts Instagram carré/portrait
+// (étape 26) — voir page-geometry.ts pour les dimensions et leur convention.
+// Choisi à la création du document uniquement (pas de changement de format
+// après coup, explicitement hors périmètre — voir le plan).
+export type DocumentPageSize = "A4_PORTRAIT" | "A4_LANDSCAPE" | "POSTER_A3_PORTRAIT" | "SOCIAL_SQUARE" | "SOCIAL_PORTRAIT";
 
 export type DocumentTextElement = {
   id: string;

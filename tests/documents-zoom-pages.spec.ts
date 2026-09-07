@@ -147,7 +147,11 @@ test.describe("Documents — zoom, multipage et Modèles du rail (étape 10)", (
 
     await page.getByRole("button", { name: "Modèles" }).click();
     await page.getByRole("button", { name: "Compte rendu chien" }).click();
-    await page.waitForTimeout(2500);
+    // Ce modèle a beaucoup d'éléments (46) — la marge habituelle de 2500ms
+    // s'est révélée insuffisante à l'usage (l'UI reflétait déjà les 2 pages
+    // correctement, mais la lecture DB survenait parfois avant la fin de
+    // l'autosave débouncée pour un payload aussi volumineux).
+    await page.waitForTimeout(3500);
 
     const content = await readContent(title);
     expect(content.pages.length).toBe(2);

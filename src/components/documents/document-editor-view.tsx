@@ -154,7 +154,12 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
         if (!pdf) {
           pdf = new jsPDF({ unit: "px", format: [width, height] });
         } else {
-          pdf.addPage([width, height], "portrait");
+          // L'orientation était codée en dur à "portrait" quel que soit le
+          // format réel — inoffensif tant que seul A4 existait, devenu un
+          // vrai bug visible dès qu'un document multipage utilise un format
+          // paysage/carré (étape 26 : Affiche/Instagram). Dérivée ici de la
+          // largeur/hauteur réelles plutôt que codée en dur.
+          pdf.addPage([width, height], width >= height ? "landscape" : "portrait");
         }
         pdf.addImage(pageImage, "JPEG", 0, 0, width, height);
         if (pageIndex === 0) thumbnail = await downscaleImage(pageImage, 320);

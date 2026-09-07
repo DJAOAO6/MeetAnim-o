@@ -7,7 +7,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { formatFrenchDate } from "@/lib/format";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
-import { buildLayoutSketch, createEmptyDocumentContent, type DocumentContent } from "@/lib/documents/content";
+import { buildLayoutSketch, createEmptyDocumentContent, type DocumentContent, type DocumentPageSize } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
 import { getMarkerPresets } from "@/lib/documents/marker-presets-actions";
 import { Prisma } from "@/generated/prisma/client";
@@ -145,6 +145,12 @@ export type CreateDocumentInput = {
   animalId?: string;
   appointmentId?: string;
   templateId?: string;
+  // Sélecteur de format (étape 26) — ignoré si templateId est fourni : les
+  // modèles sont conçus pour A4, leur propre pageSize stocké l'emporte
+  // toujours (voir documents-list.tsx, qui désactive déjà la galerie de
+  // modèles quand un format non-A4 est choisi, donc ce cas ne devrait pas
+  // se produire en pratique — gardé simple ici plutôt que rejeté en erreur).
+  pageSize?: DocumentPageSize;
 };
 
 export type DocumentActionResult = { ok: true; id: string } | { ok: false; error: string };
@@ -152,7 +158,7 @@ export type DocumentActionResult = { ok: true; id: string } | { ok: false; error
 export async function createDocumentAction(input: CreateDocumentInput): Promise<DocumentActionResult> {
   const user = await requireUser();
 
-  let content: DocumentContent = createEmptyDocumentContent();
+  let content: DocumentContent = createEmptyDocumentContent(input.pageSize);
   if (input.templateId) {
     const template = await prisma.studioDocumentTemplate.findUnique({ where: { id: input.templateId }, select: { contentJson: true } });
     if (template) content = template.contentJson as unknown as DocumentContent;

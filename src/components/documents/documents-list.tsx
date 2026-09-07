@@ -11,12 +11,30 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { createDocumentAction, deleteDocumentAction } from "@/lib/documents-actions";
 import { TemplateThumbnailSketch } from "@/components/documents/editor/template-thumbnail-sketch";
 import { notify } from "@/lib/notify";
+import type { DocumentPageSize } from "@/lib/documents/content";
 import type { StudioDocumentSummary, StudioDocumentTemplateSummary } from "@/data/documents";
 
 type DocumentsListProps = {
   documents: StudioDocumentSummary[];
   templates: StudioDocumentTemplateSummary[];
 };
+
+// Sélecteur de format (étape 26) — choisi à la création uniquement (pas de
+// changement de format après coup, hors périmètre, voir le plan). Les
+// modèles existants sont conçus pour A4 : choisir un format différent
+// bascule automatiquement sur "Vierge" et masque la galerie de modèles
+// (mise en page cassée sinon), voir handleFormatChange plus bas.
+// Vignette (largeur/hauteur en px) précalculée pour tenir dans une boîte de
+// 28×28 en conservant le ratio réel de chaque format (PAGE_DIMENSIONS,
+// page-geometry.ts) — plus simple et plus fiable qu'un `aspect-ratio` CSS
+// combiné à des contraintes max-width/max-height sur un élément vide.
+const FORMAT_OPTIONS: { value: DocumentPageSize; label: string; swatch: { w: number; h: number } }[] = [
+  { value: "A4_PORTRAIT", label: "Portrait (A4)", swatch: { w: 20, h: 28 } },
+  { value: "A4_LANDSCAPE", label: "Paysage (A4)", swatch: { w: 28, h: 20 } },
+  { value: "POSTER_A3_PORTRAIT", label: "Affiche (A3)", swatch: { w: 20, h: 28 } },
+  { value: "SOCIAL_SQUARE", label: "Post Instagram carré", swatch: { w: 28, h: 28 } },
+  { value: "SOCIAL_PORTRAIT", label: "Post Instagram portrait", swatch: { w: 22, h: 28 } },
+];
 
 export function DocumentsList({ documents, templates }: DocumentsListProps) {
   const router = useRouter();
@@ -33,13 +51,23 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [pageSize, setPageSize] = useState<DocumentPageSize>("A4_PORTRAIT");
   const [savingNew, setSavingNew] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StudioDocumentSummary | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function openCreate() {
     setSelectedTemplateId(null);
+    setPageSize("A4_PORTRAIT");
     setCreating(true);
+  }
+
+  // Les modèles sont tous conçus pour A4_PORTRAIT — un format différent
+  // rendrait leur mise en page cassée, donc on retombe sur "Vierge" dès que
+  // le format choisi s'en écarte.
+  function handleFormatChange(value: DocumentPageSize) {
+    setPageSize(value);
+    if (value !== "A4_PORTRAIT") setSelectedTemplateId(null);
   }
 
   async function createDocument() {
@@ -47,6 +75,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
     const result = await createDocumentAction({
       title: newTitle.trim() || "Document sans titre",
       templateId: selectedTemplateId ?? undefined,
+      pageSize,
     });
     setSavingNew(false);
     if (!result.ok) {
@@ -149,7 +178,29 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                 className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
               />
             </label>
-            {templates.length > 0 ? (
+            <fieldset className="mt-5">
+              <legend className="mb-2 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Format</legend>
+              <div className="flex flex-wrap gap-2">
+                {FORMAT_OPTIONS.map((format) => (
+                  <button
+                    key={format.value}
+                    type="button"
+                    onClick={() => handleFormatChange(format.value)}
+                    aria-pressed={pageSize === format.value}
+                    className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-2 text-left transition ${
+                      pageSize === format.value ? "border-animeo bg-animeo-soft" : "border-[#e5eceb] hover:border-animeo/50"
+                    }`}
+                  >
+                    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center">
+                      <span className="block border border-animeo-muted bg-white" style={{ width: format.swatch.w, height: format.swatch.h }} />
+                    </span>
+                    <span className="text-xs font-extrabold text-animeo-dark">{format.label}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            {templates.length > 0 && pageSize === "A4_PORTRAIT" ? (
               <fieldset className="mt-5">
                 <legend className="mb-2 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Modèle</legend>
                 <div className="grid max-h-96 grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3">
