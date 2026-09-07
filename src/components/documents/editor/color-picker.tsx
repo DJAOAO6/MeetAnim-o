@@ -91,7 +91,10 @@ export function ColorPicker({
     if (HEX_PATTERN.test(trimmed)) choose(trimmed);
   }
 
-  const animeoColors = [theme.primaryColor, theme.secondaryColor, theme.accentColor];
+  // Dédupliqué : primaryColor et secondaryColor sont identiques dans le
+  // thème clair par défaut (#2F7A6E) — sans ça, deux boutons de couleur
+  // partageraient la même key React ("two children with the same key").
+  const animeoColors = Array.from(new Set([theme.primaryColor, theme.secondaryColor, theme.accentColor]));
   const uniqueDocumentColors = Array.from(new Set(documentColors)).slice(0, 12);
 
   return (
