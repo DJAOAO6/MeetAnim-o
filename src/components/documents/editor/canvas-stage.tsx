@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Stage, Layer, Rect, Line, Circle, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
+import { Stage, Layer, Rect, Line, Circle, Ellipse, RegularPolygon, Star, Arrow, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
 import type Konva from "konva";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
@@ -171,12 +171,98 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
           };
 
           if (element.type === "shape") {
+            // Ellipse/RegularPolygon/Star sont centrées par construction chez
+            // Konva (dessinées autour de leur propre x/y) — cet offset les
+            // ramène au même repère "x/y = coin haut-gauche" que toutes les
+            // autres formes, sans rien changer ailleurs (drag/transform/
+            // marquee/repères lisent element.x/y normalement). Voir le plan,
+            // étape 19 : Diamond/Arrow/Chevron sont construites via des
+            // points explicites, déjà naturellement ancrées en haut-gauche.
+            const centerOffset = { offsetX: -element.width / 2, offsetY: -element.height / 2 };
+            const dash = element.dashed ? [6, 4] : undefined;
+
             if (element.shape === "circle") {
               const radius = Math.min(element.width, element.height) / 2;
-              return <Circle key={element.id} {...common} radius={radius} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth ?? 1} />;
+              return <Circle key={element.id} {...common} {...centerOffset} radius={radius} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth ?? 1} />;
+            }
+            if (element.shape === "ellipse") {
+              return <Ellipse key={element.id} {...common} {...centerOffset} radiusX={element.width / 2} radiusY={element.height / 2} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth ?? 1} />;
+            }
+            if (element.shape === "triangle" || element.shape === "hexagon") {
+              const radius = Math.min(element.width, element.height) / 2;
+              return (
+                <RegularPolygon
+                  key={element.id}
+                  {...common}
+                  {...centerOffset}
+                  sides={element.shape === "triangle" ? 3 : 6}
+                  radius={radius}
+                  fill={element.fill}
+                  stroke={element.stroke}
+                  strokeWidth={element.strokeWidth ?? 1}
+                />
+              );
+            }
+            if (element.shape === "star") {
+              const outerRadius = Math.min(element.width, element.height) / 2;
+              return (
+                <Star
+                  key={element.id}
+                  {...common}
+                  {...centerOffset}
+                  numPoints={5}
+                  outerRadius={outerRadius}
+                  innerRadius={outerRadius * 0.5}
+                  fill={element.fill}
+                  stroke={element.stroke}
+                  strokeWidth={element.strokeWidth ?? 1}
+                />
+              );
+            }
+            if (element.shape === "diamond") {
+              const { width, height } = element;
+              return (
+                <Line
+                  key={element.id}
+                  {...common}
+                  points={[width / 2, 0, width, height / 2, width / 2, height, 0, height / 2]}
+                  closed
+                  fill={element.fill}
+                  stroke={element.stroke}
+                  strokeWidth={element.strokeWidth ?? 1}
+                />
+              );
+            }
+            if (element.shape === "arrow") {
+              return (
+                <Arrow
+                  key={element.id}
+                  {...common}
+                  points={[0, element.height / 2, element.width, element.height / 2]}
+                  pointerAtBeginning={element.doubleArrow ?? false}
+                  pointerAtEnding
+                  fill={element.stroke || element.fill}
+                  stroke={element.stroke || element.fill}
+                  strokeWidth={element.strokeWidth ?? 2}
+                  dash={dash}
+                />
+              );
+            }
+            if (element.shape === "chevron") {
+              const { width, height } = element;
+              return (
+                <Line
+                  key={element.id}
+                  {...common}
+                  points={[0, 0, width * 0.6, height / 2, 0, height]}
+                  stroke={element.stroke || element.fill}
+                  strokeWidth={element.strokeWidth ?? 2}
+                  dash={dash}
+                />
+              );
             }
             if (element.shape === "line") {
-              return <Line key={element.id} {...common} points={[0, 0, element.width, 0]} stroke={element.stroke || element.fill} strokeWidth={element.strokeWidth ?? 2} />;
+              return <Line key={element.id} {...common} points={[0, 0, element.width, 0]} stroke={element.stroke || element.fill} strokeWidth={element.strokeWidth ?? 2} dash={dash} />;
             }
             return (
               <Rect

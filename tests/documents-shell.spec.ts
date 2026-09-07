@@ -70,12 +70,12 @@ test.describe("Documents — rail et panneaux contextuels (étape 6)", () => {
     await expect(railTexte).toHaveAttribute("aria-expanded", "false");
     // Le panneau précédent disparaît réellement du DOM, pas juste masqué.
     await expect(page.getByRole("button", { name: "Bloc de texte" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Rectangle" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Rectangle", exact: true })).toBeVisible();
 
     // Recliquer la même icône referme le panneau.
     await railFormes.click();
     await expect(railFormes).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByRole("button", { name: "Rectangle" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Rectangle", exact: true })).toHaveCount(0);
   });
 
   test("le clavier seul atteint le premier contrôle du panneau ouvert, sans jamais viser un panneau fermé", async ({ page }) => {
@@ -99,7 +99,7 @@ test.describe("Documents — rail et panneaux contextuels (étape 6)", () => {
     await createAndOpenDocument(page, title);
 
     await page.getByRole("button", { name: "Formes" }).click();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await page.getByRole("button", { name: "Rectangle", exact: true }).click();
     await page.waitForTimeout(2500);
 
     const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;

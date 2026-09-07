@@ -73,7 +73,7 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     await createAndOpenDocument(page, title);
 
     await page.getByRole("button", { name: "Formes" }).click();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await page.getByRole("button", { name: "Rectangle", exact: true }).click();
     await page.waitForTimeout(300);
 
     // La forme est sélectionnée à la création — modifie sa position via le

@@ -46,7 +46,13 @@ export type DocumentImageElement = {
 export type DocumentShapeElement = {
   id: string;
   type: "shape";
-  shape: "rect" | "line" | "circle";
+  // ellipse/triangle/hexagon/star sont centrées par construction chez Konva
+  // (Ellipse/RegularPolygon/Star) — rendues avec un offset pour que x/y
+  // représente quand même le coin haut-gauche de la boîte englobante,
+  // comme toutes les autres formes (voir canvas-stage.tsx, étape 19).
+  // diamond/arrow/chevron sont construites via des points explicites
+  // (Line/Arrow), déjà naturellement ancrées en haut-gauche.
+  shape: "rect" | "line" | "circle" | "ellipse" | "triangle" | "hexagon" | "diamond" | "star" | "arrow" | "chevron";
   x: number;
   y: number;
   width: number;
@@ -57,6 +63,10 @@ export type DocumentShapeElement = {
   // Optionnels, valeur par défaut = comportement déjà codé en dur avant
   // l'étape 11 (1 et 4) — aucune migration des documents existants.
   strokeWidth?: number;
+  // Pointillé (étape 20) — applicable à line/arrow/chevron.
+  dashed?: boolean;
+  // Deuxième pointe de flèche (étape 20) — applicable à shape:"arrow" seul.
+  doubleArrow?: boolean;
   cornerRadius?: number;
   hidden?: boolean;
   opacity?: number;

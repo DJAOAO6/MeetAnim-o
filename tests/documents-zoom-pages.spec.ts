@@ -60,7 +60,7 @@ test.describe("Documents — zoom, multipage et Modèles du rail (étape 10)", (
     await createAndOpenDocument(page, title);
 
     await page.getByRole("button", { name: "Formes" }).click();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await page.getByRole("button", { name: "Rectangle", exact: true }).click();
     await page.waitForTimeout(300);
     // Désélectionne (clic sur une zone vide du canevas) pour repartir d'un
     // état neutre avant de re-sélectionner au clic ci-dessous.
@@ -92,7 +92,7 @@ test.describe("Documents — zoom, multipage et Modèles du rail (étape 10)", (
     // La page 2 est active après ajout — y insérer un élément ne doit pas
     // toucher la page 1.
     await page.getByRole("button", { name: "Formes" }).click();
-    await page.getByRole("button", { name: "Rectangle" }).click();
+    await page.getByRole("button", { name: "Rectangle", exact: true }).click();
     await page.waitForTimeout(2500);
 
     content = await readContent(title);
