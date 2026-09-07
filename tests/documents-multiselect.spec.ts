@@ -42,6 +42,11 @@ async function createDocumentWithTwoRectangles(page: import("@playwright/test").
   await page.getByRole("dialog").getByRole("button", { name: "Créer" }).click();
   await page.waitForURL(/\/dashboard\/documents\/[a-z0-9]+/, { timeout: 10000 });
   await page.waitForTimeout(700);
+  // Le zoom s'ajuste désormais à l'ouverture pour que la page entière
+  // tienne à l'écran : ce test raisonne en coordonnées document
+  // (canvasBox.x + 60 = x:60 de la page), il lui faut donc l'échelle 1:1.
+  await page.getByRole("button", { name: "Réinitialiser le zoom à 100 %" }).click();
+  await page.waitForTimeout(200);
 
   await page.getByRole("button", { name: "Formes" }).click();
   await page.getByRole("button", { name: "Rectangle", exact: true }).click();

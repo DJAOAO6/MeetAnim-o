@@ -68,11 +68,38 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
 
   const stageRef = useRef<Konva.Stage>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const canvasScrollRef = useRef<HTMLDivElement>(null);
 
   // Charge le contenu serveur dans le store une seule fois au montage — pas
   // à chaque rendu, sinon toute frappe locale serait écrasée par la prop.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadContent(document.content, document.variableContext, document.markerPresets); }, [document.id]);
+
+  // Zoom ajusté à l'ouverture pour que la page entière tienne à l'écran :
+  // une affiche A3 (1587px de haut) — et déjà une A4 (1123px) — dépasse
+  // presque toujours la hauteur disponible, obligeant sinon à dézoomer à la
+  // main avant de pouvoir travailler. Ne fait que RÉDUIRE (jamais agrandir
+  // au-delà de 100 %), et seulement à l'ouverture : un redimensionnement de
+  // fenêtre ne réécrase jamais un zoom choisi manuellement, et le bouton
+  // « 100 % » du ZoomControl reste le retour immédiat à l'échelle réelle.
+  // Se rejoue quand le format change car `content` vaut encore l'état par
+  // défaut du store au tout premier passage (loadContent n'a pas encore été
+  // appliqué au rendu courant).
+  useEffect(() => {
+    const container = canvasScrollRef.current;
+    if (!container) return;
+    const page = PAGE_DIMENSIONS[content.pageSize];
+    // `p-8` de chaque côté du conteneur défilant (32px), à retirer de la
+    // surface réellement disponible pour la page.
+    const availableWidth = container.clientWidth - 64;
+    const availableHeight = container.clientHeight - 64;
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+    const fit = Math.min(1, availableWidth / page.width, availableHeight / page.height);
+    // Arrondi au centième INFÉRIEUR : garantit que la page tient vraiment,
+    // là où un arrondi au plus proche pourrait la faire dépasser d'un pixel.
+    setZoom(Math.max(0.1, Math.floor(fit * 100) / 100));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document.id, content.pageSize]);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(true);
@@ -302,7 +329,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
                 contenu en overflow négatif, inaccessible au défilement (bug
                 classique flex + overflow-auto). Aligné en haut, comme n'importe
                 quel document qu'on lit de haut en bas. */}
-            <div className="absolute inset-0 flex items-start justify-center overflow-auto p-8">
+            <div ref={canvasScrollRef} className="absolute inset-0 flex items-start justify-center overflow-auto p-8">
               {/* Conteneur "de taille" : ses dimensions réelles (mises à
                   l'échelle du zoom) pilotent les bornes de défilement — un
                   `transform: scale()` seul ne change pas la boîte de mise en
