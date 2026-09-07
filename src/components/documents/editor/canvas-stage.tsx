@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Stage, Layer, Rect, Line, Circle, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
 import type Konva from "konva";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
@@ -9,6 +9,20 @@ import { useHtmlImage } from "@/components/documents/editor/use-html-image";
 import { DOG_DIAGRAM_VIEWBOX, dogDiagramDataUri } from "@/lib/documents/dog-diagram";
 import { colorForPreset } from "@/lib/documents/marker-presets";
 import type { DocumentDiagramElement, DocumentElement } from "@/lib/documents/content";
+
+type Box = { x: number; y: number; width: number; height: number };
+
+function rectsIntersect(a: Box, b: Box): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+// La rotation des éléments est ignorée pour ce test d'intersection (boîte
+// englobante non pivotée) — simplification explicite et assumée, comme
+// Figma/Canva le font aussi en pratique pour une sélection par glisser
+// rapide (voir le plan, étape 13).
+function hasShiftKey(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): boolean {
+  return "shiftKey" in event.evt && event.evt.shiftKey === true;
+}
 
 type CanvasStageProps = {
   readOnly: boolean;
@@ -27,8 +41,9 @@ type CanvasStageProps = {
 export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   const content = useDocumentStore((state) => state.content);
   const currentPageIndex = useDocumentStore((state) => state.currentPageIndex);
-  const selectedElementId = useDocumentStore((state) => state.selectedElementId);
+  const selectedElementIds = useDocumentStore((state) => state.selectedElementIds);
   const selectElement = useDocumentStore((state) => state.selectElement);
+  const selectElements = useDocumentStore((state) => state.selectElements);
   const setEditingText = useDocumentStore((state) => state.setEditingText);
   const updateElement = useDocumentStore((state) => state.updateElement);
 
@@ -37,14 +52,16 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
 
   const transformerRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<Box | null>(null);
 
   useEffect(() => {
     const transformer = transformerRef.current;
     if (!transformer) return;
-    const node = selectedElementId ? nodeRefs.current.get(selectedElementId) : null;
-    transformer.nodes(node ? [node] : []);
+    const nodes = selectedElementIds.map((id) => nodeRefs.current.get(id)).filter((node): node is Konva.Node => Boolean(node));
+    transformer.nodes(nodes);
     transformer.getLayer()?.batchDraw();
-  }, [selectedElementId, page?.elements]);
+  }, [selectedElementIds, page?.elements]);
 
   if (!page) return null;
 
@@ -71,7 +88,34 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
       height={height}
       className="bg-white shadow-[0_2px_8px_rgba(15,23,23,0.12),0_16px_40px_rgba(15,23,23,0.08)]"
       onMouseDown={(event) => {
-        if (event.target === event.target.getStage()) selectElement(null);
+        if (event.target !== event.target.getStage()) return;
+        // Sélection par glisser (étape 13) : on efface déjà la sélection ici
+        // pour un simple clic sur une zone vide — si le pointeur bouge assez
+        // avant le relâchement, onMouseUp la remplace par l'intersection du
+        // rectangle glissé, sans jamais repasser par un état intermédiaire visible.
+        if (!hasShiftKey(event)) selectElement(null);
+        const pointer = event.target.getStage()?.getPointerPosition();
+        if (pointer) marqueeStartRef.current = pointer;
+      }}
+      onMouseMove={(event) => {
+        if (!marqueeStartRef.current) return;
+        const pointer = event.target.getStage()?.getPointerPosition();
+        if (!pointer) return;
+        const start = marqueeStartRef.current;
+        setMarqueeRect({
+          x: Math.min(start.x, pointer.x),
+          y: Math.min(start.y, pointer.y),
+          width: Math.abs(pointer.x - start.x),
+          height: Math.abs(pointer.y - start.y),
+        });
+      }}
+      onMouseUp={() => {
+        if (marqueeRect && (marqueeRect.width > 3 || marqueeRect.height > 3)) {
+          const ids = page.elements.filter((element) => !element.hidden && rectsIntersect(marqueeRect, element)).map((element) => element.id);
+          selectElements(ids);
+        }
+        marqueeStartRef.current = null;
+        setMarqueeRect(null);
       }}
     >
       <Layer>
@@ -88,7 +132,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
               if (node) nodeRefs.current.set(element.id, node);
               else nodeRefs.current.delete(element.id);
             },
-            onClick: () => selectElement(element.id),
+            onClick: (event: Konva.KonvaEventObject<MouseEvent>) => selectElement(element.id, { additive: hasShiftKey(event) }),
             onTap: () => selectElement(element.id),
             onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => updateElement(element.id, { x: event.target.x(), y: event.target.y() }),
             onTransformEnd: () => handleTransformEnd(element),
@@ -128,7 +172,7 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
                 width={element.width}
                 height={element.height}
                 fill="transparent"
-                stroke={selectedElementId === element.id ? "#4FAF9F" : "transparent"}
+                stroke={selectedElementIds.includes(element.id) ? "#4FAF9F" : "transparent"}
                 dash={[4, 4]}
                 strokeWidth={1}
                 onDblClick={() => { if (!element.variableBinding) setEditingText(element.id); }}
@@ -141,6 +185,10 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
         })}
 
         {!readOnly ? <Transformer ref={transformerRef} rotateEnabled boundBoxFunc={(oldBox, newBox) => (newBox.width < 20 || newBox.height < 20 ? oldBox : newBox)} /> : null}
+
+        {marqueeRect ? (
+          <Rect {...marqueeRect} fill="rgba(79,175,159,0.1)" stroke="#4FAF9F" dash={[4, 4]} strokeWidth={1} listening={false} />
+        ) : null}
       </Layer>
     </Stage>
   );
@@ -158,7 +206,7 @@ type ElementCommonProps = {
   rotation: number;
   draggable: boolean;
   ref: (node: Konva.Node | null) => void;
-  onClick: () => void;
+  onClick: (event: Konva.KonvaEventObject<MouseEvent>) => void;
   onTap: () => void;
   onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => void;
   onTransformEnd: () => void;
@@ -179,7 +227,7 @@ function DiagramElement({ element, common, readOnly }: { element: DocumentDiagra
   const image = useHtmlImage(dogDiagramDataUri());
   const markerPresets = useDocumentStore((state) => state.markerPresets);
   const placingMarkerPresetId = useDocumentStore((state) => state.placingMarkerPresetId);
-  const selectedElementId = useDocumentStore((state) => state.selectedElementId);
+  const selectedElementIds = useDocumentStore((state) => state.selectedElementIds);
   const setPlacingMarkerPreset = useDocumentStore((state) => state.setPlacingMarkerPreset);
   const updateElement = useDocumentStore((state) => state.updateElement);
   const selectElement = useDocumentStore((state) => state.selectElement);
@@ -218,7 +266,7 @@ function DiagramElement({ element, common, readOnly }: { element: DocumentDiagra
     setPlacingMarkerPreset(null);
   }
 
-  const isPlacing = placingMarkerPresetId !== null && selectedElementId === element.id;
+  const isPlacing = placingMarkerPresetId !== null && selectedElementIds.includes(element.id);
 
   return (
     <Group

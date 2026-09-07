@@ -10,6 +10,7 @@ import type Konva from "konva";
 import { StudioSidebar } from "@/components/documents/editor/studio-sidebar";
 import { InspectorTabs } from "@/components/documents/editor/inspector-tabs";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
+import { AlignmentToolbar } from "@/components/documents/editor/alignment-toolbar";
 import { ZoomControl } from "@/components/documents/editor/zoom-control";
 import { PagesFooterBar } from "@/components/documents/editor/pages-footer-bar";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
@@ -265,6 +266,10 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
                   <div ref={overlayRef} className="pointer-events-none absolute inset-0">
                     <TextOverlay readOnly={readOnly} />
                   </div>
+                  {/* Hors de overlayRef volontairement : ce div est capturé tel quel
+                      par l'export PDF (html-to-image), la barre d'alignement ne
+                      doit jamais pouvoir s'y retrouver, même par accident de timing. */}
+                  {!previewMode ? <AlignmentToolbar readOnly={readOnly} /> : null}
                 </div>
               </div>
             </div>

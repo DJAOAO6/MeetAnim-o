@@ -33,7 +33,7 @@ function elementLabel(element: DocumentElement): string {
 export function LayersPanel({ readOnly }: { readOnly: boolean }) {
   const content = useDocumentStore((state) => state.content);
   const currentPageIndex = useDocumentStore((state) => state.currentPageIndex);
-  const selectedElementId = useDocumentStore((state) => state.selectedElementId);
+  const selectedElementIds = useDocumentStore((state) => state.selectedElementIds);
   const selectElement = useDocumentStore((state) => state.selectElement);
   const setElementHidden = useDocumentStore((state) => state.setElementHidden);
   const moveElementUp = useDocumentStore((state) => state.moveElementUp);
@@ -65,13 +65,13 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
           label = `${baseLabel} (${seen})`;
         }
         const hidden = Boolean(element.hidden);
-        const isSelected = element.id === selectedElementId;
+        const isSelected = selectedElementIds.includes(element.id);
         return (
           <li key={element.id}>
             <div className={`flex items-center gap-1 rounded-md px-2 py-1.5 ${isSelected ? "bg-animeo-soft" : "hover:bg-neutral-50"}`}>
               <button
                 type="button"
-                onClick={() => selectElement(element.id)}
+                onClick={(event) => selectElement(element.id, { additive: event.shiftKey })}
                 className={`min-w-0 flex-1 truncate text-left text-sm font-medium ${isSelected ? "text-animeo-dark" : hidden ? "text-neutral-400" : "text-neutral-700"}`}
               >
                 {label}

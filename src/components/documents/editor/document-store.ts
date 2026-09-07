@@ -30,7 +30,11 @@ type DocumentStoreState = {
   variableContext: DocumentVariableContext;
   markerPresets: MarkerPreset[];
   currentPageIndex: number;
-  selectedElementId: string | null;
+  // Sélection multiple (étape 13) — tableau vide = aucune sélection, jamais
+  // `null` pour un cas "aucun" (garde un seul type à vérifier partout). Voir
+  // `useSelectedElementId()` plus bas pour les consommateurs à un seul
+  // élément (Propriétés en mode simple, édition de texte).
+  selectedElementIds: string[];
   // Distinct de la sélection : un texte peut être sélectionné (déplaçable,
   // redimensionnable) sans être en cours de frappe — seul un double-clic
   // bascule ici, voir text-overlay.tsx.
@@ -50,7 +54,14 @@ type DocumentStoreState = {
   loadContent: (content: DocumentContent, variableContext?: DocumentVariableContext, markerPresets?: MarkerPreset[]) => void;
   setMarkerPresets: (presets: MarkerPreset[]) => void;
   setCurrentPageIndex: (index: number) => void;
-  selectElement: (id: string | null) => void;
+  // `options.additive` : bascule l'élément dans/hors de la sélection actuelle
+  // (Shift+clic) au lieu de la remplacer — voir canvas-stage.tsx/layers-panel.tsx.
+  selectElement: (id: string | null, options?: { additive?: boolean }) => void;
+  // Remplace toute la sélection d'un coup (sélection par glisser sur le
+  // canvas, voir canvas-stage.tsx).
+  selectElements: (ids: string[]) => void;
+  toggleElementSelection: (id: string) => void;
+  clearSelection: () => void;
   setEditingText: (id: string | null) => void;
   setPlacingMarkerPreset: (presetId: string | null) => void;
   setSidebarCategory: (category: SidebarCategory | null) => void;
@@ -67,6 +78,8 @@ type DocumentStoreState = {
   moveElementDown: (id: string) => void;
   duplicateSelected: () => void;
   removeSelected: () => void;
+  alignSelected: (edge: "left" | "centerX" | "right" | "top" | "centerY" | "bottom") => void;
+  distributeSelected: (axis: "horizontal" | "vertical") => void;
   addPage: () => void;
   duplicatePage: (index: number) => void;
   removePage: (index: number) => void;
@@ -106,7 +119,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   variableContext: EMPTY_VARIABLE_CONTEXT,
   markerPresets: DEFAULT_MARKER_PRESETS,
   currentPageIndex: 0,
-  selectedElementId: null,
+  selectedElementIds: [],
   editingTextId: null,
   placingMarkerPresetId: null,
   openSidebarCategory: null,
@@ -119,7 +132,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     variableContext: variableContext ?? EMPTY_VARIABLE_CONTEXT,
     markerPresets: markerPresets ?? DEFAULT_MARKER_PRESETS,
     currentPageIndex: 0,
-    selectedElementId: null,
+    selectedElementIds: [],
     editingTextId: null,
     placingMarkerPresetId: null,
     openSidebarCategory: null,
@@ -130,11 +143,32 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
 
   setMarkerPresets: (presets) => set({ markerPresets: presets }),
 
-  setCurrentPageIndex: (index) => set({ currentPageIndex: index, selectedElementId: null, editingTextId: null }),
+  setCurrentPageIndex: (index) => set({ currentPageIndex: index, selectedElementIds: [], editingTextId: null }),
 
-  selectElement: (id) => set({ selectedElementId: id }),
+  toggleElementSelection: (id) => set((state) => {
+    const exists = state.selectedElementIds.includes(id);
+    return { selectedElementIds: exists ? state.selectedElementIds.filter((selectedId) => selectedId !== id) : [...state.selectedElementIds, id] };
+  }),
 
-  setEditingText: (id) => set((state) => ({ editingTextId: id, selectedElementId: id ?? state.selectedElementId })),
+  selectElement: (id, options) => {
+    if (id === null) {
+      set({ selectedElementIds: [] });
+      return;
+    }
+    if (options?.additive) {
+      get().toggleElementSelection(id);
+      return;
+    }
+    set({ selectedElementIds: [id] });
+  },
+
+  selectElements: (ids) => set({ selectedElementIds: ids }),
+
+  clearSelection: () => set({ selectedElementIds: [] }),
+
+  // Entrer en édition de texte ramène toujours à une sélection simple : on
+  // édite un seul bloc à la fois, jamais plusieurs en même temps.
+  setEditingText: (id) => set((state) => ({ editingTextId: id, selectedElementIds: id ? [id] : state.selectedElementIds })),
 
   setPlacingMarkerPreset: (presetId) => set({ placingMarkerPresetId: presetId }),
 
@@ -160,7 +194,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     return {
       ...pushHistory(state),
       content: withPageElements(state.content, state.currentPageIndex, [...page.elements, element]),
-      selectedElementId: element.id,
+      selectedElementIds: [element.id],
     };
   }),
 
@@ -172,7 +206,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     return {
       ...pushHistory(state),
       content: withPageElements(state.content, state.currentPageIndex, [...page.elements, ...elements]),
-      selectedElementId: null,
+      selectedElementIds: [],
     };
   }),
 
@@ -188,7 +222,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     return {
       ...pushHistory(state),
       content: withPageElements(state.content, state.currentPageIndex, elements),
-      selectedElementId: state.selectedElementId === id ? null : state.selectedElementId,
+      selectedElementIds: state.selectedElementIds.filter((selectedId) => selectedId !== id),
     };
   }),
 
@@ -224,18 +258,95 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
   }),
 
-  duplicateSelected: () => {
-    const state = get();
-    const selected = currentPage(state).elements.find((element) => element.id === state.selectedElementId);
-    if (!selected) return;
-    const copy: DocumentElement = { ...selected, id: `${selected.type}-${Date.now()}-${Math.round(Math.random() * 1000)}`, x: selected.x + 16, y: selected.y + 16 };
-    get().addElement(copy);
-  },
+  // Duplique toute la sélection en une seule action (un seul instantané
+  // d'historique, comme un Smart Block) plutôt qu'un `addElement` par
+  // élément — sinon un Ctrl+D sur 3 éléments pousserait 3 entrées
+  // d'historique et un seul Ctrl+Z n'annulerait qu'un tiers de l'opération.
+  duplicateSelected: () => set((state) => {
+    const page = currentPage(state);
+    const selectedIds = new Set(state.selectedElementIds);
+    const selected = page.elements.filter((element) => selectedIds.has(element.id));
+    if (selected.length === 0) return state;
+    const copies = selected.map((element) => ({ ...element, id: newElementIdForClone(element.type), x: element.x + 16, y: element.y + 16 }) as DocumentElement);
+    return {
+      ...pushHistory(state),
+      content: withPageElements(state.content, state.currentPageIndex, [...page.elements, ...copies]),
+      selectedElementIds: copies.map((copy) => copy.id),
+    };
+  }),
 
-  removeSelected: () => {
-    const id = get().selectedElementId;
-    if (id) get().removeElement(id);
-  },
+  removeSelected: () => set((state) => {
+    const selectedIds = new Set(state.selectedElementIds);
+    if (selectedIds.size === 0) return state;
+    const page = currentPage(state);
+    const elements = page.elements.filter((element) => !selectedIds.has(element.id));
+    return {
+      ...pushHistory(state),
+      content: withPageElements(state.content, state.currentPageIndex, elements),
+      selectedElementIds: [],
+    };
+  }),
+
+  // Alignement (étape 14) — n'a de sens qu'à partir de 2 éléments
+  // sélectionnés (voir alignment-toolbar.tsx, qui ne s'affiche que dans ce
+  // cas). Un seul instantané d'historique pour tous les éléments déplacés.
+  alignSelected: (edge) => set((state) => {
+    const page = currentPage(state);
+    const selectedIds = new Set(state.selectedElementIds);
+    const selected = page.elements.filter((element) => selectedIds.has(element.id));
+    if (selected.length < 2) return state;
+
+    const left = Math.min(...selected.map((element) => element.x));
+    const right = Math.max(...selected.map((element) => element.x + element.width));
+    const top = Math.min(...selected.map((element) => element.y));
+    const bottom = Math.max(...selected.map((element) => element.y + element.height));
+
+    function nextPosition(element: DocumentElement): Partial<DocumentElement> {
+      switch (edge) {
+        case "left": return { x: left };
+        case "right": return { x: right - element.width };
+        case "centerX": return { x: (left + right) / 2 - element.width / 2 };
+        case "top": return { y: top };
+        case "bottom": return { y: bottom - element.height };
+        case "centerY": return { y: (top + bottom) / 2 - element.height / 2 };
+      }
+    }
+
+    const elements = page.elements.map((element) => (selectedIds.has(element.id) ? ({ ...element, ...nextPosition(element) } as DocumentElement) : element));
+    return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
+  }),
+
+  // Distribution à espacement égal (étape 14) — les éléments extrêmes (le
+  // plus à gauche/haut et le plus à droite/bas) restent en place, seuls ceux
+  // entre les deux sont repositionnés. N'a de sens qu'à partir de 3 éléments
+  // (2 éléments n'ont qu'un seul intervalle, rien à égaliser).
+  distributeSelected: (axis) => set((state) => {
+    const page = currentPage(state);
+    const selectedIds = new Set(state.selectedElementIds);
+    const selected = page.elements.filter((element) => selectedIds.has(element.id));
+    if (selected.length < 3) return state;
+
+    const sorted = [...selected].sort((a, b) => (axis === "horizontal" ? a.x - b.x : a.y - b.y));
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const totalSpan = axis === "horizontal" ? last.x + last.width - first.x : last.y + last.height - first.y;
+    const totalSize = sorted.reduce((sum, element) => sum + (axis === "horizontal" ? element.width : element.height), 0);
+    const gap = (totalSpan - totalSize) / (sorted.length - 1);
+
+    const positions = new Map<string, number>();
+    let cursor = axis === "horizontal" ? first.x : first.y;
+    for (const element of sorted) {
+      positions.set(element.id, cursor);
+      cursor += (axis === "horizontal" ? element.width : element.height) + gap;
+    }
+
+    const elements = page.elements.map((element) => {
+      const value = positions.get(element.id);
+      if (value === undefined) return element;
+      return axis === "horizontal" ? { ...element, x: value } : { ...element, y: value };
+    });
+    return { ...pushHistory(state), content: withPageElements(state.content, state.currentPageIndex, elements) };
+  }),
 
   // Une page vide de plus, jamais un remplacement de la page actuelle — bascule
   // dessus immédiatement (comme un nouvel élément qui se sélectionne à la
@@ -247,7 +358,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       ...pushHistory(state),
       content: { ...state.content, pages },
       currentPageIndex: pages.length - 1,
-      selectedElementId: null,
+      selectedElementIds: [],
       editingTextId: null,
     };
   }),
@@ -270,7 +381,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       ...pushHistory(state),
       content: { ...state.content, pages },
       currentPageIndex: index + 1,
-      selectedElementId: null,
+      selectedElementIds: [],
       editingTextId: null,
     };
   }),
@@ -286,7 +397,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       ...pushHistory(state),
       content: { ...state.content, pages },
       currentPageIndex,
-      selectedElementId: null,
+      selectedElementIds: [],
       editingTextId: null,
     };
   }),
@@ -303,7 +414,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       ...pushHistory(state),
       content: { ...state.content, pages },
       currentPageIndex: pages.length - 1,
-      selectedElementId: null,
+      selectedElementIds: [],
       editingTextId: null,
     };
   }),
@@ -315,7 +426,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       content: previous,
       past: state.past.slice(0, -1),
       future: [cloneContent(state.content), ...state.future].slice(0, MAX_HISTORY),
-      selectedElementId: null,
+      selectedElementIds: [],
     };
   }),
 
@@ -326,7 +437,14 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
       content: next,
       past: [...state.past, cloneContent(state.content)].slice(-MAX_HISTORY),
       future: state.future.slice(1),
-      selectedElementId: null,
+      selectedElementIds: [],
     };
   }),
 }));
+
+// Sélection unique dérivée (étape 13) — `null` si aucune sélection ou si
+// plusieurs éléments sont sélectionnés, pour les consommateurs qui n'ont de
+// sens que sur un seul élément (Propriétés en mode simple, édition de texte).
+export function useSelectedElementId(): string | null {
+  return useDocumentStore((state) => (state.selectedElementIds.length === 1 ? state.selectedElementIds[0] : null));
+}

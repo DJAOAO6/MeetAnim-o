@@ -20,7 +20,7 @@ type InspectorTab = "properties" | "layers";
 export function InspectorTabs({ readOnly }: { readOnly: boolean }) {
   const [activeTab, setActiveTab] = useState<InspectorTab>("properties");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const selectedElementId = useDocumentStore((state) => state.selectedElementId);
+  const hasSelection = useDocumentStore((state) => state.selectedElementIds.length > 0);
 
   return (
     <>
@@ -28,7 +28,7 @@ export function InspectorTabs({ readOnly }: { readOnly: boolean }) {
         <InspectorTabContent activeTab={activeTab} onTabChange={setActiveTab} readOnly={readOnly} />
       </aside>
 
-      {selectedElementId && !mobileOpen ? (
+      {hasSelection && !mobileOpen ? (
         <button
           type="button"
           onClick={() => setMobileOpen(true)}

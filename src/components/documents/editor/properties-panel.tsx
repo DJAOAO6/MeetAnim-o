@@ -1,6 +1,6 @@
 "use client";
 
-import { useDocumentStore } from "@/components/documents/editor/document-store";
+import { useDocumentStore, useSelectedElementId } from "@/components/documents/editor/document-store";
 import { updateMarkerPresetsAction } from "@/lib/documents/marker-presets-actions";
 import type { DocumentDiagramElement } from "@/lib/documents/content";
 
@@ -9,13 +9,36 @@ const numberFieldClassName = "h-9 w-full rounded-lg border border-[#d9e5e2] bg-a
 export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
   const content = useDocumentStore((state) => state.content);
   const currentPageIndex = useDocumentStore((state) => state.currentPageIndex);
-  const selectedElementId = useDocumentStore((state) => state.selectedElementId);
+  const selectedElementId = useSelectedElementId();
+  const selectedCount = useDocumentStore((state) => state.selectedElementIds.length);
   const updateElement = useDocumentStore((state) => state.updateElement);
   const duplicateSelected = useDocumentStore((state) => state.duplicateSelected);
   const removeSelected = useDocumentStore((state) => state.removeSelected);
 
   const page = content.pages[currentPageIndex];
   const element = page?.elements.find((item) => item.id === selectedElementId);
+
+  // Sélection multiple (étape 13) : pas d'édition de propriétés groupée dans
+  // ce chantier (voir le plan, hors périmètre) — seulement dupliquer/
+  // supprimer, déjà multi-capables côté store. La barre d'alignement
+  // (étape 14) s'affiche séparément, ancrée à la sélection.
+  if (selectedCount > 1) {
+    return (
+      <div className="space-y-4 p-4">
+        <p className="text-sm font-semibold text-animeo-dark">{selectedCount} éléments sélectionnés</p>
+        {!readOnly ? (
+          <div className="flex gap-2 border-t border-[#e5eeeb] pt-4">
+            <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-[#d4e2df] px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+              Dupliquer
+            </button>
+            <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-[#f3c9c9] bg-[#fff1f1] px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-[#ffe0e0]">
+              Supprimer
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   if (!element) {
     return (
