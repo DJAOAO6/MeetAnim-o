@@ -7,7 +7,7 @@ import { DEFAULT_POSITION, newElementId } from "@/components/documents/editor/el
 import { STUDIO_ICONS, type StudioIcon, type StudioIconCategory } from "@/components/documents/editor/studio-icons";
 import type { DocumentIconElement } from "@/lib/documents/content";
 
-const CATEGORIES: StudioIconCategory[] = ["Contact", "Rendez-vous", "Animal", "Consultation", "Santé", "Cabinet"];
+const CATEGORIES: StudioIconCategory[] = ["Contact", "Rendez-vous", "Animal", "Consultation", "Santé", "Cabinet", "Documents"];
 const ICON_SIZE = 48;
 const DEFAULT_COLOR = "#183b45";
 

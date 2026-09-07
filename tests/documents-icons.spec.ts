@@ -143,4 +143,21 @@ test.describe("Documents — bibliothèque d'icônes (étape 23)", () => {
     await expect(page.getByLabel("Position X")).toHaveValue(String(DEFAULT_X));
     await expect(page.getByLabel("Position Y")).toHaveValue(String(DEFAULT_Y));
   });
+
+  test("la bibliothèque élargie (étape 24) expose la catégorie « Documents » et les espèces animales", async ({ page }) => {
+    const title = `${testTitle} Elargie`;
+    await createAndOpenDocument(page, title);
+
+    await page.getByRole("button", { name: "Icônes" }).click();
+    await expect(page.getByRole("button", { name: "Chien", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Fichier", exact: true }).click();
+    await page.waitForTimeout(2500);
+
+    const elements = await readElements(title);
+    expect(elements).toHaveLength(1);
+    expect(elements[0].type).toBe("icon");
+    expect(elements[0].iconName).toBe("Fichier");
+  });
 });
