@@ -2,12 +2,29 @@
 
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { labelForVariable } from "@/lib/documents/variables";
-import type { DocumentElement } from "@/lib/documents/content";
+import { studioIconByName } from "@/components/documents/editor/studio-icons";
+import type { DocumentElement, DocumentShapeElement } from "@/lib/documents/content";
+
+const SHAPE_LABELS: Record<DocumentShapeElement["shape"], string> = {
+  rect: "Rectangle",
+  circle: "Cercle",
+  line: "Ligne",
+  ellipse: "Ellipse",
+  triangle: "Triangle",
+  hexagon: "Hexagone",
+  diamond: "Losange",
+  star: "Étoile",
+  arrow: "Flèche",
+  chevron: "Chevron",
+};
 
 /**
  * Libellé dérivé du contenu réel de l'élément — jamais un nom inventé, voir
  * le plan ("labelForVariable pour un texte lié, aperçu texte tronqué
- * sinon...").
+ * sinon..."). `SHAPE_LABELS` couvre les 10 types de forme (étapes 19-20) —
+ * avant, seuls circle/line étaient distingués, tout le reste (ellipse,
+ * triangle, hexagone, losange, étoile, flèche, chevron) s'affichait
+ * silencieusement comme "Rectangle", un vrai bug corrigé ici (étape 23).
  */
 function elementLabel(element: DocumentElement): string {
   if (element.type === "text") {
@@ -18,9 +35,8 @@ function elementLabel(element: DocumentElement): string {
   }
   if (element.type === "image") return "Image";
   if (element.type === "diagram") return "Schéma (chien)";
-  if (element.shape === "circle") return "Cercle";
-  if (element.shape === "line") return "Ligne";
-  return "Rectangle";
+  if (element.type === "icon") return studioIconByName(element.iconName)?.name ?? "Icône";
+  return SHAPE_LABELS[element.shape];
 }
 
 /**

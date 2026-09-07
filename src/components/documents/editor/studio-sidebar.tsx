@@ -5,6 +5,7 @@ import { TemplatesPanel } from "@/components/documents/editor/panels/templates-p
 import { TextPanel } from "@/components/documents/editor/panels/text-panel";
 import { ShapesPanel } from "@/components/documents/editor/panels/shapes-panel";
 import { LinesPanel } from "@/components/documents/editor/panels/lines-panel";
+import { IconsPanel } from "@/components/documents/editor/panels/icons-panel";
 import { ImagesPanel } from "@/components/documents/editor/panels/images-panel";
 import { DiagramPanel } from "@/components/documents/editor/panels/diagram-panel";
 import { SmartBlocksPanel } from "@/components/documents/editor/panels/smart-blocks-panel";
@@ -15,6 +16,7 @@ const CATEGORIES: { id: SidebarCategory; label: string; icon: React.ReactNode }[
   { id: "text", label: "Texte", icon: <TextIcon /> },
   { id: "shapes", label: "Formes", icon: <ShapesIcon /> },
   { id: "lines", label: "Lignes", icon: <LinesIcon /> },
+  { id: "icons", label: "Icônes", icon: <IconsCategoryIcon /> },
   { id: "images", label: "Images", icon: <ImageIcon /> },
   { id: "diagram", label: "Schémas", icon: <DogIcon /> },
   { id: "blocks", label: "Blocs", icon: <BlocksIcon /> },
@@ -64,6 +66,7 @@ export function StudioSidebar({ readOnly }: { readOnly: boolean }) {
           {openSidebarCategory === "text" ? <TextPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "shapes" ? <ShapesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "lines" ? <LinesPanel readOnly={readOnly} /> : null}
+          {openSidebarCategory === "icons" ? <IconsPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "images" ? <ImagesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "diagram" ? <DiagramPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "blocks" ? <SmartBlocksPanel readOnly={readOnly} /> : null}
@@ -100,6 +103,14 @@ function LinesIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="M4 8h16M13 4l7 4-7 4" />
+    </svg>
+  );
+}
+
+function IconsCategoryIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z M21 21l-4.3-4.3" />
     </svg>
   );
 }

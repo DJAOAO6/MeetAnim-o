@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Stage, Layer, Rect, Line, Circle, Ellipse, RegularPolygon, Star, Arrow, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
+import { Stage, Layer, Rect, Line, Circle, Ellipse, RegularPolygon, Star, Arrow, Path, Text, Group, Image as KonvaImage, Transformer } from "react-konva";
 import type Konva from "konva";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { PAGE_DIMENSIONS } from "@/components/documents/editor/page-geometry";
@@ -9,6 +9,7 @@ import { useHtmlImage } from "@/components/documents/editor/use-html-image";
 import { DOG_DIAGRAM_VIEWBOX, dogDiagramDataUri } from "@/lib/documents/dog-diagram";
 import { colorForPreset } from "@/lib/documents/marker-presets";
 import { computeGuides, type Box, type SmartGuide } from "@/components/documents/editor/smart-guides";
+import { studioIconByName } from "@/components/documents/editor/studio-icons";
 import type { DocumentDiagramElement, DocumentElement } from "@/lib/documents/content";
 
 function rectsIntersect(a: Box, b: Box): boolean {
@@ -295,6 +296,24 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
                 strokeWidth={1}
                 onDblClick={() => { if (!element.variableBinding) setEditingText(element.id); }}
                 onDblTap={() => { if (!element.variableBinding) setEditingText(element.id); }}
+              />
+            );
+          }
+
+          if (element.type === "icon") {
+            const icon = studioIconByName(element.iconName);
+            return (
+              <Path
+                key={element.id}
+                {...common}
+                data={icon?.path ?? ""}
+                stroke={element.color}
+                strokeWidth={element.strokeWidth ?? 1.8}
+                fill="none"
+                lineCap="round"
+                lineJoin="round"
+                scaleX={element.width / 24}
+                scaleY={element.height / 24}
               />
             );
           }

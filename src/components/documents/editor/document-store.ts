@@ -10,7 +10,7 @@ const EMPTY_VARIABLE_CONTEXT: DocumentVariableContext = { professional: null, cl
 // Rail du Studio (étape 6) — une seule catégorie ouverte à la fois, jamais
 // persistée (ni en base, ni dans l'historique undo/redo : ce n'est pas du
 // contenu du document, juste l'état d'affichage de l'éditeur).
-export type SidebarCategory = "text" | "shapes" | "lines" | "images" | "diagram" | "blocks" | "data" | "templates";
+export type SidebarCategory = "text" | "shapes" | "lines" | "icons" | "images" | "diagram" | "blocks" | "data" | "templates";
 
 // Zoom (étape 10) — un `transform: scale()` CSS sur le conteneur commun au
 // Stage Konva et à la surcouche texte (voir document-editor-view.tsx),

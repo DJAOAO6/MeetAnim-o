@@ -159,6 +159,25 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
         </div>
       ) : null}
 
+      {element.type === "icon" ? (
+        <div>
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Style</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Couleur</span>
+              <ColorPicker label="Couleur de l'icône" value={element.color} onChange={(value) => updateElement(element.id, { color: value })} documentColors={documentColors} disabled={readOnly} />
+            </div>
+            <NumberField
+              label="Épais."
+              ariaLabel="Épaisseur de trait"
+              value={element.strokeWidth ?? 1.8}
+              onChange={(value) => updateElement(element.id, { strokeWidth: Math.max(0, value) })}
+              disabled={readOnly}
+            />
+          </div>
+        </div>
+      ) : null}
+
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Opacité</p>
         <div className="flex items-center gap-2">

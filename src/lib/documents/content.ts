@@ -98,7 +98,27 @@ export type DocumentDiagramElement = {
   opacity?: number;
 };
 
-export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement;
+export type DocumentIconElement = {
+  id: string;
+  type: "icon";
+  // Référence vers STUDIO_ICONS (studio-icons.ts) — le tracé SVG n'est
+  // jamais stocké dans l'élément (plus léger, et corriger le dessin d'une
+  // icône profite à tous les documents qui l'utilisent, comme les polices).
+  iconName: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  // Une icône est un pictogramme monochrome (pas de remplissage/contour
+  // distincts comme une forme).
+  color: string;
+  strokeWidth?: number;
+  hidden?: boolean;
+  opacity?: number;
+};
+
+export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement | DocumentIconElement;
 
 // Couleur unie uniquement dans ce chantier (étape 16) — dégradé/image de
 // fond explicitement hors périmètre, voir le plan ("ne surcharge pas
@@ -143,9 +163,12 @@ export function collectDocumentColors(content: DocumentContent): string[] {
   const colors = new Set<string>();
   for (const page of content.pages) {
     for (const element of page.elements) {
-      if (element.type !== "shape") continue;
-      if (element.fill && element.fill !== "transparent") colors.add(element.fill);
-      if (element.stroke && element.stroke !== "transparent") colors.add(element.stroke);
+      if (element.type === "shape") {
+        if (element.fill && element.fill !== "transparent") colors.add(element.fill);
+        if (element.stroke && element.stroke !== "transparent") colors.add(element.stroke);
+      } else if (element.type === "icon") {
+        if (element.color && element.color !== "transparent") colors.add(element.color);
+      }
     }
   }
   return Array.from(colors);

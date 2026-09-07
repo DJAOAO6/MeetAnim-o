@@ -49,6 +49,11 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   const content = useDocumentStore((state) => state.content);
   const undo = useDocumentStore((state) => state.undo);
   const redo = useDocumentStore((state) => state.redo);
+  // Sélecteurs ciblés (juste le booléen, pas tout le tableau) — le bouton
+  // ne se re-rend qu'au moment où il devient (in)disponible, pas à chaque
+  // action historisée.
+  const canUndo = useDocumentStore((state) => state.past.length > 0);
+  const canRedo = useDocumentStore((state) => state.future.length > 0);
   const duplicateSelected = useDocumentStore((state) => state.duplicateSelected);
   const removeSelected = useDocumentStore((state) => state.removeSelected);
   const editingTextId = useDocumentStore((state) => state.editingTextId);
@@ -212,6 +217,31 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           Retour
         </Link>
 
+        {!previewMode ? (
+          <div className="flex items-center gap-0.5 border-l border-neutral-200 pl-3">
+            <button
+              type="button"
+              aria-label="Annuler"
+              title="Annuler (Ctrl+Z)"
+              disabled={readOnly || !canUndo}
+              onClick={() => undo()}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <UndoIcon />
+            </button>
+            <button
+              type="button"
+              aria-label="Rétablir"
+              title="Rétablir (Ctrl+Maj+Z)"
+              disabled={readOnly || !canRedo}
+              onClick={() => redo()}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <RedoIcon />
+            </button>
+          </div>
+        ) : null}
+
         <input
           aria-label="Titre du document"
           value={title}
@@ -293,5 +323,23 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
         />
       ) : null}
     </div>
+  );
+}
+
+function UndoIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
+    </svg>
+  );
+}
+
+function RedoIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13" />
+    </svg>
   );
 }

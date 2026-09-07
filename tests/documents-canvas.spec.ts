@@ -126,4 +126,34 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     await expect(page.getByRole("button", { name: "Bloc de texte" })).toBeDisabled();
     await expect(page.getByLabel("Titre du document")).toBeDisabled();
   });
+
+  test("les boutons Annuler/Rétablir de l'en-tête fonctionnent réellement, pas seulement Ctrl+Z", async ({ page }) => {
+    const sql = neon(process.env.DATABASE_URL!);
+    const title = `${testTitle} UndoRedoBoutons`;
+    await createAndOpenDocument(page, title);
+
+    const undoButton = page.getByRole("button", { name: "Annuler" });
+    const redoButton = page.getByRole("button", { name: "Rétablir" });
+    await expect(undoButton).toBeDisabled();
+    await expect(redoButton).toBeDisabled();
+
+    await page.getByRole("button", { name: "Formes" }).click();
+    await page.getByRole("button", { name: "Cercle", exact: true }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Formes" }).click();
+    await expect(undoButton).toBeEnabled();
+
+    await undoButton.click();
+    await page.waitForTimeout(2500);
+    let [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
+    let content = row.contentJson as { pages: { elements: unknown[] }[] };
+    expect(content.pages[0].elements).toHaveLength(0);
+    await expect(redoButton).toBeEnabled();
+
+    await redoButton.click();
+    await page.waitForTimeout(2500);
+    [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
+    content = row.contentJson as { pages: { elements: unknown[] }[] };
+    expect(content.pages[0].elements).toHaveLength(1);
+  });
 });
