@@ -134,4 +134,24 @@ test.describe("Documents — sélection multiple (étape 13)", () => {
     const content = await readContent(title);
     expect(content.pages[0].elements).toHaveLength(0);
   });
+
+  test("relâcher le clic hors du canevas confirme immédiatement la sélection par glisser, sans re-clic", async ({ page }) => {
+    const title = `${testTitle} MarqueeOutside`;
+    const canvasBox = await createDocumentWithTwoRectangles(page, title);
+
+    // Konva n'écoute mouseup (et mousemove) que sur le <canvas> du Stage —
+    // relâcher hors de ses limites (ici à gauche, vers le rail/panneaux) est
+    // un vrai scénario de glisser rapide. Un écouteur `window` doit
+    // rattraper ce relâchement et confirmer la sélection tout de suite (bug
+    // signalé par l'utilisateur : "il faut recliquer après pour que ça
+    // confirme"). Le glisser part du CENTRE du premier rectangle (60,60 à
+    // 220,160) pour que le dernier rectangle de sélection capturé avant la
+    // sortie du canevas le recouvre déjà.
+    await page.mouse.move(canvasBox.x + 100, canvasBox.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(canvasBox.x - 40, canvasBox.y + 100, { steps: 15 });
+    await page.mouse.up();
+
+    await expect(page.getByLabel("Position X")).toBeVisible({ timeout: 1500 });
+  });
 });

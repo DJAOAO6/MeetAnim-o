@@ -35,7 +35,7 @@ async function createAndOpenDocument(page: import("@playwright/test").Page, titl
 async function readElements(title: string) {
   const sql = neon(process.env.DATABASE_URL!);
   const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
-  const content = row.contentJson as { pages: { elements: { shape?: string; dashed?: boolean; doubleArrow?: boolean }[] }[] };
+  const content = row.contentJson as { pages: { elements: { shape?: string; dashed?: boolean; doubleArrow?: boolean; width: number; height: number }[] }[] };
   return content.pages[0].elements;
 }
 
@@ -115,5 +115,35 @@ test.describe("Documents — catégorie Lignes & flèches (étape 20)", () => {
 
     const elements = await readElements(title);
     expect(elements[0].shape).toBe("chevron");
+  });
+
+  test("redimensionner une ligne via les poignées du Transformer change réellement sa longueur", async ({ page }) => {
+    const title = `${testTitle} Resize`;
+    await createAndOpenDocument(page, title);
+
+    await page.getByRole("button", { name: "Lignes" }).click();
+    await page.getByRole("button", { name: "Ligne", exact: true }).click();
+    await page.waitForTimeout(400);
+
+    // La ligne est insérée à DEFAULT_POSITION (60,60), largeur 200, hauteur
+    // 2 — la poignée droite du Transformer se trouve donc vers (260, 61).
+    // Le Transformer imposait un plancher de 20px sur largeur ET hauteur de
+    // la boîte englobante réelle (getClientRect, ~2px pour une ligne) : ce
+    // plancher était donc systématiquement franchi et TOUT redimensionnement
+    // était rejeté, pas seulement sur l'axe hauteur (bug signalé par
+    // l'utilisateur : "les lignes ne sont pas personnalisable en longueur").
+    const canvasBox = await page.locator("canvas").first().boundingBox();
+    if (!canvasBox) throw new Error("Canvas introuvable");
+    const handleX = canvasBox.x + 60 + 200;
+    const handleY = canvasBox.y + 60 + 1;
+    await page.mouse.move(handleX, handleY);
+    await page.mouse.down();
+    await page.mouse.move(handleX + 80, handleY, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(2500);
+
+    const elements = await readElements(title);
+    expect(elements[0].shape).toBe("line");
+    expect(elements[0].width).toBeGreaterThan(220);
   });
 });

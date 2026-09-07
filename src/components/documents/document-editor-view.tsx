@@ -177,10 +177,21 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
 
   // Raccourcis clavier essentiels (§26 du prompt) — jamais actifs pendant la
   // frappe dans un bloc de texte (Ctrl+D y supprimerait un mot, pas dupliquer
-  // l'élément) ni en lecture seule.
+  // l'élément) ni en lecture seule. Également jamais actifs quand le focus
+  // est dans un CHAMP DE FORMULAIRE quelconque (titre du document, champ Hex
+  // du ColorPicker, recherche d'icône/police...) — sans cette vérification,
+  // corriger une faute de frappe dans le titre avec Retour arrière
+  // supprimait aussi l'élément sélectionné sur le canevas ET bloquait le
+  // retour arrière réel dans le champ (event.preventDefault()), un vrai bug
+  // signalé par l'utilisateur.
   useEffect(() => {
+    function isTypingInFormField(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false;
+      return target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (readOnly || editingTextId) return;
+      if (readOnly || editingTextId || isTypingInFormField(event.target)) return;
       const meta = event.ctrlKey || event.metaKey;
       if (meta && event.key.toLowerCase() === "z" && event.shiftKey) {
         event.preventDefault();

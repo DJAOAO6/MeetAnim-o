@@ -80,6 +80,13 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
 
   if (!element) return null;
 
+  // Ligne/flèche/chevron ont une hauteur naturellement fine (2px par
+  // défaut, voir lines-panel.tsx) — leur imposer le même plancher de 20px
+  // qu'aux formes 2D empêchait de la réduire depuis Propriétés, en plus du
+  // blocage du Transformer déjà corrigé dans canvas-stage.tsx.
+  const isThinLine = element.type === "shape" && (element.shape === "line" || element.shape === "arrow" || element.shape === "chevron");
+  const minHeight = isThinLine ? 2 : 20;
+
   return (
     <div className="space-y-5 p-4">
       <div>
@@ -94,7 +101,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Taille</p>
         <div className="grid grid-cols-2 gap-2">
           <NumberField label="L" ariaLabel="Largeur" value={element.width} onChange={(value) => updateElement(element.id, { width: Math.max(20, value) })} disabled={readOnly} />
-          <NumberField label="H" ariaLabel="Hauteur" value={element.height} onChange={(value) => updateElement(element.id, { height: Math.max(20, value) })} disabled={readOnly} />
+          <NumberField label="H" ariaLabel="Hauteur" value={element.height} onChange={(value) => updateElement(element.id, { height: Math.max(minHeight, value) })} disabled={readOnly} />
         </div>
       </div>
 

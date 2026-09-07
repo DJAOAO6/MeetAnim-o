@@ -26,6 +26,15 @@ function hasShiftKey(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): bo
 
 const SNAP_THRESHOLD_PX = 4;
 
+// Konva `hitStrokeWidth` vaut "auto" par défaut, c'est-à-dire la largeur de
+// trait RÉELLE (souvent 1-2px) — bien trop fin pour cliquer de façon fiable
+// à la souris et a fortiori au doigt (usage tactile, cf. le prompt d'origine).
+// Ne concerne que les éléments SANS remplissage (fill), où seul le tracé du
+// trait est testé au clic : ligne/flèche/chevron (unités page réelles) et
+// icône (unités locales du viewBox 24×24, mises à l'échelle par scaleX/Y).
+const THIN_ELEMENT_HIT_WIDTH = 16;
+const ICON_HIT_STROKE_WIDTH = 8;
+
 function guidesEqual(a: SmartGuide[], b: SmartGuide[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((guide, index) => guide.orientation === b[index].orientation && guide.position === b[index].position);
@@ -63,6 +72,39 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
   const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<Box | null>(null);
   const [activeGuides, setActiveGuides] = useState<SmartGuide[]>([]);
+  const finishMarqueeRef = useRef<() => void>(() => {});
+
+  // Konva n'attache onMouseUp qu'au <canvas> du Stage — si le relâchement
+  // du clic a lieu HORS de ses limites (fréquent lors d'un vrai glisser
+  // rapide, y compris avec le canevas dans un conteneur zoomé/scrollable),
+  // cet événement n'atteint jamais le Stage : le rectangle de sélection
+  // reste "coincé" en état non confirmé jusqu'au clic suivant, qui le
+  // confirme alors avec des coordonnées périmées — bug signalé par
+  // l'utilisateur ("il faut recliquer après pour que ça confirme"). Un
+  // écouteur `window` (jamais raté, quel que soit l'endroit du relâchement)
+  // corrige ça. Le ref est réassigné (jamais pendant le rendu — dans un
+  // effet, exécuté après chaque commit) pour que l'écouteur global n'ait
+  // besoin d'être posé qu'une seule fois tout en appelant toujours la
+  // fermeture la plus récente sur marqueeRect/page/selectElements.
+  useEffect(() => {
+    finishMarqueeRef.current = () => {
+      if (!marqueeStartRef.current) return;
+      if (marqueeRect && (marqueeRect.width > 3 || marqueeRect.height > 3)) {
+        const ids = page?.elements.filter((element) => !element.hidden && rectsIntersect(marqueeRect, element)).map((element) => element.id) ?? [];
+        selectElements(ids);
+      }
+      marqueeStartRef.current = null;
+      setMarqueeRect(null);
+    };
+  }, [marqueeRect, page, selectElements]);
+
+  useEffect(() => {
+    function handleWindowMouseUp() {
+      finishMarqueeRef.current();
+    }
+    window.addEventListener("mouseup", handleWindowMouseUp);
+    return () => window.removeEventListener("mouseup", handleWindowMouseUp);
+  }, []);
 
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -93,6 +135,18 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
     if (!guidesEqual(result.guides, activeGuides)) setActiveGuides(result.guides);
   }
 
+  // Ligne/flèche/chevron sont naturellement "fins" (hauteur par défaut 2px,
+  // voir lines-panel.tsx) — leur imposer le même plancher de 20px qu'aux
+  // formes 2D (rectangle/cercle/...) rendait tout redimensionnement de leur
+  // hauteur impossible (elle retombait systématiquement à 20, créant un
+  // saut visuel) et, plus grave, bloquait aussi le redimensionnement de leur
+  // LONGUEUR via le Transformer (voir boundBoxFunc ci-dessous) — bug signalé
+  // par l'utilisateur : "les lignes ne sont pas personnalisable en longueur
+  // et largeur".
+  function isThinLineElement(element: DocumentElement): boolean {
+    return element.type === "shape" && (element.shape === "line" || element.shape === "arrow" || element.shape === "chevron");
+  }
+
   function handleTransformEnd(element: DocumentElement) {
     const node = nodeRefs.current.get(element.id);
     if (!node) return;
@@ -100,14 +154,27 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
     const scaleY = node.scaleY();
     node.scaleX(1);
     node.scaleY(1);
+    const minWidth = isThinLineElement(element) ? 8 : 20;
+    const minHeight = isThinLineElement(element) ? 2 : 20;
     updateElement(element.id, {
       x: node.x(),
       y: node.y(),
-      width: Math.max(20, element.width * scaleX),
-      height: Math.max(20, element.height * scaleY),
+      width: Math.max(minWidth, element.width * scaleX),
+      height: Math.max(minHeight, element.height * scaleY),
       rotation: node.rotation(),
     });
   }
+
+  // Même relâchement de contrainte que handleTransformEnd ci-dessus, mais
+  // côté Transformer : sans lui, la boîte englobante affichée pendant le
+  // drag (getClientRect, hauteur ~épaisseur du trait pour une ligne) reste
+  // < 20px sur l'axe non concerné par la poignée déplacée, donc TOUT le
+  // geste de redimensionnement était rejeté (pas seulement cet axe) — même
+  // en tirant uniquement la poignée de longueur.
+  const selectedElements = page.elements.filter((el) => selectedElementIds.includes(el.id));
+  const selectionIsThinLine = selectedElements.length > 0 && selectedElements.every(isThinLineElement);
+  const transformerMinWidth = selectionIsThinLine ? 8 : 20;
+  const transformerMinHeight = selectionIsThinLine ? 2 : 20;
 
   return (
     <Stage
@@ -136,14 +203,6 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
           width: Math.abs(pointer.x - start.x),
           height: Math.abs(pointer.y - start.y),
         });
-      }}
-      onMouseUp={() => {
-        if (marqueeRect && (marqueeRect.width > 3 || marqueeRect.height > 3)) {
-          const ids = page.elements.filter((element) => !element.hidden && rectsIntersect(marqueeRect, element)).map((element) => element.id);
-          selectElements(ids);
-        }
-        marqueeStartRef.current = null;
-        setMarqueeRect(null);
       }}
     >
       <Layer>
@@ -245,6 +304,11 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
                   fill={element.stroke || element.fill}
                   stroke={element.stroke || element.fill}
                   strokeWidth={element.strokeWidth ?? 2}
+                  // Sans ceci, la zone cliquable de Konva ne fait que la
+                  // largeur RÉELLE du trait (souvent 1-2px) — quasi
+                  // impossible à cliquer précisément. hitStrokeWidth élargit
+                  // uniquement la détection, pas le rendu visuel.
+                  hitStrokeWidth={THIN_ELEMENT_HIT_WIDTH}
                   dash={dash}
                 />
               );
@@ -258,12 +322,23 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
                   points={[0, 0, width * 0.6, height / 2, 0, height]}
                   stroke={element.stroke || element.fill}
                   strokeWidth={element.strokeWidth ?? 2}
+                  hitStrokeWidth={THIN_ELEMENT_HIT_WIDTH}
                   dash={dash}
                 />
               );
             }
             if (element.shape === "line") {
-              return <Line key={element.id} {...common} points={[0, 0, element.width, 0]} stroke={element.stroke || element.fill} strokeWidth={element.strokeWidth ?? 2} dash={dash} />;
+              return (
+                <Line
+                  key={element.id}
+                  {...common}
+                  points={[0, 0, element.width, 0]}
+                  stroke={element.stroke || element.fill}
+                  strokeWidth={element.strokeWidth ?? 2}
+                  hitStrokeWidth={THIN_ELEMENT_HIT_WIDTH}
+                  dash={dash}
+                />
+              );
             }
             return (
               <Rect
@@ -319,6 +394,14 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
                 // fill (pas de prop du tout) fait que Konva ne peint aucun
                 // remplissage, contrairement à SVG où fill="none" est un
                 // mot-clé compris nativement.
+                // Icône sans fill (voir commentaire ci-dessus) : seul le
+                // TRAIT est détecté au clic, pas l'intérieur du glyphe —
+                // même principe d'élargissement de la zone cliquable que
+                // les lignes/flèches/chevrons ci-dessous, mais exprimé en
+                // unités locales du viewBox 24×24 (mis à l'échelle par
+                // scaleX/scaleY comme le reste du tracé, donc l'effet visuel
+                // reste proportionnel à la taille affichée de l'icône).
+                hitStrokeWidth={ICON_HIT_STROKE_WIDTH}
                 lineCap="round"
                 lineJoin="round"
                 scaleX={element.width / 24}
@@ -330,7 +413,13 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
           return <DiagramElement key={element.id} element={element} common={common} readOnly={readOnly} />;
         })}
 
-        {!readOnly ? <Transformer ref={transformerRef} rotateEnabled boundBoxFunc={(oldBox, newBox) => (newBox.width < 20 || newBox.height < 20 ? oldBox : newBox)} /> : null}
+        {!readOnly ? (
+          <Transformer
+            ref={transformerRef}
+            rotateEnabled
+            boundBoxFunc={(oldBox, newBox) => (newBox.width < transformerMinWidth || newBox.height < transformerMinHeight ? oldBox : newBox)}
+          />
+        ) : null}
 
         {marqueeRect ? (
           <Rect {...marqueeRect} fill="rgba(79,175,159,0.1)" stroke="#4FAF9F" dash={[4, 4]} strokeWidth={1} listening={false} />

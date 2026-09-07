@@ -156,4 +156,38 @@ test.describe("Documents — moteur canvas (étape 2)", () => {
     content = row.contentJson as { pages: { elements: unknown[] }[] };
     expect(content.pages[0].elements).toHaveLength(1);
   });
+
+  test("corriger une faute de frappe (Retour arrière) dans le titre ne supprime pas l'élément sélectionné sur le canevas", async ({ page }) => {
+    const title = `${testTitle} TitreBackspace`;
+    await createAndOpenDocument(page, title);
+
+    // Le raccourci clavier global Suppr/Retour arrière (removeSelected) ne
+    // doit jamais s'activer pendant la frappe dans un champ de formulaire —
+    // sinon corriger une faute de frappe dans le titre supprime aussi
+    // l'élément sélectionné sur le canevas ET bloque le retour arrière réel
+    // dans le champ (bug signalé par l'utilisateur).
+    await page.getByRole("button", { name: "Formes" }).click();
+    await page.getByRole("button", { name: "Rectangle", exact: true }).click();
+    await page.waitForTimeout(400);
+
+    const titleInput = page.getByLabel("Titre du document");
+    await titleInput.click();
+    await titleInput.press("End");
+    await titleInput.press("Backspace");
+    await titleInput.press("Backspace");
+
+    const newTitle = title.slice(0, -2);
+    await expect(titleInput).toHaveValue(newTitle);
+
+    // Le titre n'est enregistré qu'au blur (handleTitleBlur), pas par
+    // l'autosave débouncée du contenu — il faut donc quitter le champ avant
+    // d'interroger la base.
+    await titleInput.blur();
+    await page.waitForTimeout(1500);
+
+    const sql = neon(process.env.DATABASE_URL!);
+    const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${newTitle}`;
+    const content = row.contentJson as { pages: { elements: unknown[] }[] };
+    expect(content.pages[0].elements).toHaveLength(1);
+  });
 });
