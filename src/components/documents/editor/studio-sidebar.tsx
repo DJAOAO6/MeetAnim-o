@@ -4,6 +4,7 @@ import { useDocumentStore, type SidebarCategory } from "@/components/documents/e
 import { TemplatesPanel } from "@/components/documents/editor/panels/templates-panel";
 import { TextPanel } from "@/components/documents/editor/panels/text-panel";
 import { ShapesPanel } from "@/components/documents/editor/panels/shapes-panel";
+import { LinesPanel } from "@/components/documents/editor/panels/lines-panel";
 import { ImagesPanel } from "@/components/documents/editor/panels/images-panel";
 import { DiagramPanel } from "@/components/documents/editor/panels/diagram-panel";
 import { SmartBlocksPanel } from "@/components/documents/editor/panels/smart-blocks-panel";
@@ -13,6 +14,7 @@ const CATEGORIES: { id: SidebarCategory; label: string; icon: React.ReactNode }[
   { id: "templates", label: "Modèles", icon: <TemplatesIcon /> },
   { id: "text", label: "Texte", icon: <TextIcon /> },
   { id: "shapes", label: "Formes", icon: <ShapesIcon /> },
+  { id: "lines", label: "Lignes", icon: <LinesIcon /> },
   { id: "images", label: "Images", icon: <ImageIcon /> },
   { id: "diagram", label: "Schémas", icon: <DogIcon /> },
   { id: "blocks", label: "Blocs", icon: <BlocksIcon /> },
@@ -61,6 +63,7 @@ export function StudioSidebar({ readOnly }: { readOnly: boolean }) {
           {openSidebarCategory === "templates" ? <TemplatesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "text" ? <TextPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "shapes" ? <ShapesPanel readOnly={readOnly} /> : null}
+          {openSidebarCategory === "lines" ? <LinesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "images" ? <ImagesPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "diagram" ? <DiagramPanel readOnly={readOnly} /> : null}
           {openSidebarCategory === "blocks" ? <SmartBlocksPanel readOnly={readOnly} /> : null}
@@ -89,6 +92,14 @@ function ShapesIcon() {
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
       <circle cx="9" cy="9" r="4.5" />
       <rect x="12.5" y="12.5" width="8" height="8" rx="1.5" />
+    </svg>
+  );
+}
+
+function LinesIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M4 8h16M13 4l7 4-7 4" />
     </svg>
   );
 }

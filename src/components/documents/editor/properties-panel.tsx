@@ -132,6 +132,30 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
               />
             ) : null}
           </div>
+
+          {["line", "arrow", "chevron"].includes(element.shape) ? (
+            <label className="mt-2 flex items-center gap-2 text-xs font-extrabold text-animeo-dark">
+              <input
+                type="checkbox"
+                checked={element.dashed ?? false}
+                disabled={readOnly}
+                onChange={(event) => updateElement(element.id, { dashed: event.target.checked })}
+              />
+              Pointillé
+            </label>
+          ) : null}
+
+          {element.shape === "arrow" ? (
+            <label className="mt-2 flex items-center gap-2 text-xs font-extrabold text-animeo-dark">
+              <input
+                type="checkbox"
+                checked={element.doubleArrow ?? false}
+                disabled={readOnly}
+                onChange={(event) => updateElement(element.id, { doubleArrow: event.target.checked })}
+              />
+              Double flèche
+            </label>
+          ) : null}
         </div>
       ) : null}
 

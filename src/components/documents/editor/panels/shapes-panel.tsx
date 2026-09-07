@@ -20,10 +20,6 @@ export function ShapesPanel({ readOnly }: { readOnly: boolean }) {
     insert({ id: newElementId("shape"), type: "shape", shape: "circle", ...DEFAULT_POSITION, width: 120, height: 120, rotation: 0, fill: "#fff1d5", stroke: "#e0a83f" });
   }
 
-  function addLine() {
-    insert({ id: newElementId("shape"), type: "shape", shape: "line", ...DEFAULT_POSITION, width: 200, height: 2, rotation: 0, fill: "#183b45", stroke: "#183b45" });
-  }
-
   // Préréglages du rectangle existant (étape 19) — pas de nouveau type de
   // forme, juste un cornerRadius différent (déjà un champ existant).
   function addRoundedRectangle() {
@@ -57,7 +53,6 @@ export function ShapesPanel({ readOnly }: { readOnly: boolean }) {
   const items = [
     { label: "Rectangle", onClick: addRectangle, icon: <RectIcon /> },
     { label: "Cercle", onClick: addCircle, icon: <CircleIcon /> },
-    { label: "Ligne", onClick: addLine, icon: <LineIcon /> },
     { label: "Rectangle arrondi", onClick: addRoundedRectangle, icon: <RoundedRectIcon /> },
     { label: "Badge", onClick: addBadge, icon: <BadgeIcon /> },
     { label: "Ellipse", onClick: addEllipse, icon: <EllipseIcon /> },
@@ -96,10 +91,6 @@ function RectIcon() {
 
 function CircleIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><circle cx="12" cy="12" r="8" /></svg>;
-}
-
-function LineIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="h-5 w-5"><path d="M4 12h16" /></svg>;
 }
 
 function RoundedRectIcon() {
