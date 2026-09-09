@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { AnatomicalIllustration } from "@/components/anatomy/anatomical-illustration";
+import { AnatomyLabels, LABEL_GUTTER } from "@/components/anatomy/anatomy-labels";
 import { InteractiveAnatomyOverlay, type AnatomyObservation } from "@/components/anatomy/interactive-anatomy-overlay";
 import { anatomyPath, findAnatomyNode } from "@/lib/anatomy/taxonomy";
+import type { LabelCandidate } from "@/lib/anatomy/label-placement";
 import type { AnatomyView } from "@/lib/anatomy/views";
 
 export type { AnatomyObservation };
@@ -16,6 +18,8 @@ type AnatomyViewerProps = {
   /** Survol piloté de l'extérieur (liste anatomique ↔ schéma). */
   externalHoveredZoneId?: string | null;
   onHoverZone?: (zoneId: string | null) => void;
+  /** Libellés reliés aux zones observées — remplacent l'ancienne légende. */
+  showLabels?: boolean;
   readOnly?: boolean;
   className?: string;
 };
@@ -36,6 +40,7 @@ export function AnatomyViewer({
   onSelectZone,
   externalHoveredZoneId = null,
   onHoverZone,
+  showLabels = false,
   readOnly = false,
   className,
 }: AnatomyViewerProps) {
@@ -53,19 +58,56 @@ export function AnatomyViewer({
     onHoverZone?.(zoneId);
   }
 
+  // Les libellés vivent dans une gouttière de part et d'autre : le cadre
+  // rendu est donc plus large que l'illustration, sans quoi ils la
+  // recouvriraient. Sans libellés, aucune gouttière — l'illustration occupe
+  // toute la largeur disponible.
+  const gutter = showLabels ? LABEL_GUTTER : 0;
+  const frameWidth = view.viewBox.width + gutter * 2;
+
+  const labelCandidates: LabelCandidate[] = useMemo(() => {
+    if (!showLabels) return [];
+    return view.hitboxes
+      .filter((hitbox) => observationsByZone.has(hitbox.zoneId))
+      .map((hitbox) => {
+        const observation = observationsByZone.get(hitbox.zoneId)!;
+        const node = findAnatomyNode(hitbox.zoneId);
+        return {
+          id: hitbox.zoneId,
+          anchor: hitbox.labelAnchor,
+          // Le côté est déjà porté par la vue : « Genou » suffit sur le
+          // schéma, le nom complet reste dans l'aria-label et la liste.
+          title: node?.shortLabel ?? node?.label ?? hitbox.zoneId,
+          // Le type d'observation est écrit, pas seulement couleuré.
+          subtitle: observation.typeLabel,
+          color: observation.color,
+        };
+      });
+  }, [showLabels, view, observationsByZone]);
+
   const tooltipZoneId = hoveredZoneId;
-  const tooltip = tooltipZoneId ? buildTooltip(view, tooltipZoneId, observationsByZone.get(tooltipZoneId) ?? null) : null;
+  const tooltip = tooltipZoneId ? buildTooltip(view, tooltipZoneId, observationsByZone.get(tooltipZoneId) ?? null, gutter) : null;
+
+  // Quand une zone est survolée, les autres libellés s'effacent légèrement
+  // pour que l'attention suive le pointeur sans que rien ne disparaisse.
+  const dimmedLabelIds = useMemo(() => {
+    if (!hoveredZoneId) return undefined;
+    const dimmed = new Set(labelCandidates.map((candidate) => candidate.id));
+    dimmed.delete(hoveredZoneId);
+    return dimmed;
+  }, [hoveredZoneId, labelCandidates]);
 
   return (
     <figure className={className}>
       <div className="relative">
         <svg
-          viewBox={`0 0 ${view.viewBox.width} ${view.viewBox.height}`}
+          viewBox={`${-gutter} 0 ${frameWidth} ${view.viewBox.height}`}
           className="block w-full"
           role="group"
           aria-label={`${view.label} — zones anatomiques`}
         >
           <AnatomicalIllustration view={view} />
+          {showLabels ? <AnatomyLabels view={view} candidates={labelCandidates} dimmedIds={dimmedLabelIds} /> : null}
           <InteractiveAnatomyOverlay
             view={view}
             observationsByZone={observationsByZone}
@@ -104,7 +146,7 @@ export function AnatomyViewer({
   );
 }
 
-function buildTooltip(view: AnatomyView, zoneId: string, observation: AnatomyObservation | null) {
+function buildTooltip(view: AnatomyView, zoneId: string, observation: AnatomyObservation | null, gutter: number) {
   const hitbox = view.hitboxes.find((candidate) => candidate.zoneId === zoneId);
   if (!hitbox) return null;
 
@@ -113,8 +155,13 @@ function buildTooltip(view: AnatomyView, zoneId: string, observation: AnatomyObs
   // « Rachis › Lombaires » sous le titre « L5 ».
   const path = anatomyPath(zoneId).slice(1, -1).map((step) => step.label);
 
+  // Pourcentages du CADRE rendu (gouttières comprises), pas du viewBox de
+  // l'illustration : sans ce décalage, l'infobulle glisserait vers la gauche
+  // dès que les libellés sont affichés.
+  const frameWidth = view.viewBox.width + gutter * 2;
+
   return {
-    left: (hitbox.labelAnchor.x / view.viewBox.width) * 100,
+    left: ((hitbox.labelAnchor.x + gutter) / frameWidth) * 100,
     top: (hitbox.labelAnchor.y / view.viewBox.height) * 100 - 1,
     title: node?.label ?? zoneId,
     detail: observation ? observation.typeLabel : path.join(" › "),
