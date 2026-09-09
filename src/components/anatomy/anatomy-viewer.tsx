@@ -21,6 +21,12 @@ type AnatomyViewerProps = {
   /** Libellés reliés aux zones observées — remplacent l'ancienne légende. */
   showLabels?: boolean;
   readOnly?: boolean;
+  /**
+   * Remplit exactement son conteneur (hauteur comprise) au lieu de se laisser
+   * dimensionner par son ratio — utilisé dans le Studio, où le schéma occupe
+   * une boîte d'élément de taille imposée par l'utilisateur.
+   */
+  fill?: boolean;
   className?: string;
 };
 
@@ -42,6 +48,7 @@ export function AnatomyViewer({
   onHoverZone,
   showLabels = false,
   readOnly = false,
+  fill = false,
   className,
 }: AnatomyViewerProps) {
   const [internalHover, setInternalHover] = useState<string | null>(null);
@@ -98,11 +105,11 @@ export function AnatomyViewer({
   }, [hoveredZoneId, labelCandidates]);
 
   return (
-    <figure className={className}>
-      <div className="relative">
+    <figure className={[fill ? "flex h-full w-full flex-col" : "", className ?? ""].filter(Boolean).join(" ")}>
+      <div className={fill ? "relative min-h-0 flex-1" : "relative"}>
         <svg
           viewBox={`${-gutter} 0 ${frameWidth} ${view.viewBox.height}`}
-          className="block w-full"
+          className={fill ? "block h-full w-full" : "block w-full"}
           role="group"
           aria-label={`${view.label} — zones anatomiques`}
         >

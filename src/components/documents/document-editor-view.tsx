@@ -10,6 +10,7 @@ import type Konva from "konva";
 import { StudioSidebar } from "@/components/documents/editor/studio-sidebar";
 import { InspectorTabs } from "@/components/documents/editor/inspector-tabs";
 import { TextOverlay } from "@/components/documents/editor/text-overlay";
+import { AnatomyOverlay } from "@/components/documents/editor/anatomy-overlay";
 import { AlignmentToolbar } from "@/components/documents/editor/alignment-toolbar";
 import { SelectionLockBadge } from "@/components/documents/editor/selection-lock-badge";
 import { ZoomControl } from "@/components/documents/editor/zoom-control";
@@ -339,6 +340,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
                   <CanvasStage readOnly={readOnly} stageRef={stageRef} />
                   <div ref={overlayRef} className="pointer-events-none absolute inset-0">
                     <TextOverlay readOnly={readOnly} />
+                    <AnatomyOverlay readOnly={readOnly} />
                   </div>
                   {/* Hors de overlayRef volontairement : ce div est capturé tel quel
                       par l'export PDF (html-to-image), la barre d'alignement ne

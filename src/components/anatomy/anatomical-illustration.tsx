@@ -27,17 +27,23 @@ export function AnatomicalIllustration({ view }: { view: AnatomyView }) {
   );
 }
 
+// Peinture en ATTRIBUTS, pas en classes Tailwind : l'export PDF capture la
+// surcouche DOM via html-to-image, qui ne rejoue pas ces classes — les
+// formes repartaient alors sur le `fill` noir par défaut du SVG et le
+// schéma sortait en pavés noirs dans le PDF (constaté sur un export réel).
+const OUTLINE_FILL = "#f5f5f5";
+const OUTLINE_STROKE = "#d4d4d4";
+
 function ShapeOutline({ shape }: { shape: AnatomyShape }) {
-  const className = "fill-neutral-100/70 stroke-neutral-300";
-  const strokeWidth = 1;
+  const paint = { fill: OUTLINE_FILL, stroke: OUTLINE_STROKE, strokeWidth: 1 };
 
   if (shape.type === "rect") {
-    return <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} rx={shape.rx} className={className} strokeWidth={strokeWidth} />;
+    return <rect x={shape.x} y={shape.y} width={shape.width} height={shape.height} rx={shape.rx} {...paint} />;
   }
   if (shape.type === "ellipse") {
-    return <ellipse cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} className={className} strokeWidth={strokeWidth} />;
+    return <ellipse cx={shape.cx} cy={shape.cy} rx={shape.rx} ry={shape.ry} {...paint} />;
   }
-  return <path d={shape.d} className={className} strokeWidth={strokeWidth} />;
+  return <path d={shape.d} {...paint} />;
 }
 
 /** Rendu d'une géométrie de zone, partagé par l'illustration et la couche interactive. */

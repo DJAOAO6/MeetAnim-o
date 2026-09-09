@@ -426,6 +426,25 @@ export function CanvasStage({ readOnly, stageRef }: CanvasStageProps) {
             );
           }
 
+          if (element.type === "anatomy") {
+            // Rectangle fantôme : le schéma anatomique est rendu en DOM/SVG
+            // par-dessus le Stage (anatomy-overlay.tsx), Konva ne porte ici
+            // que la sélection, le déplacement et le redimensionnement —
+            // même patron que les blocs de texte ci-dessus.
+            return (
+              <Rect
+                key={element.id}
+                {...common}
+                width={element.width}
+                height={element.height}
+                fill="transparent"
+                stroke={selectedElementIds.includes(element.id) ? "#4FAF9F" : "transparent"}
+                dash={[4, 4]}
+                strokeWidth={1}
+              />
+            );
+          }
+
           return <DiagramElement key={element.id} element={element} common={common} readOnly={readOnly} />;
         })}
 

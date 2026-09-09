@@ -5,12 +5,48 @@ import { neon } from "@neondatabase/serverless";
 config({ path: ".env.local" });
 
 /**
- * Studio de documents, étape 4 : schéma animalier (chien) + repères.
+ * Compatibilité de l'ancien schéma animalier (étape 4), remplacé à l'étape 31
+ * par le schéma anatomique interactif.
+ *
+ * Ce type d'élément n'est plus insérable — ces tests ne passent donc plus par
+ * l'interface pour en créer un, ils écrivent directement en base un document
+ * tel qu'il a pu être enregistré AVANT l'étape 31, et vérifient qu'il
+ * s'ouvre, s'affiche et se ré-exporte encore. C'est la promesse de
+ * compatibilité faite sur DocumentDiagramElement : aucun document déjà
+ * enregistré ne doit se casser.
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
 const testPassword = "Praticien-Test-2026!";
-const testTitle = "E2EDiagramTest";
+const testTitle = "E2ELegacyDiagramTest";
+
+const legacyContent = {
+  formatVersion: 1,
+  pageSize: "A4_PORTRAIT",
+  pages: [
+    {
+      id: "page-1",
+      elements: [
+        {
+          id: "diagram-legacy",
+          type: "diagram",
+          x: 60,
+          y: 60,
+          width: 380,
+          height: 250,
+          rotation: 0,
+          species: "dog",
+          view: "profile-left",
+          showLegend: true,
+          markers: [
+            { id: "marker-1", x: 0.42, y: 0.55, presetId: "restriction", label: "Restriction" },
+            { id: "marker-2", x: 0.7, y: 0.3, presetId: "tension", label: "Tension" },
+          ],
+        },
+      ],
+    },
+  ],
+};
 
 async function cleanupDocuments() {
   const sql = neon(process.env.DATABASE_URL!);
@@ -22,21 +58,18 @@ async function clearLoginRateLimit() {
   await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
 }
 
-async function createAndOpenDocument(page: import("@playwright/test").Page, title: string) {
-  await page.goto("/dashboard/documents");
-  await page.getByRole("button", { name: "Nouveau document" }).click();
-  await page.getByPlaceholder("Ex. Compte rendu — Oslo").fill(title);
-  await page.getByRole("dialog").getByRole("button", { name: "Créer" }).click();
-  await page.waitForURL(/\/dashboard\/documents\/[a-z0-9]+/, { timeout: 10000 });
-  await page.waitForTimeout(600);
-  // Le zoom s'ajuste désormais à l'ouverture pour que la page entière
-  // tienne à l'écran : ce test raisonne en coordonnées document
-  // (canvasBox.x + 60 = x:60 de la page), il lui faut donc l'échelle 1:1.
-  await page.getByRole("button", { name: "Réinitialiser le zoom à 100 %" }).click();
-  await page.waitForTimeout(200);
+/** Crée en base un document tel qu'enregistré avant l'étape 31. */
+async function seedLegacyDocument(title: string): Promise<string> {
+  const sql = neon(process.env.DATABASE_URL!);
+  const [user] = await sql`SELECT id FROM "User" WHERE email = ${testEmail}`;
+  const [row] = await sql`
+    INSERT INTO "StudioDocument" (id, title, status, "contentJson", "createdByUserId", "createdAt", "updatedAt")
+    VALUES (gen_random_uuid()::text, ${title}, 'DRAFT', ${JSON.stringify(legacyContent)}::jsonb, ${user.id}, now(), now())
+    RETURNING id`;
+  return row.id as string;
 }
 
-test.describe("Documents — schéma animalier et repères (étape 4)", () => {
+test.describe("Documents — compatibilité de l'ancien schéma (étape 4 → 31)", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
@@ -53,103 +86,52 @@ test.describe("Documents — schéma animalier et repères (étape 4)", () => {
     await cleanupDocuments();
   });
 
-  test("poser un repère sur le schéma persiste sa position, son préréglage et son libellé", async ({ page }) => {
+  test("un document contenant l'ancien schéma s'ouvre et le conserve intact", async ({ page }) => {
+    const title = `${testTitle} Ouverture`;
+    const id = await seedLegacyDocument(title);
+
+    await page.goto(`/dashboard/documents/${id}`);
+    await page.waitForTimeout(1500);
+
+    // Le panneau Calques le nomme comme un schéma hérité, et ses repères
+    // d'origine sont toujours là après ouverture puis enregistrement.
+    await page.getByRole("tab", { name: "Calques" }).click();
+    await expect(page.getByText("Schéma (ancien)")).toBeVisible();
+
     const sql = neon(process.env.DATABASE_URL!);
-    const title = `${testTitle} Pose`;
-    await createAndOpenDocument(page, title);
-
-    await page.getByRole("button", { name: "Schémas" }).click();
-    await page.getByRole("button", { name: "Schéma (chien)" }).click();
-    await page.waitForTimeout(300);
-
-    await page.getByRole("button", { name: "Restriction" }).click();
-    await expect(page.getByText("Cliquez sur le schéma pour poser le repère…")).toBeVisible();
-
-    const canvas = page.locator("canvas").first();
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error("canvas introuvable");
-    await page.mouse.click(box.x + 80, box.y + 140);
-    await page.waitForTimeout(2500);
-
-    const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
-    const content = row.contentJson as { pages: { elements: { type: string; markers?: { presetId: string; label: string; x: number; y: number }[] }[] }[] };
-    const diagram = content.pages[0].elements.find((element) => element.type === "diagram");
-    expect(diagram?.markers?.length).toBe(1);
-    expect(diagram?.markers?.[0].presetId).toBe("restriction");
-    expect(diagram?.markers?.[0].label).toBe("Restriction");
-    expect(diagram?.markers?.[0].x).toBeGreaterThan(0);
-    expect(diagram?.markers?.[0].y).toBeGreaterThan(0);
-
-    await expect(page.getByText("1. Restriction")).toBeVisible();
-  });
-
-  test("supprimer un repère depuis le panneau le retire réellement du document", async ({ page }) => {
-    const sql = neon(process.env.DATABASE_URL!);
-    const title = `${testTitle} Suppr`;
-    await createAndOpenDocument(page, title);
-
-    await page.getByRole("button", { name: "Schémas" }).click();
-    await page.getByRole("button", { name: "Schéma (chien)" }).click();
-    await page.waitForTimeout(300);
-    await page.getByRole("button", { name: "Tension" }).click();
-    const canvas = page.locator("canvas").first();
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error("canvas introuvable");
-    await page.mouse.click(box.x + 100, box.y + 150);
-    await page.waitForTimeout(2500);
-
-    await page.getByRole("button", { name: "Supprimer le repère 1" }).click();
-    await page.waitForTimeout(2500);
-
-    const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
+    const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE id = ${id}`;
     const content = row.contentJson as { pages: { elements: { type: string; markers?: unknown[] }[] }[] };
     const diagram = content.pages[0].elements.find((element) => element.type === "diagram");
-    expect(diagram?.markers?.length).toBe(0);
+    expect(diagram?.markers?.length).toBe(2);
   });
 
-  test("masquer la légende persiste showLegend à false", async ({ page }) => {
-    const sql = neon(process.env.DATABASE_URL!);
-    const title = `${testTitle} Legende`;
-    await createAndOpenDocument(page, title);
+  test("l'ancien schéma n'est plus proposé à l'insertion", async ({ page }) => {
+    const title = `${testTitle} Insertion`;
+    const id = await seedLegacyDocument(title);
 
+    await page.goto(`/dashboard/documents/${id}`);
+    await page.waitForTimeout(1200);
     await page.getByRole("button", { name: "Schémas" }).click();
-    await page.getByRole("button", { name: "Schéma (chien)" }).click();
-    await page.waitForTimeout(300);
 
-    await page.getByLabel("Afficher la légende").uncheck();
-    await page.waitForTimeout(2500);
-
-    const [row] = await sql`SELECT "contentJson" FROM "StudioDocument" WHERE title = ${title}`;
-    const content = row.contentJson as { pages: { elements: { type: string; showLegend?: boolean }[] }[] };
-    const diagram = content.pages[0].elements.find((element) => element.type === "diagram");
-    expect(diagram?.showLegend).toBe(false);
+    await expect(page.getByRole("button", { name: "Schéma (chien)" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Vue latérale gauche" })).toBeVisible();
   });
 
-  test("renommer un préréglage de repère persiste et se reflète immédiatement dans le sélecteur", async ({ page }) => {
+  test("un document contenant l'ancien schéma s'exporte encore en PDF", async ({ page }) => {
+    const title = `${testTitle} Export`;
+    const id = await seedLegacyDocument(title);
+
+    await page.goto(`/dashboard/documents/${id}`);
+    await page.waitForTimeout(1500);
+
+    await page.getByRole("button", { name: /Finaliser/ }).first().click();
+    await page.waitForTimeout(500);
+    await page.getByRole("button", { name: /^Finaliser$/ }).last().click();
+    await page.waitForTimeout(9000);
+
     const sql = neon(process.env.DATABASE_URL!);
-    const title = `${testTitle} Renomme`;
-    await createAndOpenDocument(page, title);
-
-    await page.getByRole("button", { name: "Schémas" }).click();
-    await page.getByRole("button", { name: "Schéma (chien)" }).click();
-    await page.waitForTimeout(300);
-
-    const renameInput = page.getByLabel("Renommer le repère À surveiller");
-    await renameInput.fill("Vigilance renforcée");
-    await renameInput.press("Tab");
-    await page.waitForTimeout(600);
-
-    await expect(page.getByRole("button", { name: "Vigilance renforcée" })).toBeVisible();
-
-    const [profile] = await sql`SELECT "markerPresets" FROM "BusinessProfile" LIMIT 1`;
-    const presets = profile.markerPresets as { id: string; label: string }[];
-    expect(presets.find((preset) => preset.id === "a-surveiller")?.label).toBe("Vigilance renforcée");
-
-    // Restaure le libellé par défaut pour ne pas polluer les tests suivants
-    // (ce préréglage est partagé par tout le cabinet, pas propre à ce test).
-    const restoreInput = page.getByLabel("Renommer le repère Vigilance renforcée");
-    await restoreInput.fill("À surveiller");
-    await restoreInput.press("Tab");
-    await page.waitForTimeout(600);
+    const [row] = await sql`SELECT status, length("pdfBase64") AS pdf_len FROM "StudioDocument" WHERE id = ${id}`;
+    expect(row.status).toBe("FINALIZED");
+    expect(Number(row.pdf_len)).toBeGreaterThan(1000);
   });
 });

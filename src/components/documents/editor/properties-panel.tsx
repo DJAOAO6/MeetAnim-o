@@ -2,6 +2,7 @@
 
 import { useDocumentStore, useSelectedElementId } from "@/components/documents/editor/document-store";
 import { updateMarkerPresetsAction } from "@/lib/documents/marker-presets-actions";
+import { AnatomyProperties } from "@/components/documents/editor/anatomy-properties";
 import { ColorPicker } from "@/components/documents/editor/color-picker";
 import { collectDocumentColors, type DocumentDiagramElement } from "@/lib/documents/content";
 
@@ -213,6 +214,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
       </div>
 
       {element.type === "diagram" ? <DiagramProperties element={element} readOnly={fieldsDisabled} /> : null}
+      {element.type === "anatomy" ? <AnatomyProperties element={element} readOnly={fieldsDisabled} /> : null}
 
       {!fieldsDisabled ? (
         <div className="flex gap-2 border-t border-[#e5eeeb] pt-4">

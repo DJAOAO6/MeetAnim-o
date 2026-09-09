@@ -3,6 +3,7 @@
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { labelForVariable } from "@/lib/documents/variables";
 import { studioIconByName } from "@/components/documents/editor/studio-icons";
+import { getAnatomyView } from "@/lib/anatomy/views";
 import type { DocumentElement, DocumentShapeElement } from "@/lib/documents/content";
 
 const SHAPE_LABELS: Record<DocumentShapeElement["shape"], string> = {
@@ -34,7 +35,8 @@ function elementLabel(element: DocumentElement): string {
     return stripped.length > 30 ? `${stripped.slice(0, 30)}…` : stripped;
   }
   if (element.type === "image") return "Image";
-  if (element.type === "diagram") return "Schéma (chien)";
+  if (element.type === "diagram") return "Schéma (ancien)";
+  if (element.type === "anatomy") return getAnatomyView(element.viewId)?.label ?? "Schéma anatomique";
   if (element.type === "icon") return studioIconByName(element.iconName)?.name ?? "Icône";
   return SHAPE_LABELS[element.shape];
 }

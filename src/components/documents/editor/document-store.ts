@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DocumentContent, DocumentElement, DocumentPage } from "@/lib/documents/content";
+import type { DocumentAnatomyElement, DocumentContent, DocumentElement, DocumentPage } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
 import { DEFAULT_MARKER_PRESETS, type MarkerPreset } from "@/lib/documents/marker-presets";
 
@@ -43,6 +43,10 @@ type DocumentStoreState = {
   // animalier (étape 4) : le prochain clic sur le schéma pose un marqueur
   // avec ce préréglage, voir canvas-stage.tsx et properties-panel.tsx.
   placingMarkerPresetId: string | null;
+  // Zone anatomique mise en avant dans le schéma (étape 31) : pilote le
+  // surlignage du schéma ET la mise en avant dans la liste anatomique, de
+  // sorte que les trois modes de sélection montrent toujours la même chose.
+  selectedZoneId: string | null;
   openSidebarCategory: SidebarCategory | null;
   zoomLevel: number;
   // Pile d'annulation/rétablissement par snapshot complet du contenu — le
@@ -64,6 +68,8 @@ type DocumentStoreState = {
   clearSelection: () => void;
   setEditingText: (id: string | null) => void;
   setPlacingMarkerPreset: (presetId: string | null) => void;
+  setSelectedZone: (zoneId: string | null) => void;
+  selectAnatomyZone: (elementId: string, zoneId: string) => void;
   setSidebarCategory: (category: SidebarCategory | null) => void;
   setZoom: (level: number) => void;
   zoomIn: () => void;
@@ -135,6 +141,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   selectedElementIds: [],
   editingTextId: null,
   placingMarkerPresetId: null,
+  selectedZoneId: null,
   openSidebarCategory: null,
   zoomLevel: 1,
   past: [],
@@ -148,6 +155,7 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
     selectedElementIds: [],
     editingTextId: null,
     placingMarkerPresetId: null,
+    selectedZoneId: null,
     openSidebarCategory: null,
     zoomLevel: 1,
     past: [],
@@ -184,6 +192,37 @@ export const useDocumentStore = create<DocumentStoreState>((set, get) => ({
   setEditingText: (id) => set((state) => ({ editingTextId: id, selectedElementIds: id ? [id] : state.selectedElementIds })),
 
   setPlacingMarkerPreset: (presetId) => set({ placingMarkerPresetId: presetId }),
+
+  setSelectedZone: (zoneId) => set({ selectedZoneId: zoneId }),
+
+  /**
+   * Point d'entrée UNIQUE de la sélection d'une zone anatomique, quel que
+   * soit le mode utilisé (clic sur le schéma, autocomplete, liste) — c'est
+   * ce qui rend leur divergence impossible. Si un type d'observation est
+   * armé, la zone est notée au passage ; une zone déjà notée est re-typée
+   * plutôt que dupliquée.
+   */
+  selectAnatomyZone: (elementId, zoneId) => {
+    const state = get();
+    const element = currentPage(state).elements.find(
+      (candidate): candidate is DocumentAnatomyElement => candidate.id === elementId && candidate.type === "anatomy",
+    );
+    if (!element) return;
+
+    const presetId = state.placingMarkerPresetId;
+    if (!presetId || element.locked) {
+      set({ selectedZoneId: zoneId });
+      return;
+    }
+
+    const existing = element.observations.find((observation) => observation.zoneId === zoneId);
+    const observations = existing
+      ? element.observations.map((observation) => (observation.zoneId === zoneId ? { ...observation, presetId } : observation))
+      : [...element.observations, { id: `obs-${Date.now()}-${Math.round(Math.random() * 1000)}`, zoneId, presetId }];
+
+    get().updateElement(elementId, { observations });
+    set({ selectedZoneId: zoneId, placingMarkerPresetId: null });
+  },
 
   setSidebarCategory: (category) => set({ openSidebarCategory: category }),
 

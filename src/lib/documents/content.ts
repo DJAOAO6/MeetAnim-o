@@ -1,3 +1,5 @@
+import type { AnatomyViewId } from "@/lib/anatomy/views";
+
 // Studio de documents — format de stockage d'un document (StudioDocument.contentJson).
 // `formatVersion` permet une migration future du format sans casser les
 // documents déjà enregistrés (voir prisma/schema.prisma, commentaire sur
@@ -95,6 +97,18 @@ export type DiagramMarker = {
   label: string;
 };
 
+/**
+ * OBSOLÈTE depuis l'étape 31 — remplacé par `DocumentAnatomyElement`.
+ *
+ * Ses repères sont des coordonnées libres posées au clic, sans lien avec une
+ * structure anatomique nommée : rien n'en était exploitable (ni recherche, ni
+ * statistiques par zone, ni cohérence entre deux comptes rendus), et son
+ * illustration est une silhouette dessinée à la main, écartée depuis.
+ *
+ * Le type est CONSERVÉ, et son rendu Konva avec lui, pour que les documents
+ * déjà enregistrés continuent de s'afficher et de se ré-exporter à
+ * l'identique. Aucun nouvel élément de ce type n'est plus insérable.
+ */
 export type DocumentDiagramElement = {
   id: string;
   type: "diagram";
@@ -137,7 +151,54 @@ export type DocumentIconElement = {
   locked?: boolean;
 };
 
-export type DocumentElement = DocumentTextElement | DocumentImageElement | DocumentShapeElement | DocumentDiagramElement | DocumentIconElement;
+/**
+ * Observation ancrée à une structure anatomique nommée (étape 31) — remplace
+ * les repères à coordonnées libres de `DocumentDiagramElement`, qui ne
+ * portaient aucun sens exploitable (voir le commentaire sur ce type).
+ */
+export type AnatomyObservationEntry = {
+  id: string;
+  /** Référence au référentiel anatomique (src/lib/anatomy/taxonomy.ts). */
+  zoneId: string;
+  /** Type d'observation, préréglage partagé par le cabinet (marker-presets.ts). */
+  presetId: string;
+  /** Observation libre et courte, propre à cette zone pour ce document. */
+  note?: string;
+};
+
+/**
+ * Schéma anatomique interactif (étape 31). Contrairement au
+ * `DocumentDiagramElement` qu'il remplace, il n'est PAS rendu par Konva : sa
+ * couche visuelle est du DOM/SVG posé par-dessus le Stage (même patron que
+ * le texte, voir text-overlay.tsx), seule façon d'avoir survol, infobulle,
+ * focus clavier et transitions. Konva n'en garde qu'un rectangle fantôme
+ * pour la sélection et le redimensionnement.
+ */
+export type DocumentAnatomyElement = {
+  id: string;
+  type: "anatomy";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  /** Espèce ET vue en une seule clé : « dog.lateral-left » (lib/anatomy/views.ts). */
+  viewId: AnatomyViewId;
+  observations: AnatomyObservationEntry[];
+  /** Libellés reliés aux zones observées — remplacent l'ancienne légende. */
+  showLabels: boolean;
+  hidden?: boolean;
+  opacity?: number;
+  locked?: boolean;
+};
+
+export type DocumentElement =
+  | DocumentTextElement
+  | DocumentImageElement
+  | DocumentShapeElement
+  | DocumentDiagramElement
+  | DocumentAnatomyElement
+  | DocumentIconElement;
 
 // Couleur unie uniquement dans ce chantier (étape 16) — dégradé/image de
 // fond explicitement hors périmètre, voir le plan ("ne surcharge pas

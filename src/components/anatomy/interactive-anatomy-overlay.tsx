@@ -158,9 +158,14 @@ function AnatomyZone({
         ...props,
         fill: "transparent",
         stroke: "transparent",
+        // `pointer-events-auto` explicite : dans le Studio, ce SVG est monté
+        // dans une surcouche `pointer-events-none` (pour laisser passer les
+        // clics vers le canvas Konva). Seules les cibles de zones y
+        // réactivent le pointeur, de sorte que le reste du schéma reste
+        // déplaçable comme n'importe quel élément du document.
         className: readOnly
           ? "pointer-events-none"
-          : "cursor-pointer [stroke-width:12] pointer-coarse:[stroke-width:26]",
+          : "pointer-events-auto cursor-pointer [stroke-width:12] pointer-coarse:[stroke-width:26]",
       })}
     </g>
   );
