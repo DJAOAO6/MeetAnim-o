@@ -294,15 +294,21 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       setDrag(next);
     }
 
+    // pointercancel autant que pointerup : sur mobile, le navigateur reprend
+    // parfois la main sur le geste (défilement, menu système) et annule le
+    // pointeur sans jamais émettre pointerup — les écouteurs restaient alors
+    // attachés et le rendez-vous figé en cours de déplacement.
     function handleUp() {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
       void finishDrag();
     }
 
     withTouchArming(event, pointerEvent, () => {
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
+      window.addEventListener("pointercancel", handleUp);
     });
   }
 
@@ -326,15 +332,21 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       setDrag(next);
     }
 
+    // pointercancel autant que pointerup : sur mobile, le navigateur reprend
+    // parfois la main sur le geste (défilement, menu système) et annule le
+    // pointeur sans jamais émettre pointerup — les écouteurs restaient alors
+    // attachés et le rendez-vous figé en cours de déplacement.
     function handleUp() {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
       void finishDrag();
     }
 
     withTouchArming(event, pointerEvent, () => {
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleUp);
+      window.addEventListener("pointercancel", handleUp);
     });
   }
 
@@ -692,6 +704,13 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
         // comme dans Google Calendar/Outlook.
         minWidth: "24px",
         zIndex: isSelected ? 30 : 10 + column,
+        // Un appui long sur du texte déclenche sinon la sélection et le menu
+        // système du navigateur mobile, qui annulent le pointeur en cours :
+        // l'armement du déplacement n'atteignait jamais son délai.
+        userSelect: "none",
+        WebkitUserSelect: "none",
+        WebkitTouchCallout: "none",
+        touchAction: "manipulation",
       }}
     >
       <p className="text-[10px] font-black">{event.start}</p>

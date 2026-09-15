@@ -105,6 +105,10 @@ test.describe("Agenda tactile", () => {
     expect(Math.abs(after.x - before.x)).toBeLessThan(2);
 
     // 3. Appui long maintenu : le déplacement devient possible et s'applique.
+    // Le défilement de l'étape 1 a pu sortir le rendez-vous de l'écran :
+    // sans ce recentrage, le geste suivant atomberait à côté de la carte.
+    await card.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
     const dragBox = (await card.boundingBox())!;
     const dragFrom = { x: dragBox.x + dragBox.width / 2, y: dragBox.y + dragBox.height / 2 };
     // 72 px = une heure de planning (HOUR_HEIGHT).
