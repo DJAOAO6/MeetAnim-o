@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
-import { getEmailProvider } from "@/lib/email/provider";
+import { getEmailProvider, professionalReplyTo } from "@/lib/email/provider";
 import { buildIcsContent, formatBookingDateLabels } from "@/lib/booking-validation";
 import {
   appointmentCancelledClientTemplate,
@@ -85,7 +85,7 @@ async function sendAppointmentEmail(clientId: string | null, appointment: Appoin
         }]
       : undefined;
 
-    await getEmailProvider().send({ to: client.email, ...message, attachments });
+    await getEmailProvider().send({ to: client.email, ...message, attachments, replyTo: professionalReplyTo(professional) });
   } catch (error) {
     console.error("[email] Échec de l'envoi d'une notification de rendez-vous", error);
   }

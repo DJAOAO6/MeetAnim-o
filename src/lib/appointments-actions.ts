@@ -21,7 +21,7 @@ import { getDayAvailability } from "@/lib/availability";
 import { haversineDistanceKm } from "@/lib/geo";
 import { AVERAGE_SPEED_KMH, ROAD_DETOUR_FACTOR } from "@/lib/tour-estimate";
 import type { Coordinates } from "@/data/tours";
-import { getEmailProvider } from "@/lib/email/provider";
+import { getEmailProvider, professionalReplyTo } from "@/lib/email/provider";
 import { bookingRequestClientTemplate, bookingRequestProfessionalTemplate } from "@/lib/email/templates";
 import {
   notifyAppointmentCancelled,
@@ -915,10 +915,13 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
             totalPrice: price,
             reference,
           }),
+          replyTo: professionalReplyTo(professional),
         })
       : Promise.resolve(),
     getEmailProvider().send({
       to: professional.email,
+      // Répondre à la notification écrit directement au client qui a réservé.
+      replyTo: input.ownerEmail?.trim() ? { email: input.ownerEmail.trim(), name: core.clientName } : undefined,
       ...bookingRequestProfessionalTemplate({
         professionalFirstName: professional.firstName,
         clientName: core.clientName,

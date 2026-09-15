@@ -11,8 +11,9 @@ RUN npx prisma generate
 # next build inlige les variables NEXT_PUBLIC_* dans le bundle client (et,
 # par convention Next.js, partout où process.env.NEXT_PUBLIC_* est lu) : il
 # faut donc la recevoir en argument de build, une variable d'environnement
-# à l'exécution du conteneur arriverait trop tard.
-ARG NEXT_PUBLIC_APP_URL
+# à l'exécution du conteneur arriverait trop tard. Valeur par défaut : le
+# domaine de production, l'hébergeur ne transmettant aucun argument de build.
+ARG NEXT_PUBLIC_APP_URL=https://app.1002pattes.fr
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 RUN npm run build
 

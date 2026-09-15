@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
-import { getEmailProvider } from "@/lib/email/provider";
+import { getEmailProvider, professionalReplyTo } from "@/lib/email/provider";
 import { reminderEmailTemplate } from "@/lib/email/templates";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { parseDateIdToLocalNoon } from "@/lib/booking-validation";
@@ -155,7 +155,7 @@ export async function sendReminderAction(id: string, message: string): Promise<R
 
   const professional = await getBusinessProfile();
   try {
-    await getEmailProvider().send({ to: reminder.client.email, ...reminderEmailTemplate({ professionalCompany: professional.company, message }) });
+    await getEmailProvider().send({ to: reminder.client.email, ...reminderEmailTemplate({ professionalCompany: professional.company, message }), replyTo: professionalReplyTo(professional) });
   } catch (error) {
     console.error("Échec de l'envoi d'un email de rappel :", error);
     return { ok: false, error: "L'email n'a pas pu être envoyé. Réessayez plus tard." };
@@ -184,7 +184,7 @@ async function dispatchReminderEmails(userId: string, reminders: ReminderForBulk
   const results = await Promise.allSettled(reminders.map(async (reminder) => {
     if (!reminder.client.email) throw new Error("Adresse email manquante");
     const message = buildMessage(reminder, professional);
-    await getEmailProvider().send({ to: reminder.client.email, ...reminderEmailTemplate({ professionalCompany: professional.company, message }) });
+    await getEmailProvider().send({ to: reminder.client.email, ...reminderEmailTemplate({ professionalCompany: professional.company, message }), replyTo: professionalReplyTo(professional) });
     await prisma.reminder.update({ where: { id: reminder.id }, data: { status: "SENT" } });
     await logAudit({ userId, action: "REMINDER_SENT", entityType: "Reminder", entityId: reminder.id, metadata: { source } });
     return reminder.id;
