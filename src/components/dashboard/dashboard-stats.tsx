@@ -49,16 +49,20 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
   ];
 
   return (
-    <div className="mb-6 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    // Deux colonnes dès 320 px : en une seule colonne, ces cinq cartes
+    // occupaient trois écrans de haut avant le premier contenu utile
+    // (planning, rappels). Le chiffre reste le repère principal, l'icône et
+    // le détail passent au second plan en dessous de sm.
+    <div className="mb-6 grid grid-cols-2 items-start gap-3 sm:gap-4 xl:grid-cols-5">
       {cards.map((card) => (
-        <Card key={card.label} className="flex items-start gap-4 p-5">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-animeo-soft text-animeo-brand">
+        <Card key={card.label} className="flex items-start gap-3 p-4 sm:gap-4 sm:p-5">
+          <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-animeo-soft text-animeo-brand sm:flex">
             <Icon name={card.icon} className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold leading-snug text-animeo-muted">{card.label}</p>
-            <p className="mt-1 text-3xl font-black text-animeo-dark">{card.value}</p>
-            <p className="mt-1 text-xs text-animeo-muted">{card.detail}</p>
+            <p className="text-xs font-bold leading-snug text-animeo-muted sm:text-sm">{card.label}</p>
+            <p className="mt-1 text-2xl font-black text-animeo-dark sm:text-3xl">{card.value}</p>
+            <p className="mt-1 hidden text-xs text-animeo-muted sm:block">{card.detail}</p>
           </div>
         </Card>
       ))}

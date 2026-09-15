@@ -7,6 +7,7 @@ import { DashboardFloatingActions } from "@/components/dashboard/dashboard-float
 import { DashboardRealtimeRefresh } from "@/components/dashboard/dashboard-realtime-refresh";
 import { RemindersProvider } from "@/components/dashboard/reminders-context";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provider";
 import { getAppointments } from "@/lib/appointments";
 import { requireUser } from "@/lib/auth/dal";
@@ -32,11 +33,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <RemindersProvider initialReminders={reminders}>
             <div className="min-h-screen bg-animeo-bg pt-16 text-animeo-text md:pl-64 md:pt-0">
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} />
-              <main className="mx-auto min-h-screen max-w-[1600px] p-4 sm:p-7 lg:p-10">
+              {/* pb-24 sous md : dégagement pour la barre de navigation
+                  fixe du bas, sinon elle recouvre la fin du contenu. */}
+              <main className="mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10">
                 {children}
               </main>
               <GlobalAppointmentsManager clients={clientOptions} />
               <DashboardFloatingActions />
+              <MobileBottomNav />
               <DashboardRealtimeRefresh />
               {/* Un seul montage pour tout le dashboard (PROMPT-NOTIFICATIONS.md §A3) —
                   voir src/lib/notify.ts, jamais importé directement ailleurs. Habillé

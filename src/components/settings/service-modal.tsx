@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { Field, ImagePicker, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { AnimalType, ServiceSettings } from "@/data/settings";
 import { servicePhotoFor } from "@/data/service-photos";
@@ -50,7 +51,6 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
   function guardedClose() {
     if (confirmDiscard()) onClose();
   }
-  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
   const zoneFee = draft.zoneFees["Le Havre"] ?? 0;
   const feeSelection = draft.travelFeesEnabled ? draft.travelFeeMode : "none";
   // On garde l'option visible si une prestation existante l'utilise déjà,
@@ -89,15 +89,24 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
-          <div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Configuration locale</p><h2 id="service-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{service ? "Modifier la prestation" : "Nouvelle prestation"}</h2></div>
-          <button type="button" onClick={guardedClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
-        </div>
-
-        <form onSubmit={submit}>
-          <div className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_300px] sm:p-6">
+    <form onSubmit={submit}>
+      {/* Plein écran sur téléphone plutôt qu'une feuille : ce formulaire est
+          dense (deux colonnes sur grand écran), une feuille n'en montrerait
+          qu'une poignée de champs à la fois. */}
+      <Modal
+        title={service ? "Modifier la prestation" : "Nouvelle prestation"}
+        description="Configuration locale"
+        onClose={guardedClose}
+        size="xl"
+        mobile="fullscreen"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : service ? "Enregistrer" : "Créer la prestation"}</Button>
+          </>
+        }
+      >
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2"><Field label="Nom de la prestation"><input value={draft.name} onChange={(event) => update("name", event.target.value)} className={inputClassName} required /></Field></div>
@@ -201,13 +210,8 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
             </aside>
           </div>
 
-          <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-animeo-border-soft bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
-            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{saving ? "Enregistrement…" : service ? "Enregistrer" : "Créer la prestation"}</button>
-          </div>
-        </form>
-      </section>
-    </div>
+      </Modal>
+    </form>
   );
 }
 

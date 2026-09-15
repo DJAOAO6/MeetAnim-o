@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { OPEN_MENU_EVENT } from "@/components/layout/mobile-bottom-nav";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { logout } from "@/lib/auth/actions";
 import { initialsFor } from "@/lib/format";
@@ -51,6 +52,14 @@ function isActive(pathname: string, href: string) {
 export function DashboardSidebar({ showAdmin = false, showStatistics = true }: { showAdmin?: boolean; showStatistics?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Ouverture demandée par la barre de navigation du bas (composant frère,
+  // monté par le layout) — voir MobileBottomNav.
+  useEffect(() => {
+    function open() { setMobileOpen(true); }
+    window.addEventListener(OPEN_MENU_EVENT, open);
+    return () => window.removeEventListener(OPEN_MENU_EVENT, open);
+  }, []);
   const [profileOpen, setProfileOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);

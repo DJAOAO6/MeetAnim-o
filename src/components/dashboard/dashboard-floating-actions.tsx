@@ -17,12 +17,11 @@ export function DashboardFloatingActions() {
   if (HIDDEN_ON_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) return null;
 
   return (
-    // Empilement horizontal sous sm : réduit l'empreinte verticale du
-    // cluster (~152px en colonne) à celle d'une seule rangée de boutons,
-    // pour ne plus recouvrir plusieurs lignes de contenu réel sur mobile
-    // (AUDIT_COMPLET.md P1-6). Colonne conservée à partir de sm, où le
-    // problème n'a pas été constaté et où l'espace vertical est moins rare.
-    <div className="fixed bottom-6 right-6 z-40 flex flex-row-reverse items-center gap-3 sm:bottom-8 sm:right-8 sm:flex-col sm:gap-4">
+    // Masqué sous md : la barre de navigation du bas (MobileBottomNav) et le
+    // bouton principal de chaque page couvrent ces deux actions sur mobile,
+    // où ce cluster flottant recouvrait du contenu réel — ici les cartes de
+    // statistiques et les filtres de l'agenda.
+    <div className="fixed bottom-8 right-8 z-40 hidden flex-col items-center gap-4 md:flex">
       <button
         type="button"
         onClick={() => openNewAppointment()}

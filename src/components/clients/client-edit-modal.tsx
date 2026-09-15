@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { Field, inputClassName } from "@/components/settings/settings-fields";
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { Client } from "@/data/clients";
 import type { ClientContactInput } from "@/lib/clients-actions";
@@ -31,7 +32,6 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
   function guardedClose() {
     if (confirmDiscard()) onClose();
   }
-  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   function update<K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -47,19 +47,24 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
     await onSave(draft);
   }
 
+  // Formulaire autour de la modale : le bouton d'envoi vit dans la barre
+  // d'actions fixe, hors du flux du contenu, et doit rester dans le <form>.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="client-edit-dialog-title" className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="flex items-start justify-between gap-4 border-b border-animeo-border-soft p-5 sm:p-6">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Fiche client</p>
-            <h2 id="client-edit-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{client ? `Modifier ${client.firstName} ${client.lastName}` : "Nouveau client"}</h2>
-          </div>
-          <button type="button" onClick={guardedClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
-        </div>
-
-        <form onSubmit={submit}>
-          <div className="space-y-5 p-5 sm:p-6">
+    <form onSubmit={submit}>
+      <Modal
+        title={client ? `Modifier ${client.firstName} ${client.lastName}` : "Nouveau client"}
+        description="Fiche client"
+        onClose={guardedClose}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Enregistrement…" : client ? "Enregistrer les modifications" : "Créer le client"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-5">
             {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -71,16 +76,8 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
               <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
               <Field label="Adresse"><input value={draft.address} onChange={(event) => update("address", event.target.value)} className={inputClassName} /></Field>
             </div>
-          </div>
-
-          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
-            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
-              {saving ? "Enregistrement…" : client ? "Enregistrer les modifications" : "Créer le client"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+        </div>
+      </Modal>
+    </form>
   );
 }

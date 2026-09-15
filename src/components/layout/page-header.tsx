@@ -28,8 +28,13 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
           rangée, alignées à droite en dessous — jamais mélangées à
           l'horloge/recherche/cloche partagées ci-dessus, pour ne pas
           surcharger une même ligne de boutons hétérogènes. */}
+      {/* Sur téléphone, ces actions s'étirent sur toute la largeur et se
+          rangent verticalement : alignées à droite, elles formaient un
+          escalier de boutons de largeurs différentes, chacun plus court que
+          son libellé ne le mérite. [&>*]:w-full cible les enfants sans
+          imposer de classe à chaque page appelante. */}
       {action ? (
-        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
           {action}
         </div>
       ) : null}
