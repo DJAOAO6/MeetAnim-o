@@ -129,7 +129,7 @@ export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlace
           action={
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setZonesPanelOpen(true)} className="rounded-xl border border-animeo px-4 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">Zones ({zones.length})</button>
-              <button type="button" onClick={() => setTourModal({ open: true })} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">+ Nouvelle tournée</button>
+              <button type="button" onClick={() => setTourModal({ open: true })} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">+ Nouvelle tournée</button>
             </div>
           }
         />
@@ -144,7 +144,7 @@ export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlace
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${tour.status === "Active" ? "bg-[#e5f5ef] text-[#278064]" : "bg-[#eef1f1] text-animeo-muted"}`}>{tour.status === "Active" ? "Active" : "Inactive"}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${tour.status === "Active" ? "bg-animeo-positive-soft text-animeo-positive" : "bg-animeo-border-soft text-animeo-muted"}`}>{tour.status === "Active" ? "Active" : "Inactive"}</span>
                         {generatedCount > 0 ? (
                           <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-black text-animeo-dark">
                             {generatedCount} journée{generatedCount > 1 ? "s" : ""} déjà générée{generatedCount > 1 ? "s" : ""}
@@ -260,7 +260,7 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
               </Field>
             </div>
           </div>
-          <button type="button" onClick={handleAdd} disabled={!label.trim() || !address || saving} className="mt-4 rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={handleAdd} disabled={!label.trim() || !address || saving} className="mt-4 rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
             {saving ? "Ajout…" : "Ajouter"}
           </button>
         </Card>
@@ -276,7 +276,7 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
                 <p className="text-sm font-black text-animeo-dark">{place.label} <span className="ml-1 rounded-full bg-animeo-bg px-2 py-0.5 text-[10px] font-black text-animeo-muted">{(placeTypeLabels as Record<string, string>)[place.type] ?? place.type}</span></p>
                 <p className="truncate text-xs font-semibold text-animeo-muted">{place.address}</p>
               </div>
-              <button type="button" onClick={() => handleDelete(place.id)} className="shrink-0 rounded-lg px-3 py-2 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#fff1ec]">Supprimer</button>
+              <button type="button" onClick={() => handleDelete(place.id)} className="shrink-0 rounded-lg px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">Supprimer</button>
             </Card>
           ))}
         </div>

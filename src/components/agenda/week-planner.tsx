@@ -84,10 +84,10 @@ function computeHourRange(availability: AvailabilitySettings): { startHour: numb
 }
 
 const eventStyles: Record<EventKind, string> = {
-  cabinet: "border-[#4FAF9F] bg-[#E5F4F0] text-animeo-dark",
-  domicile: "border-[#4C8190] bg-[#E8F1F4] text-[#234E5A]",
-  pending: "border-dashed border-animeo-accent bg-[#FFF4DD]/55 text-[#7E5718] backdrop-blur-[1px]",
-  unavailable: "border-[#AEB8BB] bg-[#F1F3F3] text-[#59666B]",
+  cabinet: "border-animeo-brand bg-animeo-positive-soft text-animeo-dark",
+  domicile: "border-[#4C8190] bg-animeo-info-soft text-[#234E5A]",
+  pending: "border-dashed border-animeo-accent bg-animeo-warning-soft/55 text-animeo-warning backdrop-blur-[1px]",
+  unavailable: "border-animeo-subtle bg-animeo-surface-alt text-animeo-muted",
   tournee: "border-[#8067B0] bg-[#EEEAF8] text-[#55417F]",
 };
 
@@ -96,7 +96,7 @@ const legend = [
   { label: "Domicile", color: "bg-[#4C8190]" },
   { label: "En attente", color: "bg-animeo-accent" },
   { label: "Tournée", color: "bg-[#8067B0]" },
-  { label: "Fermé", color: "bg-[#AEB8BB]" },
+  { label: "Fermé", color: "bg-animeo-subtle" },
 ];
 
 const dayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
@@ -309,7 +309,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   return (
     <>
       <Card className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-animeo-border-soft px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-extrabold text-animeo-dark">{isDayView ? "Planning du jour" : "Planning de la semaine"}</h2>
             <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de {String(startHour).padStart(2, "0")}h00 à {String(endHour).padStart(2, "0")}h00 · glissez un rendez-vous pour le replanifier</p>
@@ -335,13 +335,13 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
         <div className="relative overflow-x-auto">
           {!isDayView ? <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-20 w-8 bg-gradient-to-l from-white to-transparent sm:hidden" /> : null}
           <div>
-            <div className="grid border-b border-[#dfe9e6] bg-[#fbfdfc]" style={{ gridTemplateColumns }}>
-              <div className="border-r border-[#dfe9e6]" />
+            <div className="grid border-b border-animeo-border bg-animeo-surface-alt" style={{ gridTemplateColumns }}>
+              <div className="border-r border-animeo-border" />
               {dates.map((date) => {
                 const active = isReferenceDay(date);
 
                 return (
-                  <div key={date.toISOString()} className="border-r border-[#dfe9e6] px-2 py-3 text-center last:border-r-0">
+                  <div key={date.toISOString()} className="border-r border-animeo-border px-2 py-3 text-center last:border-r-0">
                     <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
                       {dayFormatter.format(date).replace(".", "")}
                     </p>
@@ -385,7 +385,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                     width: `calc((100% - ${TIME_COLUMN_WIDTH}px) / ${dates.length})`,
                   }}
                 >
-                  <div className={`h-full overflow-hidden rounded-xl border-2 border-dashed p-1.5 text-[11px] font-bold leading-tight ${dragValid ? "border-animeo bg-animeo/10 text-animeo-dark" : "border-animeo-error bg-animeo-error/10 text-[#a9392f]"}`}>
+                  <div className={`h-full overflow-hidden rounded-xl border-2 border-dashed p-1.5 text-[11px] font-bold leading-tight ${dragValid ? "border-animeo bg-animeo/10 text-animeo-dark" : "border-animeo-error bg-animeo-error/10 text-animeo-danger"}`}>
                     <p>{drag.event.animal ?? drag.event.title}</p>
                     <p className="mt-0.5 font-black">
                       {drag.kind === "move" ? minutesToTime(drag.currentStartMinutes) : drag.event.start}
@@ -416,7 +416,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
 
 function TimeColumn({ startHour, endHour, plannerHeight }: { startHour: number; endHour: number; plannerHeight: number }) {
   return (
-    <div className="relative border-r border-[#dfe9e6] bg-[#fbfdfc]" style={{ height: plannerHeight }}>
+    <div className="relative border-r border-animeo-border bg-animeo-surface-alt" style={{ height: plannerHeight }}>
       {Array.from({ length: endHour - startHour + 1 }, (_, index) => (
         <span
           key={index}
@@ -456,7 +456,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
 
   return (
     <div
-      className="relative border-r border-[#dfe9e6] last:border-r-0"
+      className="relative border-r border-animeo-border last:border-r-0"
       style={{
         height: plannerHeight,
         backgroundImage: "linear-gradient(to bottom, transparent 35px, #edf2f0 36px, transparent 37px, transparent 71px, #dfe9e6 72px)",
@@ -482,7 +482,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           style={{ top: (range.start - startHour) * HOUR_HEIGHT, height: (range.end - range.start) * HOUR_HEIGHT }}
         >
           {!dayAvailability.open && range.start === startHour && range.end === endHour ? (
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#59666B]">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-animeo-muted">
               Fermé
             </span>
           ) : null}
@@ -566,8 +566,8 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, onPendi
       onKeyDown={isSelectable ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
       aria-label={isSelectable ? selectableLabel : undefined}
-      className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgba(24,59,69,0.08)] transition ${eventStyles[event.kind]} ${
-        isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(24,59,69,0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
+      className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
+        isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgb(var(--theme-shadow-rgb)/0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
       } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "-translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""}`}
       style={{
         top: position.top + 3,
@@ -605,7 +605,7 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, onPendi
             title="Accepter"
             aria-label="Accepter le rendez-vous"
             onClick={(clickEvent) => { clickEvent.stopPropagation(); onPendingAction("Accepté", event); }}
-            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-[#7E5718] transition hover:bg-animeo hover:text-white"
+            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-animeo-warning transition hover:bg-animeo hover:text-white"
           >
             ✓
           </button>
@@ -614,7 +614,7 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, onPendi
             title="Décaler"
             aria-label="Décaler le rendez-vous"
             onClick={(clickEvent) => { clickEvent.stopPropagation(); handleSelect(); }}
-            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-[#7E5718] transition hover:bg-white hover:text-animeo-dark"
+            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-animeo-warning transition hover:bg-white hover:text-animeo-dark"
           >
             ↔
           </button>
@@ -623,7 +623,7 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, onPendi
             title="Refuser"
             aria-label="Refuser le rendez-vous"
             onClick={(clickEvent) => { clickEvent.stopPropagation(); onPendingAction("Refusé", event); }}
-            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-[#7E5718] transition hover:bg-animeo-error hover:text-white"
+            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-animeo-warning transition hover:bg-animeo-error hover:text-white"
           >
             ✕
           </button>

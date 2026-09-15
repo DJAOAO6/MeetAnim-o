@@ -51,13 +51,15 @@ export function DashboardStats({ clients, dueReminders }: { clients: Client[]; d
   return (
     <div className="mb-6 grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => (
-        <Card key={card.label} className="p-5">
-          <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">
+        <Card key={card.label} className="flex items-start gap-4 p-5">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-animeo-soft text-animeo-brand">
             <Icon name={card.icon} className="h-5 w-5" />
           </div>
-          <p className="text-sm font-bold leading-snug text-animeo-muted">{card.label}</p>
-          <p className="mt-2 text-3xl font-black text-animeo-dark">{card.value}</p>
-          <p className="mt-2 text-xs text-animeo-muted">{card.detail}</p>
+          <div className="min-w-0">
+            <p className="text-sm font-bold leading-snug text-animeo-muted">{card.label}</p>
+            <p className="mt-1 text-3xl font-black text-animeo-dark">{card.value}</p>
+            <p className="mt-1 text-xs text-animeo-muted">{card.detail}</p>
+          </div>
         </Card>
       ))}
     </div>

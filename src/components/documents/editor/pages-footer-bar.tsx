@@ -47,7 +47,7 @@ export function PagesFooterBar({ readOnly }: { readOnly: boolean }) {
                   type="button"
                   aria-label={`Supprimer la page ${index + 1}`}
                   onClick={() => removePage(index)}
-                  className="flex h-5 w-5 items-center justify-center rounded text-animeo-error hover:bg-[#ffe4e4]"
+                  className="flex h-5 w-5 items-center justify-center rounded text-animeo-error hover:bg-animeo-danger-soft"
                 >
                   <TrashIcon />
                 </button>

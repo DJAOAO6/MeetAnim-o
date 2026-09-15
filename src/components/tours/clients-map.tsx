@@ -14,7 +14,7 @@ import type { AnimalSpecies, MapClient } from "@/data/tours";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
-  loading: () => <div className="flex h-[610px] items-center justify-center rounded-2xl border border-[#dbe7e3] bg-[#edf4ef] text-sm font-bold text-animeo-muted">Chargement de la carte…</div>,
+  loading: () => <div className="flex h-[610px] items-center justify-center rounded-2xl border border-animeo-border bg-animeo-positive-soft text-sm font-bold text-animeo-muted">Chargement de la carte…</div>,
 });
 
 type ClientsMapProps = {
@@ -223,10 +223,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                 <ChevronIcon />
               </button>
               {speciesPanelOpen ? (
-                <div role="group" aria-label="Filtrer par espèce" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-[#d9e5e2] bg-white p-1.5 shadow-[0_14px_35px_rgba(24,59,69,0.15)]">
+                <div role="group" aria-label="Filtrer par espèce" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
                   {animalSpeciesList.map((species) => (
                     <label key={species} className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
-                      <input type="checkbox" checked={selectedSpecies.includes(species)} onChange={() => toggleSpecies(species)} className="h-4 w-4 shrink-0 rounded border-[#c7d6d2] text-animeo focus:ring-animeo" />
+                      <input type="checkbox" checked={selectedSpecies.includes(species)} onChange={() => toggleSpecies(species)} className="h-4 w-4 shrink-0 rounded border-animeo-border text-animeo focus:ring-animeo" />
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, species) }} />
                       {species}
                     </label>
@@ -239,7 +239,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               type="button"
               onClick={() => setDueOnly((current) => !current)}
               aria-pressed={dueOnly}
-              className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-xs font-extrabold transition ${dueOnly ? "bg-animeo-accent text-animeo-dark" : "bg-[#fff9ec] text-[#a66d16] hover:bg-[#fff3d9]"}`}
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-xs font-extrabold transition ${dueOnly ? "bg-animeo-accent text-animeo-dark" : "bg-animeo-warning-soft text-animeo-warning hover:bg-animeo-warning-soft"}`}
             >
               <Icon name="bell" className="h-3.5 w-3.5" />
               À relancer
@@ -252,9 +252,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
         </div>
 
         {activeFilterTokens.length > 0 || perimeterCenter ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#e5eeeb] pt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-animeo-border-soft pt-3">
             {activeFilterTokens.map((token) => (
-              <button key={token.key} type="button" onClick={token.onRemove} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-[#d9ece7]">
+              <button key={token.key} type="button" onClick={token.onRemove} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
                 {token.label}
                 <span aria-hidden="true" className="text-sm leading-none text-animeo-muted">×</span>
               </button>
@@ -268,15 +268,15 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                     onClick={() => setRadiusPanelOpen((current) => !current)}
                     aria-haspopup="true"
                     aria-expanded={radiusPanelOpen}
-                    className="inline-flex items-center gap-1 px-3 transition hover:bg-[#d9ece7]"
+                    className="inline-flex items-center gap-1 px-3 transition hover:bg-animeo-soft-strong"
                   >
                     {Math.round(perimeterRadiusKm)} km autour de {perimeterCenter.label}
                     <ChevronIcon />
                   </button>
-                  <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de périmètre" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-[#d9ece7] hover:text-animeo-dark">×</button>
+                  <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de périmètre" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-animeo-soft-strong hover:text-animeo-dark">×</button>
                 </div>
                 {radiusPanelOpen ? (
-                  <div role="group" aria-label="Choisir le rayon du périmètre" className="absolute z-20 mt-1.5 w-56 rounded-xl border border-[#d9e5e2] bg-white p-1.5 shadow-[0_14px_35px_rgba(24,59,69,0.15)]">
+                  <div role="group" aria-label="Choisir le rayon du périmètre" className="absolute z-20 mt-1.5 w-56 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
                     {PERIMETER_RADIUS_TIERS.map((km) => {
                       const count = perimeterTierCounts[km] ?? 0;
                       const active = Math.round(perimeterRadiusKm) === km;
@@ -357,12 +357,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
         </Card>
 
         <Card className="overflow-hidden xl:sticky xl:top-6">
-          <div className="border-b border-[#e5eeeb] px-5 py-4">
+          <div className="border-b border-animeo-border-soft px-5 py-4">
             <h2 className="font-extrabold text-animeo-dark">Clients visibles</h2>
             <p className="mt-0.5 text-xs text-animeo-muted">{perimeterCenter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}</p>
           </div>
           {visibleClients.length > 0 ? (
-            <div className="max-h-[650px] divide-y divide-[#edf2f0] overflow-y-auto">
+            <div className="max-h-[650px] divide-y divide-animeo-border-soft overflow-y-auto">
               {visibleClients.map((client) => (
                 <button key={client.id} type="button" onClick={() => setSelectedId(client.id)} className={`flex w-full items-center gap-3 p-4 text-left transition ${selectedClient?.id === client.id ? "bg-animeo-soft" : "hover:bg-animeo-bg"}`}>
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 18%, white)` }}>{client.avatar}</span>
@@ -371,7 +371,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                     <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{client.animalName} · {client.species}</span>
                     <span className="mt-1 block truncate text-[10px] text-animeo-muted">
                       {client.city} · {client.lastConsultation}
-                      {!client.coordinates ? <span className="ml-1.5 font-bold text-[#a9573b]">· Position inconnue</span> : null}
+                      {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
                     </span>
                   </span>
                   {client.dueForReminder ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-animeo-accent" title="À relancer" /> : null}
@@ -384,7 +384,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
         </Card>
       </div>
 
-      <div className="rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-dark">
+      <div className="rounded-2xl border border-animeo-soft-strong bg-animeo-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-dark">
         Carte OpenStreetMap avec positions réelles. Itinéraires optimisés prévus en V2.
       </div>
     </div>
@@ -394,7 +394,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
 function MapClientPopup({ client }: { client: MapClient }) {
   const { theme } = useDashboardTheme();
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-[0_12px_30px_rgba(24,59,69,0.18)] backdrop-blur-sm">
+    <div className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm">
       <div className="flex items-start gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 22%, white)` }}>{client.avatar}</span>
         <div className="min-w-0">
@@ -408,7 +408,7 @@ function MapClientPopup({ client }: { client: MapClient }) {
         <PopupLine label="Dernière consultation" value={client.lastConsultation} />
         <PopupLine label="Prochain rappel" value={client.nextReminder} />
       </dl>
-      <Link href={`/dashboard/clients/${client.clientId}`} className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]">Voir la fiche client</Link>
+      <Link href={`/dashboard/clients/${client.clientId}`} className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Voir la fiche client</Link>
     </div>
   );
 }

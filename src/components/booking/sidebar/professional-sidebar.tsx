@@ -10,7 +10,7 @@ import type { PublicProfessional } from "@/data/public-booking";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
-  loading: () => <div className="flex h-40 items-center justify-center rounded-2xl border border-[#dbe7e3] bg-[#edf4ef] text-xs font-bold text-animeo-muted">Chargement de la carte…</div>,
+  loading: () => <div className="flex h-40 items-center justify-center rounded-2xl border border-animeo-border bg-animeo-positive-soft text-xs font-bold text-animeo-muted">Chargement de la carte…</div>,
 });
 
 const ABOUT_TRUNCATE_LENGTH = 220;
@@ -128,7 +128,7 @@ function CabinetAddressCard({ professional }: { professional: PublicProfessional
         <button
           type="button"
           onClick={copyAddress}
-          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
+          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
         >
           <Icon name="copy" className="h-3.5 w-3.5" aria-hidden="true" />
           {copied ? "Adresse copiée ✓" : "Copier l’adresse"}

@@ -20,7 +20,7 @@ export function BookingProgress({ current }: { current: number }) {
         aria-label={`Étape ${current} sur ${steps.length} : ${steps[current - 1]}`}
         className="relative"
       >
-        <div className="h-1.5 rounded-full bg-[#dfe8e5]">
+        <div className="h-1.5 rounded-full bg-animeo-border">
           {/* scaleX plutôt que width : la largeur anime la mise en page
               (layout), le scale anime seulement le rendu (compositing) — voir
               web-design-guidelines, "animate transform/opacity only". */}
@@ -33,7 +33,7 @@ export function BookingProgress({ current }: { current: number }) {
           // référencer (ses pourcentages sont relatifs à l'élément
           // lui-même) — technique standard pour un indicateur positionné en
           // pourcentage (ex. curseur de slider), pas un oubli.
-          className="absolute top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-animeo text-white shadow-[0_2px_6px_rgba(24,59,69,0.25)] transition-[left] duration-[280ms] ease-out"
+          className="absolute top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-animeo text-white shadow-[0_2px_6px_rgb(var(--theme-shadow-rgb)/0.25)] transition-[left] duration-[280ms] ease-out"
           // Le centre du point (24px, donc 12px de rayon) est contraint entre
           // 12px et calc(100% - 12px) plutôt que placé directement à
           // {percent}% : sinon la moitié du point déborde du conteneur à 0 %

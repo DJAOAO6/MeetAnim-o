@@ -20,7 +20,7 @@ function groupByCategory(icons: StudioIcon[]): [StudioIconCategory, StudioIcon[]
 /**
  * Bibliothèque d'icônes cherchable (étape 23) — insertion directe comme les
  * formes/lignes (pas de popover à ouvrir), recherche + groupes de catégorie
- * comme "Données Animéo" (animeo-data-panel.tsx). Chaque icône devient un
+ * comme "Données 1002 Pattes" (animeo-data-panel.tsx). Chaque icône devient un
  * DocumentIconElement (content.ts), rendu comme un Konva Path monochrome —
  * couleur/épaisseur réglables ensuite depuis Propriétés, comme une forme.
  */

@@ -83,7 +83,7 @@ export function BreedCombobox({ id, species, value, onChange, onCommit, placehol
       />
 
       {open && matches.length > 0 ? (
-        <ul id={listboxId} role="listbox" aria-label="Suggestions" className="absolute z-30 mt-1.5 max-h-56 w-full overflow-y-auto rounded-xl border border-[#d7e4e1] bg-white py-1 shadow-[0_12px_32px_rgba(24,59,69,0.14)]">
+        <ul id={listboxId} role="listbox" aria-label="Suggestions" className="absolute z-30 mt-1.5 max-h-56 w-full overflow-y-auto rounded-xl border border-animeo-border bg-white py-1 shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.14)]">
           {matches.map((breed, index) => (
             <li
               key={breed}

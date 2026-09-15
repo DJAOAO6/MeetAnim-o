@@ -187,7 +187,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
       <div className="rounded-2xl bg-animeo-soft p-4 text-sm text-animeo-dark"><strong>{service.name}</strong> · {service.duration} minutes · {mode === "CABINET" ? "Au cabinet" : "À domicile"}</div>
 
       {occupiedSlotsError ? (
-        <p role="alert" className="mt-4 rounded-2xl bg-[#fff7f0] p-3 text-xs font-bold leading-5 text-[#a85d32]">Impossible de vérifier les créneaux déjà pris — les jours affichés comme disponibles pourraient en réalité être complets. Une dernière vérification aura lieu avant de continuer.</p>
+        <p role="alert" className="mt-4 rounded-2xl bg-animeo-warning-soft p-3 text-xs font-bold leading-5 text-animeo-warning">Impossible de vérifier les créneaux déjà pris — les jours affichés comme disponibles pourraient en réalité être complets. Une dernière vérification aura lieu avant de continuer.</p>
       ) : null}
 
       {loadingDates ? (
@@ -196,7 +196,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
           Recherche des prochaines disponibilités…
         </p>
       ) : bookingDates.length === 0 ? (
-        <p className="mt-5 rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Aucun créneau n’est disponible pour le moment. Revenez à l’étape précédente ou contactez directement le professionnel.</p>
+        <p className="mt-5 rounded-2xl bg-animeo-warning-soft p-4 text-sm font-bold text-animeo-warning">Aucun créneau n’est disponible pour le moment. Revenez à l’étape précédente ou contactez directement le professionnel.</p>
       ) : selectedMonth && windowStartId && windowEndId ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <div>
@@ -221,7 +221,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
               </div>
 
               {periodGroups.length === 0 ? (
-                <p className="rounded-2xl bg-[#fff7f0] p-4 text-sm font-bold text-[#a85d32]">Plus aucun créneau disponible ce jour-là. Choisissez une autre date.</p>
+                <p className="rounded-2xl bg-animeo-warning-soft p-4 text-sm font-bold text-animeo-warning">Plus aucun créneau disponible ce jour-là. Choisissez une autre date.</p>
               ) : (
                 <div className="space-y-5">
                   {periodGroups.map((period) => {
@@ -236,7 +236,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
                               type="button"
                               onClick={() => onTimeChange(slot)}
                               aria-pressed={time === slot}
-                              className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo-dark bg-animeo-dark text-white" : "border-[#dfe9e6] text-animeo-dark hover:border-[#aad5cd]"}`}
+                              className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo-dark bg-animeo-dark text-white" : "border-animeo-border text-animeo-dark hover:border-animeo-border-strong"}`}
                             >
                               {slot}
                             </button>
@@ -254,14 +254,14 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
               </p>
             </div>
           ) : (
-            <div className="hidden min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#dfe9e6] p-6 text-center text-sm font-bold text-animeo-muted lg:flex">
+            <div className="hidden min-h-40 items-center justify-center rounded-2xl border border-dashed border-animeo-border p-6 text-center text-sm font-bold text-animeo-muted lg:flex">
               Choisissez d’abord une date
             </div>
           )}
         </div>
       ) : null}
 
-      {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{revalidationError}</p> : null}
+      {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">{revalidationError}</p> : null}
       <div ref={actionsRef} className="scroll-mt-6">
         <BookingActions onBack={onBack} nextDisabled={!dateId || !time} loading={revalidating} />
       </div>

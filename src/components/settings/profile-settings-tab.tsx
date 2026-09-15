@@ -50,7 +50,7 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
   return (
     <form onSubmit={submit} className="space-y-6">
       {!canEdit ? (
-        <div role="status" className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.</div>
+        <div role="status" className="rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm font-bold text-animeo-warning">Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.</div>
       ) : null}
       <fieldset disabled={!canEdit} className="space-y-6 disabled:opacity-60">
       <Card className="p-5 sm:p-6">
@@ -83,8 +83,8 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
           <SectionTitle title="Votre lien de réservation" description="Partagez ce lien avec vos clients pour recevoir leurs demandes de rendez-vous." />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
             <Field label="Slug public" hint="Lettres minuscules, chiffres et tirets uniquement.">
-              <div className="flex overflow-hidden rounded-xl border border-[#d9e5e2] bg-white focus-within:border-animeo">
-                <span className="flex items-center border-r border-[#e2eae8] bg-animeo-bg px-3 text-sm font-bold text-animeo-muted">{publicLinkPrefix}</span>
+              <div className="flex overflow-hidden rounded-xl border border-animeo-border bg-white focus-within:border-animeo">
+                <span className="flex items-center border-r border-animeo-border bg-animeo-bg px-3 text-sm font-bold text-animeo-muted">{publicLinkPrefix}</span>
                 <input value={draft.slug} onChange={(event) => update("slug", cleanSlug(event.target.value))} className="h-11 min-w-0 flex-1 px-3 text-sm font-bold text-animeo-dark outline-none" required />
               </div>
             </Field>
@@ -98,7 +98,7 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
       </Card>
 
       <div className="flex justify-end">
-        <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
+        <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
       </div>
       </fieldset>
     </form>

@@ -190,7 +190,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-2xl font-black text-animeo-dark">{clientInfo.firstName} {clientInfo.lastName}</h2>
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#e4f5ef] px-3 py-1 text-xs font-extrabold text-[#267668]">
+                <span className="inline-flex items-center gap-2 rounded-full bg-animeo-positive-soft px-3 py-1 text-xs font-extrabold text-animeo-hover">
                   <span className="h-2 w-2 rounded-full bg-animeo" />
                   Client actif
                 </span>
@@ -209,7 +209,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             <button
               type="button"
               onClick={() => openNewAppointment()}
-              className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.18)] transition hover:bg-[#459e90]"
+              className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_18%,transparent)] transition hover:bg-animeo-hover"
             >
               <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>
               Nouveau rendez-vous
@@ -219,7 +219,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
                 type="button"
                 disabled={deletingClient}
                 onClick={deleteClient}
-                className="inline-flex items-center rounded-xl border border-[#f3c9c9] bg-[#fff1f1] px-4 py-2.5 text-sm font-extrabold text-animeo-error transition hover:bg-[#ffe0e0] disabled:opacity-60"
+                className="inline-flex items-center rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft disabled:opacity-60"
               >
                 {deletingClient ? "Suppression…" : "Supprimer le client"}
               </button>
@@ -317,7 +317,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
           {animals.length}
         </span>
       </div>
-      {error ? <p role="alert" className="mb-3 rounded-lg bg-[#fff1f1] px-3 py-2 text-xs font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p role="alert" className="mb-3 rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-error">{error}</p> : null}
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
         {animals.map((animal) => {
           const selected = animal.id === selectedAnimalId;
@@ -329,8 +329,8 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
               key={animal.id}
               className={`flex w-full items-center gap-2 rounded-2xl border p-3 transition ${
                 selected
-                  ? "border-animeo bg-animeo-soft shadow-[0_6px_16px_rgba(79,175,159,0.12)]"
-                  : "border-[#e3ece9] bg-white hover:border-[#a9d5cd]"
+                  ? "border-animeo bg-animeo-soft shadow-[0_6px_16px_color-mix(in_srgb,var(--theme-brand)_12%,transparent)]"
+                  : "border-animeo-border-soft bg-white hover:border-animeo-border-strong"
               } ${isDeleting ? "opacity-50" : ""}`}
             >
               <button type="button" onClick={() => onSelect(animal.id)} aria-pressed={selected} className="flex min-w-0 flex-1 items-center gap-3 text-left">
@@ -343,11 +343,11 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
                 </span>
               </button>
               {canDelete ? (
-                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ffe4e4] text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-[#ffd2d2] hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
+                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-danger-soft text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-animeo-danger-soft hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
                   <TrashIcon />
                 </button>
               ) : (
-                <Icon name="arrow" className={`h-4 w-4 shrink-0 ${selected ? "text-animeo" : "text-[#a8b3b6]"}`} />
+                <Icon name="arrow" className={`h-4 w-4 shrink-0 ${selected ? "text-animeo" : "text-animeo-subtle"}`} />
               )}
             </div>
           );
@@ -370,7 +370,7 @@ function TrashIcon() {
 
 function ActionButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="rounded-xl border border-[#d4e2df] bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft">
+    <button type="button" onClick={onClick} className="rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft">
       {label}
     </button>
   );

@@ -19,7 +19,7 @@ type ZoneModalProps = {
   onSave: (value: ZoneFormValue) => void;
 };
 
-const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
+const inputClassName = "h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 const initialEmptyCity: City = { id: "city-initial", name: "", postalCode: "" };
 
 export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
@@ -59,9 +59,9 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="zone-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="zone-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="map" className="h-6 w-6" /></div>
             <div>
@@ -103,7 +103,7 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
                       <span className="sr-only">Code postal {index + 1}</span>
                       <input value={city.postalCode} onChange={(event) => updateCity(city.id, "postalCode", event.target.value)} placeholder="Code postal" inputMode="numeric" className={inputClassName} required />
                     </label>
-                    <button type="button" onClick={() => removeCity(city.id)} disabled={cities.length === 1} aria-label={`Supprimer la ligne ${index + 1}`} className="flex h-11 items-center justify-center rounded-xl text-lg font-medium text-animeo-muted transition hover:bg-white hover:text-[#a9573b] disabled:opacity-30">×</button>
+                    <button type="button" onClick={() => removeCity(city.id)} disabled={cities.length === 1} aria-label={`Supprimer la ligne ${index + 1}`} className="flex h-11 items-center justify-center rounded-xl text-lg font-medium text-animeo-muted transition hover:bg-white hover:text-animeo-danger disabled:opacity-30">×</button>
                   </div>
                 ))}
               </div>
@@ -111,9 +111,9 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#459e90]">{zone ? "Enregistrer" : "Créer la zone"}</button>
+          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-animeo-hover">{zone ? "Enregistrer" : "Créer la zone"}</button>
           </div>
         </form>
       </section>

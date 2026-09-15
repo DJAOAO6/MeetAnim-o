@@ -64,16 +64,16 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#102f37]/45 backdrop-blur-sm" role="presentation">
+    <div className="fixed inset-0 z-50 flex justify-end bg-animeo-deep/45 backdrop-blur-sm" role="presentation">
       <section
         ref={panelRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="zones-panel-title"
-        className="flex h-full w-full max-w-md flex-col bg-white shadow-[-24px_0_60px_rgba(12,39,47,0.25)] outline-none"
+        className="flex h-full w-full max-w-md flex-col bg-white shadow-[-24px_0_60px_rgb(var(--theme-shadow-rgb)/0.25)] outline-none"
       >
-        <div className="flex items-center justify-between border-b border-[#e5eeeb] p-5">
+        <div className="flex items-center justify-between border-b border-animeo-border-soft p-5">
           <div>
             <h2 id="zones-panel-title" className="text-lg font-medium text-animeo-dark">Zones</h2>
             <p className="mt-0.5 text-xs text-animeo-muted">Villes et codes postaux — aucun rayon ni contour géographique en V1.</p>
@@ -87,7 +87,7 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
           {zones.length === 0 ? (
             <p className="text-sm text-animeo-muted">Aucune zone pour l’instant.</p>
           ) : (
-            <ul className="divide-y divide-[#edf2f0]">
+            <ul className="divide-y divide-animeo-border-soft">
               {zones.map((zone) => {
                 const count = tourCountFor(zone.id);
                 return (
@@ -101,7 +101,7 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
                       </div>
                       <div className="flex shrink-0 gap-1">
                         <button type="button" onClick={() => onEditZone(zone)} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-animeo-dark hover:bg-animeo-bg">Modifier</button>
-                        <button type="button" onClick={() => startDelete(zone)} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#a9573b] hover:bg-[#fff1ec]">Supprimer</button>
+                        <button type="button" onClick={() => startDelete(zone)} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-animeo-danger hover:bg-animeo-danger-soft">Supprimer</button>
                       </div>
                     </div>
                   </li>
@@ -110,7 +110,7 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
             </ul>
           )}
 
-          <div className="mt-5 rounded-xl border border-[#f1d89f] bg-[#fff9ec] p-3 text-xs leading-relaxed text-[#8c6118]">
+          <div className="mt-5 rounded-xl border border-animeo-warning-border bg-animeo-warning-soft p-3 text-xs leading-relaxed text-animeo-warning">
             <Icon name="shield" className="mb-1 h-4 w-4" />
             {" "}Renommer une zone ou changer ses villes n’actualise pas les frais de déplacement déjà configurés pour ce nom dans Prestations — ces frais s’appliquent directement sur la page de réservation publique : pensez à les vérifier après toute modification, pour ne jamais afficher un tarif erroné à vos clients.
           </div>
@@ -118,21 +118,21 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
       </section>
 
       {reassigning ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#102f37]/55 p-4" role="presentation">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-animeo-deep/55 p-4" role="presentation">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)]">
             <h3 className="text-base font-medium text-animeo-dark">Réassigner puis supprimer</h3>
             <p className="mt-2 text-sm text-animeo-muted">
               « {reassigning.name} » est utilisée par {tourCountFor(reassigning.id)} tournée{tourCountFor(reassigning.id) > 1 ? "s" : ""}. Choisissez la zone qui les remplacera avant de la supprimer.
             </p>
             <label className="mt-4 block">
               <span className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-animeo-muted">Réassigner vers</span>
-              <select value={targetZoneId} onChange={(event) => setTargetZoneId(event.target.value)} className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm text-animeo-dark">
+              <select value={targetZoneId} onChange={(event) => setTargetZoneId(event.target.value)} className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm text-animeo-dark">
                 {zones.filter((zone) => zone.id !== reassigning.id).map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}
               </select>
             </label>
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setReassigning(null)} className="rounded-xl border border-[#d4e2df] px-4 py-2 text-sm font-medium text-animeo-dark hover:bg-animeo-bg">Annuler</button>
-              <button type="button" onClick={confirmReassign} disabled={!targetZoneId || submitting} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="button" onClick={() => setReassigning(null)} className="rounded-xl border border-animeo-border px-4 py-2 text-sm font-medium text-animeo-dark hover:bg-animeo-bg">Annuler</button>
+              <button type="button" onClick={confirmReassign} disabled={!targetZoneId || submitting} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
                 {submitting ? "Réassignation…" : "Réassigner et supprimer"}
               </button>
             </div>
@@ -151,8 +151,8 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
       ) : null}
 
       {blockedDelete ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#102f37]/55 p-4" role="presentation">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-animeo-deep/55 p-4" role="presentation">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)]">
             <h3 className="text-base font-medium text-animeo-dark">Impossible de supprimer « {blockedDelete.name} »</h3>
             <p className="mt-2 text-sm text-animeo-muted">
               C’est la seule zone existante, et elle est utilisée par {toursUsing(blockedDelete.id).length > 1 ? "ces tournées" : "cette tournée"} :
@@ -166,7 +166,7 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
               Supprimez ou modifiez d’abord {toursUsing(blockedDelete.id).length > 1 ? "ces tournées" : "cette tournée"} (section « Tournées récurrentes »), ou créez une autre zone pour pouvoir réassigner celle-ci.
             </p>
             <div className="mt-5 flex justify-end">
-              <button type="button" onClick={() => setBlockedDelete(null)} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-[#459e90]">Compris</button>
+              <button type="button" onClick={() => setBlockedDelete(null)} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-animeo-hover">Compris</button>
             </div>
           </div>
         </div>

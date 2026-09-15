@@ -4,22 +4,30 @@ import { createContext, useContext, useEffect, useMemo, useState, type CSSProper
 import {
   defaultDashboardTheme,
   defaultDisplayOptions,
+  defaultPalette,
   fontFamilyVars,
   presetForMode,
   type DashboardDisplayOptions,
   type DashboardThemeMode,
   type DashboardThemeSettings,
   type NavigationAssetKey,
+  type ThemePalette,
 } from "@/data/dashboard-theme";
 import type { AnimalSpecies } from "@/data/species";
 
-const storageKey = "animeo-dashboard-theme-v1";
+// v2 : arrivée des palettes complètes (1002 Pattes par défaut). Les réglages
+// v1 ne sont repris que pour ce qui ne dépend pas des couleurs (options
+// d'affichage, icônes de navigation, couleurs d'espèces) : leurs couleurs
+// principales datent de l'ancien thème Émeraude et donneraient un rendu
+// incohérent mélangé à la nouvelle palette.
+const storageKey = "1002pattes-dashboard-theme-v2";
+const legacyStorageKey = "animeo-dashboard-theme-v1";
 
 type DashboardThemeContextValue = {
   theme: DashboardThemeSettings;
   effectiveMode: "light" | "dark";
   updateTheme: (patch: Partial<Omit<DashboardThemeSettings, "navigationAssets" | "speciesColors">>) => void;
-  applyPreset: (mode: DashboardThemeMode) => void;
+  applyPreset: (mode: DashboardThemeMode, palette?: ThemePalette) => void;
   resetTheme: () => void;
   setNavigationAsset: (key: NavigationAssetKey, value: string | null) => void;
   resetNavigationAssets: () => void;
@@ -30,11 +38,13 @@ type DashboardThemeContextValue = {
 const DashboardThemeContext = createContext<DashboardThemeContextValue | null>(null);
 
 function normalizeTheme(value: Partial<DashboardThemeSettings>): DashboardThemeSettings {
-  const preset = presetForMode(value.mode === "dark" ? "dark" : "light");
+  const palette: ThemePalette = value.palette === "classic" ? "classic" : defaultPalette;
+  const preset = presetForMode(value.mode === "dark" ? "dark" : "light", palette);
 
   return {
     ...preset,
     ...value,
+    palette,
     displayOptions: { ...defaultDisplayOptions, ...(value.displayOptions ?? {}) },
     navigationAssets: value.navigationAssets ?? {},
     speciesColors: value.speciesColors ?? {},
@@ -59,14 +69,20 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     try {
       const savedTheme = window.localStorage.getItem(storageKey);
-      if (savedTheme) {
-        const normalizedTheme = normalizeTheme(JSON.parse(savedTheme) as Partial<DashboardThemeSettings>);
+      const legacyTheme = savedTheme ? null : window.localStorage.getItem(legacyStorageKey);
+      const source = savedTheme
+        ? (JSON.parse(savedTheme) as Partial<DashboardThemeSettings>)
+        : legacyTheme
+          ? (({ mode, displayOptions, navigationAssets, speciesColors }: Partial<DashboardThemeSettings>) => ({ mode, displayOptions, navigationAssets, speciesColors }))(JSON.parse(legacyTheme) as Partial<DashboardThemeSettings>)
+          : null;
+      if (source) {
+        const normalizedTheme = normalizeTheme(source);
         queueMicrotask(() => {
           if (!cancelled) setTheme(normalizedTheme);
         });
       }
     } catch {
-      // Une valeur invalide restaure simplement le thème Animéo par défaut.
+      // Une valeur invalide restaure simplement le thème 1002 Pattes par défaut.
     }
 
     return () => {
@@ -96,9 +112,9 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
           return next;
         });
       },
-      applyPreset: (mode) => {
+      applyPreset: (mode, palette) => {
         setTheme((current) => {
-          const next = { ...presetForMode(mode), mode, displayOptions: current.displayOptions, navigationAssets: current.navigationAssets, speciesColors: current.speciesColors };
+          const next = { ...presetForMode(mode, palette ?? current.palette), mode, displayOptions: current.displayOptions, navigationAssets: current.navigationAssets, speciesColors: current.speciesColors };
           persistTheme(next);
           return next;
         });
@@ -149,24 +165,35 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
 
   const { effectiveMode } = value;
   const dark = effectiveMode === "dark";
-  const surfacePreset = presetForMode(effectiveMode);
+  const palettePreset = presetForMode(effectiveMode, theme.palette);
   const displayOptions: DashboardDisplayOptions = theme.displayOptions;
+  // Les tons dérivés (fond pastel, bordure accentuée, survol) sont fixés par
+  // la palette CSS pour sa couleur principale d'origine ; ils ne sont
+  // recalculés que si la couleur principale a été personnalisée, pour rester
+  // accordés à cette nouvelle couleur.
+  const customPrimary = theme.primaryColor.toUpperCase() !== palettePreset.primaryColor.toUpperCase();
   const style = {
     "--theme-primary": theme.primaryColor,
     "--theme-secondary": theme.secondaryColor,
     "--theme-accent": theme.accentColor,
-    "--theme-background": surfacePreset.backgroundColor,
-    "--theme-surface": surfacePreset.surfaceColor,
-    "--theme-sidebar": surfacePreset.sidebarColor,
-    "--theme-action": theme.primaryColor,
-    "--theme-text": dark ? "#E8F0EF" : "#1F2933",
-    "--theme-heading": dark ? "#F7FBFA" : "#183B45",
-    "--theme-muted": dark ? "#A8B8BD" : "#5C6A74",
-    "--theme-soft": "color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface))",
-    "--theme-border": "color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface))",
-    "--theme-card-radius": displayOptions.roundedCards ? "18px" : "8px",
+    ...(dark ? {} : { "--theme-action": theme.primaryColor }),
+    ...(customPrimary
+      ? {
+          "--theme-primary-hover": "color-mix(in srgb, var(--theme-primary) 84%, black)",
+          "--theme-brand": theme.primaryColor,
+          "--theme-soft": "color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface))",
+          "--theme-soft-strong": "color-mix(in srgb, var(--theme-primary) 22%, var(--theme-surface))",
+          "--theme-border-strong": "color-mix(in srgb, var(--theme-primary) 40%, var(--theme-surface))",
+          // Émeraude : item actif plein (texte blanc) — suit déjà
+          // --theme-primary. 1002 Pattes : item actif pastel, à réaccorder.
+          ...(theme.palette === "classic"
+            ? { "--theme-sidebar-active-bg": theme.primaryColor }
+            : { "--theme-sidebar-active-bg": "var(--theme-soft)", "--theme-sidebar-active-text": theme.primaryColor }),
+        }
+      : {}),
+    "--theme-card-radius": displayOptions.roundedCards ? (theme.palette === "classic" ? "18px" : "20px") : "8px",
     "--theme-font-family": fontFamilyVars[displayOptions.fontFamily],
-  } as CSSProperties;
+  } as unknown as CSSProperties;
 
   return (
     <DashboardThemeContext.Provider value={value}>
@@ -174,6 +201,7 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
         className="dashboard-theme-surface min-h-screen"
         data-dashboard-theme
         data-theme={effectiveMode}
+        data-palette={theme.palette}
         data-animations={displayOptions.smoothAnimations ? "on" : "off"}
         style={style}
       >

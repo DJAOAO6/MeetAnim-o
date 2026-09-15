@@ -27,7 +27,7 @@ export function DashboardFloatingActions() {
         type="button"
         onClick={() => openNewAppointment()}
         aria-label="Créer un nouveau rendez-vous"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-animeo text-white shadow-[0_10px_24px_rgba(79,175,159,0.35)] transition hover:-translate-y-0.5 hover:brightness-90 sm:h-16 sm:w-16"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-animeo text-white shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-brand)_35%,transparent)] transition hover:-translate-y-0.5 hover:brightness-90 sm:h-16 sm:w-16"
       >
         <Icon name="calendarPlus" className="h-5 w-5 sm:h-6 sm:w-6" />
       </button>

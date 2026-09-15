@@ -55,7 +55,7 @@ function buildEventContent(appointment: AppointmentWithClient): CalendarEventInp
     `Prestation : ${appointment.serviceName}`,
     `Mode : ${appointment.mode === "DOMICILE" ? "À domicile" : "Au cabinet"}`,
     "",
-    "Rendez-vous créé depuis Animéo",
+    "Rendez-vous créé depuis 1002 Pattes",
     "",
     "Voir le rendez-vous :",
     `${appUrl()}/dashboard/agenda`,

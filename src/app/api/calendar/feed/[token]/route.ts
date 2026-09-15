@@ -37,12 +37,12 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
       start: appointment.start,
       durationMinutes: appointment.duration,
       summary,
-      description: `Client : ${appointment.clientName}\nAnimal : ${appointment.animalName}\nMode : ${appointment.mode === "DOMICILE" ? "À domicile" : "Au cabinet"}\n\nGénéré depuis Animéo.`,
+      description: `Client : ${appointment.clientName}\nAnimal : ${appointment.animalName}\nMode : ${appointment.mode === "DOMICILE" ? "À domicile" : "Au cabinet"}\n\nGénéré depuis 1002 Pattes.`,
       location: appointment.mode === "DOMICILE" ? appointment.location : "Cabinet",
     };
   });
 
-  const content = buildIcsCalendar(events, "Animéo — Agenda");
+  const content = buildIcsCalendar(events, "1002 Pattes — Agenda");
 
   return new NextResponse(content, {
     status: 200,

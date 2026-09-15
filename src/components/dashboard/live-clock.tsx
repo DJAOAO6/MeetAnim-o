@@ -31,7 +31,7 @@ export function LiveClock() {
   if (!hasMounted) return null;
 
   return (
-    <div className="hidden h-12 shrink-0 flex-col justify-center rounded-2xl border border-[#e1eae8] bg-white px-4 shadow-[0_4px_16px_rgba(21,63,71,0.04)] lg:flex">
+    <div className="hidden h-12 shrink-0 flex-col justify-center rounded-2xl border border-animeo-border bg-white px-4 shadow-[0_4px_16px_rgb(var(--theme-shadow-rgb)/0.04)] lg:flex">
       <span className="text-[11px] font-bold capitalize leading-tight text-animeo-muted">{formatDate(now)}</span>
       <span className="text-sm font-black leading-tight text-animeo-dark">{timeFormatter.format(now)}</span>
     </div>

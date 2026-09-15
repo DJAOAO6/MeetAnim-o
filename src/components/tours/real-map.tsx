@@ -65,7 +65,7 @@ const NEUTRAL_DEFAULT_CENTER: [number, number] = [46.6, 2.5];
 
 const circleHandleIcon = L.divIcon({
   className: "",
-  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#fff;border:3px solid #4FAF9F;box-shadow:0 2px 8px rgba(24,59,69,0.35);cursor:ew-resize;"></span>',
+  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#fff;border:3px solid #4FAF9F;box-shadow:0 2px 8px rgb(var(--theme-shadow-rgb)/0.35);cursor:ew-resize;"></span>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
@@ -112,7 +112,7 @@ function CircleResizeHandle({ circle, onRadiusChange }: { circle: RealMapCircle;
 // jamais être confondu avec un arrêt.
 const liveLocationIcon = L.divIcon({
   className: "",
-  html: '<span style="display:block;width:16px;height:16px;border-radius:9999px;background:#1a73e8;border:3px solid white;box-shadow:0 2px 8px rgba(24,59,69,0.4);"></span>',
+  html: '<span style="display:block;width:16px;height:16px;border-radius:9999px;background:#1a73e8;border:3px solid white;box-shadow:0 2px 8px rgb(var(--theme-shadow-rgb)/0.4);"></span>',
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
@@ -122,7 +122,7 @@ function markerIcon(point: RealMapPoint, selected: boolean) {
   const badge = point.badge ? `<span style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:9999px;background:#f4b860;border:2px solid white;"></span>` : "";
   return L.divIcon({
     className: "",
-    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:0 6px 15px rgba(24,59,69,0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;">${point.label}${badge}</span>`,
+    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;">${point.label}${badge}</span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -181,7 +181,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
   const mapRef = useRef<L.Map | null>(null);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName}`}>
+    <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${heightClassName}`}>
       <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full" ref={mapRef}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

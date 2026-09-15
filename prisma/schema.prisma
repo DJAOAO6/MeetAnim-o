@@ -463,8 +463,8 @@ model StudioDocumentTemplate {
 
   contentJson Json
   thumbnail   String? @db.Text
-  // Modèles fournis par Animéo (seed), jamais modifiables/supprimables par
-  // un professionnel — distingue "mon modèle" de "modèle Animéo" dans la
+  // Modèles fournis par 1002 Pattes (seed), jamais modifiables/supprimables par
+  // un professionnel — distingue "mon modèle" de "modèle 1002 Pattes" dans la
   // bibliothèque, voir documents-actions.ts.
   isBuiltIn   Boolean @default(false)
 

@@ -36,9 +36,9 @@ export function ReminderModal({ reminder, professionalSlug, messageTemplate, sen
   const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reminder-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reminder-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white">
               <Icon name="bell" className="h-6 w-6" />
@@ -64,24 +64,24 @@ export function ReminderModal({ reminder, professionalSlug, messageTemplate, sen
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               rows={10}
-              className="w-full resize-none rounded-2xl border border-[#d9e5e2] bg-animeo-bg p-4 text-sm font-semibold leading-relaxed text-animeo-dark outline-none transition focus:border-animeo focus:bg-white"
+              className="w-full resize-none rounded-2xl border border-animeo-border bg-animeo-bg p-4 text-sm font-semibold leading-relaxed text-animeo-dark outline-none transition focus:border-animeo focus:bg-white"
             />
           </label>
 
           {reminder.clientEmail ? (
-            <div className="rounded-2xl border border-[#cfe7e1] bg-animeo-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-dark">
+            <div className="rounded-2xl border border-animeo-soft-strong bg-animeo-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-dark">
               Envoyé à <strong>{reminder.clientEmail}</strong>.
             </div>
           ) : (
-            <div className="rounded-2xl border border-[#f1d89f] bg-[#fff9ec] px-4 py-3 text-xs font-semibold leading-relaxed text-[#8c6118]">
+            <div className="rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-warning">
               Aucune adresse email n’est enregistrée pour {reminder.clientName} : l’envoi échouera tant qu’elle n’aura pas été ajoutée à sa fiche client.
             </div>
           )}
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-          <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-          <button type="button" onClick={() => onSend(reminder, message)} disabled={!message.trim() || sending || !reminder.clientEmail} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">
+        <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
+          <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+          <button type="button" onClick={() => onSend(reminder, message)} disabled={!message.trim() || sending || !reminder.clientEmail} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">
             {sending ? "Envoi…" : "Envoyer le rappel"}
           </button>
         </div>

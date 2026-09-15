@@ -296,12 +296,12 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:bg-white"
+          className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white"
         />
       </div>
 
       {open && hasAnyGroup ? (
-        <div id={listboxId} role="listbox" aria-label="Résultats de recherche" className="absolute z-[700] mt-1.5 max-h-96 w-full overflow-y-auto rounded-xl border border-[#d9e5e2] bg-white py-1.5 shadow-[0_14px_35px_rgba(24,59,69,0.15)]">
+        <div id={listboxId} role="listbox" aria-label="Résultats de recherche" className="absolute z-[700] mt-1.5 max-h-96 w-full overflow-y-auto rounded-xl border border-animeo-border bg-white py-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
           {showClientsGroup ? (
             <div role="group" aria-label="Clients">
               <GroupLabel>Clients</GroupLabel>

@@ -76,7 +76,7 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
         aria-modal="true"
         aria-label={`Rendez-vous de ${appointment.animalName}`}
         style={{ top: placement.top, left: placement.left, width: placement.width, maxHeight: placement.maxHeight }}
-        className={`absolute flex origin-top flex-col overflow-hidden rounded-2xl border border-[#dce8e5] bg-animeo-bg shadow-[0_24px_55px_rgba(12,39,47,0.28)] transition duration-200 ease-out ${
+        className={`absolute flex origin-top flex-col overflow-hidden rounded-2xl border border-animeo-border bg-animeo-bg shadow-[0_24px_55px_rgb(var(--theme-shadow-rgb)/0.28)] transition duration-200 ease-out ${
           visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-2 scale-95 opacity-0"
         }`}
       >

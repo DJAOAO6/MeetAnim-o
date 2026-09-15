@@ -69,7 +69,7 @@ export function normalizeHeader(raw: string): string {
 }
 
 /**
- * Devine la correspondance colonne → champ Animéo à partir des en-têtes du
+ * Devine la correspondance colonne → champ 1002 Pattes à partir des en-têtes du
  * fichier : chaque colonne n'est affectée qu'à un seul champ, et chaque
  * champ ne reçoit qu'une seule colonne (la première correspondance
  * rencontrée).

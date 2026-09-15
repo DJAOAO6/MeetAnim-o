@@ -77,13 +77,13 @@ export function BlockedSlotPopover({ slot, anchorRect, onDelete, onClose }: Bloc
         aria-modal="true"
         aria-label="Créneau bloqué"
         style={{ top: placement.top, left: placement.left, width: placement.width }}
-        className={`absolute origin-top overflow-hidden rounded-2xl border border-[#dce8e5] bg-white shadow-[0_24px_55px_rgba(12,39,47,0.28)] transition duration-200 ease-out ${
+        className={`absolute origin-top overflow-hidden rounded-2xl border border-animeo-border bg-white shadow-[0_24px_55px_rgb(var(--theme-shadow-rgb)/0.28)] transition duration-200 ease-out ${
           visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-2 scale-95 opacity-0"
         }`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[#e5eae9] p-4">
+        <div className="flex items-start justify-between gap-3 border-b border-animeo-border-soft p-4">
           <div className="min-w-0">
-            <span className="inline-flex rounded-full bg-[#F1F3F3] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#59666B]">Créneau bloqué</span>
+            <span className="inline-flex rounded-full bg-animeo-surface-alt px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-animeo-muted">Créneau bloqué</span>
             <h3 className="mt-2 truncate text-sm font-black text-animeo-dark">{formatDate(slot.date)}</h3>
             <p className="text-sm font-bold text-animeo-muted">{slot.startTime} – {slot.endTime}</p>
           </div>
@@ -92,12 +92,12 @@ export function BlockedSlotPopover({ slot, anchorRect, onDelete, onClose }: Bloc
 
         <div className="p-4">
           {slot.reason ? <p className="mb-3 rounded-xl bg-animeo-bg px-3 py-2.5 text-sm font-semibold text-animeo-dark">{slot.reason}</p> : null}
-          {error ? <p className="mb-3 rounded-xl bg-[#fff0eb] px-3 py-2.5 text-sm font-bold text-[#a9573b]">{error}</p> : null}
+          {error ? <p className="mb-3 rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-sm font-bold text-animeo-danger">{error}</p> : null}
           <button
             type="button"
             onClick={handleDelete}
             disabled={pending}
-            className="w-full rounded-xl border border-[#e6a08c] px-4 py-2.5 text-sm font-extrabold text-[#a9573b] transition hover:bg-[#fff0eb] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-xl border border-animeo-danger-border px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? "Déblocage…" : "Débloquer ce créneau"}
           </button>

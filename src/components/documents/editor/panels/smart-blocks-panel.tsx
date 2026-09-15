@@ -136,7 +136,7 @@ export function SmartBlocksPanel({ readOnly }: { readOnly: boolean }) {
   ];
 
   return (
-    <StudioPanel id="studio-panel-blocks" title="Blocs Animéo">
+    <StudioPanel id="studio-panel-blocks" title="Blocs 1002 Pattes">
       <div>
         <StudioSectionLabel>Insérer</StudioSectionLabel>
         <div className="space-y-1.5">

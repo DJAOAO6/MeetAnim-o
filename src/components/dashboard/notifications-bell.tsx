@@ -165,8 +165,8 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
   }
 
   const triggerClassName = variant === "onDark"
-    ? "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-white/10 text-white transition hover:bg-white/20"
-    : "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#e1eae8] bg-white text-animeo-dark shadow-[0_4px_16px_rgba(21,63,71,0.04)] transition hover:border-animeo hover:text-animeo";
+    ? "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[var(--theme-sidebar-hover)] text-[var(--theme-sidebar-text-strong)] transition hover:opacity-80"
+    : "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-animeo-border bg-white text-animeo-dark shadow-[0_4px_16px_rgb(var(--theme-shadow-rgb)/0.04)] transition hover:border-animeo hover:text-animeo";
 
   return (
     <div ref={containerRef} className="relative">
@@ -196,7 +196,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
         ref={panelRef}
         tabIndex={-1}
         aria-labelledby={titleId}
-        className={`absolute right-0 top-[calc(100%+10px)] z-[1200] w-[22rem] max-w-[calc(100vw-2rem)] origin-top-right rounded-2xl border border-[#e1eae8] bg-white p-2 shadow-[0_20px_45px_rgba(21,63,71,0.16)] outline-none transition duration-200 ease-out ${
+        className={`absolute right-0 top-[calc(100%+10px)] z-[1200] w-[22rem] max-w-[calc(100vw-2rem)] origin-top-right rounded-2xl border border-animeo-border bg-white p-2 shadow-[0_20px_45px_rgb(var(--theme-shadow-rgb)/0.16)] outline-none transition duration-200 ease-out ${
           open ? "visible translate-y-0 scale-100 opacity-100" : "invisible pointer-events-none -translate-y-2 scale-95 opacity-0"
         }`}
       >
@@ -218,7 +218,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                         <div className="flex items-center gap-1">
                           <div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5">
                             {unread ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-animeo" /> : <span className="w-1.5 shrink-0" />}
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff4dd] text-[#b7791f]">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-warning-soft text-animeo-warning">
                               <Icon name="agenda" className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 flex-1">
@@ -240,14 +240,14 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                           <button
                             type="button"
                             onClick={() => respondToRequest(appointment, "confirmed")}
-                            className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]"
+                            className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover"
                           >
                             Valider
                           </button>
                           <button
                             type="button"
                             onClick={() => respondToRequest(appointment, "cancelled")}
-                            className="rounded-lg bg-[#fff0eb] px-2.5 py-1.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]"
+                            className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft"
                           >
                             Refuser
                           </button>
@@ -258,7 +258,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                               close();
                               openManager(appointment.id);
                             }}
-                            className="ml-auto rounded-lg border border-[#d7e4e1] bg-white px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+                            className="ml-auto rounded-lg border border-animeo-border bg-white px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
                           >
                             Voir plus
                           </button>

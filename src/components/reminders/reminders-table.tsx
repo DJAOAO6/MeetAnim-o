@@ -17,10 +17,10 @@ type RemindersTableProps = {
 };
 
 const statusStyles: Record<ReminderStatus, string> = {
-  "À relancer": "bg-[#fff4dd] text-[#a66d16]",
-  "Rappel envoyé": "bg-[#e8f1f4] text-animeo-dark",
-  "RDV repris": "bg-[#e4f5ef] text-[#267668]",
-  "Ignoré": "bg-[#f0f2f2] text-[#6f7b7f]",
+  "À relancer": "bg-animeo-warning-soft text-animeo-warning",
+  "Rappel envoyé": "bg-animeo-info-soft text-animeo-dark",
+  "RDV repris": "bg-animeo-positive-soft text-animeo-hover",
+  "Ignoré": "bg-animeo-border-soft text-animeo-muted",
   "À venir": "bg-[#eeeaf8] text-[#6c5598]",
 };
 
@@ -54,8 +54,8 @@ export function RemindersTable(props: RemindersTableProps) {
           largeurs d'écran de portable les plus courantes, 1280-1440px). */}
       <div className="hidden overflow-x-auto lg:block">
         <div className="min-w-[1080px]">
-          <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-[#e5eeeb] bg-[#fbfdfc] px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
-            <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Sélectionner tous les rappels affichés" className="h-4 w-4 accent-[#4FAF9F]" />
+          <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-animeo-border-soft bg-animeo-surface-alt px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
+            <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Sélectionner tous les rappels affichés" className="h-4 w-4 accent-animeo-brand" />
             <span>Client</span>
             <span>Animal</span>
             <span>Dernière consultation</span>
@@ -64,7 +64,7 @@ export function RemindersTable(props: RemindersTableProps) {
             <span>Statut</span>
             <span className="text-right">Action</span>
           </div>
-          <div className="divide-y divide-[#edf2f0]">
+          <div className="divide-y divide-animeo-border-soft">
             {reminders.map((reminder) => <DesktopRow key={reminder.id} reminder={reminder} {...props} />)}
           </div>
         </div>
@@ -80,7 +80,7 @@ export function RemindersTable(props: RemindersTableProps) {
 function DesktopRow({ reminder, selectedIds, onToggleSelected, onRemind, onEdit, onIgnore }: RemindersTableProps & { reminder: Reminder }) {
   return (
     <div className={`grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 px-5 py-4 transition ${selectedIds.has(reminder.id) ? "bg-animeo-soft/55" : "hover:bg-animeo-bg/70"}`}>
-      <input type="checkbox" checked={selectedIds.has(reminder.id)} onChange={() => onToggleSelected(reminder.id)} aria-label={`Sélectionner le rappel de ${reminder.animalName}`} className="h-4 w-4 accent-[#4FAF9F]" />
+      <input type="checkbox" checked={selectedIds.has(reminder.id)} onChange={() => onToggleSelected(reminder.id)} aria-label={`Sélectionner le rappel de ${reminder.animalName}`} className="h-4 w-4 accent-animeo-brand" />
       <ClientCell reminder={reminder} />
       <AnimalCell reminder={reminder} />
       <span className="text-sm font-semibold text-animeo-muted">{reminder.lastConsultation}</span>
@@ -94,10 +94,10 @@ function DesktopRow({ reminder, selectedIds, onToggleSelected, onRemind, onEdit,
 
 function MobileReminderCard({ reminder, selectedIds, onToggleSelected, onRemind, onEdit, onIgnore }: RemindersTableProps & { reminder: Reminder }) {
   return (
-    <article className={`rounded-2xl border p-4 ${selectedIds.has(reminder.id) ? "border-animeo bg-animeo-soft/50" : "border-[#e1ebe8] bg-white"}`}>
+    <article className={`rounded-2xl border p-4 ${selectedIds.has(reminder.id) ? "border-animeo bg-animeo-soft/50" : "border-animeo-border bg-white"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <input type="checkbox" checked={selectedIds.has(reminder.id)} onChange={() => onToggleSelected(reminder.id)} aria-label={`Sélectionner le rappel de ${reminder.animalName}`} className="mt-1 h-4 w-4 accent-[#4FAF9F]" />
+          <input type="checkbox" checked={selectedIds.has(reminder.id)} onChange={() => onToggleSelected(reminder.id)} aria-label={`Sélectionner le rappel de ${reminder.animalName}`} className="mt-1 h-4 w-4 accent-animeo-brand" />
           <div>
             <ClientCell reminder={reminder} />
             <div className="mt-2"><AnimalCell reminder={reminder} /></div>
@@ -105,7 +105,7 @@ function MobileReminderCard({ reminder, selectedIds, onToggleSelected, onRemind,
         </div>
         <StatusBadge status={reminder.status} />
       </div>
-      <dl className="mt-4 space-y-2 border-t border-[#e5eeeb] pt-4 text-sm">
+      <dl className="mt-4 space-y-2 border-t border-animeo-border-soft pt-4 text-sm">
         <InfoLine label="Dernière consultation" value={reminder.lastConsultation} />
         <InfoLine label="Délai prévu" value={reminder.delay} />
         <InfoLine label="Date du rappel" value={formatDate(reminder.dueDate)} />
@@ -148,11 +148,11 @@ function RowActions({ reminder, onRemind, onEdit, onIgnore }: Pick<RemindersTabl
   return (
     <div className="relative flex items-center justify-end gap-2">
       {reminder.status === "À relancer" ? (
-        <button type="button" onClick={() => onRemind(reminder)} className="rounded-xl bg-animeo px-3 py-2 text-xs font-extrabold text-white transition hover:bg-[#459e90]">Relancer</button>
+        <button type="button" onClick={() => onRemind(reminder)} className="rounded-xl bg-animeo px-3 py-2 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Relancer</button>
       ) : null}
-      <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} aria-label={`Plus d’actions pour ${reminder.animalName}`} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white font-black text-animeo-muted transition hover:border-animeo hover:text-animeo-dark">•••</button>
+      <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} aria-label={`Plus d’actions pour ${reminder.animalName}`} className="flex h-8 w-8 items-center justify-center rounded-xl border border-animeo-border bg-white font-black text-animeo-muted transition hover:border-animeo hover:text-animeo-dark">•••</button>
       {open ? (
-        <div className="absolute right-0 top-10 z-40 w-48 rounded-2xl border border-[#dfe9e6] bg-white p-2 text-left shadow-[0_12px_30px_rgba(24,59,69,0.16)]">
+        <div className="absolute right-0 top-10 z-40 w-48 rounded-2xl border border-animeo-border bg-white p-2 text-left shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.16)]">
           <MenuButton label="Modifier la date" onClick={() => { setOpen(false); onEdit(reminder); }} />
           <MenuButton label="Ignorer" disabled={reminder.status === "Ignoré"} onClick={() => { setOpen(false); onIgnore(reminder); }} />
           <Link href={profileHref} className="block rounded-xl px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft" onClick={() => setOpen(false)}>Voir la fiche animal</Link>

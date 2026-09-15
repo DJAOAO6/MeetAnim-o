@@ -356,7 +356,7 @@ export function buildIcsContent(input: IcsEventInput, now: Date = new Date()): s
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Animeo//Reservation publique//FR",
+    "PRODID:-//1002 Pattes//Reservation publique//FR",
     "CALSCALE:GREGORIAN",
     ...buildIcsEventLines(input, now),
     "END:VCALENDAR",
@@ -376,7 +376,7 @@ export function buildIcsCalendar(events: IcsEventInput[], calendarName: string, 
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Animeo//Agenda professionnel//FR",
+    "PRODID:-//1002 Pattes//Agenda professionnel//FR",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     `X-WR-CALNAME:${escapeIcsText(calendarName)}`,

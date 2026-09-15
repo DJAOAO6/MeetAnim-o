@@ -164,14 +164,14 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
             <button
               type="button"
               onClick={() => setImportingClients(true)}
-              className="inline-flex items-center rounded-2xl border border-[#d4e2df] bg-white px-5 py-3 font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
+              className="inline-flex items-center rounded-2xl border border-animeo-border bg-white px-5 py-3 font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
             >
               Importer des clients
             </button>
             <button
               type="button"
               onClick={() => setCreatingClient(true)}
-              className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+              className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
             >
               <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
               Nouveau client
@@ -190,7 +190,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Rechercher par nom, animal ou téléphone…"
-              className="h-12 w-full rounded-2xl border border-[#d9e5e2] bg-animeo-bg pl-11 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:bg-white"
+              className="h-12 w-full rounded-2xl border border-animeo-border bg-animeo-bg pl-11 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white"
             />
           </label>
 
@@ -205,7 +205,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 border-t border-[#e5eeeb] pt-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mt-4 flex flex-col gap-3 border-t border-animeo-border-soft pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <span className="w-14 shrink-0 text-xs font-extrabold text-animeo-muted">Espèce</span>
             <div className="flex flex-wrap gap-1.5">
@@ -220,7 +220,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
               Statut
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="h-10 rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo">
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="h-10 rounded-xl border border-animeo-border bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo">
                 <option>Tous les statuts</option>
                 <option>Actif</option>
                 <option>Inactif</option>
@@ -228,7 +228,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
             </label>
             <label className="flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
               Trier par
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortOption)} className="h-10 rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo">
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortOption)} className="h-10 rounded-xl border border-animeo-border bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo">
                 {Object.entries(sortLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
             </label>
@@ -237,7 +237,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
       </Card>
 
       {canDelete && selectionMode && selectedIds.size > 0 ? (
-        <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgba(24,59,69,0.22)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.22)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white/10 px-2 font-black">{selectedIds.size}</span>
             <p className="font-extrabold">{selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}</p>
@@ -253,7 +253,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
       ) : null}
 
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
+        <div className="flex items-center justify-between gap-3 border-b border-animeo-border-soft px-5 py-4 sm:px-6">
           <div>
             <h2 className="text-lg font-extrabold text-animeo-dark">Liste des propriétaires</h2>
             <p className="mt-0.5 text-sm text-animeo-muted">
@@ -276,7 +276,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
           <>
             <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[980px] border-collapse text-left">
-                <thead className="bg-[#fbfdfc] text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+                <thead className="bg-animeo-surface-alt text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
                   <tr>
                     {canDelete && selectionMode ? (
                       <th className="w-12 px-6 py-3.5">
@@ -285,7 +285,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
                           checked={filteredClients.length > 0 && filteredClients.every((client) => selectedIds.has(client.id))}
                           onChange={toggleAllVisible}
                           aria-label="Sélectionner tous les clients affichés"
-                          className="h-4 w-4 accent-[#4FAF9F]"
+                          className="h-4 w-4 accent-animeo-brand"
                         />
                       </th>
                     ) : null}
@@ -297,7 +297,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
                     <th className="px-6 py-3.5 text-right"><span className="sr-only">Action</span></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#edf2f0]">
+                <tbody className="divide-y divide-animeo-border-soft">
                   {filteredClients.map((client) => (
                     <ClientTableRow
                       key={client.id}
@@ -350,7 +350,7 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
     <tr className={`transition ${selected ? "bg-animeo-soft/55" : "hover:bg-animeo-bg/70"}`}>
       {selectionMode ? (
         <td className="px-6 py-4">
-          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 accent-[#4FAF9F]" />
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 accent-animeo-brand" />
         </td>
       ) : null}
       <td className="px-6 py-4">
@@ -394,10 +394,10 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
 
 function ClientMobileCard({ client, selectionMode, selected, onToggleSelected }: { client: Client; selectionMode: boolean; selected: boolean; onToggleSelected: () => void }) {
   return (
-    <article className={`rounded-2xl border p-4 ${selected ? "border-animeo bg-animeo-soft/50" : "border-[#e1ebe8] bg-white"}`}>
+    <article className={`rounded-2xl border p-4 ${selected ? "border-animeo bg-animeo-soft/50" : "border-animeo-border bg-white"}`}>
       <div className="flex items-center gap-3">
         {selectionMode ? (
-          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 shrink-0 accent-[#4FAF9F]" />
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 shrink-0 accent-animeo-brand" />
         ) : null}
         <AnimalAvatarStack animals={client.animals} />
         <div className="min-w-0 flex-1">
@@ -454,7 +454,7 @@ function ClientLink({ id, fullWidth = false }: { id: string; fullWidth?: boolean
   return (
     <Link
       href={`/dashboard/clients/${id}`}
-      className={`${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]`}
+      className={`${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
     >
       Voir la fiche
       <Icon name="arrow" className="ml-1 h-4 w-4" />

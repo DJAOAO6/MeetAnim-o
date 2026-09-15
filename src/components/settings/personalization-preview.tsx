@@ -25,7 +25,7 @@ export function PersonalizationPreview({ profile, services, primaryColor, second
       <p className="mb-4 text-xs text-animeo-muted">Voici un aperçu de vos personnalisations.</p>
 
       <div
-        className="overflow-hidden rounded-[18px] border border-[#dfe9e6] bg-white shadow-[0_18px_50px_rgba(24,59,69,0.12)]"
+        className="overflow-hidden rounded-[18px] border border-animeo-border bg-white shadow-[0_18px_50px_rgb(var(--theme-shadow-rgb)/0.12)]"
         style={{ fontFamily: fontFamilyVars[displayOptions.fontFamily] }}
       >
         <div className="flex items-center justify-between gap-3 p-4">
@@ -44,7 +44,7 @@ export function PersonalizationPreview({ profile, services, primaryColor, second
           </div>
         </div>
 
-        <div className="space-y-4 border-t border-[#eef2f1] p-4">
+        <div className="space-y-4 border-t border-animeo-border-soft p-4">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Votre prochaine consultation</p>
             <div className="mt-2 flex items-center gap-3 rounded-2xl bg-animeo-bg p-3">
@@ -88,7 +88,7 @@ export function PersonalizationPreview({ profile, services, primaryColor, second
           <div className="rounded-2xl bg-animeo-bg p-3.5">
             <p className="text-sm font-extrabold text-animeo-dark">Présentation publique</p>
             <p className="mt-1 text-xs text-animeo-muted">Personnalisez l’apparence de votre page de réservation</p>
-            <Link href={`/reserver/${profile.slug}`} target="_blank" className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-[#d9e5e2] bg-white px-4 py-2.5 text-xs font-extrabold" style={{ color: primaryColor }}>
+            <Link href={`/reserver/${profile.slug}`} target="_blank" className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-animeo-border bg-white px-4 py-2.5 text-xs font-extrabold" style={{ color: primaryColor }}>
               Voir ma page publique
               <Icon name="arrow" className="h-3.5 w-3.5" />
             </Link>
@@ -96,7 +96,7 @@ export function PersonalizationPreview({ profile, services, primaryColor, second
         </div>
       </div>
 
-      <div className="mt-4 flex items-start gap-3 rounded-2xl border border-[#e1eae8] bg-animeo-bg px-4 py-3.5">
+      <div className="mt-4 flex items-start gap-3 rounded-2xl border border-animeo-border bg-animeo-bg px-4 py-3.5">
         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-animeo-muted"><Icon name="shield" className="h-3.5 w-3.5" /></span>
         <p className="text-xs leading-5 text-animeo-muted">
           Ces personnalisations s’appliquent uniquement à votre interface et à votre page de réservation. Les paramètres fonctionnels restent inchangés.

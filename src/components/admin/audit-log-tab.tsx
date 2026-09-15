@@ -4,7 +4,7 @@ import { auditActionLabels, type AuditLogEntry } from "@/data/admin";
 export function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
+      <div className="border-b border-animeo-border-soft px-5 py-4 sm:px-6">
         <h2 className="text-lg font-extrabold text-animeo-dark">Journal d’audit</h2>
         <p className="mt-0.5 text-sm text-animeo-muted">Les {entries.length} derniers événements de sécurité et d’accès aux fiches clients.</p>
       </div>
@@ -12,7 +12,7 @@ export function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
       {entries.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-left">
-            <thead className="bg-[#fbfdfc] text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+            <thead className="bg-animeo-surface-alt text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
               <tr>
                 <th className="px-5 py-3">Date</th>
                 <th className="px-5 py-3">Compte</th>
@@ -20,7 +20,7 @@ export function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
                 <th className="px-5 py-3">Détail</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#edf2f0]">
+            <tbody className="divide-y divide-animeo-border-soft">
               {entries.map((entry) => (
                 <tr key={entry.id}>
                   <td className="px-5 py-3 text-xs font-semibold text-animeo-muted">{new Date(entry.createdAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</td>

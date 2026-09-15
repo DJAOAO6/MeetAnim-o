@@ -79,12 +79,12 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
           <SimulatedMap points={points} heightClassName="h-40" showLabels={false} />
           <div className="mt-4 flex flex-wrap gap-2">
             {mapsResult.links.map((link) => (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-animeo px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-animeo px-4 py-3 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
                 <Icon name="car" className="h-4 w-4" />
                 {mapsResult.links.length > 1 ? link.label : "Itinéraire"}
               </a>
             ))}
-            <Link href="/dashboard/tournees" className="flex flex-1 items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">
+            <Link href="/dashboard/tournees" className="flex flex-1 items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
               Voir la tournée
             </Link>
           </div>
@@ -92,7 +92,7 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
       ) : (
         <>
           <p className="text-sm text-animeo-muted">Aucune tournée active n’est programmée dans les prochains jours.</p>
-          <Link href="/dashboard/tournees" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">
+          <Link href="/dashboard/tournees" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
             Gérer les tournées
           </Link>
         </>

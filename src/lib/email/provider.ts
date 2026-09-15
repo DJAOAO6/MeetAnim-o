@@ -76,7 +76,7 @@ export function getEmailProvider(): EmailProvider {
   const apiKey = process.env.MAILJET_API_KEY;
   const apiSecret = process.env.MAILJET_API_SECRET;
   const fromEmail = process.env.MAIL_FROM_ADDRESS;
-  const fromName = process.env.MAIL_FROM_NAME ?? "Animéo";
+  const fromName = process.env.MAIL_FROM_NAME ?? "1002 Pattes";
 
   cachedProvider = apiKey && apiSecret && fromEmail
     ? new MailjetEmailProvider(apiKey, apiSecret, fromEmail, fromName)

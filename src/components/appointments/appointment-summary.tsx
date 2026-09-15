@@ -13,10 +13,10 @@ import { appointmentStatusLabels, type Appointment, type AppointmentStatus } fro
 import { toTelHref } from "@/lib/phone";
 
 const statusStyles: Record<AppointmentStatus, string> = {
-  pending: "bg-[#fff1d5] text-[#986216]",
-  confirmed: "bg-animeo-soft text-[#24755f]",
-  completed: "bg-[#e8f1f4] text-animeo-dark",
-  cancelled: "bg-[#eef1f1] text-animeo-muted",
+  pending: "bg-animeo-warning-soft text-animeo-warning",
+  confirmed: "bg-animeo-soft text-animeo-positive",
+  completed: "bg-animeo-info-soft text-animeo-dark",
+  cancelled: "bg-animeo-border-soft text-animeo-muted",
 };
 
 type AppointmentSummaryProps = {
@@ -113,7 +113,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start justify-between gap-3 border-b border-[#dce8e5] bg-white p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3 border-b border-animeo-border bg-white p-4 sm:p-5">
         <div className="min-w-0">
           {backLabel ? (
             <button type="button" onClick={onBack} className="mb-3 inline-flex items-center gap-1 text-sm font-extrabold text-animeo">
@@ -141,23 +141,23 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
         {appointment.notes ? <SummaryRow icon="agenda" label="Notes" value={appointment.notes} /> : null}
       </div>
 
-      <div className="border-t border-[#dce8e5] bg-white p-4 sm:p-5">
+      <div className="border-t border-animeo-border bg-white p-4 sm:p-5">
         {appointment.clientId || isHomeVisit || appointment.clientPhone ? (
           <div className="mb-2 flex flex-wrap gap-2">
             {appointment.clientPhone ? (
-              <a href={toTelHref(appointment.clientPhone) ?? undefined} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+              <a href={toTelHref(appointment.clientPhone) ?? undefined} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-animeo-border px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
                 <Icon name="phone" className="h-3.5 w-3.5" />
                 Appeler
               </a>
             ) : null}
             {appointment.clientId ? (
-              <a href={`/dashboard/clients/${appointment.clientId}`} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+              <a href={`/dashboard/clients/${appointment.clientId}`} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-animeo-border px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
                 <Icon name="clients" className="h-3.5 w-3.5" />
                 Fiche client
               </a>
             ) : null}
             {isHomeVisit ? (
-              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#d9e5e2] px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
+              <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-animeo-border px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo">
                 <Icon name="map" className="h-3.5 w-3.5" />
                 Itinéraire
               </a>
@@ -165,17 +165,17 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
           </div>
         ) : null}
         {appointment.status === "confirmed" ? (
-          <button type="button" onClick={handleComplete} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={handleComplete} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
             {completing ? "…" : "Consultation réalisée"}
           </button>
         ) : null}
         {appointment.status === "completed" ? (
-          <button type="button" onClick={handleCreateDocument} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9] disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={handleCreateDocument} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
             <Icon name="document" className="h-4 w-4" />
             {creatingDocument ? "…" : "Créer le compte rendu"}
           </button>
         ) : null}
-        <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
+        <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
           Modifier
         </button>
       </div>

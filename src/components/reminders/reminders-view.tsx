@@ -40,9 +40,9 @@ const statsConfig: Array<{
   color: string;
   background: string;
 }> = [
-  { key: "due", label: "À relancer", icon: "bell", color: "text-[#b7791f]", background: "bg-[#fff4dd]" },
+  { key: "due", label: "À relancer", icon: "bell", color: "text-animeo-warning", background: "bg-animeo-warning-soft" },
   { key: "sent", label: "Rappels envoyés", icon: "calendar", color: "text-animeo-dark", background: "bg-animeo-soft" },
-  { key: "booked", label: "RDV repris", icon: "agenda", color: "text-[#267668]", background: "bg-[#e4f5ef]" },
+  { key: "booked", label: "RDV repris", icon: "agenda", color: "text-animeo-hover", background: "bg-animeo-positive-soft" },
   { key: "upcoming", label: "À venir", icon: "calendar", color: "text-[#8067b0]", background: "bg-[#eeeaf8]" },
 ];
 
@@ -214,7 +214,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
           <button
             type="button"
             onClick={launchDueReminders}
-            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
           >
             <Icon name="bell" className="mr-2 h-5 w-5" />
             Lancer les rappels
@@ -246,7 +246,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Rechercher un client ou un animal"
-              className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:bg-white"
+              className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white"
             />
           </label>
 
@@ -272,14 +272,14 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
       </div>
 
       {selectedIds.size > 0 ? (
-        <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgba(24,59,69,0.22)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.22)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white/10 px-2 font-black">{selectedIds.size}</span>
             <p className="font-extrabold">{selectedIds.size} rappel{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}</p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Annuler</button>
-            <button type="button" onClick={() => markAsSent(Array.from(selectedIds))} disabled={isBulkSending} className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={() => markAsSent(Array.from(selectedIds))} disabled={isBulkSending} className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
               {isBulkSending ? "Envoi…" : "Envoyer les rappels"}
             </button>
           </div>

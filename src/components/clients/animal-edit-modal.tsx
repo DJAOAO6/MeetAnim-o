@@ -76,9 +76,9 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="animal-edit-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="flex items-start justify-between gap-4 border-b border-[#e5eeeb] p-5 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="animal-edit-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="flex items-start justify-between gap-4 border-b border-animeo-border-soft p-5 sm:p-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Fiche animal</p>
             <h2 id="animal-edit-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{animal ? `Modifier ${animal.name}` : "Ajouter un animal"}</h2>
@@ -88,7 +88,7 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
 
         <form onSubmit={submit}>
           <div className="space-y-5 p-5 sm:p-6">
-            {error ? <p role="alert" className="rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+            {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Nom"><input value={draft.name} onChange={(event) => update("name", event.target.value)} className={inputClassName} required /></Field>
@@ -112,8 +112,8 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
+          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
             <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? "Enregistrement…" : animal ? "Enregistrer les modifications" : "Ajouter l’animal"}
             </button>

@@ -100,7 +100,7 @@ export function TourRunEndpointPicker({ label, value, onChange, savedPlaces, cab
         value={selectValue}
         onChange={handleSelectChange}
         disabled={locating}
-        className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-bold text-animeo-dark"
+        className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark"
       >
         {cabinetAvailable ? <option value="CABINET">Cabinet</option> : null}
         {homePlaces.map((place) => <option key={place.id} value={place.id}>{place.label || "Domicile"}</option>)}
@@ -118,7 +118,7 @@ export function TourRunEndpointPicker({ label, value, onChange, savedPlaces, cab
             onQueryChange={setCustomQuery}
             onSelect={(result) => onChange({ type: "CUSTOM", savedPlaceId: null, address: result.label, latitude: result.latitude, longitude: result.longitude, label: result.label })}
             placeholder="Rechercher une adresse"
-            inputClassName="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-semibold text-animeo-dark"
+            inputClassName="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark"
           />
         </div>
       ) : null}

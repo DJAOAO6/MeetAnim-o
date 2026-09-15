@@ -11,7 +11,7 @@ type BlockedSlotModalProps = {
   onSave: (input: CreateBlockedSlotInput) => Promise<{ ok: boolean; error?: string }>;
 };
 
-const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
+const inputClassName = "h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 const durationOptions = [30, 60, 90, 120, 180];
 const reasonSuggestions = ["Pause déjeuner", "Congés", "Formation", "Absence"];
 
@@ -50,9 +50,9 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="blocked-slot-dialog-title" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="blocked-slot-dialog-title" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo-dark text-white"><LockIcon /></div>
             <div>
@@ -96,12 +96,12 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
               </datalist>
             </Field>
 
-            {error ? <p className="rounded-xl bg-[#fff0eb] px-3.5 py-2.5 text-sm font-bold text-[#a9573b]">{error}</p> : null}
+            {error ? <p className="rounded-xl bg-animeo-danger-soft px-3.5 py-2.5 text-sm font-bold text-animeo-danger">{error}</p> : null}
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" disabled={pending} className="rounded-xl bg-animeo-dark px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#12303a] disabled:cursor-not-allowed disabled:opacity-60">
+          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="submit" disabled={pending} className="rounded-xl bg-animeo-dark px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:cursor-not-allowed disabled:opacity-60">
               {pending ? "Blocage…" : "Bloquer ce créneau"}
             </button>
           </div>
@@ -116,7 +116,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <label>
       <span className="mb-2 flex items-center justify-between text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">
         {label}
-        {hint ? <span className="normal-case tracking-normal text-[#9aa5a8]">{hint}</span> : null}
+        {hint ? <span className="normal-case tracking-normal text-animeo-subtle">{hint}</span> : null}
       </span>
       {children}
     </label>

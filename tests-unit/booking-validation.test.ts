@@ -380,13 +380,13 @@ test("buildIcsCalendar produces one VCALENDAR with one VEVENT per entry, stable 
       { uid: "appt-1@animeo.app", dateId: "2026-11-05", start: "09:00", durationMinutes: 30, summary: "RDV 1", description: "", location: "Cabinet" },
       { uid: "appt-2@animeo.app", dateId: "2026-11-06", start: "10:00", durationMinutes: 45, summary: "RDV 2", description: "", location: "À domicile" },
     ],
-    "Animéo — Agenda",
+    "1002 Pattes — Agenda",
     new Date("2026-10-01T10:00:00.000Z"),
   );
 
   assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
   assert.match(ics, /\r\nEND:VCALENDAR$/);
-  assert.match(ics, /X-WR-CALNAME:Animéo — Agenda\r\n/);
+  assert.match(ics, /X-WR-CALNAME:1002 Pattes — Agenda\r\n/);
   assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 2);
   assert.equal((ics.match(/END:VEVENT/g) ?? []).length, 2);
   assert.match(ics, /UID:appt-1@animeo\.app\r\n/);
@@ -394,7 +394,7 @@ test("buildIcsCalendar produces one VCALENDAR with one VEVENT per entry, stable 
 });
 
 test("buildIcsCalendar with no events still produces a valid empty calendar", () => {
-  const ics = buildIcsCalendar([], "Animéo — Agenda", new Date("2026-10-01T10:00:00.000Z"));
+  const ics = buildIcsCalendar([], "1002 Pattes — Agenda", new Date("2026-10-01T10:00:00.000Z"));
   assert.match(ics, /^BEGIN:VCALENDAR\r\n[\s\S]*\r\nEND:VCALENDAR$/);
   assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 0);
 });

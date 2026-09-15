@@ -101,7 +101,7 @@ function GoogleCalendarCard({ google }: { google: GoogleIntegrationState }) {
       {google.status === "disconnected" ? (
         <a
           href="/api/calendar/google/connect"
-          className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#459e90]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-animeo-hover"
         >
           <GoogleBadge />
           Connecter Google Agenda
@@ -109,17 +109,17 @@ function GoogleCalendarCard({ google }: { google: GoogleIntegrationState }) {
       ) : (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-animeo-soft px-3 py-1.5 text-xs font-extrabold text-[#24755f]">
-              <span className="h-2 w-2 rounded-full bg-[#278064]" aria-hidden="true" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-animeo-soft px-3 py-1.5 text-xs font-extrabold text-animeo-positive">
+              <span className="h-2 w-2 rounded-full bg-animeo-positive" aria-hidden="true" />
               Connecté
             </span>
             <span className="text-sm font-bold text-animeo-dark">{google.accountEmail}</span>
           </div>
 
           {google.lastError ? (
-            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fff3e0] px-4 py-3 text-sm font-bold text-[#a9573b]">
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-animeo-warning-soft px-4 py-3 text-sm font-bold text-animeo-danger">
               <span>⚠ Synchronisation Google à vérifier</span>
-              <a href="/api/calendar/google/connect" className="inline-flex min-h-9 items-center rounded-lg bg-white px-3 text-xs font-extrabold text-[#a9573b] shadow-sm transition hover:bg-[#fff7ef]">Reconnecter</a>
+              <a href="/api/calendar/google/connect" className="inline-flex min-h-9 items-center rounded-lg bg-white px-3 text-xs font-extrabold text-animeo-danger shadow-sm transition hover:bg-animeo-warning-soft">Reconnecter</a>
             </div>
           ) : null}
 
@@ -131,12 +131,12 @@ function GoogleCalendarCard({ google }: { google: GoogleIntegrationState }) {
                   value={calendarId}
                   onChange={(event) => changeCalendar(event.target.value)}
                   disabled={saving}
-                  className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {google.availableCalendars.map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name}</option>)}
                 </select>
               ) : (
-                <p className="rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 py-2.5 text-sm font-semibold text-animeo-dark">{google.calendarName}</p>
+                <p className="rounded-xl border border-animeo-border bg-animeo-bg px-3.5 py-2.5 text-sm font-semibold text-animeo-dark">{google.calendarName}</p>
               )}
             </label>
           </div>
@@ -152,7 +152,7 @@ function GoogleCalendarCard({ google }: { google: GoogleIntegrationState }) {
             Dernière synchronisation : {google.lastSyncAt ? timeAgoFr(google.lastSyncAt) : "aucune pour le moment"}
           </p>
 
-          <button type="button" onClick={() => setDisconnectConfirmOpen(true)} className="inline-flex min-h-11 items-center rounded-xl bg-[#fff0eb] px-4 py-2.5 text-sm font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]">
+          <button type="button" onClick={() => setDisconnectConfirmOpen(true)} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
             Déconnecter
           </button>
         </div>
@@ -224,7 +224,7 @@ function AppleCalendarCard({ icsFeed }: { icsFeed: IcsFeedState }) {
       <SectionTitle title="Apple Calendar" description="Retrouvez vos rendez-vous sur iPhone, iPad et Mac." />
 
       {!state.enabled ? (
-        <button type="button" onClick={enable} disabled={pending} className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="button" onClick={enable} disabled={pending} className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
           {pending ? "Génération…" : "Ajouter à Apple Calendar"}
         </button>
       ) : (
@@ -232,7 +232,7 @@ function AppleCalendarCard({ icsFeed }: { icsFeed: IcsFeedState }) {
           <div>
             <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Adresse du calendrier</p>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <input readOnly value={state.url ?? ""} onFocus={(event) => event.currentTarget.select()} className="h-11 min-w-0 flex-1 rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-xs font-semibold text-animeo-muted outline-none focus:border-animeo" />
+              <input readOnly value={state.url ?? ""} onFocus={(event) => event.currentTarget.select()} className="h-11 min-w-0 flex-1 rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-xs font-semibold text-animeo-muted outline-none focus:border-animeo" />
               <button type="button" onClick={copyLink} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-animeo px-4 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">
                 {copied ? "Copié ✓" : "Copier le lien"}
               </button>
@@ -240,14 +240,14 @@ function AppleCalendarCard({ icsFeed }: { icsFeed: IcsFeedState }) {
           </div>
 
           <p className="text-xs text-animeo-muted">
-            Les rendez-vous créés dans le logiciel apparaîtront automatiquement dans Apple Calendar. Ce lien n’est pas une synchronisation bidirectionnelle : les modifications faites directement dans Apple Calendar n’affectent jamais votre agenda Animéo.
+            Les rendez-vous créés dans le logiciel apparaîtront automatiquement dans Apple Calendar. Ce lien n’est pas une synchronisation bidirectionnelle : les modifications faites directement dans Apple Calendar n’affectent jamais votre agenda 1002 Pattes.
           </p>
 
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={regenerate} disabled={pending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-bg px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
               Régénérer le lien
             </button>
-            <button type="button" onClick={disable} disabled={pending} className="inline-flex min-h-11 items-center rounded-xl bg-[#fff0eb] px-4 text-sm font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc] disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={disable} disabled={pending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-danger-soft px-4 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:cursor-not-allowed disabled:opacity-60">
               Désactiver le lien
             </button>
           </div>

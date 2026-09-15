@@ -9,7 +9,7 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 /**
- * Modèles fournis par Animéo (Studio de documents, étapes 3-4-7) — script
+ * Modèles fournis par 1002 Pattes (Studio de documents, étapes 3-4-7) — script
  * autonome (comme geocode-clients.ts, geocode-business-profile.ts), jamais
  * importé par l'app. Ré-exécutable sans effet de bord : un modèle "isBuiltIn"
  * n'est jamais modifiable depuis l'app (StudioDocumentTemplate.isBuiltIn,
@@ -57,7 +57,7 @@ type FieldSpec = { label: string; token: string; height?: number };
 /**
  * Carte d'identité (animal/propriétaire) : fond + bordure, un en-tête
  * accentué, puis les champs en grille 2 colonnes (légende + valeur liée à
- * une vraie variable Animéo). La hauteur est calculée à partir du nombre de
+ * une vraie variable 1002 Pattes). La hauteur est calculée à partir du nombre de
  * lignes plutôt que codée en dur, pour ne jamais désynchroniser le fond de
  * son contenu quand la liste de champs change.
  */

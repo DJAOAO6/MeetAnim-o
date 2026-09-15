@@ -39,7 +39,7 @@ function pushRecentColor(color: string) {
  * `<input type="color">` bruts (fond de forme/contour dans properties-panel.tsx,
  * couleur de texte dans text-format-toolbar.tsx, fond de page). Une seule
  * implémentation partagée : "Couleurs du document" (dérivées du contenu réel,
- * voir collectDocumentColors), "Couleurs Animéo" (thème du compte,
+ * voir collectDocumentColors), "Couleurs 1002 Pattes" (thème du compte,
  * useDashboardTheme — lecture seule, aucun nouveau stockage serveur),
  * "Couleurs récentes" (localStorage, même convention que le thème dashboard),
  * champ HEX libre.
@@ -125,7 +125,7 @@ export function ColorPicker({
         className={
           size === "sm"
             ? "h-6 w-6 cursor-pointer rounded border border-neutral-200 p-0 disabled:cursor-not-allowed disabled:opacity-50"
-            : "h-9 w-full cursor-pointer rounded-lg border border-[#d9e5e2] bg-white p-1 disabled:cursor-not-allowed disabled:opacity-50"
+            : "h-9 w-full cursor-pointer rounded-lg border border-animeo-border bg-white p-1 disabled:cursor-not-allowed disabled:opacity-50"
         }
       >
         <span aria-hidden="true" className="block h-full w-full rounded" style={{ backgroundColor: value || "#ffffff" }} />
@@ -161,7 +161,7 @@ export function ColorPicker({
 
           {favorites.length > 0 ? <ColorSwatchRow label="Couleurs favorites" colors={favorites} favorites={favorites} onChoose={choose} onToggleFavorite={toggleFavorite} /> : null}
           {uniqueDocumentColors.length > 0 ? <ColorSwatchRow label="Couleurs du document" colors={uniqueDocumentColors} favorites={favorites} onChoose={choose} onToggleFavorite={toggleFavorite} /> : null}
-          <ColorSwatchRow label="Couleurs Animéo" colors={animeoColors} favorites={favorites} onChoose={choose} onToggleFavorite={toggleFavorite} />
+          <ColorSwatchRow label="Couleurs 1002 Pattes" colors={animeoColors} favorites={favorites} onChoose={choose} onToggleFavorite={toggleFavorite} />
           {recentColors.length > 0 ? <ColorSwatchRow label="Couleurs récentes" colors={recentColors} favorites={favorites} onChoose={choose} onToggleFavorite={toggleFavorite} /> : null}
         </div>
       ) : null}

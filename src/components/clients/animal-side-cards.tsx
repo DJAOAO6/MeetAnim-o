@@ -37,9 +37,9 @@ function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (messag
               key={document.id}
               type="button"
               onClick={() => onAction(`L’ouverture de ${document.name} sera ajoutée ici`)}
-              className="flex w-full items-center gap-3 rounded-2xl border border-[#e4ecea] bg-animeo-bg p-3 text-left transition hover:border-animeo"
+              className="flex w-full items-center gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-3 text-left transition hover:border-animeo"
             >
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-black ${document.type === "PDF" ? "bg-[#fff0e8] text-[#a9572e]" : "bg-[#e8f1f4] text-[#315f6c]"}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-black ${document.type === "PDF" ? "bg-animeo-danger-soft text-animeo-danger" : "bg-animeo-info-soft text-animeo-dark"}`}>
                 {document.type === "PDF" ? "PDF" : "IMG"}
               </span>
               <span className="min-w-0 flex-1">
@@ -56,14 +56,14 @@ function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (messag
       <button
         type="button"
         onClick={() => onAction(`Le téléversement d’un document pour ${animal.name} sera ajouté ici`)}
-        className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]"
+        className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover"
       >
         Téléverser un document
       </button>
       <button
         type="button"
         onClick={() => onAction(`La liste complète des documents de ${animal.name} sera ajoutée ici`)}
-        className="mt-2 flex w-full items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]"
+        className="mt-2 flex w-full items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong"
       >
         Voir tous les documents
       </button>
@@ -74,13 +74,13 @@ function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (messag
 function ReminderCard({ animal, onScheduleReminder }: { animal: Animal; onScheduleReminder: () => void }) {
   return (
     <Card className="overflow-hidden sm:self-start">
-      <div className="bg-[#fff8e8] p-5">
+      <div className="bg-animeo-warning-soft p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#a66d16]">Prochain rappel</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo-warning">Prochain rappel</p>
             <h2 className="mt-2 text-xl font-black text-animeo-dark">{animal.reminder.label}</h2>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#b7791f]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-animeo-warning">
             <Icon name="bell" className="h-5 w-5" />
           </div>
         </div>
@@ -91,7 +91,7 @@ function ReminderCard({ animal, onScheduleReminder }: { animal: Animal; onSchedu
         <button
           type="button"
           onClick={onScheduleReminder}
-          className="flex w-full items-center justify-center rounded-xl bg-[#fff0cf] px-4 py-2.5 text-sm font-extrabold text-[#8c6118] transition hover:bg-[#ffe7b2]"
+          className="flex w-full items-center justify-center rounded-xl bg-animeo-warning-soft px-4 py-2.5 text-sm font-extrabold text-animeo-warning transition hover:bg-animeo-warning-soft"
         >
           Programmer un rappel
         </button>

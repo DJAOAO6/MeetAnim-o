@@ -120,7 +120,7 @@ function MiniCalendar({ weekDates, onSelectDate }: { weekDates: Date[]; onSelect
                     ? "bg-animeo-soft text-animeo-dark"
                     : inVisibleMonth
                       ? "text-animeo-dark"
-                      : "text-[#bcc5c7]"
+                      : "text-animeo-subtle"
               }`}
             >
               {date.getDate()}
@@ -150,7 +150,7 @@ function NextAppointment() {
           <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Prochain rendez-vous</p>
           <p className="mt-2 text-2xl font-black text-animeo-dark">{appointment.start}</p>
         </div>
-        <span className="rounded-full bg-[#E5F4F0] px-3 py-1 text-[10px] font-black text-animeo-dark">{appointment.mode === "cabinet" ? "Cabinet" : "Domicile"}</span>
+        <span className="rounded-full bg-animeo-positive-soft px-3 py-1 text-[10px] font-black text-animeo-dark">{appointment.mode === "cabinet" ? "Cabinet" : "Domicile"}</span>
       </div>
       <div className="mt-4 flex items-center gap-3 rounded-2xl bg-animeo-bg p-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">

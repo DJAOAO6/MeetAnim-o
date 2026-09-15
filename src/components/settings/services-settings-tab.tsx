@@ -36,19 +36,19 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
       />
 
       {!canEdit ? (
-        <div role="status" className="mb-5 rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">Vous n’avez pas la permission de modifier les prestations. Contactez un administrateur.</div>
+        <div role="status" className="mb-5 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm font-bold text-animeo-warning">Vous n’avez pas la permission de modifier les prestations. Contactez un administrateur.</div>
       ) : null}
 
       <fieldset disabled={!canEdit} className="disabled:opacity-60">
       <div className="grid gap-5 xl:grid-cols-2">
         {services.map((service) => (
           <Card key={service.id} className={`overflow-hidden ${service.active ? "" : "opacity-70"}`}>
-            <div className={`h-1.5 ${service.active ? "bg-animeo" : "bg-[#aeb9bc]"}`} />
+            <div className={`h-1.5 ${service.active ? "bg-animeo" : "bg-animeo-subtle"}`} />
             <div className="p-5 sm:p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${service.active ? "bg-[#e5f5ef] text-[#278064]" : "bg-[#eef1f1] text-animeo-muted"}`}>{service.active ? "Active" : "Inactive"}</span>
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${service.active ? "bg-animeo-positive-soft text-animeo-positive" : "bg-animeo-border-soft text-animeo-muted"}`}>{service.active ? "Active" : "Inactive"}</span>
                     <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-[10px] font-black text-animeo-muted">{service.duration} min</span>
                   </div>
                   <h3 className="text-xl font-black text-animeo-dark">{service.name}</h3>
@@ -58,7 +58,7 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
               </div>
 
               <div className="my-5 flex flex-wrap gap-2">
-                {service.animals.map((animal) => <span key={animal} className="rounded-full border border-[#dce8e5] px-3 py-1 text-xs font-extrabold text-animeo-dark">{animal}</span>)}
+                {service.animals.map((animal) => <span key={animal} className="rounded-full border border-animeo-border px-3 py-1 text-xs font-extrabold text-animeo-dark">{animal}</span>)}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -67,7 +67,7 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
               </div>
 
               {service.homeEnabled ? (
-                <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-[#e0ebe8] px-4 py-3 text-sm">
+                <div className="mt-3 flex items-center justify-between gap-4 rounded-2xl border border-animeo-border px-4 py-3 text-sm">
                   <span className="font-bold text-animeo-muted">Frais de déplacement</span>
                   <span className="text-right font-black text-animeo-dark">{travelFeeLabel(service)}</span>
                 </div>
@@ -78,10 +78,10 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
                 <span className="font-black text-animeo-dark">{service.suggestedReminder}</span>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[#e4ecea] pt-4">
+              <div className="mt-5 grid grid-cols-3 gap-2 border-t border-animeo-border-soft pt-4">
                 <button type="button" onClick={() => setModal(service)} className="rounded-xl bg-animeo-soft px-3 py-2.5 text-xs font-extrabold text-animeo-dark">Modifier</button>
                 <button type="button" onClick={() => onToggle(service)} className="rounded-xl bg-animeo-bg px-3 py-2.5 text-xs font-extrabold text-animeo-muted">{service.active ? "Désactiver" : "Activer"}</button>
-                <button type="button" onClick={() => onDelete(service)} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b]">Supprimer</button>
+                <button type="button" onClick={() => onDelete(service)} className="rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-xs font-extrabold text-animeo-danger">Supprimer</button>
               </div>
             </div>
           </Card>
@@ -89,7 +89,7 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
       </div>
       </fieldset>
 
-      <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-animeo-soft p-4 text-sm text-animeo-dark">Les changements de tarif concernent les futures réservations. Les prix des rendez-vous historiques restent inchangés.</p>
+      <p className="mt-5 rounded-2xl border border-animeo-border bg-animeo-soft p-4 text-sm text-animeo-dark">Les changements de tarif concernent les futures réservations. Les prix des rendez-vous historiques restent inchangés.</p>
 
       {modal ? <ServiceModal service={modal === "new" ? undefined : modal} zoneNames={zoneNames} kilometricFeesEnabled={kilometricFeesEnabled} defaultDuration={defaultDuration} saving={saving} onClose={() => setModal(null)} onSave={saveService} /> : null}
     </>
@@ -106,7 +106,7 @@ export function ServicesSettingsShortcut() {
             <h3 className="text-lg font-black text-animeo-dark">Gérez vos prestations au même endroit</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-animeo-muted">Durées, espèces, tarifs Cabinet et Domicile, rappels conseillés et frais de déplacement sont regroupés sur la page Prestations.</p>
           </div>
-          <Link href="/dashboard/prestations" className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#459e90]">Gérer mes prestations</Link>
+          <Link href="/dashboard/prestations" className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-animeo-hover">Gérer mes prestations</Link>
         </div>
       </Card>
     </>
@@ -115,11 +115,11 @@ export function ServicesSettingsShortcut() {
 
 function PriceBlock({ label, enabled, price }: { label: string; enabled: boolean; price: number }) {
   return (
-    <div className={`rounded-2xl p-4 ${enabled ? "bg-animeo-soft" : "bg-[#f2f4f4]"}`}>
+    <div className={`rounded-2xl p-4 ${enabled ? "bg-animeo-soft" : "bg-animeo-surface-alt"}`}>
       <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">{label}</p>
       <div className="mt-2 flex items-end justify-between">
         <span className={`text-lg font-black ${enabled ? "text-animeo-dark" : "text-animeo-muted"}`}>{enabled ? `${price} €` : "Désactivé"}</span>
-        <span className={`h-2.5 w-2.5 rounded-full ${enabled ? "bg-animeo" : "bg-[#b8c2c5]"}`} />
+        <span className={`h-2.5 w-2.5 rounded-full ${enabled ? "bg-animeo" : "bg-animeo-subtle"}`} />
       </div>
     </div>
   );

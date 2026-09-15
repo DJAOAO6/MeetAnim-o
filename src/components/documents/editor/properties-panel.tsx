@@ -6,7 +6,7 @@ import { AnatomyProperties } from "@/components/documents/editor/anatomy-propert
 import { ColorPicker } from "@/components/documents/editor/color-picker";
 import { collectDocumentColors, type DocumentDiagramElement } from "@/lib/documents/content";
 
-const numberFieldClassName = "h-9 w-full rounded-lg border border-[#d9e5e2] bg-animeo-bg px-2.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white";
+const numberFieldClassName = "h-9 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white";
 
 export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
   const content = useDocumentStore((state) => state.content);
@@ -31,11 +31,11 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
       <div className="space-y-4 p-4">
         <p className="text-sm font-semibold text-animeo-dark">{selectedCount} éléments sélectionnés</p>
         {!readOnly ? (
-          <div className="flex gap-2 border-t border-[#e5eeeb] pt-4">
-            <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-[#d4e2df] px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+          <div className="flex gap-2 border-t border-animeo-border-soft pt-4">
+            <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
               Dupliquer
             </button>
-            <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-[#f3c9c9] bg-[#fff1f1] px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-[#ffe0e0]">
+            <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft">
               Supprimer
             </button>
           </div>
@@ -51,7 +51,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
     return (
       <div className="space-y-4 p-4">
         <p className="text-sm text-animeo-muted">Sélectionnez un élément pour modifier ses propriétés.</p>
-        <div className="border-t border-[#e5eeeb] pt-4">
+        <div className="border-t border-animeo-border-soft pt-4">
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Fond de page</p>
           <div className="flex items-center gap-2">
             <div className="w-16">
@@ -217,11 +217,11 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
       {element.type === "anatomy" ? <AnatomyProperties element={element} readOnly={fieldsDisabled} /> : null}
 
       {!fieldsDisabled ? (
-        <div className="flex gap-2 border-t border-[#e5eeeb] pt-4">
-          <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-[#d4e2df] px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+        <div className="flex gap-2 border-t border-animeo-border-soft pt-4">
+          <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
             Dupliquer
           </button>
-          <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-[#f3c9c9] bg-[#fff1f1] px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-[#ffe0e0]">
+          <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft">
             Supprimer
           </button>
         </div>
@@ -334,7 +334,7 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
                   const value = event.target.value.trim();
                   if (value && value !== preset.label) renamePreset(preset.id, value);
                 }}
-                className="h-8 w-full rounded-lg border border-[#d9e5e2] bg-animeo-bg px-2 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
+                className="h-8 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
               />
             </label>
           ))}

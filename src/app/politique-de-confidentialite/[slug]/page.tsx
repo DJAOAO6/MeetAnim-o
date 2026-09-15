@@ -23,14 +23,14 @@ export default async function PrivacyPolicyPage({ params }: PageProps<"/politiqu
   if (!profile) notFound();
 
   return (
-    <main className="min-h-screen bg-[#f4f9f7] text-animeo-dark">
-      <header className="border-b border-[#dfe9e6] bg-white px-4 py-4 sm:px-6">
+    <main className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
+      <header className="border-b border-animeo-border bg-white px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <AnimeoLogo size="footer" />
         </div>
       </header>
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
-        <section className="rounded-[18px] border border-[#dfe9e6] bg-white p-6 shadow-[0_14px_45px_rgba(24,59,69,0.08)] sm:p-8">
+        <section className="rounded-[18px] border border-animeo-border bg-white p-6 shadow-[0_14px_45px_rgb(var(--theme-shadow-rgb)/0.08)] sm:p-8">
           <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Confidentialité</p>
           <h1 className="mt-2 text-2xl font-black leading-tight text-animeo-dark sm:text-3xl">Politique de confidentialité</h1>
           <p className="mt-2 text-sm leading-6 text-animeo-muted">

@@ -89,9 +89,9 @@ function AvailabilityBadge({ label, open, disabled, onClick }: { label: string; 
       onClick={onClick}
       disabled={disabled}
       aria-label={`${open ? "Fermer" : "Rouvrir"} ${label} aux réservations en ligne`}
-      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${open ? "border-[#cfe7e1] bg-white text-animeo-dark hover:bg-animeo-soft" : "border-[#d9dfdf] bg-[#eef1f1] text-animeo-muted hover:bg-white"}`}
+      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${open ? "border-animeo-soft-strong bg-white text-animeo-dark hover:bg-animeo-soft" : "border-animeo-border bg-animeo-border-soft text-animeo-muted hover:bg-white"}`}
     >
-      <span className={`h-2.5 w-2.5 rounded-full ${open ? "bg-animeo shadow-[0_0_0_4px_rgba(79,175,159,0.14)]" : "bg-[#E05D5D] shadow-[0_0_0_4px_rgba(224,93,93,0.14)]"}`} />
+      <span className={`h-2.5 w-2.5 rounded-full ${open ? "bg-animeo-success shadow-[0_0_0_4px_rgba(54,162,107,0.16)]" : "bg-[#E05D5D] shadow-[0_0_0_4px_rgba(224,93,93,0.14)]"}`} />
       {label} {open ? "ouvert" : "fermé"}
       <span aria-hidden="true" className="ml-1 text-xs opacity-60">{open ? "Fermer" : "Rouvrir"}</span>
     </button>

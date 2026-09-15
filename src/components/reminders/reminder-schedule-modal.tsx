@@ -22,7 +22,7 @@ type ReminderScheduleModalProps = {
   onSave: (value: ReminderFormValue) => void;
 };
 
-const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
+const inputClassName = "h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
 function defaultDueDateId(): string {
   const inSixMonths = new Date();
@@ -57,9 +57,9 @@ export function ReminderScheduleModal({ reminder, clients, saving, onClose, onSa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="schedule-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white">
               <Icon name="calendar" className="h-6 w-6" />
@@ -104,17 +104,17 @@ export function ReminderScheduleModal({ reminder, clients, saving, onClose, onSa
 
             <label className="sm:col-span-2">
               <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Note facultative</span>
-              <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Ex. suivi de mobilité à prévoir…" className="w-full resize-none rounded-2xl border border-[#d9e5e2] bg-animeo-bg p-3.5 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:bg-white" />
+              <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={4} placeholder="Ex. suivi de mobilité à prévoir…" className="w-full resize-none rounded-2xl border border-animeo-border bg-animeo-bg p-3.5 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white" />
             </label>
 
-            <div className="sm:col-span-2 rounded-2xl border border-[#cfe7e1] bg-animeo-soft p-4 text-xs font-semibold leading-relaxed text-animeo-dark">
+            <div className="sm:col-span-2 rounded-2xl border border-animeo-soft-strong bg-animeo-soft p-4 text-xs font-semibold leading-relaxed text-animeo-dark">
               Si la date choisie est postérieure au {todayLabel()}, le rappel sera classé <strong>À venir</strong>. Il ne passera pas prématurément dans <strong>À relancer</strong>.
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-[#e5eeeb] p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50">
+          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
+            <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">
               {saving ? "Enregistrement…" : reminder ? "Enregistrer les modifications" : "Programmer le rappel"}
             </button>
           </div>

@@ -575,27 +575,27 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
               {revenue > 0 ? ` · ${formatEuros(revenue)} prévus` : ""}
             </p>
             {consultationMinutes > 0 ? <p className="mt-0.5 text-xs font-semibold text-animeo-muted">{Math.floor(consultationMinutes / 60)}h{String(consultationMinutes % 60).padStart(2, "0")} de consultations</p> : null}
-            {tourRun.isRouteEstimate ? <p className="mt-1 text-xs font-bold text-[#8c6118]">≈ Estimation à vol d’oiseau — itinéraire réel indisponible pour le moment.</p> : null}
+            {tourRun.isRouteEstimate ? <p className="mt-1 text-xs font-bold text-animeo-warning">≈ Estimation à vol d’oiseau — itinéraire réel indisponible pour le moment.</p> : null}
             <p className="mt-1.5 text-xs font-extrabold text-animeo-dark">{progressLabel}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {mapsResult.links.map((link) => (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
                 <Icon name="car" className="h-4 w-4" />
                 {mapsResult.links.length > 1 ? link.label : "Itinéraire complet"}
               </a>
             ))}
-            <button type="button" onClick={() => setAddStopOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-[#dceee9]">+ Ajouter un arrêt</button>
+            <button type="button" onClick={() => setAddStopOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">+ Ajouter un arrêt</button>
             {canOptimize ? (
-              <button type="button" onClick={handleOptimize} disabled={optimizing} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#d4e2df] px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">
+              <button type="button" onClick={handleOptimize} disabled={optimizing} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">
                 {optimizing ? "Calcul…" : "✨ Optimiser"}
               </button>
             ) : null}
-            <button type="button" onClick={() => runAction(() => recomputeRouteAction(tourRun.id))} disabled={busy} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#d4e2df] px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">Recalculer</button>
+            <button type="button" onClick={() => runAction(() => recomputeRouteAction(tourRun.id))} disabled={busy} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">Recalculer</button>
           </div>
         </div>
         {mapsResult.excludedStopCount > 0 ? (
-          <p className="mt-2 text-xs font-bold text-[#a9573b]">
+          <p className="mt-2 text-xs font-bold text-animeo-danger">
             {mapsResult.excludedStopCount > 1 ? `${mapsResult.excludedStopCount} arrêts sans adresse localisée ne sont pas dans l’itinéraire.` : "1 arrêt sans adresse localisée n’est pas dans l’itinéraire."}
           </p>
         ) : null}
@@ -604,21 +604,21 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             des rendez-vous — jamais résolue automatiquement, seulement
             signalée pour que l'utilisatrice décide en un clic. */}
         {stopsToRemove.length > 0 ? (
-          <div className="mt-3 rounded-xl bg-[#fff1ec] p-3">
-            <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.06em] text-[#a9573b]">
+          <div className="mt-3 rounded-xl bg-animeo-danger-soft p-3">
+            <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.06em] text-animeo-danger">
               {stopsToRemove.length > 1 ? `${stopsToRemove.length} arrêts à retirer` : "1 arrêt à retirer"}
             </p>
             <ul className="space-y-1.5">
               {stopsToRemove.map((stop) => (
                 <li key={stop.stopId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="font-bold text-animeo-dark">
-                    {stop.label} <span className="font-semibold text-[#a9573b]">— {stop.reason === "cancelled" ? "rendez-vous annulé" : "rendez-vous déplacé à une autre date"}</span>
+                    {stop.label} <span className="font-semibold text-animeo-danger">— {stop.reason === "cancelled" ? "rendez-vous annulé" : "rendez-vous déplacé à une autre date"}</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId: stop.stopId }))}
                     disabled={busy}
-                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe4d9] disabled:opacity-60"
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:opacity-60"
                   >
                     Retirer
                   </button>
@@ -663,7 +663,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                 runAction(() => updateTourRunEndpointsAction({ tourRunId: tourRun.id, departureTime: departureTimeDraft, start: endpointFrom(tourRun.start), end: endpointFrom(tourRun.end) }));
               }
             }}
-            className="min-h-11 w-full max-w-[160px] rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-bold text-animeo-dark"
+            className="min-h-11 w-full max-w-[160px] rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark"
           />
         </div>
 
@@ -709,7 +709,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
           bas de page, c'est la moitié de l'écran (phase 3 bis). */}
       <div className="grid gap-6 lg:grid-cols-[380px_1fr] lg:items-start">
         <Card className={`${mobileView === "list" ? "block" : "hidden lg:block"} overflow-hidden lg:sticky lg:top-6`}>
-          <div className="flex items-center justify-between border-b border-[#e5eeeb] p-4">
+          <div className="flex items-center justify-between border-b border-animeo-border-soft p-4">
             <h3 className="text-sm font-black uppercase tracking-[0.08em] text-animeo-dark">Ma tournée</h3>
             {busy ? <span className="text-[11px] font-bold text-animeo-muted">Recalcul…</span> : null}
           </div>
@@ -734,7 +734,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             {showNearbyClients ? (
               <label className="inline-flex items-center gap-1.5 text-xs font-bold text-animeo-muted">
                 Rayon
-                <select value={sectorRadiusKm} onChange={(event) => setSectorRadiusKm(Number(event.target.value))} className="min-h-8 rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-extrabold text-animeo-dark">
+                <select value={sectorRadiusKm} onChange={(event) => setSectorRadiusKm(Number(event.target.value))} className="min-h-8 rounded-lg border border-animeo-border bg-white px-2 text-xs font-extrabold text-animeo-dark">
                   {[15, 30, 50].map((km) => <option key={km} value={km}>{km} km</option>)}
                 </select>
               </label>
@@ -768,7 +768,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                   {selectedClient.dueForReminder ? " · À relancer" : ""}
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <button type="button" onClick={() => { setClientAppointmentError(null); setAppointmentModalOpen(true); }} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]">
+                  <button type="button" onClick={() => { setClientAppointmentError(null); setAppointmentModalOpen(true); }} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">
                     Ajouter à la tournée
                   </button>
                   <button type="button" onClick={() => setSelectedClientId(null)} className="rounded-lg bg-animeo-bg px-3 py-1.5 text-xs font-extrabold text-animeo-muted">✕</button>
@@ -777,8 +777,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             ) : undefined}
           />
           {showNearbyClients && unlocatedSectorClients.length > 0 ? (
-            <div className="mt-3 rounded-2xl border border-dashed border-[#d9c9a3] bg-[#fffaf0] p-3">
-              <p className="text-xs font-extrabold text-[#8c6118]">Clients du secteur sans adresse localisée</p>
+            <div className="mt-3 rounded-2xl border border-dashed border-[#d9c9a3] bg-animeo-warning-soft p-3">
+              <p className="text-xs font-extrabold text-animeo-warning">Clients du secteur sans adresse localisée</p>
               <ul className="mt-2 space-y-1.5">
                 {unlocatedSectorClients.map((client) => (
                   <li key={client.id} className="flex items-center justify-between gap-2 text-xs font-semibold text-animeo-dark">
@@ -787,7 +787,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                       type="button"
                       onClick={() => handleGeocodeClient(client.clientId)}
                       disabled={geocodingClientId === client.clientId}
-                      className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[11px] font-extrabold text-[#8c6118] shadow-sm transition hover:bg-[#fff3d9] disabled:opacity-60"
+                      className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[11px] font-extrabold text-animeo-warning shadow-sm transition hover:bg-animeo-warning-soft disabled:opacity-60"
                     >
                       {geocodingClientId === client.clientId ? "Localisation…" : "Localiser"}
                     </button>
@@ -873,7 +873,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
           discret plutôt que dans la rangée d'actions primaires — la
           suppression d'une journée n'est pas un geste courant. */}
       <div className="text-center">
-        <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="text-xs font-semibold text-animeo-muted underline-offset-2 hover:text-[#a9573b] hover:underline">
+        <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="text-xs font-semibold text-animeo-muted underline-offset-2 hover:text-animeo-danger hover:underline">
           Supprimer cette journée
         </button>
       </div>
@@ -894,10 +894,10 @@ function EditorHeader({ dateId, onClose, onChangeDate }: { dateId: string; onClo
     <div className="flex flex-wrap items-center justify-between gap-3">
       <button type="button" onClick={onClose} className="inline-flex items-center gap-1.5 text-sm font-extrabold text-animeo-muted hover:text-animeo-dark">← Retour</button>
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => shift(-1)} aria-label="Jour précédent" className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d4e2df] text-animeo-dark hover:bg-animeo-bg">‹</button>
+        <button type="button" onClick={() => shift(-1)} aria-label="Jour précédent" className="flex h-9 w-9 items-center justify-center rounded-lg border border-animeo-border text-animeo-dark hover:bg-animeo-bg">‹</button>
         <span className="min-w-[220px] text-center text-sm font-extrabold text-animeo-dark">{formatFrenchDate(date)}</span>
-        <button type="button" onClick={() => shift(1)} aria-label="Jour suivant" className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d4e2df] text-animeo-dark hover:bg-animeo-bg">›</button>
-        <button type="button" onClick={() => onChangeDate(new Date().toISOString().slice(0, 10))} className="ml-1 rounded-lg border border-[#d4e2df] px-3 py-2 text-xs font-extrabold text-animeo-dark hover:bg-animeo-bg">Aujourd’hui</button>
+        <button type="button" onClick={() => shift(1)} aria-label="Jour suivant" className="flex h-9 w-9 items-center justify-center rounded-lg border border-animeo-border text-animeo-dark hover:bg-animeo-bg">›</button>
+        <button type="button" onClick={() => onChangeDate(new Date().toISOString().slice(0, 10))} className="ml-1 rounded-lg border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark hover:bg-animeo-bg">Aujourd’hui</button>
       </div>
     </div>
   );
@@ -908,13 +908,13 @@ function AdvancedOptions({ tourRun, busy, onSave }: { tourRun: TourRunView; busy
     <div className="mt-4 grid gap-4 rounded-2xl bg-animeo-bg p-4 sm:grid-cols-2">
       <div>
         <label htmlFor="safety-buffer" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Temps de sécurité entre RDV</label>
-        <select id="safety-buffer" value={tourRun.safetyBufferMinutes} disabled={busy} onChange={(event) => onSave({ safetyBufferMinutes: Number(event.target.value) })} className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-bold text-animeo-dark">
+        <select id="safety-buffer" value={tourRun.safetyBufferMinutes} disabled={busy} onChange={(event) => onSave({ safetyBufferMinutes: Number(event.target.value) })} className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark">
           {[0, 5, 10, 15, 20, 30].map((minutes) => <option key={minutes} value={minutes}>{minutes === 0 ? "Aucun" : `${minutes} min`}</option>)}
         </select>
       </div>
       <div>
         <label htmlFor="optimization-preference" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Optimisation préférée</label>
-        <select id="optimization-preference" value={tourRun.optimizationPreference} disabled={busy} onChange={(event) => onSave({ optimizationPreference: event.target.value as "TIME" | "DISTANCE" | "BALANCED" })} className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-bold text-animeo-dark">
+        <select id="optimization-preference" value={tourRun.optimizationPreference} disabled={busy} onChange={(event) => onSave({ optimizationPreference: event.target.value as "TIME" | "DISTANCE" | "BALANCED" })} className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark">
           <option value="BALANCED">Équilibrée</option>
           <option value="TIME">Temps</option>
           <option value="DISTANCE">Distance</option>

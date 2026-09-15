@@ -9,7 +9,7 @@ import { getDocumentTemplateContent, getDocumentTemplates } from "@/lib/document
 import type { StudioDocumentTemplateSummary } from "@/data/documents";
 
 /**
- * Catégorie "Modèles" du rail (étape 10) — parcourt les modèles Animéo et
+ * Catégorie "Modèles" du rail (étape 10) — parcourt les modèles 1002 Pattes et
  * insère le choisi comme une NOUVELLE page (jamais un remplacement de la
  * page actuelle, destructif et surprenant). Récupère la liste au montage
  * (uniquement quand ce panneau est ouvert, pas à chaque chargement de

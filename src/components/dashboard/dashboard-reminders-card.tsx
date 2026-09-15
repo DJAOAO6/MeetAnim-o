@@ -18,10 +18,10 @@ export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] })
     <Card className="p-5 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fff4dd] text-[#b7791f]"><Icon name="bell" className="h-5 w-5" /></span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-warning-soft text-animeo-warning"><Icon name="bell" className="h-5 w-5" /></span>
           <h2 className="font-black text-animeo-dark">Rappels à envoyer</h2>
         </div>
-        <span className="rounded-full bg-[#fff4dd] px-2.5 py-1 text-xs font-black text-[#946116]">{dueReminders.length}</span>
+        <span className="rounded-full bg-animeo-warning-soft px-2.5 py-1 text-xs font-black text-animeo-warning">{dueReminders.length}</span>
       </div>
 
       {visible.length > 0 ? (
@@ -46,7 +46,7 @@ export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] })
         <p className="rounded-2xl bg-animeo-bg px-4 py-6 text-center text-sm font-bold text-animeo-muted">Aucun rappel à envoyer pour le moment.</p>
       )}
 
-      <Link href="/dashboard/rappels" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-[#fff4dd] px-4 py-3 text-sm font-extrabold text-[#9a671c] transition hover:bg-[#ffe9bd]">
+      <Link href="/dashboard/rappels" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-warning-soft px-4 py-3 text-sm font-extrabold text-animeo-warning transition hover:bg-animeo-warning-soft">
         Voir tous les rappels
       </Link>
     </Card>

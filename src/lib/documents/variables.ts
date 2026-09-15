@@ -1,4 +1,4 @@
-// Studio de documents — variables dynamiques Animéo (étape 3). Registre pur
+// Studio de documents — variables dynamiques 1002 Pattes (étape 3). Registre pur
 // (aucune dépendance DB directe) : le contexte est résolu une fois côté
 // serveur (documents-actions.ts, à partir des vraies fiches liées au
 // document) puis passé tel quel au client, jamais recalculé depuis zéro

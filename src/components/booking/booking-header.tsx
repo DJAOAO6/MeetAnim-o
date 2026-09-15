@@ -61,7 +61,7 @@ export function BookingHeader({ professional }: { professional: PublicProfession
               {modeBadges.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {modeBadges.map((badge) => (
-                    <span key={badge} className="rounded-full border border-[#dfe9e6] px-2.5 py-1 text-xs font-bold text-animeo-dark">{badge}</span>
+                    <span key={badge} className="rounded-full border border-animeo-border px-2.5 py-1 text-xs font-bold text-animeo-dark">{badge}</span>
                   ))}
                 </div>
               ) : null}

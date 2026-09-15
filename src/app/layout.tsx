@@ -93,8 +93,8 @@ const studioFontVariables = [
 
 export const metadata: Metadata = {
   title: {
-    default: "Animéo",
-    template: "%s · Animéo",
+    default: "1002 Pattes",
+    template: "%s · 1002 Pattes",
   },
   description: "L’agenda intelligent des professionnels animaliers.",
 };

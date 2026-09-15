@@ -170,7 +170,7 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
       </div>
 
       {open && results.length > 0 ? (
-        <ul id={listboxId} role="listbox" aria-label="Suggestions d’adresse" className="absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl border border-[#d7e4e1] bg-white py-1 shadow-[0_12px_32px_rgba(24,59,69,0.14)]">
+        <ul id={listboxId} role="listbox" aria-label="Suggestions d’adresse" className="absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl border border-animeo-border bg-white py-1 shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.14)]">
           {results.map((result, index) => (
             <li
               key={result.id}

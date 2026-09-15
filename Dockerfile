@@ -19,4 +19,14 @@ RUN npm run build
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Au démarrage, avant de servir : migrations en attente (sans effet si la
+# base est à jour), modèles de documents fournis (idempotent), puis premier
+# compte administrateur d'une base vierge (prisma/bootstrap-admin.ts, sans
+# effet hors configuration dédiée ou si un administrateur existe déjà).
+# Un échec arrête le démarrage plutôt que de servir l'application sur une
+# base au schéma incomplet.
+#
+# DB_URL (injectée par Iridflow quand une base de la plateforme est rattachée
+# au site) prend le pas sur DATABASE_URL : exportée avant toute commande pour
+# que l'application, les migrations et les scripts visent la même base.
+CMD ["sh", "-c", "export DATABASE_URL=\"${DB_URL:-$DATABASE_URL}\" && npx prisma migrate deploy && npx tsx prisma/seed-document-templates.ts && npx tsx prisma/bootstrap-admin.ts && npm start"]

@@ -289,11 +289,11 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
 
       <div className="mb-5 flex gap-1.5" aria-hidden="true">
         {groupOrder.map((group) => (
-          <span key={group} className={`h-1 flex-1 rounded-full transition-colors motion-reduce:transition-none ${isGroupValid(group) ? "bg-animeo" : group === openGroup ? "bg-animeo/40" : "bg-[#e5eae9]"}`} />
+          <span key={group} className={`h-1 flex-1 rounded-full transition-colors motion-reduce:transition-none ${isGroupValid(group) ? "bg-animeo" : group === openGroup ? "bg-animeo/40" : "bg-animeo-border-soft"}`} />
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[#e5eae9] bg-white">
+      <div className="rounded-2xl border border-animeo-border-soft bg-white">
         <AccordionGroup
           groupKey="contact"
           index={0}
@@ -456,11 +456,11 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
             </div>
 
             {mode === "HOME" && zone ? (
-              <div className="mt-4 rounded-2xl border border-[#bfe1d8] bg-[#edf9f5] p-3.5 text-sm">
+              <div className="mt-4 rounded-2xl border border-animeo-border-strong bg-animeo-positive-soft p-3.5 text-sm">
                 {zoneRunsOnSelectedDate ? (
-                  <p className="font-black text-[#24755f]">✓ Vous êtes déjà dans notre secteur ce jour-là — {zone.name}, passage régulier le {selectedDateWeekday.toLocaleLowerCase("fr-FR")}.</p>
+                  <p className="font-black text-animeo-positive">✓ Vous êtes déjà dans notre secteur ce jour-là — {zone.name}, passage régulier le {selectedDateWeekday.toLocaleLowerCase("fr-FR")}.</p>
                 ) : (
-                  <p className="font-black text-[#24755f]">✓ {zone.name} — passage régulier le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}</p>
+                  <p className="font-black text-animeo-positive">✓ {zone.name} — passage régulier le{zone.tourDays.length > 1 ? "s" : ""} {zone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}</p>
                 )}
               </div>
             ) : null}
@@ -535,7 +535,7 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
         </AccordionGroup>
       </div>
 
-      {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{revalidationError}</p> : null}
+      {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">{revalidationError}</p> : null}
       <BookingActions onBack={onBack} loading={revalidating} />
     </form>
   );
@@ -556,7 +556,7 @@ function AccordionGroup({ groupKey, index, title, summary, isOpen, isValid, onTo
   const panelId = `booking-details-panel-${groupKey}`;
 
   return (
-    <div className="border-b border-[#e5eae9] px-4 last:border-b-0 sm:px-5">
+    <div className="border-b border-animeo-border-soft px-4 last:border-b-0 sm:px-5">
       <button
         type="button"
         id={headerId}
@@ -567,7 +567,7 @@ function AccordionGroup({ groupKey, index, title, summary, isOpen, isValid, onTo
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition motion-reduce:transition-none ${
-            isValid ? "bg-animeo text-white" : isOpen ? "border-2 border-animeo text-animeo-dark" : "bg-[#eef1f1] text-animeo-muted"
+            isValid ? "bg-animeo text-white" : isOpen ? "border-2 border-animeo text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"
           }`}>
             {isValid ? <CheckMark /> : index + 1}
           </span>

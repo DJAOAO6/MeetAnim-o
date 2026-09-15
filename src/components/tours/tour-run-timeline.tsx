@@ -118,7 +118,7 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
   }
 
   return (
-    <ol className="divide-y divide-[#edf2f0]">
+    <ol className="divide-y divide-animeo-border-soft">
       {stops.map((stop, index) => (
         <li
           key={stop.id}
@@ -137,14 +137,14 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
             </p>
           ) : null}
           {stop.lateWarningMinutes != null && stop.lateWarningMinutes > 0 ? (
-            <div className="mx-2 mt-2 rounded-xl border border-[#f3c9b3] bg-[#fff1ec] p-3">
-              <p className="text-xs font-black text-[#a9573b]">⚠️ Trajet impossible</p>
+            <div className="mx-2 mt-2 rounded-xl border border-[#f3c9b3] bg-animeo-danger-soft p-3">
+              <p className="text-xs font-black text-animeo-danger">⚠️ Trajet impossible</p>
               <p className="mt-1 text-xs font-semibold text-[#8c4a33]">
                 Arrivée prévue vers {stop.arrivalTime} pour un rendez-vous à {stop.appointmentId ? stop.label.split(" — ")[0] : stop.label}
                 {" "}— {stop.lateWarningMinutes} minute{stop.lateWarningMinutes > 1 ? "s" : ""} manquante{stop.lateWarningMinutes > 1 ? "s" : ""}.
               </p>
               {onFindSolution ? (
-                <button type="button" onClick={onFindSolution} className="mt-2 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-[#a9573b] shadow-sm transition hover:bg-[#fff7f3]">
+                <button type="button" onClick={onFindSolution} className="mt-2 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-danger shadow-sm transition hover:bg-animeo-danger-soft">
                   Trouver une solution
                 </button>
               ) : null}
@@ -183,8 +183,8 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                   {stop.label}
                 </p>
                 {stop.appointmentId ? <span title={stop.locked ? "Horaire fixe" : "Horaire flexible"}><LockIcon locked={stop.locked} /></span> : null}
-                {stop.outOfZone ? <span className="rounded-full bg-[#fff3e0] px-2 py-0.5 text-[10px] font-extrabold text-[#a9573b]">Hors zone</span> : null}
-                {stop.completedAt ? <span className="rounded-full bg-animeo-soft px-2 py-0.5 text-[10px] font-extrabold text-[#278064]">Terminé à {stop.completedAt}</span> : null}
+                {stop.outOfZone ? <span className="rounded-full bg-animeo-warning-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-danger">Hors zone</span> : null}
+                {stop.completedAt ? <span className="rounded-full bg-animeo-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-positive">Terminé à {stop.completedAt}</span> : null}
               </div>
               {stop.address ? <p className="mt-0.5 truncate pl-8 text-xs font-semibold text-animeo-muted">{stop.address}</p> : null}
               {stop.price != null ? <p className="mt-0.5 pl-8 text-xs font-bold text-animeo-muted">{formatEuros(stop.price)}</p> : null}
@@ -195,13 +195,13 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                 <button
                   type="button"
                   onClick={() => onToggleFlexible(stop.id, !stop.flexible)}
-                  className={`rounded-lg px-2 py-1 text-[10px] font-extrabold ${stop.flexible ? "bg-[#fff4dd] text-[#8c6118]" : "bg-animeo-bg text-animeo-muted"}`}
+                  className={`rounded-lg px-2 py-1 text-[10px] font-extrabold ${stop.flexible ? "bg-animeo-warning-soft text-animeo-warning" : "bg-animeo-bg text-animeo-muted"}`}
                   title={stop.flexible ? "Rendre fixe" : "Rendre flexible"}
                 >
                   {stop.flexible ? "Flexible" : "Fixe"}
                 </button>
               ) : null}
-              <button type="button" onClick={() => onRemove(stop.id)} aria-label={`Retirer ${stop.label} de la tournée`} className="flex h-8 w-8 items-center justify-center rounded-lg text-animeo-muted hover:bg-[#fff1ec] hover:text-[#a9573b]">
+              <button type="button" onClick={() => onRemove(stop.id)} aria-label={`Retirer ${stop.label} de la tournée`} className="flex h-8 w-8 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-danger-soft hover:text-animeo-danger">
                 <CrossIcon />
               </button>
             </div>
@@ -220,7 +220,7 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                   type="button"
                   onClick={() => onComplete(stop.id, stop.appointmentId!)}
                   disabled={completingId === stop.id}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-animeo px-2.5 text-xs font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-animeo px-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {completingId === stop.id ? "Enregistrement…" : "Terminé"}
                 </button>
@@ -302,18 +302,18 @@ function StopDetailPanel({ stop, onEditSchedule, onEditTimeWindow }: {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label htmlFor={`stop-start-${stop.id}`} className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Heure</label>
-          <input id={`stop-start-${stop.id}`} type="time" value={start} onChange={(event) => setStart(event.target.value)} onBlur={commitStart} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+          <input id={`stop-start-${stop.id}`} type="time" value={start} onChange={(event) => setStart(event.target.value)} onBlur={commitStart} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
         </div>
         <div>
           <label htmlFor={`stop-duration-${stop.id}`} className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Durée (min)</label>
-          <input id={`stop-duration-${stop.id}`} type="number" min={5} step={5} value={duration} onChange={(event) => setDuration(event.target.value)} onBlur={commitDuration} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+          <input id={`stop-duration-${stop.id}`} type="number" min={5} step={5} value={duration} onChange={(event) => setDuration(event.target.value)} onBlur={commitDuration} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
         </div>
       </div>
       <div>
         <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Créneau imposé (optionnel — utilisé par « Optimiser »)</p>
         <div className="grid grid-cols-2 gap-2">
-          <input aria-label={`Créneau imposé, début, ${stop.label}`} type="time" value={windowStart} onChange={(event) => setWindowStart(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
-          <input aria-label={`Créneau imposé, fin, ${stop.label}`} type="time" value={windowEnd} onChange={(event) => setWindowEnd(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-[#d7e4e1] bg-white px-2 text-xs font-bold text-animeo-dark" />
+          <input aria-label={`Créneau imposé, début, ${stop.label}`} type="time" value={windowStart} onChange={(event) => setWindowStart(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
+          <input aria-label={`Créneau imposé, fin, ${stop.label}`} type="time" value={windowEnd} onChange={(event) => setWindowEnd(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
         </div>
       </div>
     </div>
@@ -392,7 +392,7 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
         <Icon name="arrow" className="h-3 w-3 rotate-90" />
       </button>
       {open ? (
-        <div role="menu" className="absolute left-0 top-[calc(100%+4px)] z-10 w-40 rounded-lg border border-[#e5eeeb] bg-white p-1 shadow-[0_12px_28px_rgba(21,63,71,0.16)]">
+        <div role="menu" className="absolute left-0 top-[calc(100%+4px)] z-10 w-40 rounded-lg border border-animeo-border-soft bg-white p-1 shadow-[0_12px_28px_rgb(var(--theme-shadow-rgb)/0.16)]">
           {navProviders.map((option) => (
             <a
               key={option}

@@ -296,7 +296,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-bold text-neutral-800 outline-none transition hover:border-neutral-200 focus:border-animeo focus:bg-neutral-50 disabled:hover:border-transparent"
         />
 
-        <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1d5] text-[#986216]"}`}>
+        <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
           {document.status}
         </span>
 
@@ -310,7 +310,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
             type="button"
             disabled={readOnly || finalizing}
             onClick={() => setConfirmFinalize(true)}
-            className="rounded-md bg-animeo px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-animeo px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             {finalizing ? "Finalisation…" : "Finaliser"}
           </button>

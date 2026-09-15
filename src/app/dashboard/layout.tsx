@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 closeButton
                 toastOptions={{
                   classNames: {
-                    toast: "!rounded-2xl !border !shadow-[0_12px_32px_rgba(24,59,69,0.16)] !font-extrabold",
+                    toast: "!rounded-2xl !border !shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.16)] !font-extrabold",
                     success: "!bg-animeo-success !text-white !border-animeo-success",
                     error: "!bg-animeo-error !text-white !border-animeo-error",
                     info: "!bg-animeo-info !text-white !border-animeo-info",

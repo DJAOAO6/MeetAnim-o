@@ -15,7 +15,7 @@ import {
 import { permissionKeys, permissionLabels, type PermissionKey } from "@/lib/auth/permissions";
 import { roleLabels, type AdminUser } from "@/data/admin";
 
-const inputClassName = "h-11 w-full rounded-[12px] border border-[#d9e5e2] bg-animeo-bg px-3 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
+const inputClassName = "h-11 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-3 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
 export function UsersTab({ users, currentUserId }: { users: AdminUser[]; currentUserId: string }) {
   const [state, action, pending] = useActionState<CreateUserState, FormData>(createUser, undefined);
@@ -29,13 +29,13 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
             <h2 className="text-lg font-extrabold text-animeo-dark">Comptes de l’équipe</h2>
             <p className="mt-1 text-sm text-animeo-muted">{users.length} compte{users.length > 1 ? "s" : ""}</p>
           </div>
-          <button type="button" onClick={() => setShowForm((current) => !current)} className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90]">
+          <button type="button" onClick={() => setShowForm((current) => !current)} className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
             {showForm ? "Annuler" : "+ Nouveau compte"}
           </button>
         </div>
 
         {showForm ? (
-          <form action={action} className="mb-6 grid gap-3 rounded-2xl border border-[#e3ece9] bg-animeo-bg p-4 sm:grid-cols-2 xl:grid-cols-5">
+          <form action={action} className="mb-6 grid gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4 sm:grid-cols-2 xl:grid-cols-5">
             <label className="block">
               <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Prénom</span>
               <input name="firstName" required className={inputClassName} />
@@ -57,12 +57,12 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
               </select>
             </label>
             <div className="sm:col-span-2 xl:col-span-5">
-              <button type="submit" disabled={pending} className="inline-flex items-center rounded-xl bg-animeo-dark px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#214d59] disabled:opacity-70">
+              <button type="submit" disabled={pending} className="inline-flex items-center rounded-xl bg-animeo-dark px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:opacity-70">
                 {pending ? "Création…" : "Créer le compte"}
               </button>
             </div>
 
-            {state?.error ? <p role="alert" className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{state.error}</p> : null}
+            {state?.error ? <p role="alert" className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{state.error}</p> : null}
             {state?.resetUrl ? (
               <div className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
                 <p className="font-extrabold">Compte créé.</p>
@@ -85,7 +85,7 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
                 <th className="px-3 py-2.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#edf2f0]">
+            <tbody className="divide-y divide-animeo-border-soft">
               {users.map((user) => <UserRow key={user.id} user={user} isSelf={user.id === currentUserId} />)}
             </tbody>
           </table>
@@ -144,10 +144,10 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           {editing ? (
             <div className="grid gap-1.5">
               <div className="flex gap-1.5">
-                <input value={draft.firstName} onChange={(event) => setDraft((current) => ({ ...current, firstName: event.target.value }))} placeholder="Prénom" className="h-9 w-1/2 rounded-lg border border-[#d9e5e2] bg-white px-2 text-xs font-bold text-animeo-dark" />
-                <input value={draft.lastName} onChange={(event) => setDraft((current) => ({ ...current, lastName: event.target.value }))} placeholder="Nom" className="h-9 w-1/2 rounded-lg border border-[#d9e5e2] bg-white px-2 text-xs font-bold text-animeo-dark" />
+                <input value={draft.firstName} onChange={(event) => setDraft((current) => ({ ...current, firstName: event.target.value }))} placeholder="Prénom" className="h-9 w-1/2 rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
+                <input value={draft.lastName} onChange={(event) => setDraft((current) => ({ ...current, lastName: event.target.value }))} placeholder="Nom" className="h-9 w-1/2 rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
               </div>
-              <input type="email" value={draft.email} onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))} placeholder="Email" className="h-9 rounded-lg border border-[#d9e5e2] bg-white px-2 text-xs font-bold text-animeo-dark" />
+              <input type="email" value={draft.email} onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))} placeholder="Email" className="h-9 rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
             </div>
           ) : (
             <>
@@ -161,7 +161,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             defaultValue={user.role}
             disabled={pending}
             onChange={(event) => startTransition(() => setUserRole(user.id, event.target.value as AdminUser["role"]))}
-            className="rounded-lg border border-[#d9e5e2] bg-white px-2 py-1.5 text-xs font-bold text-animeo-dark"
+            className="rounded-lg border border-animeo-border bg-white px-2 py-1.5 text-xs font-bold text-animeo-dark"
           >
             {Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -171,7 +171,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             type="button"
             disabled={pending}
             onClick={() => startTransition(() => setUserTwoFactor(user.id, !user.twoFactorEnabled))}
-            className={`rounded-full px-3 py-1 text-[11px] font-black ${user.twoFactorEnabled ? "bg-[#e4f5ef] text-[#267668]" : "bg-animeo-bg text-animeo-muted"}`}
+            className={`rounded-full px-3 py-1 text-[11px] font-black ${user.twoFactorEnabled ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-bg text-animeo-muted"}`}
           >
             {user.twoFactorEnabled ? "Activée" : "Désactivée"}
           </button>
@@ -182,7 +182,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             disabled={pending || isSelf}
             title={isSelf ? "Vous ne pouvez pas désactiver votre propre compte" : undefined}
             onClick={() => startTransition(() => setUserActive(user.id, !user.active))}
-            className={`rounded-full px-3 py-1 text-[11px] font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1f1] text-animeo-error"}`}
+            className={`rounded-full px-3 py-1 text-[11px] font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-danger-soft text-animeo-error"}`}
           >
             {user.active ? "Actif" : "Désactivé"}
           </button>
@@ -201,20 +201,20 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
               <button type="button" onClick={() => setEditing(true)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-dark hover:bg-animeo-soft">Modifier</button>
             )}
             <button type="button" onClick={() => setManagingPermissions((current) => !current)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-dark hover:bg-animeo-soft">Permissions</button>
-            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-[#fff1f1] px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-error disabled:cursor-not-allowed disabled:opacity-60 hover:bg-[#ffe0e0]">Supprimer</button>
+            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-error disabled:cursor-not-allowed disabled:opacity-60 hover:bg-animeo-danger-soft">Supprimer</button>
           </div>
         </td>
       </tr>
       {editError ? (
-        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-[#fff1f1] px-3 py-2 text-xs font-bold text-animeo-error">{editError}</p></td></tr>
+        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-error">{editError}</p></td></tr>
       ) : null}
       {deleteError ? (
-        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-[#fff1f1] px-3 py-2 text-xs font-bold text-animeo-error">{deleteError}</p></td></tr>
+        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-error">{deleteError}</p></td></tr>
       ) : null}
       {managingPermissions ? (
         <tr>
           <td colSpan={6} className="px-3 pb-4">
-            <div className="rounded-2xl border border-[#e3ece9] bg-animeo-bg p-4">
+            <div className="rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4">
               {user.role === "ADMIN" ? (
                 <p className="text-xs font-bold text-animeo-muted">Ce compte est administrateur : il dispose déjà de toutes les permissions.</p>
               ) : (
@@ -223,7 +223,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {permissionKeys.map((key) => (
                       <label key={key} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-animeo-dark">
-                        <input type="checkbox" checked={user.permissions.includes(key)} disabled={pending} onChange={() => togglePermission(key)} className="h-4 w-4 accent-[#4FAF9F]" />
+                        <input type="checkbox" checked={user.permissions.includes(key)} disabled={pending} onChange={() => togglePermission(key)} className="h-4 w-4 accent-animeo-brand" />
                         {permissionLabels[key]}
                       </label>
                     ))}

@@ -214,13 +214,13 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
         <h3 className="text-xl font-black text-animeo-dark">{appointment ? `Modifier le rendez-vous de ${appointment.animalName}` : "Nouveau rendez-vous"}</h3>
         <p className="mt-1 text-sm text-animeo-muted">Le cabinet et le domicile partagent un seul agenda : un créneau déjà pris ne peut pas être réutilisé.</p>
 
-        {error ? <div role="alert" className="mt-4 rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</div> : null}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Field label="Client">
               {draft.clientId ? (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-[#d9e5e2] bg-animeo-soft px-3.5 py-2.5">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-animeo-border bg-animeo-soft px-3.5 py-2.5">
                   <span className="min-w-0 truncate text-sm font-extrabold text-animeo-dark">{draft.clientName}</span>
                   <button type="button" onClick={clearClient} className="shrink-0 text-xs font-extrabold text-animeo">Changer</button>
                 </div>
@@ -237,7 +237,7 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
                     required
                   />
                   {clientPickerOpen && clientMatches.length > 0 ? (
-                    <div className="absolute inset-x-0 top-[calc(100%+4px)] z-10 max-h-56 overflow-y-auto rounded-xl border border-[#d9e5e2] bg-white p-1.5 shadow-[0_16px_35px_rgba(21,63,71,0.14)]">
+                    <div className="absolute inset-x-0 top-[calc(100%+4px)] z-10 max-h-56 overflow-y-auto rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_16px_35px_rgb(var(--theme-shadow-rgb)/0.14)]">
                       {clientMatches.map((client) => (
                         <button
                           key={client.id}
@@ -305,7 +305,7 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
               {geoWarnings.length > 0 ? (
                 <div className="sm:col-span-2 space-y-2">
                   {geoWarnings.map((warning) => (
-                    <div key={warning.direction} role="alert" className="rounded-xl bg-[#fff3e0] px-3.5 py-2.5 text-sm font-bold text-[#a9573b]">
+                    <div key={warning.direction} role="alert" className="rounded-xl bg-animeo-warning-soft px-3.5 py-2.5 text-sm font-bold text-animeo-danger">
                       {formatGeoWarningMessage(warning.direction, warning.neighborLabel, warning.travelMinutes, warning.gapMinutes)}
                     </div>
                   ))}
@@ -318,8 +318,8 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
         </div>
       </div>
 
-      <div className="flex flex-col-reverse gap-2 border-t border-[#dce8e5] bg-white p-4 sm:flex-row sm:justify-between sm:p-5">
-        {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); notify.info("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-[#fff0eb] px-4 py-2.5 text-sm font-extrabold text-[#a9573b]">Annuler le rendez-vous</button> : <span />}
+      <div className="flex flex-col-reverse gap-2 border-t border-animeo-border bg-white p-4 sm:flex-row sm:justify-between sm:p-5">
+        {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); notify.info("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-danger">Annuler le rendez-vous</button> : <span />}
         <button type="submit" disabled={pending} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{pending ? "Enregistrement…" : appointment ? "Enregistrer les modifications" : "Créer le rendez-vous"}</button>
       </div>
     </form>

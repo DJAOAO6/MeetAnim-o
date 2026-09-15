@@ -13,10 +13,10 @@ import type { ClientPickerOption } from "@/data/clients";
 type StatusFilter = "all" | AppointmentStatus;
 
 const statusStyles: Record<AppointmentStatus, string> = {
-  pending: "bg-[#fff1d5] text-[#986216]",
-  confirmed: "bg-animeo-soft text-[#24755f]",
-  completed: "bg-[#e8f1f4] text-animeo-dark",
-  cancelled: "bg-[#eef1f1] text-animeo-muted",
+  pending: "bg-animeo-warning-soft text-animeo-warning",
+  confirmed: "bg-animeo-soft text-animeo-positive",
+  completed: "bg-animeo-info-soft text-animeo-dark",
+  cancelled: "bg-animeo-border-soft text-animeo-muted",
 };
 
 export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOption[] }) {
@@ -77,9 +77,9 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
   return (
     <>
       {managerOpen ? (
-        <div className="fixed inset-0 z-50 bg-[#102f37]/55 backdrop-blur-sm" role="presentation">
-          <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="appointments-manager-title" className="absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-animeo-bg shadow-[-20px_0_60px_rgba(12,39,47,0.25)] outline-none">
-            <header className="flex items-start justify-between gap-4 border-b border-[#dce8e5] bg-white p-5 sm:p-6">
+        <div className="fixed inset-0 z-50 bg-animeo-deep/55 backdrop-blur-sm" role="presentation">
+          <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="appointments-manager-title" className="absolute inset-y-0 right-0 flex w-full max-w-3xl flex-col bg-animeo-bg shadow-[-20px_0_60px_rgb(var(--theme-shadow-rgb)/0.25)] outline-none">
+            <header className="flex items-start justify-between gap-4 border-b border-animeo-border bg-white p-5 sm:p-6">
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Disponible sur tous les onglets</p>
                 <h2 id="appointments-manager-title" className="mt-1 text-2xl font-black text-animeo-dark">Gestion des rendez-vous</h2>
@@ -118,7 +118,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
               )
             ) : (
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className="border-b border-[#dce8e5] bg-white p-4 sm:p-5">
+                <div className="border-b border-animeo-border bg-white p-4 sm:p-5">
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <input value={search} onChange={(event) => setSearch(event.target.value)} className={`${inputClassName} flex-1`} placeholder="Rechercher un client, un animal ou une prestation" />
                     <button type="button" onClick={() => openNewAppointment()} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white">+ Nouveau rendez-vous</button>
@@ -133,7 +133,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                 </div>
 
                 {actionError ? (
-                  <div role="alert" className="mx-4 mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error sm:mx-5">
+                  <div role="alert" className="mx-4 mt-4 flex items-center justify-between gap-3 rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error sm:mx-5">
                     <span>{actionError}</span>
                     <button type="button" onClick={() => setActionError(null)} aria-label="Fermer" className="text-lg leading-none">×</button>
                   </div>
@@ -141,7 +141,7 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
 
                 <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
                   {filteredAppointments.map((appointment) => (
-                    <article key={appointment.id} className={`rounded-2xl border border-[#dce8e5] bg-white p-4 ${appointment.status === "cancelled" ? "opacity-65" : ""}`}>
+                    <article key={appointment.id} className={`rounded-2xl border border-animeo-border bg-white p-4 ${appointment.status === "cancelled" ? "opacity-65" : ""}`}>
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -156,9 +156,9 @@ export function GlobalAppointmentsManager({ clients }: { clients: ClientPickerOp
                       </div>
 
                       {appointment.status === "pending" ? (
-                        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[#e7eeec] pt-3">
+                        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-animeo-border-soft pt-3">
                           <button type="button" onClick={() => handleStatusChange(appointment.id, "confirmed")} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white">Accepter</button>
-                          <button type="button" onClick={() => handleStatusChange(appointment.id, "cancelled")} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b]">Refuser</button>
+                          <button type="button" onClick={() => handleStatusChange(appointment.id, "cancelled")} className="rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-xs font-extrabold text-animeo-danger">Refuser</button>
                         </div>
                       ) : null}
                     </article>

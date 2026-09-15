@@ -46,59 +46,47 @@ export const defaultDisplayOptions: DashboardDisplayOptions = {
   fontFamily: "Nunito Sans",
 };
 
+/**
+ * Palette complète de l'interface (fonds, surfaces, bordures, textes, états) —
+ * définie en CSS dans src/app/globals.css ([data-palette]). Les couleurs
+ * principale/secondaire/accent restent personnalisables par-dessus.
+ */
+export type ThemePalette = "1002pattes" | "classic";
+
 export type DashboardThemeSettings = {
   mode: DashboardThemeMode;
+  palette: ThemePalette;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
-  backgroundColor: string;
-  surfaceColor: string;
-  sidebarColor: string;
-  actionColor: string;
   displayOptions: DashboardDisplayOptions;
   navigationAssets: Partial<Record<NavigationAssetKey, string>>;
   speciesColors: Partial<Record<AnimalSpecies, string>>;
 };
 
-// AUDIT_COMPLET.md P1-4 : #59B9AA (primaryColor/actionColor du thème clair,
-// celui effectivement rendu par défaut) échoue au contraste WCAG AA — mesuré
-// à 2,35:1 en texte blanc sur fond bouton et ~2,6:1 en texte sur fond clair,
-// contre 4,5:1 requis. #2F7A6E (même teinte, déjà présent comme
-// secondaryColor du thème clair) atteint ~5,1:1 dans les deux sens.
-export const lightThemePreset: DashboardThemeSettings = {
-  mode: "light",
-  primaryColor: "#2F7A6E",
-  secondaryColor: "#2F7A6E",
-  accentColor: "#F4B860",
-  backgroundColor: "#F6F8F7",
-  surfaceColor: "#FFFFFF",
-  sidebarColor: "#153F47",
-  actionColor: "#2F7A6E",
-  displayOptions: defaultDisplayOptions,
-  navigationAssets: {},
-  speciesColors: {},
+type PresetColors = Pick<DashboardThemeSettings, "primaryColor" | "secondaryColor" | "accentColor">;
+
+// Couleurs par palette et par mode. Contraste WCAG AA vérifié pour la
+// couleur principale en texte blanc sur bouton : #A9531C 5,3:1 (1002 Pattes),
+// #2F7A6E ~5,1:1 (Émeraude, AUDIT_COMPLET.md P1-4).
+const presetColors: Record<ThemePalette, Record<"light" | "dark", PresetColors>> = {
+  "1002pattes": {
+    light: { primaryColor: "#A9531C", secondaryColor: "#7A4A2A", accentColor: "#E7A64A" },
+    dark: { primaryColor: "#E39A62", secondaryColor: "#D9B08C", accentColor: "#E7A64A" },
+  },
+  classic: {
+    light: { primaryColor: "#2F7A6E", secondaryColor: "#2F7A6E", accentColor: "#F4B860" },
+    dark: { primaryColor: "#62C6B5", secondaryColor: "#8FD6C8", accentColor: "#F4B860" },
+  },
 };
 
-export const darkThemePreset: DashboardThemeSettings = {
-  mode: "dark",
-  primaryColor: "#62C6B5",
-  secondaryColor: "#8FD6C8",
-  accentColor: "#F4B860",
-  backgroundColor: "#101D22",
-  surfaceColor: "#182B32",
-  sidebarColor: "#0B171B",
-  // Le bouton principal (texte blanc dessus) a besoin d'un fond assez foncé
-  // quel que soit le thème de la page — même correctif que actionColor du
-  // thème clair. primaryColor (texte sur fond sombre, direction opposée du
-  // contraste) n'a pas été mesuré par l'audit et n'est pas modifié ici.
-  actionColor: "#2F7A6E",
-  displayOptions: defaultDisplayOptions,
-  navigationAssets: {},
-  speciesColors: {},
-};
+export const defaultPalette: ThemePalette = "1002pattes";
 
-export const defaultDashboardTheme = lightThemePreset;
-
-export function presetForMode(mode: DashboardThemeMode): DashboardThemeSettings {
-  return mode === "dark" ? darkThemePreset : lightThemePreset;
+export function presetForMode(mode: DashboardThemeMode, palette: ThemePalette = defaultPalette): DashboardThemeSettings {
+  const colors = presetColors[palette][mode === "dark" ? "dark" : "light"];
+  return { mode, palette, ...colors, displayOptions: defaultDisplayOptions, navigationAssets: {}, speciesColors: {} };
 }
+
+export const lightThemePreset = presetForMode("light");
+export const darkThemePreset = presetForMode("dark");
+export const defaultDashboardTheme = lightThemePreset;

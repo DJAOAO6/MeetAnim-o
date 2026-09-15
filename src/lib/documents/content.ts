@@ -24,7 +24,7 @@ export type DocumentTextElement = {
   // (édition réelle via une surcouche DOM/Tiptap positionnée sur le canvas).
   html: string;
   // Ex. "animal.name" — présent uniquement si ce bloc reflète une variable
-  // Animéo plutôt qu'un texte libre (src/lib/documents/variables.ts).
+  // 1002 Pattes plutôt qu'un texte libre (src/lib/documents/variables.ts).
   variableBinding?: string;
   // Masqué depuis le panneau Calques (étape 11) — absent du rendu ET de
   // l'export PDF (les deux filtrent sur ce champ, aucun code spécifique à

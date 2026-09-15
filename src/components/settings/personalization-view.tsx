@@ -34,6 +34,7 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
   const [activeSection, setActiveSection] = useState<PersonalizationSection>("theme");
   const [draft, setDraft] = useState<ThemeDraft>({
     mode: theme.mode,
+    palette: theme.palette,
     primaryColor: theme.primaryColor,
     secondaryColor: theme.secondaryColor,
     accentColor: theme.accentColor,
@@ -52,7 +53,7 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
               onClick={() => setActiveSection(section.id)}
               aria-pressed={active}
               className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition ${
-                active ? "border-l-4 border-animeo bg-animeo-soft" : "border-[#e1eae8] bg-white hover:border-animeo"
+                active ? "border-l-4 border-animeo bg-animeo-soft" : "border-animeo-border bg-white hover:border-animeo"
               }`}
             >
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? "bg-white text-animeo" : "bg-animeo-bg text-animeo-dark"}`}>

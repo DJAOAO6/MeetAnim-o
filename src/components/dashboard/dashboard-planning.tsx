@@ -114,7 +114,7 @@ function TimelineRow({ appointment, isLast, color, onSelect }: {
       <div className="flex w-16 shrink-0 flex-col items-center pt-1">
         <span className="text-sm font-black text-animeo-dark">{appointment.start}</span>
         <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        {!isLast ? <span className="mt-1 w-px flex-1 bg-[#e5eeeb]" /> : null}
+        {!isLast ? <span className="mt-1 w-px flex-1 bg-animeo-border-soft" /> : null}
       </div>
       <div
         ref={rowRef}
@@ -141,7 +141,7 @@ function TimelineRow({ appointment, isLast, color, onSelect }: {
             </p>
           ) : null}
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${isHomeVisit ? "bg-[#fff4dd] text-[#946116]" : "bg-animeo-soft text-animeo-dark"}`}>
+        <span className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-extrabold ${isHomeVisit ? "bg-animeo-warning-soft text-animeo-warning" : "bg-animeo-soft text-animeo-dark"}`}>
           {isHomeVisit ? "Domicile" : "Cabinet"}
         </span>
         <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted">

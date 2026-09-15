@@ -71,8 +71,8 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
 
   return (
     <>
-      <header className="dashboard-mobile-header fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between px-4 text-white shadow-sm" style={{ backgroundColor: "var(--theme-sidebar)" }}>
-        <Link href="/dashboard" aria-label="Animéo — Tableau de bord">
+      <header className="dashboard-mobile-header fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-[var(--theme-sidebar-border)] px-4 text-[var(--theme-sidebar-text-strong)] shadow-sm" style={{ backgroundColor: "var(--theme-sidebar)" }}>
+        <Link href="/dashboard" aria-label="1002 Pattes — Tableau de bord">
           <AnimeoLogo size="mobile" tone="light" priority />
         </Link>
         {/* Cloche + bouton menu regroupés dans un même conteneur fixe, pour
@@ -88,8 +88,8 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
             onClick={() => setMobileOpen(true)}
             aria-label="Ouvrir le menu"
             aria-expanded={mobileOpen}
-            className="dashboard-mobile-menu-button flex h-11 w-11 items-center justify-center rounded-[14px] bg-white/10 text-2xl font-bold"
-            style={{ background: "rgba(255,255,255,0.12)", color: "#ffffff" }}
+            className="dashboard-mobile-menu-button flex h-11 w-11 items-center justify-center rounded-[14px] text-2xl font-bold"
+            style={{ background: "var(--theme-sidebar-hover)", color: "var(--theme-sidebar-text-strong)" }}
           >
             ☰
           </button>
@@ -101,14 +101,14 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
 
       <aside
         data-open={mobileOpen}
-        className="dashboard-sidebar fixed inset-y-0 left-0 z-[60] flex w-64 flex-col px-5 py-7 text-white shadow-[16px_0_45px_rgba(12,39,47,0.2)] transition-transform duration-200 md:z-40 md:shadow-none"
+        className="dashboard-sidebar fixed inset-y-0 left-0 z-[60] flex w-64 flex-col border-r border-[var(--theme-sidebar-border)] px-5 py-7 text-[var(--theme-sidebar-text)] shadow-[16px_0_45px_rgb(var(--theme-shadow-rgb)/0.2)] transition-transform duration-200 md:z-40 md:shadow-none"
         style={{ backgroundColor: "var(--theme-sidebar)" }}
       >
-        <div className="mb-7 flex min-h-11 items-center justify-between px-3" style={{ marginTop: 20 }}>
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)} aria-label="Animéo — Tableau de bord">
+        <div className="mb-8 flex min-h-11 items-center justify-between px-2" style={{ marginTop: 12 }}>
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)} aria-label="1002 Pattes — Tableau de bord">
             <AnimeoLogo size="sidebar" tone="light" priority />
           </Link>
-          <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fermer le menu" className="dashboard-sidebar-close flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-2xl">×</button>
+          <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fermer le menu" className="dashboard-sidebar-close flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--theme-sidebar-hover)] text-2xl text-[var(--theme-sidebar-text-strong)]">×</button>
         </div>
 
         <nav aria-label="Navigation principale" className="flex-1 space-y-1 overflow-y-auto">
@@ -125,8 +125,8 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
                 onClick={() => setMobileOpen(false)}
                 className={`group flex min-h-12 items-center gap-3.5 rounded-[14px] px-4 font-bold transition ${
                   active
-                    ? "bg-animeo text-white shadow-[0_8px_20px_rgba(79,175,159,0.22)]"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                    ? "bg-[var(--theme-sidebar-active-bg)] text-[var(--theme-sidebar-active-text)] shadow-[0_6px_16px_color-mix(in_srgb,var(--theme-brand)_14%,transparent)]"
+                    : "text-[var(--theme-sidebar-text)] hover:bg-[var(--theme-sidebar-hover)] hover:text-[var(--theme-sidebar-text-strong)]"
                 }`}
               >
                 {customAsset ? (
@@ -146,23 +146,23 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
           // (la sidebar est une colonne flex de hauteur fixe — un sous-menu
           // dans le flux normal redimensionnait toute la navigation
           // au-dessus à chaque ouverture/fermeture).
-          <div ref={profileRef} className="relative mt-3 shrink-0 border-t border-white/10 pt-3">
+          <div ref={profileRef} className="relative mt-3 shrink-0 border-t border-[var(--theme-sidebar-border)] pt-3">
             <button
               type="button"
               onClick={() => setProfileOpen((current) => !current)}
               aria-expanded={profileOpen}
-              className="flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition hover:bg-white/10"
+              className="flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left transition hover:bg-[var(--theme-sidebar-hover)]"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-sm font-black text-white">{initialsFor(user.firstName, user.lastName)}</span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--theme-sidebar-hover)] text-sm font-black text-[var(--theme-sidebar-text-strong)]">{initialsFor(user.firstName, user.lastName)}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-extrabold text-white">{user.firstName}</span>
-                <span className="block truncate text-xs text-white/60">{roleLabels[user.role] ?? user.role}</span>
+                <span className="block truncate text-sm font-extrabold text-[var(--theme-sidebar-text-strong)]">{user.firstName}</span>
+                <span className="block truncate text-xs text-[var(--theme-sidebar-text)]">{roleLabels[user.role] ?? user.role}</span>
               </span>
-              <Icon name="arrow" className={`h-4 w-4 shrink-0 text-white/50 transition-transform ${profileOpen ? "-rotate-90" : "rotate-90"}`} />
+              <Icon name="arrow" className={`h-4 w-4 shrink-0 text-[var(--theme-sidebar-text)] transition-transform ${profileOpen ? "-rotate-90" : "rotate-90"}`} />
             </button>
 
             {profileOpen ? (
-              <div className="absolute inset-x-0 bottom-full z-20 mb-2 space-y-0.5 rounded-2xl border border-black/5 bg-white p-1.5 shadow-[0_16px_40px_rgba(12,39,47,0.35)]">
+              <div className="absolute inset-x-0 bottom-full z-20 mb-2 space-y-0.5 rounded-2xl border border-animeo-border bg-white p-1.5 shadow-[0_16px_40px_rgb(var(--theme-shadow-rgb)/0.35)]">
                 <Link
                   href="/dashboard/parametres"
                   onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
@@ -186,7 +186,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
                 <button
                   type="button"
                   onClick={() => setLogoutConfirmOpen(true)}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 transition hover:bg-red-500/10"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-danger transition hover:bg-animeo-danger-soft"
                 >
                   <LogoutIcon />
                   Se déconnecter

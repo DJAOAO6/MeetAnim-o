@@ -30,9 +30,9 @@ export function AnimeoDataPanel({ readOnly }: { readOnly: boolean }) {
   const variableGroups = groupVariables(filtered);
 
   return (
-    <StudioPanel id="studio-panel-data" title="Données Animéo">
+    <StudioPanel id="studio-panel-data" title="Données 1002 Pattes">
       <label className="block">
-        <span className="sr-only">Rechercher une donnée Animéo</span>
+        <span className="sr-only">Rechercher une donnée 1002 Pattes</span>
         <input
           type="search"
           value={search}

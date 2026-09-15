@@ -5,7 +5,7 @@ import { neon } from "@neondatabase/serverless";
 config({ path: ".env.local" });
 
 /**
- * Studio de documents, étape 3 : templates, variables Animéo, Smart Blocks.
+ * Studio de documents, étape 3 : templates, variables 1002 Pattes, Smart Blocks.
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
@@ -69,7 +69,7 @@ test.describe("Documents — templates, variables et Smart Blocks (étape 3)", (
     await expect(page.getByText("Compte rendu de consultation")).toBeVisible();
   });
 
-  test("une variable Animéo affiche la vraie donnée résolue et n'est pas éditable au double-clic", async ({ page }) => {
+  test("une variable 1002 Pattes affiche la vraie donnée résolue et n'est pas éditable au double-clic", async ({ page }) => {
     const sql = neon(process.env.DATABASE_URL!);
     const title = `${testTitle} Variable`;
     const [profile] = await sql`SELECT company FROM "BusinessProfile" LIMIT 1`;

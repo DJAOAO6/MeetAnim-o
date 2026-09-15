@@ -3,27 +3,29 @@
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Field, Toggle, inputClassName } from "@/components/settings/settings-fields";
-import { fontChoices, type DashboardDisplayOptions, type DashboardThemeMode, type DisplayDensity, type FontChoice } from "@/data/dashboard-theme";
+import { fontChoices, type DashboardDisplayOptions, type DashboardThemeMode, type DisplayDensity, type FontChoice, type ThemePalette } from "@/data/dashboard-theme";
 
 export type ThemeDraft = {
   mode: DashboardThemeMode;
+  palette: ThemePalette;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
   displayOptions: DashboardDisplayOptions;
 };
 
-type ThemePreset = { id: string; label: string; description: string; primary: string; secondary: string; accent: string };
+type ThemePreset = { id: string; label: string; description: string; palette: ThemePalette; primary: string; secondary: string; accent: string };
 
 const themePresets: ThemePreset[] = [
-  { id: "teal", label: "Émeraude Animéo", description: "Le vert-bleu signature, frais et professionnel.", primary: "#4FAF9F", secondary: "#2F7A6E", accent: "#F4B860" },
-  { id: "ocean", label: "Bleu Océan", description: "Un bleu confiant et apaisant.", primary: "#3B82F6", secondary: "#1E3A5F", accent: "#F59E0B" },
-  { id: "plum", label: "Violet Prune", description: "Une touche élégante et originale.", primary: "#8B5CF6", secondary: "#5B3A99", accent: "#EC4899" },
+  { id: "1002pattes", label: "1002 Pattes", description: "Crème, terracotta et chocolat : chaleureux et accueillant.", palette: "1002pattes", primary: "#A9531C", secondary: "#7A4A2A", accent: "#E7A64A" },
+  { id: "teal", label: "Émeraude", description: "L’ancien thème vert-bleu, frais et professionnel.", palette: "classic", primary: "#2F7A6E", secondary: "#2F7A6E", accent: "#F4B860" },
+  { id: "ocean", label: "Bleu Océan", description: "Un bleu confiant et apaisant.", palette: "classic", primary: "#3B82F6", secondary: "#1E3A5F", accent: "#F59E0B" },
+  { id: "plum", label: "Violet Prune", description: "Une touche élégante et originale.", palette: "classic", primary: "#8B5CF6", secondary: "#5B3A99", accent: "#EC4899" },
 ];
 
-const primarySwatches = ["#4FAF9F", "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B"];
-const secondarySwatches = ["#7FD1C3", "#2F7A6E", "#7FB3F5", "#B79EF0", "#C4CCCF"];
-const accentSwatches = ["#F4B860", "#E4574C", "#4FAF9F", "#5B8DEF", "#9AA6AA"];
+const primarySwatches = ["#A9531C", "#2F7A6E", "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B"];
+const secondarySwatches = ["#7A4A2A", "#7FD1C3", "#2F7A6E", "#7FB3F5", "#B79EF0", "#C4CCCF"];
+const accentSwatches = ["#E7A64A", "#F4B860", "#E4574C", "#4FAF9F", "#5B8DEF", "#9AA6AA"];
 
 const styleOptions: Array<{ mode: DashboardThemeMode; label: string; icon: IconName }> = [
   { mode: "light", label: "Clair", icon: "sun" },
@@ -54,7 +56,7 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
     <Card className="p-5 sm:p-6">
       <fieldset disabled={!canEdit} className="disabled:opacity-60">
         {!canEdit ? (
-          <div role="status" className="mb-5 rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">
+          <div role="status" className="mb-5 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm font-bold text-animeo-warning">
             Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.
           </div>
         ) : null}
@@ -64,18 +66,19 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
 
         <div className="mt-6">
           <Field label="Thèmes prédéfinis" hint="Choisissez un thème complet en un clic, puis affinez les couleurs ci-dessous si besoin.">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {themePresets.map((preset) => {
-                const active = draft.primaryColor.toUpperCase() === preset.primary.toUpperCase()
+                const active = draft.palette === preset.palette
+                  && draft.primaryColor.toUpperCase() === preset.primary.toUpperCase()
                   && draft.secondaryColor.toUpperCase() === preset.secondary.toUpperCase()
                   && draft.accentColor.toUpperCase() === preset.accent.toUpperCase();
                 return (
                   <button
                     key={preset.id}
                     type="button"
-                    onClick={() => onChange({ ...draft, primaryColor: preset.primary, secondaryColor: preset.secondary, accentColor: preset.accent })}
+                    onClick={() => onChange({ ...draft, palette: preset.palette, primaryColor: preset.primary, secondaryColor: preset.secondary, accentColor: preset.accent })}
                     aria-pressed={active}
-                    className={`relative rounded-2xl border-2 p-4 text-left transition ${active ? "border-animeo bg-animeo-soft" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"}`}
+                    className={`relative rounded-2xl border-2 p-4 text-left transition ${active ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-white hover:border-animeo-border-strong"}`}
                   >
                     {active ? (
                       <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-animeo text-white">
@@ -125,7 +128,7 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
                     type="button"
                     onClick={() => onChange({ ...draft, mode: option.mode })}
                     aria-pressed={active}
-                    className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition ${active ? "border-animeo bg-animeo-soft" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"}`}
+                    className={`relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition ${active ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-white hover:border-animeo-border-strong"}`}
                   >
                     {active ? (
                       <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-animeo text-white">
@@ -151,7 +154,7 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
           />
         </div>
 
-        <div className="mt-8 border-t border-[#e7eeec] pt-6">
+        <div className="mt-8 border-t border-animeo-border-soft pt-6">
           <h3 className="font-black text-animeo-dark">Options d’affichage</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <ToggleRow label="Menu compact" description="Réduire la largeur du menu latéral." checked={draft.displayOptions.compactMenu} onChange={(value) => updateDisplayOptions({ compactMenu: value })} />
@@ -224,7 +227,7 @@ function CheckIcon({ className }: { className?: string }) {
 
 function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#e7eeec] bg-animeo-bg px-4 py-3.5">
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg px-4 py-3.5">
       <div className="min-w-0">
         <p className="text-sm font-extrabold text-animeo-dark">{label}</p>
         <p className="mt-0.5 text-xs text-animeo-muted">{description}</p>

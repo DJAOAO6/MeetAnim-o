@@ -45,7 +45,7 @@ export function DayDetailPanel({ date, appointments: allAppointments, tours, ava
   const totalMinutes = dayAppointments.reduce((sum, item) => sum + item.duration, 0);
 
   return (
-    <div className="rounded-2xl border border-[#e5eae9] bg-white p-4">
+    <div className="rounded-2xl border border-animeo-border-soft bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo">Détail du jour</p>
@@ -65,7 +65,7 @@ export function DayDetailPanel({ date, appointments: allAppointments, tours, ava
         <>
           <ul className="mt-3 flex flex-col gap-2.5">
             {agenda.items.map((item) => (
-              <li key={item.id} className="border-l-2 border-[#e5eae9] pl-2.5">
+              <li key={item.id} className="border-l-2 border-animeo-border-soft pl-2.5">
                 <p className="text-xs font-black text-animeo-dark">{item.start}</p>
                 <p className="text-sm font-extrabold text-animeo-dark">{item.title}</p>
                 <p className="text-xs text-animeo-muted">
@@ -88,7 +88,7 @@ export function DayDetailPanel({ date, appointments: allAppointments, tours, ava
       <button
         type="button"
         onClick={onViewDay}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d9e5e2] bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo"
       >
         <Icon name="calendar" className="h-4 w-4" />
         Voir la journée

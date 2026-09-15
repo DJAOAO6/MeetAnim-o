@@ -14,7 +14,7 @@ function escapeHtml(value: string): string {
 
 export function passwordResetTemplate(resetUrl: string): Pick<EmailMessage, "subject" | "html" | "text"> {
   return {
-    subject: "Réinitialisation de votre mot de passe Animéo",
+    subject: "Réinitialisation de votre mot de passe 1002 Pattes",
     text: `Vous avez demandé la réinitialisation de votre mot de passe.\n\nCliquez sur ce lien (valable 30 minutes) : ${resetUrl}\n\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet email.`,
     html: `
       <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
@@ -26,7 +26,7 @@ export function passwordResetTemplate(resetUrl: string): Pick<EmailMessage, "sub
 
 export function twoFactorCodeTemplate(code: string): Pick<EmailMessage, "subject" | "html" | "text"> {
   return {
-    subject: `${code} — votre code de connexion Animéo`,
+    subject: `${code} — votre code de connexion 1002 Pattes`,
     text: `Votre code de connexion est : ${code}\n\nIl est valable 10 minutes et à usage unique. Si vous n'êtes pas à l'origine de cette tentative de connexion, ignorez cet email.`,
     html: `
       <p>Votre code de connexion est :</p>

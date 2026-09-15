@@ -42,9 +42,9 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
     <form onSubmit={submit}>
       <StepHeading eyebrow="Étape 4 · Confirmation" title="Vérifiez votre demande" />
 
-      <div className="overflow-hidden rounded-[18px] border border-[#dfe9e6]">
+      <div className="overflow-hidden rounded-[18px] border border-animeo-border">
         <div className="bg-animeo-dark p-5 text-white sm:p-6">
-          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#85d4c7]">Votre rendez-vous</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-brand">Votre rendez-vous</p>
           <h3 className="mt-2 text-2xl font-black">{animal.name}</h3>
           <p className="mt-1 text-white/75">{service.name} · {service.duration} min</p>
         </div>
@@ -64,15 +64,15 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
             <SummaryLine label="Animal" value={`${animal.name} · ${animal.species}${animal.breed ? ` · ${animal.breed}` : ""}`} />
           </SummarySection>
         </div>
-        <div className="border-t border-[#e1eae8] bg-animeo-soft p-5 sm:p-6">
+        <div className="border-t border-animeo-border bg-animeo-soft p-5 sm:p-6">
           <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Tarif</p>
           <SummaryLine label="Consultation" value={`${consultationPrice} €`} />
-          <div className="mt-4 flex items-center justify-between border-t border-[#ccded9] pt-4"><span className="font-black text-animeo-dark">Total estimé</span><span className="text-2xl font-black text-animeo-dark">{consultationPrice + travelFee} €</span></div>
+          <div className="mt-4 flex items-center justify-between border-t border-animeo-border pt-4"><span className="font-black text-animeo-dark">Total estimé</span><span className="text-2xl font-black text-animeo-dark">{consultationPrice + travelFee} €</span></div>
         </div>
       </div>
 
-      <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-[#dfe9e6] p-4">
-        <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-[#4FAF9F]" required />
+      <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl border border-animeo-border p-4">
+        <input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0 accent-animeo-brand" required />
         <span className="text-sm leading-6 text-animeo-dark">
           J’accepte l’utilisation de mes informations pour traiter cette demande.{" "}
           <a
@@ -85,15 +85,15 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
           </a>
         </span>
       </label>
-      <p className="mt-3 rounded-2xl bg-[#fff7e7] p-3 text-sm font-bold text-[#8d651d]">Cette demande sera envoyée en attente de validation par {professional.firstName}.</p>
-      {submitError ? <p role="alert" aria-live="polite" className="mt-3 rounded-2xl bg-[#fff1f1] p-3 text-sm font-bold text-[#a9573b]">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
+      <p className="mt-3 rounded-2xl bg-animeo-warning-soft p-3 text-sm font-bold text-animeo-warning">Cette demande sera envoyée en attente de validation par {professional.firstName}.</p>
+      {submitError ? <p role="alert" aria-live="polite" className="mt-3 rounded-2xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
       <BookingActions onBack={onBack} nextLabel={submitting ? "Réservation en cours…" : "Réserver mon rendez-vous"} nextDisabled={!privacyAccepted} loading={submitting} />
     </form>
   );
 }
 
 function SummarySection({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="p-5 sm:p-6 sm:[&:nth-child(2)]:border-l sm:[&:nth-child(2)]:border-[#e1eae8]"><p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{title}</p><div className="space-y-2">{children}</div></div>;
+  return <div className="p-5 sm:p-6 sm:[&:nth-child(2)]:border-l sm:[&:nth-child(2)]:border-animeo-border"><p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{title}</p><div className="space-y-2">{children}</div></div>;
 }
 
 function SummaryLine({ label, value }: { label: string; value: string }) {
@@ -135,8 +135,8 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
 
   return (
     <div role="status" aria-live="polite" className="py-4 text-center sm:py-8">
-      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#e7f7f1] text-4xl text-[#278064]">✓</div>
-      <span className="mt-5 inline-flex rounded-full bg-[#fff2dc] px-3 py-1.5 text-xs font-black text-[#a66a12]">En attente de validation</span>
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-animeo-positive-soft text-4xl text-animeo-positive">✓</div>
+      <span className="mt-5 inline-flex rounded-full bg-animeo-warning-soft px-3 py-1.5 text-xs font-black text-animeo-warning">En attente de validation</span>
       <h2 id="booking-step-heading" tabIndex={-1} className="mx-auto mt-4 max-w-xl rounded-md text-2xl font-black text-animeo-dark focus:outline-none focus:ring-2 focus:ring-animeo focus:ring-offset-2 sm:text-3xl">Demande envoyée à {professional.firstName}</h2>
       <p className="mt-2 text-xs font-bold uppercase tracking-wide text-animeo-muted">Référence {reference}</p>
 
@@ -153,7 +153,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
             href={googleCalendarHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-animeo-border px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
           >
             <GoogleGIcon />
             Google Agenda
@@ -161,7 +161,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
           <a
             href={icsHref}
             download={`rendez-vous-${reference}.ics`}
-            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-animeo-border px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
           >
             <CalendarPlusIcon />
             Apple Calendar
@@ -170,7 +170,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
             href={outlookCalendarHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-[#d2e0dd] px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+            className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-animeo-border px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
           >
             <CalendarPlusIcon />
             Outlook
@@ -178,7 +178,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
         </div>
       </div>
 
-      <button type="button" onClick={onReset} className="mt-5 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-[#459e90] focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
+      <button type="button" onClick={onReset} className="mt-5 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-animeo-hover focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
     </div>
   );
 }

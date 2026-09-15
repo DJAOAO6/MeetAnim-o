@@ -31,7 +31,7 @@ export function PublicProfileSettingsTab({ value, saving = false, canEdit = true
   return (
     <form onSubmit={submit} className="space-y-6">
       {!canEdit ? (
-        <div role="status" className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#8c6118]">Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.</div>
+        <div role="status" className="rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm font-bold text-animeo-warning">Vous n’avez pas la permission de modifier les paramètres publics. Contactez un administrateur.</div>
       ) : null}
       <fieldset disabled={!canEdit} className="space-y-6 disabled:opacity-60">
         <Card className="p-5 sm:p-6">
@@ -85,7 +85,7 @@ export function PublicProfileSettingsTab({ value, saving = false, canEdit = true
         </Card>
 
         <div className="flex justify-end">
-          <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
+          <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
         </div>
       </fieldset>
     </form>

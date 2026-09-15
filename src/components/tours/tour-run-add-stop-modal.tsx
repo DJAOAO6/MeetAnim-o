@@ -72,14 +72,14 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-stop-title" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="flex items-center justify-between border-b border-[#e5eeeb] p-5">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-stop-title" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="flex items-center justify-between border-b border-animeo-border-soft p-5">
           <h2 id="add-stop-title" className="text-lg font-black text-animeo-dark">Ajouter un arrêt</h2>
           <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-bg">✕</button>
         </div>
 
-        <div className="flex gap-1 border-b border-[#e5eeeb] px-5 pt-3">
+        <div className="flex gap-1 border-b border-animeo-border-soft px-5 pt-3">
           <button type="button" onClick={() => setTab("appointments")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "appointments" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Rendez-vous du jour</button>
           <button type="button" onClick={() => setTab("client")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "client" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Rechercher un client</button>
           <button type="button" onClick={() => setTab("manual")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "manual" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Adresse manuelle</button>
@@ -104,7 +104,7 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
               <ul className="space-y-2">
                 {availableAppointments.map((appointment) => (
                   <li key={appointment.id}>
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[#e5eeeb] px-3 py-2.5 hover:bg-animeo-bg">
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-animeo-border-soft px-3 py-2.5 hover:bg-animeo-bg">
                       <input type="checkbox" checked={selected.has(appointment.id)} onChange={() => toggleSelected(appointment.id)} className="h-5 w-5 accent-animeo" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-black text-animeo-dark">{appointment.start} — {appointment.animalSpecies ? `${speciesEmoji[appointment.animalSpecies] ?? ""} ` : ""}{appointment.animalName}</p>
@@ -119,13 +119,13 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
             <div className="space-y-4">
               <div>
                 <label htmlFor="manual-stop-type" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Type</label>
-                <select id="manual-stop-type" value={manualType} onChange={(event) => setManualType(event.target.value)} className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-bold text-animeo-dark">
+                <select id="manual-stop-type" value={manualType} onChange={(event) => setManualType(event.target.value)} className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark">
                   {manualStopTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </div>
               <div>
                 <label htmlFor="manual-stop-label" className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Nom de l’arrêt</label>
-                <input id="manual-stop-label" type="text" value={manualLabel} onChange={(event) => setManualLabel(event.target.value)} placeholder="Ex. Clinique vétérinaire de Barentin" className="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-semibold text-animeo-dark" />
+                <input id="manual-stop-label" type="text" value={manualLabel} onChange={(event) => setManualLabel(event.target.value)} placeholder="Ex. Clinique vétérinaire de Barentin" className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark" />
               </div>
               {manualType !== "BREAK" && manualType !== "MEAL" ? (
                 <div>
@@ -135,7 +135,7 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
                     onQueryChange={(value) => { setManualQuery(value); setManualAddress(null); }}
                     onSelect={setManualAddress}
                     placeholder="Rechercher une adresse ou un lieu"
-                    inputClassName="min-h-11 w-full rounded-xl border border-[#d7e4e1] bg-white px-3 text-sm font-semibold text-animeo-dark"
+                    inputClassName="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark"
                   />
                 </div>
               ) : null}
@@ -143,14 +143,14 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
           ) : null}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-[#e5eeeb] p-5">
-          <button type="button" onClick={onClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+        <div className="flex justify-end gap-2 border-t border-animeo-border-soft p-5">
+          <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
           {tab === "appointments" ? (
-            <button type="button" onClick={submitAppointments} disabled={selected.size === 0 || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={submitAppointments} disabled={selected.size === 0 || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? "Ajout…" : `Ajouter (${selected.size})`}
             </button>
           ) : tab === "manual" ? (
-            <button type="button" onClick={submitManual} disabled={!manualLabel.trim() || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="button" onClick={submitManual} disabled={!manualLabel.trim() || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
               {submitting ? "Ajout…" : "Ajouter comme étape"}
             </button>
           ) : null}

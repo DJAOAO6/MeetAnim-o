@@ -75,12 +75,12 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               type="button"
               onClick={() => selectService(item.id)}
               aria-pressed={selected}
-              className={`relative flex flex-col rounded-3xl border p-5 text-left shadow-[0_4px_18px_rgba(24,59,69,0.05)] transition outline-none touch-manipulation focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:p-6 ${
-                selected ? "border-2 border-animeo bg-animeo-soft" : "border-[#e5eaea] bg-white hover:border-[#aad5cd]"
+              className={`relative flex flex-col rounded-3xl border p-5 text-left shadow-[0_4px_18px_rgb(var(--theme-shadow-rgb)/0.05)] transition outline-none touch-manipulation focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:p-6 ${
+                selected ? "border-2 border-animeo bg-animeo-soft" : "border-animeo-border bg-white hover:border-animeo-border-strong"
               }`}
             >
               {selected ? (
-                <span className="absolute -right-2.5 -top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-animeo text-white shadow-[0_4px_10px_rgba(79,175,159,0.35)]">
+                <span className="absolute -right-2.5 -top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-animeo text-white shadow-[0_4px_10px_color-mix(in_srgb,var(--theme-brand)_35%,transparent)]">
                   <CheckIcon />
                 </span>
               ) : null}
@@ -107,7 +107,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
                 </span>
               </span>
 
-              <span className="mt-5 block h-px bg-[#e9eeed]" />
+              <span className="mt-5 block h-px bg-animeo-border-soft" />
 
               <span className="mt-4 flex items-end justify-end text-right">
                 <span className="text-xs font-bold text-animeo-muted">{availabilityLabel(item)}</span>
@@ -174,7 +174,7 @@ function ClockIcon() {
 
 function ModeCard({ icon, title, ariaLabel, detail, price, priceNote, selected, disabled, disabledLabel, onClick }: { icon: string; title: string; ariaLabel: string; detail: React.ReactNode; price: string; priceNote?: string; selected: boolean; disabled: boolean; disabledLabel: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} aria-label={ariaLabel} className={`touch-manipulation rounded-[18px] border-2 p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:p-5 ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_rgba(79,175,159,0.12)]" : "border-[#dfe9e6] bg-white hover:border-[#aad5cd]"} disabled:cursor-not-allowed disabled:bg-[#f2f4f4] disabled:opacity-65`}>
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} aria-label={ariaLabel} className={`touch-manipulation rounded-[18px] border-2 p-4 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:p-5 ${selected ? "border-animeo bg-animeo-soft shadow-[0_8px_24px_color-mix(in_srgb,var(--theme-brand)_12%,transparent)]" : "border-animeo-border bg-white hover:border-animeo-border-strong"} disabled:cursor-not-allowed disabled:bg-animeo-surface-alt disabled:opacity-65`}>
       <span className="flex items-start justify-between gap-3">
         <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-xl ${selected ? "bg-animeo text-white" : "bg-animeo-soft text-animeo-dark"}`}>{icon}</span>
         {!disabled ? <span className="rounded-full bg-animeo-bg px-3 py-1.5 text-sm font-black text-animeo-dark">{price}</span> : null}

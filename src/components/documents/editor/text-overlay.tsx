@@ -36,7 +36,7 @@ export function TextOverlay({ readOnly }: TextOverlayProps) {
   return (
     <div className="pointer-events-none absolute inset-0">
       {textElements.map((element) =>
-        // Un bloc lié à une variable Animéo n'est jamais éditable en texte
+        // Un bloc lié à une variable 1002 Pattes n'est jamais éditable en texte
         // libre (sa valeur vient d'une fiche, pas d'une frappe) — voir
         // editor-toolbar.tsx pour l'insertion de ces blocs.
         editingTextId === element.id && !readOnly && !element.variableBinding ? (

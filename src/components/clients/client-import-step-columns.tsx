@@ -39,15 +39,15 @@ export function ClientImportStepColumns({
 
   return (
     <div className="space-y-6">
-      <div className="overflow-x-auto rounded-2xl border border-[#e5eeeb]">
+      <div className="overflow-x-auto rounded-2xl border border-animeo-border-soft">
         <table className="w-full min-w-[520px] border-collapse text-left text-sm">
           <thead className="bg-animeo-bg text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">
             <tr>
               <th className="px-4 py-3">Colonne du fichier</th>
-              <th className="px-4 py-3">Champ Animéo</th>
+              <th className="px-4 py-3">Champ 1002 Pattes</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#edf2f0]">
+          <tbody className="divide-y divide-animeo-border-soft">
             {headers.map((header, columnIndex) => {
               const currentField = ALL_FIELDS.find((field) => mapping[field] === columnIndex) ?? "";
               return (
@@ -57,8 +57,8 @@ export function ClientImportStepColumns({
                     <select
                       value={currentField}
                       onChange={(event) => setColumnField(columnIndex, (event.target.value || "") as ImportField | "")}
-                      aria-label={`Champ Animéo pour la colonne « ${header || "sans en-tête"} »`}
-                      className="h-10 w-full max-w-xs rounded-xl border border-[#d9e5e2] bg-white px-3 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo"
+                      aria-label={`Champ 1002 Pattes pour la colonne « ${header || "sans en-tête"} »`}
+                      className="h-10 w-full max-w-xs rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo"
                     >
                       <option value="">Ne pas importer</option>
                       {ALL_FIELDS.map((field) => (
@@ -78,7 +78,7 @@ export function ClientImportStepColumns({
       {mappedFields.length > 0 && previewRows.length > 0 ? (
         <div>
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Aperçu des {previewRows.length} premières lignes</p>
-          <div className="overflow-x-auto rounded-2xl border border-[#e5eeeb]">
+          <div className="overflow-x-auto rounded-2xl border border-animeo-border-soft">
             <table className="w-full min-w-[520px] border-collapse text-left text-sm">
               <thead className="bg-animeo-bg text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">
                 <tr>
@@ -87,7 +87,7 @@ export function ClientImportStepColumns({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#edf2f0]">
+              <tbody className="divide-y divide-animeo-border-soft">
                 {previewRows.map((row, rowIndex) => (
                   <tr key={rowIndex}>
                     {mappedFields.map((field) => (
@@ -101,8 +101,8 @@ export function ClientImportStepColumns({
         </div>
       ) : null}
 
-      <div className="flex items-center justify-between gap-3 border-t border-[#e5eeeb] pt-5">
-        <button type="button" onClick={onBack} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+      <div className="flex items-center justify-between gap-3 border-t border-animeo-border-soft pt-5">
+        <button type="button" onClick={onBack} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
           Retour
         </button>
         <div className="text-right">
@@ -111,7 +111,7 @@ export function ClientImportStepColumns({
             type="button"
             disabled={!canContinue}
             onClick={onContinue}
-            className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continuer
           </button>

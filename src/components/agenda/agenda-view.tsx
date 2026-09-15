@@ -326,7 +326,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               type="button"
               onClick={goToPrevious}
               aria-label={navLabel(view, "précédent")}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4 rotate-180" />
             </button>
@@ -334,14 +334,14 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               type="button"
               onClick={goToNext}
               aria-label={navLabel(view, "suivant")}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#d9e5e2] bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={goToToday}
-              className="rounded-xl border border-[#d9e5e2] bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo"
+              className="rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo"
             >
               Aujourd’hui
             </button>
@@ -367,7 +367,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
             <button
               type="button"
               onClick={() => openNewAppointment(smartDefaultDateId())}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
             >
               <span aria-hidden="true" className="text-xl leading-none">+</span>
               Nouveau rendez-vous
@@ -518,7 +518,7 @@ function PendingRequestsPanel({ requests, onAction }: {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-black text-animeo-dark">Demandes de rendez-vous</h2>
-            <span className="rounded-full bg-[#fff1d5] px-2.5 py-1 text-xs font-black text-[#986216]">{requests.length} en attente</span>
+            <span className="rounded-full bg-animeo-warning-soft px-2.5 py-1 text-xs font-black text-animeo-warning">{requests.length} en attente</span>
           </div>
           <p className="mt-1 text-sm text-animeo-muted">Acceptez, décalez ou refusez les nouvelles demandes reçues.</p>
         </div>
@@ -526,11 +526,11 @@ function PendingRequestsPanel({ requests, onAction }: {
 
       <div className="grid gap-3 xl:grid-cols-2">
         {requests.map((request) => (
-          <article key={request.id} className="rounded-2xl border border-[#f0d8a5] bg-[#fffaf0] p-4">
+          <article key={request.id} className="rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-animeo-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#62420e]">En attente</span>
+                  <span className="rounded-full bg-animeo-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-animeo-warning">En attente</span>
                   <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>
                 </div>
                 <h3 className="mt-2 text-lg font-black text-animeo-dark">{request.animal}</h3>
@@ -538,9 +538,9 @@ function PendingRequestsPanel({ requests, onAction }: {
                 <p className="mt-1 text-xs text-animeo-muted">{request.location}</p>
               </div>
               <div className="grid shrink-0 grid-cols-3 gap-2 sm:flex">
-                <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#459e90]">Accepter</button>
-                <button type="button" onClick={() => onAction("Décalage demandé", request)} className="rounded-xl border border-[#d7e4e1] bg-white px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">Décaler</button>
-                <button type="button" onClick={() => onAction("Refusé", request)} className="rounded-xl bg-[#fff0eb] px-3 py-2.5 text-xs font-extrabold text-[#a9573b] transition hover:bg-[#ffe5dc]">Refuser</button>
+                <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Accepter</button>
+                <button type="button" onClick={() => onAction("Décalage demandé", request)} className="rounded-xl border border-animeo-border bg-white px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">Décaler</button>
+                <button type="button" onClick={() => onAction("Refusé", request)} className="rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">Refuser</button>
               </div>
             </div>
           </article>

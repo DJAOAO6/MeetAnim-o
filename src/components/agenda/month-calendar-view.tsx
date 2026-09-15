@@ -16,16 +16,16 @@ export const filterOptions: Array<{ id: MonthFilter; label: string }> = [
 ];
 
 export const kindDotColor: Record<DayItemKind, string> = {
-  cabinet: "bg-[#4FAF9F]",
+  cabinet: "bg-animeo-brand",
   domicile: "bg-[#4C8190]",
   pending: "bg-animeo-accent",
   tournee: "bg-[#8067B0]",
 };
 
 const compactEventStyles: Record<DayItemKind, string> = {
-  cabinet: "border-[#4FAF9F] bg-[#4FAF9F]/[0.06] text-animeo-dark",
+  cabinet: "border-animeo-brand bg-animeo-brand/[0.06] text-animeo-dark",
   domicile: "border-[#4C8190] bg-[#4C8190]/[0.06] text-[#234E5A]",
-  pending: "border-animeo-accent bg-[#F4B860]/[0.12] text-[#7E5718]",
+  pending: "border-animeo-accent bg-[#F4B860]/[0.12] text-animeo-warning",
   tournee: "border-[#8067B0] bg-[#8067B0]/[0.06] text-[#55417F]",
 };
 
@@ -79,8 +79,8 @@ export function MonthDayCell({ date, monthDate, appointments, tours, availabilit
       type="button"
       onClick={() => onSelect(date)}
       aria-label={`Voir le détail du ${date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`}
-      className={`flex min-h-[92px] flex-col gap-1 border-b border-r border-[#e5eae9] p-1.5 text-left transition last:border-r-0 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-animeo-dark ${
-        isSelected ? "bg-animeo-soft" : agenda.isClosed ? "bg-[#fbfcfc] hover:bg-animeo-bg" : "bg-white hover:bg-animeo-bg"
+      className={`flex min-h-[92px] flex-col gap-1 border-b border-r border-animeo-border-soft p-1.5 text-left transition last:border-r-0 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-animeo-dark ${
+        isSelected ? "bg-animeo-soft" : agenda.isClosed ? "bg-animeo-surface-alt hover:bg-animeo-bg" : "bg-white hover:bg-animeo-bg"
       } ${!inCurrentMonth ? "opacity-45" : ""}`}
     >
       <div className="flex items-center justify-between gap-1">
@@ -91,7 +91,7 @@ export function MonthDayCell({ date, monthDate, appointments, tours, availabilit
       </div>
 
       {agenda.isClosed ? (
-        <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-[#9aa5a8]">Fermé</span>
+        <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-animeo-subtle">Fermé</span>
       ) : (
         <div className="flex flex-col gap-0.5">
           {visibleItems.map((item) => <CompactAppointment key={item.id} item={item} />)}
@@ -116,10 +116,10 @@ export function MonthCalendarView({ monthDate, appointments, tours, availability
   const days = getMonthGridDays(monthDate);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#e5eae9]">
-      <div className="grid grid-cols-7 border-b border-[#e5eae9] bg-[#fbfdfc]">
+    <div className="overflow-hidden rounded-2xl border border-animeo-border-soft">
+      <div className="grid grid-cols-7 border-b border-animeo-border-soft bg-animeo-surface-alt">
         {weekDayLabels.map((label) => (
-          <span key={label} className="border-r border-[#e5eae9] px-2 py-2 text-center text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted last:border-r-0">
+          <span key={label} className="border-r border-animeo-border-soft px-2 py-2 text-center text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted last:border-r-0">
             {label}
           </span>
         ))}

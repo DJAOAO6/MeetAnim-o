@@ -1,7 +1,7 @@
 import Image from "next/image";
 import type { ChangeEvent, ReactNode } from "react";
 
-export const inputClassName = "h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-[#9aa7ac] focus:border-animeo focus:bg-white";
+export const inputClassName = "h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
 export const textareaClassName = `${inputClassName} h-auto min-h-28 resize-y py-3`;
 
 /**
@@ -26,8 +26,8 @@ export function Field({ id, label, hint, children }: { id?: string; label: strin
 
 export function Toggle({ checked, onChange, label, compact = false, disabled = false }: { checked: boolean; onChange: (checked: boolean) => void; label: string; compact?: boolean; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-[#f0f3f3] text-animeo-muted"}`}>
-      <span className={`relative inline-flex h-5 w-9 rounded-full transition ${checked ? "bg-animeo" : "bg-[#b8c2c5]"}`}>
+    <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>
+      <span className={`relative inline-flex h-5 w-9 rounded-full transition ${checked ? "bg-animeo" : "bg-animeo-subtle"}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition ${checked ? "left-[18px]" : "left-0.5"}`} />
       </span>
       {label}

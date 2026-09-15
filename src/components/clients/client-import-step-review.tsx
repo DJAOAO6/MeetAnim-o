@@ -46,11 +46,11 @@ const STATUS_LABELS: Record<RowStatus, string> = {
 };
 
 const STATUS_CLASSES: Record<RowStatus, string> = {
-  error: "bg-[#ffe4e4] text-animeo-error",
+  error: "bg-animeo-danger-soft text-animeo-error",
   new: "bg-animeo-soft text-animeo-dark",
-  merged: "bg-[#fff0d1] text-[#8a5a00]",
-  ignored: "bg-[#f0f3f3] text-animeo-muted",
-  pending: "bg-[#f0f3f3] text-animeo-muted",
+  merged: "bg-animeo-warning-soft text-animeo-warning",
+  ignored: "bg-animeo-border-soft text-animeo-muted",
+  pending: "bg-animeo-border-soft text-animeo-muted",
 };
 
 export function ClientImportStepReview({
@@ -126,7 +126,7 @@ export function ClientImportStepReview({
         <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">En cas de doublon avec une fiche existante</p>
         <div className="space-y-2">
           {POLICY_OPTIONS.map((option) => (
-            <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${conflictPolicy === option.value ? "border-animeo bg-animeo-soft" : "border-[#e5eeeb] bg-white hover:bg-animeo-bg"}`}>
+            <label key={option.value} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${conflictPolicy === option.value ? "border-animeo bg-animeo-soft" : "border-animeo-border-soft bg-white hover:bg-animeo-bg"}`}>
               <input type="radio" name="conflictPolicy" checked={conflictPolicy === option.value} onChange={() => onConflictPolicyChange(option.value)} className="mt-1 h-4 w-4 accent-animeo" />
               <span>
                 <span className="block font-extrabold text-animeo-dark">{option.label}</span>
@@ -143,7 +143,7 @@ export function ClientImportStepReview({
           <select
             value={defaultSpecies}
             onChange={(event) => onDefaultSpeciesChange(event.target.value as AnimalSpecies)}
-            className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo"
+            className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo"
           >
             {animalSpeciesList.map((species) => <option key={species} value={species}>{species}</option>)}
           </select>
@@ -162,7 +162,7 @@ export function ClientImportStepReview({
           </div>
         </div>
 
-        <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-[#e5eeeb]">
+        <div className="max-h-[420px] overflow-y-auto rounded-2xl border border-animeo-border-soft">
           <table className="w-full min-w-[640px] border-collapse text-left text-sm">
             <thead className="sticky top-0 bg-animeo-bg text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">
               <tr>
@@ -173,7 +173,7 @@ export function ClientImportStepReview({
                 <th className="px-4 py-3 text-right">Exclure</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#edf2f0]">
+            <tbody className="divide-y divide-animeo-border-soft">
               {visibleRows.map((row) => {
                 const status = rowStatus(row, conflictPolicy, existingGroupIndexes);
                 const excluded = excludedLines.has(row.lineNumber);
@@ -201,21 +201,21 @@ export function ClientImportStepReview({
         </div>
 
         {visibleCount < totalFiltered ? (
-          <button type="button" onClick={() => setVisibleCount((current) => current + PAGE_SIZE)} className="mt-3 rounded-xl border border-[#d4e2df] px-4 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+          <button type="button" onClick={() => setVisibleCount((current) => current + PAGE_SIZE)} className="mt-3 rounded-xl border border-animeo-border px-4 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
             Afficher plus ({totalFiltered - visibleCount} restantes)
           </button>
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-[#e5eeeb] pt-5">
-        <button type="button" onClick={onBack} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+      <div className="flex items-center justify-between gap-3 border-t border-animeo-border-soft pt-5">
+        <button type="button" onClick={onBack} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
           Retour
         </button>
         <button
           type="button"
           disabled={importCount === 0}
           onClick={onStartImport}
-          className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           Importer {importCount} client{importCount > 1 ? "s" : ""}
         </button>

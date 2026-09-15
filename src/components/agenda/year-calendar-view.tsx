@@ -16,11 +16,11 @@ function sameDay(first: Date, second: Date) {
 }
 
 function densityClass(count: number, isClosed: boolean) {
-  if (isClosed) return "bg-[#eef1f0] text-[#b7c0c2]";
-  if (count === 0) return "bg-[#f3f5f5] text-animeo-muted";
-  if (count <= 2) return "bg-[#d9f0eb] text-animeo-dark";
-  if (count <= 5) return "bg-[#8fd0c1] text-white";
-  return "bg-[#2f9484] text-white";
+  if (isClosed) return "bg-animeo-border-soft text-animeo-subtle";
+  if (count === 0) return "bg-animeo-border-soft text-animeo-muted";
+  if (count <= 2) return "bg-animeo-soft text-animeo-dark";
+  if (count <= 5) return "bg-animeo-soft-strong text-white";
+  return "bg-animeo-brand text-white";
 }
 
 type YearCalendarViewProps = {
@@ -61,7 +61,7 @@ function YearMiniMonth({ year, monthIndex, appointments, tours, availability, on
       type="button"
       onClick={() => onSelectMonth(monthIndex)}
       aria-label={`Voir ${monthName} ${year} en vue Mois`}
-      className="rounded-2xl border border-[#e5eae9] bg-white p-3 text-left transition hover:border-animeo hover:shadow-[0_4px_16px_rgba(24,59,69,0.06)]"
+      className="rounded-2xl border border-animeo-border-soft bg-white p-3 text-left transition hover:border-animeo hover:shadow-[0_4px_16px_rgb(var(--theme-shadow-rgb)/0.06)]"
     >
       <p className={`mb-2 text-sm font-extrabold capitalize ${isCurrentMonth ? "text-animeo" : "text-animeo-dark"}`}>{monthName}</p>
       <div className="grid grid-cols-7 gap-[3px]">
@@ -107,7 +107,7 @@ export function YearStatsRibbon({ year, appointments, tours }: YearStatsRibbonPr
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-[#e5eae9] bg-[#fbfdfc] px-4 py-3">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-animeo-border-soft bg-animeo-surface-alt px-4 py-3">
       {items.map((item) => (
         <div key={item.label} className="flex items-center gap-2">
           <Icon name={item.icon} className="h-4 w-4 text-animeo" />

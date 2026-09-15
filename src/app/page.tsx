@@ -11,7 +11,7 @@ export default function Home() {
         </p>
         <Link
           href="/dashboard"
-          className="mt-10 inline-flex items-center rounded-[14px] bg-animeo-dark px-6 py-3.5 font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#214d59]"
+          className="mt-10 inline-flex items-center rounded-[14px] bg-animeo-dark px-6 py-3.5 font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-animeo-deep"
         >
           Ouvrir le tableau de bord
           <span aria-hidden="true" className="ml-2">

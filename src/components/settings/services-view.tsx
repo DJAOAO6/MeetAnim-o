@@ -101,7 +101,7 @@ export function ServicesView({ initialServices, zoneNames, defaultDuration }: Se
 
       <ServicesSettingsTab services={services} zoneNames={zoneNames} kilometricFeesEnabled={kilometricFeesEnabled} defaultDuration={defaultDuration} saving={saving} canEdit={canManagePublicSettings} onSave={saveService} onToggle={toggleService} onDelete={removeService} />
 
-      <p className="mt-5 rounded-2xl border border-[#d5e6e2] bg-white p-4 text-sm leading-6 text-animeo-muted">
+      <p className="mt-5 rounded-2xl border border-animeo-border bg-white p-4 text-sm leading-6 text-animeo-muted">
         Ces prestations sont enregistrées et apparaissent immédiatement sur votre page publique de réservation.
       </p>
     </>

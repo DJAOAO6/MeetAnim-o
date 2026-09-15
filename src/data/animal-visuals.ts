@@ -5,10 +5,10 @@ import type { PublicAnimalType } from "@/data/public-booking";
 // publique.
 export const AVATAR_BACKGROUNDS = [
   "from-[#dcefeb] to-[#f4faf8]",
-  "from-[#fff0d1] to-[#fffaf0]",
+  "from-animeo-warning-soft to-animeo-warning-soft",
   "from-[#e7edf4] to-[#f7f9fc]",
   "from-[#eee8f8] to-[#faf8fd]",
-  "from-[#e5f4f0] to-[#f5fbf9]",
+  "from-animeo-positive-soft to-animeo-surface-alt",
 ];
 
 const speciesAvatar: Record<PublicAnimalType, string> = {

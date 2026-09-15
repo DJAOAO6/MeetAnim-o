@@ -19,7 +19,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
           <p className="mt-4 text-sm font-semibold text-animeo-muted">Espace professionnel</p>
         </div>
         {token ? <ResetPasswordForm token={token} /> : (
-          <p className="rounded-[18px] border border-[#dfe9e6] bg-white p-6 text-center text-sm font-bold text-animeo-error shadow-[0_8px_30px_rgba(24,59,69,0.05)]">
+          <p className="rounded-[18px] border border-animeo-border bg-white p-6 text-center text-sm font-bold text-animeo-error shadow-[0_8px_30px_rgb(var(--theme-shadow-rgb)/0.05)]">
             Lien de réinitialisation invalide.
           </p>
         )}

@@ -119,7 +119,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
           disabled={readOnly}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Genou, grasset, C7…"
-          className="h-9 w-full rounded-lg border border-[#d9e5e2] bg-animeo-bg px-2.5 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
+          className="h-9 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2.5 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
         />
         {searchResults.length > 0 ? (
           <ul className="mt-1.5 space-y-1">
@@ -221,7 +221,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                     onBlur={(event) => {
                       if (event.target.value.trim() !== (observation.note ?? "")) updateNote(observation.id, event.target.value);
                     }}
-                    className="mt-1 h-7 w-full rounded border border-[#d9e5e2] bg-white px-1.5 text-[11px] text-animeo-dark outline-none focus:border-animeo"
+                    className="mt-1 h-7 w-full rounded border border-animeo-border bg-white px-1.5 text-[11px] text-animeo-dark outline-none focus:border-animeo"
                   />
                 </li>
               );

@@ -1,7 +1,7 @@
 import type { StudioDocumentTemplateSummary } from "@/data/documents";
 
 /**
- * Sélection automatique du modèle (étape 3) : un modèle Animéo dont
+ * Sélection automatique du modèle (étape 3) : un modèle 1002 Pattes dont
  * `species` correspond exactement à l'espèce de l'animal, sinon le premier
  * modèle sans espèce (générique), sinon aucun modèle (document vierge) —
  * jamais un modèle choisi au hasard. Utilisée dès qu'un document est créé

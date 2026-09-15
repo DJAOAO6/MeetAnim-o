@@ -40,7 +40,7 @@ export function HeaderActions() {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher un client, un animal…"
           aria-label="Rechercher un client, un animal"
-          className="h-12 w-64 rounded-2xl border border-[#e1eae8] bg-white pl-11 pr-4 text-sm font-semibold text-animeo-dark shadow-[0_4px_16px_rgba(21,63,71,0.04)] outline-none transition placeholder:text-[#9aa6aa] focus:border-animeo focus:w-72 lg:w-72"
+          className="h-12 w-64 rounded-2xl border border-animeo-border bg-white pl-11 pr-4 text-sm font-semibold text-animeo-dark shadow-[0_4px_16px_rgb(var(--theme-shadow-rgb)/0.04)] outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:w-72 lg:w-72"
         />
       </form>
 

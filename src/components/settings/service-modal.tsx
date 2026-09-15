@@ -89,9 +89,9 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none">
-        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#e5eeeb] bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm">
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="service-dialog-title" className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+        <div className="sticky top-0 z-10 flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Configuration locale</p><h2 id="service-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">{service ? "Modifier la prestation" : "Nouvelle prestation"}</h2></div>
           <button type="button" onClick={guardedClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
         </div>
@@ -126,11 +126,11 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-[#dfe9e6] p-4">
+                <div className="rounded-2xl border border-animeo-border p-4">
                   <Toggle checked={draft.cabinetEnabled} onChange={(value) => update("cabinetEnabled", value)} label={draft.cabinetEnabled ? "Cabinet activé" : "Cabinet désactivé"} />
                   {draft.cabinetEnabled ? <div className="mt-4"><Field label="Prix au cabinet"><PriceInput value={draft.cabinetPrice} onChange={(value) => update("cabinetPrice", value)} /></Field></div> : null}
                 </div>
-                <div className="rounded-2xl border border-[#dfe9e6] p-4">
+                <div className="rounded-2xl border border-animeo-border p-4">
                   <Toggle checked={draft.homeEnabled} onChange={(value) => update("homeEnabled", value)} label={draft.homeEnabled ? "Domicile activé" : "Domicile désactivé"} />
                   {draft.homeEnabled ? <div className="mt-4"><Field label="Prix à domicile"><PriceInput value={draft.homePrice} onChange={(value) => update("homePrice", value)} /></Field></div> : null}
                 </div>
@@ -162,7 +162,7 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
                           {zoneNames.map((zone) => <Field key={zone} label={zone}><PriceInput value={draft.zoneFees[zone] ?? 0} onChange={(value) => update("zoneFees", { ...draft.zoneFees, [zone]: value })} prefix="+" /></Field>)}
                         </div>
                       ) : (
-                        <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Aucune zone n’est configurée. Créez-en une dans Tournées avant d’utiliser ce mode de calcul.</p>
+                        <p className="rounded-xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">Aucune zone n’est configurée. Créez-en une dans Tournées avant d’utiliser ce mode de calcul.</p>
                       )
                     ) : null}
 
@@ -181,12 +181,12 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
               ) : null}
 
               <Field label="Rappel conseillé"><select value={draft.suggestedReminder} onChange={(event) => update("suggestedReminder", event.target.value as ServiceSettings["suggestedReminder"])} className={inputClassName}><option>3 mois</option><option>6 mois</option><option>12 mois</option><option>Aucun</option></select></Field>
-              {!draft.cabinetEnabled && !draft.homeEnabled ? <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Activez au moins un mode de consultation.</p> : null}
-              {draft.animals.length === 0 ? <p className="rounded-xl bg-[#fff0eb] p-3 text-sm font-bold text-[#a9573b]">Sélectionnez au moins une espèce.</p> : null}
+              {!draft.cabinetEnabled && !draft.homeEnabled ? <p className="rounded-xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">Activez au moins un mode de consultation.</p> : null}
+              {draft.animals.length === 0 ? <p className="rounded-xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">Sélectionnez au moins une espèce.</p> : null}
             </div>
 
             <aside className="h-fit rounded-[18px] bg-animeo-dark p-5 text-white lg:sticky lg:top-28">
-              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#83d2c5]">Aperçu du prix client</p>
+              <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-border-strong">Aperçu du prix client</p>
               <div className="mt-5 space-y-3 text-sm">
                 <PriceLine label="Au cabinet" value={draft.cabinetEnabled ? formatEuro(draft.cabinetPrice) : "Non proposé"} />
                 <PriceLine label="Consultation domicile" value={draft.homeEnabled ? formatEuro(draft.homePrice) : "Non proposé"} />
@@ -201,8 +201,8 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
             </aside>
           </div>
 
-          <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-[#e5eeeb] bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-[#d4e2df] px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
+          <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-animeo-border-soft bg-white p-5 sm:flex-row sm:justify-end sm:p-6">
+            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark">Annuler</button>
             <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{saving ? "Enregistrement…" : service ? "Enregistrer" : "Créer la prestation"}</button>
           </div>
         </form>
@@ -228,5 +228,5 @@ function formatEuro(value: number) {
 }
 
 function PriceLine({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return <div className="flex items-center justify-between gap-3"><span className={strong ? "font-extrabold" : "text-white/70"}>{label}</span><span className={strong ? "text-xl font-black text-[#83d2c5]" : "font-black"}>{value}</span></div>;
+  return <div className="flex items-center justify-between gap-3"><span className={strong ? "font-extrabold" : "text-white/70"}>{label}</span><span className={strong ? "text-xl font-black text-animeo-border-strong" : "font-black"}>{value}</span></div>;
 }

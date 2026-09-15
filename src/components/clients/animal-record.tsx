@@ -50,7 +50,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="shrink-0" style={{ width: 128 }}>
-              <div className={`relative flex items-center justify-center overflow-hidden rounded-[24px] border-4 border-white bg-gradient-to-br text-6xl shadow-[0_8px_24px_rgba(24,59,69,0.1)] ${animal.avatarBackground}`} style={{ width: 128, height: 128 }} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
+              <div className={`relative flex items-center justify-center overflow-hidden rounded-[24px] border-4 border-white bg-gradient-to-br text-6xl shadow-[0_8px_24px_rgb(var(--theme-shadow-rgb)/0.1)] ${animal.avatarBackground}`} style={{ width: 128, height: 128 }} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
                 {photo ? <Image src={photo} alt="" fill unoptimized sizes="128px" className="object-cover" /> : animal.avatar}
               </div>
               <div className="mt-2 flex justify-center gap-2">
@@ -75,13 +75,13 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-[#d4e2df] bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft"
+              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft"
             >
               <EditIcon />
               Modifier
             </button>
           </div>
-          {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{photoError}</p> : null}
+          {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{photoError}</p> : null}
         </div>
 
         <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
@@ -146,8 +146,8 @@ function AnimalInfo({ label, value }: { label: string; value: string }) {
 
 function HealthInfo({ title, value, accent = false }: { title: string; value: string; accent?: boolean }) {
   return (
-    <div className={`rounded-2xl border p-4 ${accent ? "border-[#f1d89f] bg-[#fff9ec]" : "border-[#e2ece9] bg-animeo-bg"}`}>
-      <h3 className={`text-xs font-extrabold uppercase tracking-[0.11em] ${accent ? "text-[#9a6a18]" : "text-animeo"}`}>{title}</h3>
+    <div className={`rounded-2xl border p-4 ${accent ? "border-animeo-warning-border bg-animeo-warning-soft" : "border-animeo-border bg-animeo-bg"}`}>
+      <h3 className={`text-xs font-extrabold uppercase tracking-[0.11em] ${accent ? "text-animeo-warning" : "text-animeo"}`}>{title}</h3>
       <p className="mt-2 text-sm font-semibold leading-relaxed text-animeo-dark">{value}</p>
     </div>
   );
@@ -156,12 +156,12 @@ function HealthInfo({ title, value, accent = false }: { title: string; value: st
 function ConsultationHistory({ animal }: { animal: Animal }) {
   return (
     <Card className="overflow-hidden">
-      <div className="border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
+      <div className="border-b border-animeo-border-soft px-5 py-4 sm:px-6">
         <h2 className="text-lg font-extrabold text-animeo-dark">Historique des consultations</h2>
         <p className="mt-0.5 text-sm text-animeo-muted">Suivi propre à {animal.name}</p>
       </div>
 
-      <div className="divide-y divide-[#edf2f0]">
+      <div className="divide-y divide-animeo-border-soft">
         {animal.consultations.map((consultation) => (
           <article key={consultation.id} className="p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -169,14 +169,14 @@ function ConsultationHistory({ animal }: { animal: Animal }) {
                 <p className="text-sm font-extrabold text-animeo-dark">{consultation.date}</p>
                 <p className="mt-1 font-extrabold text-animeo-dark">{consultation.service}</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e4f5ef] px-2.5 py-1 text-[10px] font-black text-[#267668]">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-animeo-positive-soft px-2.5 py-1 text-[10px] font-black text-animeo-hover">
                 <span className="h-1.5 w-1.5 rounded-full bg-animeo" />
                 {consultation.status}
               </span>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${consultation.mode === "Cabinet" ? "bg-animeo-soft text-animeo-dark" : "bg-[#e8f1f4] text-[#315f6c]"}`}>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${consultation.mode === "Cabinet" ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-info-soft text-animeo-dark"}`}>
                 {consultation.mode}
               </span>
               <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-[10px] font-black text-animeo-dark">{consultation.price}</span>
@@ -241,7 +241,7 @@ function DocumentsHistory({ animal, clientId }: { animal: Animal; clientId: stri
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-[#e5eeeb] px-5 py-4 sm:px-6">
+      <div className="flex items-center justify-between gap-3 border-b border-animeo-border-soft px-5 py-4 sm:px-6">
         <div>
           <h2 className="text-lg font-extrabold text-animeo-dark">Comptes rendus</h2>
           <p className="mt-0.5 text-sm text-animeo-muted">Studio de documents, propre à {animal.name}</p>
@@ -250,7 +250,7 @@ function DocumentsHistory({ animal, clientId }: { animal: Animal; clientId: stri
           type="button"
           onClick={handleCreate}
           disabled={creating}
-          className="shrink-0 rounded-xl bg-animeo px-3.5 py-2 text-xs font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60"
+          className="shrink-0 rounded-xl bg-animeo px-3.5 py-2 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {creating ? "…" : "Nouveau compte rendu"}
         </button>
@@ -261,14 +261,14 @@ function DocumentsHistory({ animal, clientId }: { animal: Animal; clientId: stri
       ) : documents.length === 0 ? (
         <p className="p-5 text-sm font-semibold text-animeo-muted sm:p-6">Aucun compte rendu pour {animal.name}.</p>
       ) : (
-        <div className="divide-y divide-[#edf2f0]">
+        <div className="divide-y divide-animeo-border-soft">
           {documents.map((document) => (
             <Link key={document.id} href={`/dashboard/documents/${document.id}`} className="flex items-center justify-between gap-3 p-4 transition hover:bg-animeo-bg sm:px-6">
               <span className="min-w-0">
                 <span className="block truncate font-extrabold text-animeo-dark">{document.title}</span>
                 <span className="mt-0.5 block text-xs font-semibold text-animeo-muted">{document.updatedAt}</span>
               </span>
-              <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1d5] text-[#986216]"}`}>
+              <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
                 {document.status}
               </span>
             </Link>

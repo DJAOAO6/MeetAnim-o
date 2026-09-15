@@ -54,17 +54,17 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
         <SectionTitle title="Disponibilités habituelles" description="Cabinet et Domicile peuvent être ouverts indépendamment sur chaque plage." />
         <div className="space-y-3">
           {draft.days.map((day) => (
-            <div key={day.id} className={`rounded-2xl border p-4 ${day.enabled ? "border-[#dce8e5] bg-white" : "border-transparent bg-animeo-bg"}`}>
+            <div key={day.id} className={`rounded-2xl border p-4 ${day.enabled ? "border-animeo-border bg-white" : "border-transparent bg-animeo-bg"}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black ${day.enabled ? "bg-animeo-soft text-animeo-dark" : "bg-[#e7ebeb] text-animeo-muted"}`}>{day.label.slice(0, 2)}</span>
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black ${day.enabled ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>{day.label.slice(0, 2)}</span>
                   <div><h3 className="font-black text-animeo-dark">{day.label}</h3><p className="text-xs text-animeo-muted">{day.enabled ? `${day.slots.length} plage${day.slots.length > 1 ? "s" : ""}` : "Fermé"}</p></div>
                 </div>
                 <Toggle checked={day.enabled} onChange={(enabled) => updateDay(day.id, (current) => ({ ...current, enabled, slots: enabled && current.slots.length === 0 ? [{ id: `slot-${day.id}`, start: "09:00", end: "18:00", cabinet: true, home: true }] : current.slots }))} label={day.enabled ? "Activé" : "Fermé"} />
               </div>
 
               {day.enabled ? (
-                <div className="mt-4 space-y-2 border-t border-[#e4ecea] pt-4">
+                <div className="mt-4 space-y-2 border-t border-animeo-border-soft pt-4">
                   {day.slots.map((slot) => (
                     <div key={slot.id} className="grid gap-3 rounded-2xl bg-animeo-bg p-3 lg:grid-cols-[130px_20px_130px_minmax(260px,1fr)_36px] lg:items-center">
                       <input type="time" aria-label={`Début ${day.label}`} value={slot.start} onChange={(event) => updateSlot(day.id, slot.id, "start", event.target.value)} className={inputClassName} />
@@ -74,7 +74,7 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
                         <Toggle checked={slot.cabinet} onChange={(checked) => updateSlot(day.id, slot.id, "cabinet", checked)} label={`Cabinet : ${slot.cabinet ? "OUI" : "NON"}`} compact />
                         <Toggle checked={slot.home} onChange={(checked) => updateSlot(day.id, slot.id, "home", checked)} label={`Domicile : ${slot.home ? "OUI" : "NON"}`} compact />
                       </div>
-                      <button type="button" onClick={() => updateDay(day.id, (current) => ({ ...current, slots: current.slots.filter((item) => item.id !== slot.id) }))} aria-label="Supprimer la plage" className="flex h-9 w-9 items-center justify-center rounded-xl text-lg font-bold text-[#a9573b] hover:bg-[#fff0eb]">×</button>
+                      <button type="button" onClick={() => updateDay(day.id, (current) => ({ ...current, slots: current.slots.filter((item) => item.id !== slot.id) }))} aria-label="Supprimer la plage" className="flex h-9 w-9 items-center justify-center rounded-xl text-lg font-bold text-animeo-danger hover:bg-animeo-danger-soft">×</button>
                     </div>
                   ))}
                   <button type="button" onClick={() => addSlot(day.id)} className="rounded-xl border border-animeo px-4 py-2 text-xs font-extrabold text-animeo">+ Ajouter une plage horaire</button>
@@ -146,5 +146,5 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
 }
 
 function ClosureRow({ title, subtitle, onRemove }: { title: string; subtitle: string; onRemove: () => void }) {
-  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#dfe9e6] p-4"><div><p className="font-extrabold text-animeo-dark">{title}</p><p className="text-xs text-animeo-muted">{subtitle}</p></div><button type="button" onClick={onRemove} className="rounded-xl bg-[#fff0eb] px-3 py-2 text-xs font-extrabold text-[#a9573b]">Supprimer</button></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-animeo-border p-4"><div><p className="font-extrabold text-animeo-dark">{title}</p><p className="text-xs text-animeo-muted">{subtitle}</p></div><button type="button" onClick={onRemove} className="rounded-xl bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-danger">Supprimer</button></div>;
 }

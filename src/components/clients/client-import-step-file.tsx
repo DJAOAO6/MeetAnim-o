@@ -59,7 +59,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
     <div className="space-y-4">
       <div className="flex flex-col gap-1 text-sm text-animeo-muted sm:flex-row sm:items-center sm:justify-between">
         <p>Une ligne par animal : un client qui a plusieurs animaux occupe plusieurs lignes avec les mêmes coordonnées.</p>
-        <a href="/modele-import-clients.csv" download className="shrink-0 font-extrabold text-animeo underline underline-offset-2 hover:text-[#3a8a7d]">
+        <a href="/modele-import-clients.csv" download className="shrink-0 font-extrabold text-animeo underline underline-offset-2 hover:text-animeo-brand">
           Télécharger un modèle
         </a>
       </div>
@@ -80,7 +80,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition ${dragging ? "border-animeo bg-animeo-soft" : "border-[#d9e5e2] bg-animeo-bg hover:border-animeo"}`}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition ${dragging ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-bg hover:border-animeo"}`}
       >
         <UploadIcon />
         <div>
@@ -103,7 +103,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
       <p className="text-xs text-animeo-muted">Pour un classeur Excel, seule la première feuille est prise en compte.</p>
 
       {reading ? <p className="text-sm font-semibold text-animeo-muted">Lecture du fichier…</p> : null}
-      {error ? <p role="alert" className="rounded-xl bg-[#fff1f1] px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
     </div>
   );
 }

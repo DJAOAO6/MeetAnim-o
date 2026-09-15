@@ -83,7 +83,7 @@ function markerElement(point: TourRunMapPoint, selected: boolean): HTMLDivElemen
   element.style.borderRadius = point.kind === "stop" ? "9999px" : "10px";
   element.style.background = point.color;
   element.style.border = "2px solid white";
-  element.style.boxShadow = "0 6px 15px rgba(24,59,69,0.28)";
+  element.style.boxShadow = "0 6px 15px rgb(var(--theme-shadow-rgb)/0.28)";
   element.style.display = "flex";
   element.style.alignItems = "center";
   element.style.justifyContent = "center";
@@ -91,7 +91,7 @@ function markerElement(point: TourRunMapPoint, selected: boolean): HTMLDivElemen
   element.style.fontWeight = "800";
   element.style.color = "#fff";
   element.style.cursor = point.draggable ? "grab" : "pointer";
-  if (point.draggable) element.style.boxShadow = "0 6px 15px rgba(24,59,69,0.28), 0 0 0 3px rgba(255,255,255,0.55)";
+  if (point.draggable) element.style.boxShadow = "0 6px 15px rgb(var(--theme-shadow-rgb)/0.28), 0 0 0 3px rgba(255,255,255,0.55)";
   element.style.transition = "all .15s ease";
   element.textContent = point.label;
   element.setAttribute("title", point.title);
@@ -107,7 +107,7 @@ function clientMarkerElement(point: TourRunMapClientPoint): HTMLDivElement {
   element.style.borderRadius = "9999px";
   element.style.background = point.dueForReminder ? "#fff3d9" : "#ffffff";
   element.style.border = point.dueForReminder ? "2px solid #c98a1f" : "2px solid #8a97a0";
-  element.style.boxShadow = "0 3px 8px rgba(24,59,69,0.22)";
+  element.style.boxShadow = "0 3px 8px rgb(var(--theme-shadow-rgb)/0.22)";
   element.style.cursor = "pointer";
   element.style.opacity = "0.9";
   element.setAttribute("title", point.title);
@@ -126,7 +126,7 @@ function liveLocationElement(): HTMLDivElement {
   element.style.borderRadius = "9999px";
   element.style.background = "#1a73e8";
   element.style.border = "3px solid white";
-  element.style.boxShadow = "0 2px 8px rgba(24,59,69,0.4)";
+  element.style.boxShadow = "0 2px 8px rgb(var(--theme-shadow-rgb)/0.4)";
   element.setAttribute("title", "Ma position");
   element.setAttribute("aria-label", "Ma position");
   return element;
@@ -143,7 +143,7 @@ function legPillElement(label: string): HTMLDivElement {
   element.style.fontSize = "10px";
   element.style.fontWeight = "800";
   element.style.color = "#5b6b70";
-  element.style.boxShadow = "0 2px 6px rgba(24,59,69,0.15)";
+  element.style.boxShadow = "0 2px 6px rgb(var(--theme-shadow-rgb)/0.15)";
   element.textContent = label;
   return element;
 }
@@ -354,7 +354,7 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
   }, [routeGeometry, points]);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-[#dbe7e3] ${heightClassName}`}>
+    <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${heightClassName}`}>
       <div ref={containerRef} className="h-full w-full" />
       {overlay ? (
         <div className="pointer-events-none absolute bottom-4 right-4 z-10 w-[min(300px,calc(100%-2rem))]">

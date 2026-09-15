@@ -1,46 +1,213 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f7faf9;
-  --foreground: #1f2933;
-  /* #4faf9f (l'ancienne valeur) échoue au contraste WCAG AA en texte sur
-     fond clair (2,63:1) et en texte blanc sur fond bouton (2,34:1), contre
-     4,5:1 requis — AUDIT_COMPLET.md P1-4. #2f7a6e (même teinte, déjà défini
-     comme --theme-secondary, jamais utilisé ailleurs) atteint ~5,1:1 dans
-     les deux sens, sans introduire de nouvelle couleur au design system. */
+/*
+ * Système de thème — deux palettes complètes, choisies par data-palette sur
+ * le conteneur du thème (DashboardThemeProvider) :
+ *   - "1002pattes" (défaut, et seule palette des pages publiques via :root) :
+ *     crème, terracotta, brun chocolat — identité 1002 Pattes ;
+ *   - "classic" : l'ancien thème Émeraude (vert-bleu), conservé en variante.
+ * Chaque palette a une déclinaison sombre ([data-theme="dark"]).
+ *
+ * Les composants ne lisent que des tokens sémantiques (--theme-*, exposés à
+ * Tailwind en couleurs animeo-*), jamais de valeur hexadécimale en dur, pour
+ * qu'un changement de palette s'applique partout d'un coup.
+ *
+ * Contraste WCAG AA (4,5:1) vérifié pour les couples texte/fond principaux :
+ * --theme-primary #A9531C (5,3:1 en texte blanc, 4,7:1 sur le fond de l'app),
+ * --theme-muted #7A6355 (5,0:1 sur le fond). La teinte de marque plus claire
+ * du logo (#C86A2B, 3,8:1 seulement) est réservée aux éléments décoratifs
+ * via --theme-brand.
+ */
+:root,
+[data-palette="1002pattes"] {
+  --theme-primary: #a9531c;
+  --theme-primary-hover: #8f4515;
+  --theme-brand: #c86a2b;
+  --theme-secondary: #7a4a2a;
+  --theme-accent: #e7a64a;
+  --theme-background: #f6f1eb;
+  --theme-surface: #fffdfb;
+  --theme-surface-alt: #fbf7f2;
+  --theme-sidebar: #f8f4ef;
+  --theme-sidebar-text: #6f5849;
+  --theme-sidebar-text-strong: #4a2412;
+  --theme-logo-plate: transparent;
+  --theme-sidebar-hover: #efe5da;
+  --theme-sidebar-active-bg: #f7e2d2;
+  --theme-sidebar-active-text: #a9531c;
+  --theme-sidebar-border: #ebe0d5;
+  --theme-action: #a9531c;
+  --theme-text: #4a2412;
+  --theme-heading: #4a2412;
+  --theme-heading-deep: #3a1b0d;
+  --theme-muted: #7a6355;
+  --theme-subtle: #a08b7e;
+  --theme-soft: #f7e7da;
+  --theme-soft-strong: #f1d8c4;
+  --theme-border: #e8ded3;
+  --theme-border-soft: #efe7de;
+  --theme-border-strong: #e3bfa3;
+  --theme-danger: #ad4236;
+  --theme-danger-soft: #fbe7e4;
+  --theme-danger-border: #f0c8c1;
+  --theme-warning: #9a6516;
+  --theme-warning-soft: #fff3df;
+  --theme-warning-border: #f1d9a8;
+  --theme-success: #36724a;
+  --theme-success-soft: #e6f4ea;
+  --theme-info-soft: #dde6cf;
+  --theme-shadow-rgb: 74 36 18;
+  --theme-card-radius: 20px;
+  --theme-font-family: var(--font-nunito-sans);
+  --background: var(--theme-background);
+  --foreground: var(--theme-text);
+}
+
+[data-palette="1002pattes"][data-theme="dark"] {
+  --theme-primary: #e39a62;
+  --theme-primary-hover: #eaad7e;
+  --theme-brand: #e39a62;
+  --theme-secondary: #d9b08c;
+  --theme-accent: #e7a64a;
+  --theme-background: #1c1511;
+  --theme-surface: #271e18;
+  --theme-surface-alt: #2e241d;
+  --theme-sidebar: #16100c;
+  --theme-sidebar-text: #d9c6b6;
+  --theme-sidebar-text-strong: #fbf1e7;
+  --theme-logo-plate: #fdf8f3;
+  --theme-sidebar-hover: #2a201a;
+  --theme-sidebar-active-bg: #3a2718;
+  --theme-sidebar-active-text: #f0b98c;
+  --theme-sidebar-border: #2f241c;
+  --theme-action: #a9531c;
+  --theme-text: #f3e7dc;
+  --theme-heading: #fbf1e7;
+  --theme-heading-deep: #fff7ef;
+  --theme-muted: #c9b3a2;
+  --theme-subtle: #9c8676;
+  --theme-soft: #3a2a1f;
+  --theme-soft-strong: #473324;
+  --theme-border: #3d3027;
+  --theme-border-soft: #33281f;
+  --theme-border-strong: #6b4a33;
+  --theme-danger: #f0968a;
+  --theme-danger-soft: #3d2320;
+  --theme-danger-border: #5c332d;
+  --theme-warning: #f0c27a;
+  --theme-warning-soft: #3a2c18;
+  --theme-warning-border: #5a4424;
+  --theme-success: #8fd1a2;
+  --theme-success-soft: #1f3326;
+  --theme-info-soft: #2c3322;
+  --theme-shadow-rgb: 0 0 0;
+}
+
+/* Ancien thème Émeraude : valeurs d'origine conservées. */
+[data-palette="classic"] {
   --theme-primary: #2f7a6e;
+  --theme-primary-hover: #267668;
+  --theme-brand: #4faf9f;
   --theme-secondary: #2f7a6e;
   --theme-accent: #f4b860;
-  --theme-background: #f7faf9;
+  --theme-background: #f6f8f7;
   --theme-surface: #ffffff;
-  --theme-sidebar: #183b45;
+  --theme-surface-alt: #fbfdfc;
+  --theme-sidebar: #153f47;
+  --theme-sidebar-text: rgb(255 255 255 / 0.7);
+  --theme-sidebar-text-strong: #ffffff;
+  --theme-logo-plate: #fdf8f3;
+  --theme-sidebar-hover: rgb(255 255 255 / 0.1);
+  --theme-sidebar-active-bg: #2f7a6e;
+  --theme-sidebar-active-text: #ffffff;
+  --theme-sidebar-border: rgb(255 255 255 / 0.1);
   --theme-action: #2f7a6e;
   --theme-text: #1f2933;
   --theme-heading: #183b45;
-  /* #6b7780 (l'ancienne valeur) échoue de justesse au contraste WCAG AA sur
-     le fond de l'app #f7faf9 (~4,37:1) — AUDIT_COMPLET.md P2-12. Le pire cas
-     réel est le fond des pastilles/cartes teintées (--theme-soft, ~#e4eeec,
-     luminance plus basse que le fond blanc) : #66727c y reste sous le seuil
-     (~4,16:1). #5c6a74 (même teinte, encore assombrie) atteint ~4,7:1 sur ce
-     fond et ~5,3-5,6:1 sur les fonds plus clairs. */
+  --theme-heading-deep: #102f37;
   --theme-muted: #5c6a74;
+  --theme-subtle: #9aa6aa;
   --theme-soft: color-mix(in srgb, var(--theme-primary) 13%, var(--theme-surface));
-  --theme-border: color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface));
+  --theme-soft-strong: #dceee9;
+  --theme-border: #d9e5e2;
+  --theme-border-soft: #e5eeeb;
+  --theme-border-strong: #aad5cd;
+  --theme-danger: #a9573b;
+  --theme-danger-soft: #fff1f1;
+  --theme-danger-border: #f3c9c9;
+  --theme-warning: #8c6118;
+  --theme-warning-soft: #fff4dd;
+  --theme-warning-border: #f0d8a5;
+  --theme-success: #267668;
+  --theme-success-soft: #e4f5ef;
+  --theme-info-soft: #e8f1f4;
+  --theme-shadow-rgb: 24 59 69;
   --theme-card-radius: 18px;
-  --theme-font-family: var(--font-nunito-sans);
+}
+
+[data-palette="classic"][data-theme="dark"] {
+  --theme-primary: #62c6b5;
+  --theme-primary-hover: #7fd1c3;
+  --theme-brand: #62c6b5;
+  --theme-secondary: #8fd6c8;
+  --theme-background: #101d22;
+  --theme-surface: #182b32;
+  --theme-surface-alt: #1c3139;
+  --theme-sidebar: #0b171b;
+  --theme-sidebar-active-bg: #2f7a6e;
+  --theme-action: #2f7a6e;
+  --theme-text: #e8f0ef;
+  --theme-heading: #f7fbfa;
+  --theme-heading-deep: #ffffff;
+  --theme-muted: #a8b8bd;
+  --theme-subtle: #7d9096;
+  --theme-soft-strong: #24434b;
+  --theme-border: color-mix(in srgb, var(--theme-heading) 13%, var(--theme-surface));
+  --theme-border-soft: color-mix(in srgb, var(--theme-heading) 9%, var(--theme-surface));
+  --theme-border-strong: #3e6d6a;
+  --theme-danger: #f0a08a;
+  --theme-danger-soft: #3b2626;
+  --theme-danger-border: #5c3636;
+  --theme-warning: #f0c27a;
+  --theme-warning-soft: #3a3120;
+  --theme-warning-border: #5a4a2a;
+  --theme-success: #7fd1b0;
+  --theme-success-soft: #1d3a33;
+  --theme-info-soft: #1f3339;
+  --theme-shadow-rgb: 0 0 0;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-animeo: var(--theme-primary);
+  --color-animeo-hover: var(--theme-primary-hover);
+  --color-animeo-brand: var(--theme-brand);
   --color-animeo-secondary: var(--theme-secondary);
   --color-animeo-dark: var(--theme-heading);
+  --color-animeo-deep: var(--theme-heading-deep);
   --color-animeo-bg: var(--theme-background);
+  --color-animeo-surface: var(--theme-surface);
+  --color-animeo-surface-alt: var(--theme-surface-alt);
   --color-animeo-soft: var(--theme-soft);
+  --color-animeo-soft-strong: var(--theme-soft-strong);
   --color-animeo-accent: var(--theme-accent);
   --color-animeo-muted: var(--theme-muted);
+  --color-animeo-subtle: var(--theme-subtle);
   --color-animeo-text: var(--theme-text);
+  --color-animeo-border: var(--theme-border);
+  --color-animeo-border-soft: var(--theme-border-soft);
+  --color-animeo-border-strong: var(--theme-border-strong);
+  --color-animeo-danger: var(--theme-danger);
+  --color-animeo-danger-soft: var(--theme-danger-soft);
+  --color-animeo-danger-border: var(--theme-danger-border);
+  --color-animeo-warning: var(--theme-warning);
+  --color-animeo-warning-soft: var(--theme-warning-soft);
+  --color-animeo-warning-border: var(--theme-warning-border);
+  --color-animeo-positive: var(--theme-success);
+  --color-animeo-positive-soft: var(--theme-success-soft);
+  --color-animeo-info-soft: var(--theme-info-soft);
+  --color-animeo-sidebar: var(--theme-sidebar);
   --color-animeo-success: #36a26b;
   --color-animeo-error: #d95c5c;
   --color-animeo-info: #5b8def;
@@ -111,14 +278,24 @@ html {
   animation-duration: 0s !important;
 }
 
+/* Aperçu de la page de réservation dans les réglages : toujours rendu en
+   clair, comme la vraie page publique, quel que soit le mode du tableau de
+   bord, mais dans la palette choisie. */
 [data-dashboard-theme] .public-booking-preview {
-  --theme-primary: #4faf9f;
+  --theme-background: #f6f1eb;
+  --theme-surface: #fffdfb;
+  --theme-text: #4a2412;
+  --theme-heading: #4a2412;
+  --theme-muted: #7a6355;
+  color-scheme: light;
+}
+
+[data-palette="classic"] .public-booking-preview {
   --theme-background: #f7faf9;
   --theme-surface: #ffffff;
   --theme-text: #1f2933;
   --theme-heading: #183b45;
   --theme-muted: #6b7780;
-  color-scheme: light;
 }
 
 @media (min-width: 48rem) {
@@ -144,8 +321,8 @@ a {
 }
 
 ::selection {
-  background: color-mix(in srgb, #4faf9f 28%, white);
-  color: #183b45;
+  background: color-mix(in srgb, var(--theme-brand) 28%, white);
+  color: var(--theme-heading);
 }
 
 button:focus-visible,

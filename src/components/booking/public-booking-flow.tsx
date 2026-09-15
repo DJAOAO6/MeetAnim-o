@@ -347,13 +347,13 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f9f7] text-animeo-dark">
+    <main className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
       <BookingHeader professional={professional} />
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
           <div className="min-w-0">
         {screen !== "success" ? <BookingProgress current={progressFor(screen)} /> : null}
-        <section className="rounded-[18px] border border-[#dfe9e6] bg-white p-4 shadow-[0_14px_45px_rgba(24,59,69,0.08)] sm:p-8">
+        <section className="rounded-[18px] border border-animeo-border bg-white p-4 shadow-[0_14px_45px_rgb(var(--theme-shadow-rgb)/0.08)] sm:p-8">
           {screen === "consultation" ? (
             <ConsultationStep
               professional={professional}

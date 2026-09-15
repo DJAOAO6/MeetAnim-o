@@ -194,7 +194,7 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
       </div>
 
       {open ? (
-        <div role="dialog" aria-label="Choisir une date de naissance" className="absolute left-0 top-[calc(100%+6px)] z-20 w-72 rounded-2xl border border-[#d9e5e2] bg-white p-3 shadow-[0_16px_35px_rgba(21,63,71,0.16)]">
+        <div role="dialog" aria-label="Choisir une date de naissance" className="absolute left-0 top-[calc(100%+6px)] z-20 w-72 rounded-2xl border border-animeo-border bg-white p-3 shadow-[0_16px_35px_rgb(var(--theme-shadow-rgb)/0.16)]">
           <div className="mb-2 flex items-center justify-between">
             <button type="button" onClick={goPrevious} aria-label="Précédent" className="flex h-8 w-8 items-center justify-center rounded-lg text-animeo-dark hover:bg-animeo-bg">‹</button>
             <button type="button" onClick={() => setLevel(level === "day" ? "month" : "year")} className="rounded-lg px-2 py-1 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg">
@@ -231,7 +231,7 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
                 const disabled = iso > todayIso();
                 const selected = value.date === iso && !value.approximate;
                 return (
-                  <button key={day} type="button" onClick={() => pickDay(day)} disabled={disabled} className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition ${selected ? "bg-animeo text-white" : "text-animeo-dark hover:bg-animeo-bg"} disabled:cursor-not-allowed disabled:text-[#c7d1d0]`}>
+                  <button key={day} type="button" onClick={() => pickDay(day)} disabled={disabled} className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition ${selected ? "bg-animeo text-white" : "text-animeo-dark hover:bg-animeo-bg"} disabled:cursor-not-allowed disabled:text-animeo-subtle`}>
                     {day}
                   </button>
                 );
@@ -242,7 +242,7 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
           <button
             type="button"
             onClick={() => { setYearOnlyMode(true); setLevel("year"); }}
-            className="mt-3 w-full rounded-lg border-t border-[#eef1f1] pt-2.5 text-center text-xs font-extrabold text-animeo hover:text-[#459e90]"
+            className="mt-3 w-full rounded-lg border-t border-animeo-border-soft pt-2.5 text-center text-xs font-extrabold text-animeo hover:text-animeo-hover"
           >
             Je ne connais pas la date exacte → indiquer juste l’année
           </button>

@@ -111,7 +111,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_rgba(79,175,159,0.2)] transition hover:-translate-y-0.5 hover:bg-[#459e90]"
+            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
           >
             <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
             Nouveau document
@@ -142,7 +142,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-[#e4f5ef] text-[#267668]" : "bg-[#fff1d5] text-[#986216]"}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
                       {document.status}
                     </span>
                   </div>
@@ -153,8 +153,8 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                 </div>
               </button>
               {canDelete ? (
-                <div className="flex justify-end border-t border-[#edf2f0] px-3 py-2">
-                  <button type="button" onClick={() => setDeleteTarget(document)} disabled={deletingId === document.id} className="rounded-lg px-2.5 py-1.5 text-xs font-extrabold text-animeo-error transition hover:bg-[#ffe4e4] disabled:opacity-50">
+                <div className="flex justify-end border-t border-animeo-border-soft px-3 py-2">
+                  <button type="button" onClick={() => setDeleteTarget(document)} disabled={deletingId === document.id} className="rounded-lg px-2.5 py-1.5 text-xs font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft disabled:opacity-50">
                     Supprimer
                   </button>
                 </div>
@@ -165,8 +165,8 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
       )}
 
       {creating ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="new-document-title" className="w-full max-w-2xl rounded-[18px] bg-white p-6 shadow-[0_24px_70px_rgba(12,39,47,0.3)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="new-document-title" className="w-full max-w-2xl rounded-[18px] bg-white p-6 shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)]">
             <h2 id="new-document-title" className="text-lg font-black text-animeo-dark">Nouveau document</h2>
             <label className="mt-4 block max-w-sm">
               <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Titre</span>
@@ -175,7 +175,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                 value={newTitle}
                 onChange={(event) => setNewTitle(event.target.value)}
                 placeholder="Ex. Compte rendu — Oslo"
-                className="h-11 w-full rounded-xl border border-[#d9e5e2] bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
+                className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
               />
             </label>
             <fieldset className="mt-5">
@@ -188,7 +188,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                     onClick={() => handleFormatChange(format.value)}
                     aria-pressed={pageSize === format.value}
                     className={`flex items-center gap-2 rounded-xl border-2 px-2.5 py-2 text-left transition ${
-                      pageSize === format.value ? "border-animeo bg-animeo-soft" : "border-[#e5eceb] hover:border-animeo/50"
+                      pageSize === format.value ? "border-animeo bg-animeo-soft" : "border-animeo-border-soft hover:border-animeo/50"
                     }`}
                   >
                     <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center">
@@ -209,7 +209,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                     onClick={() => setSelectedTemplateId(null)}
                     aria-pressed={selectedTemplateId === null}
                     className={`overflow-hidden rounded-xl border-2 text-left transition ${
-                      selectedTemplateId === null ? "border-animeo" : "border-[#e5eceb] hover:border-animeo/50"
+                      selectedTemplateId === null ? "border-animeo" : "border-animeo-border-soft hover:border-animeo/50"
                     }`}
                   >
                     <div className="flex items-center justify-center bg-animeo-bg" style={{ aspectRatio: "794 / 1123" }}>
@@ -224,7 +224,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                       onClick={() => setSelectedTemplateId(template.id)}
                       aria-pressed={selectedTemplateId === template.id}
                       className={`overflow-hidden rounded-xl border-2 text-left transition ${
-                        selectedTemplateId === template.id ? "border-animeo" : "border-[#e5eceb] hover:border-animeo/50"
+                        selectedTemplateId === template.id ? "border-animeo" : "border-animeo-border-soft hover:border-animeo/50"
                       }`}
                     >
                       <TemplateThumbnailSketch layoutSketch={template.layoutSketch} />
@@ -240,10 +240,10 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
               </fieldset>
             ) : null}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-[#d4e2df] px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+              <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-animeo-border px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
                 Annuler
               </button>
-              <button type="button" onClick={createDocument} disabled={savingNew} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#459e90] disabled:cursor-not-allowed disabled:opacity-60">
+              <button type="button" onClick={createDocument} disabled={savingNew} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
                 {savingNew ? "Création…" : "Créer"}
               </button>
             </div>

@@ -214,16 +214,16 @@ export function ClientImportModal({ onClose, onImported }: { onClose: () => void
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#102f37]/60 p-0 backdrop-blur-sm sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-0 backdrop-blur-sm sm:p-4">
       <section
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="client-import-dialog-title"
-        className="flex h-full w-full max-w-4xl flex-col overflow-hidden bg-white shadow-[0_24px_70px_rgba(12,39,47,0.3)] outline-none sm:h-auto sm:max-h-[92vh] sm:rounded-[18px]"
+        className="flex h-full w-full max-w-4xl flex-col overflow-hidden bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none sm:h-auto sm:max-h-[92vh] sm:rounded-[18px]"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#e5eeeb] p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-animeo-border-soft p-5 sm:p-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Import de clients</p>
             <h2 id="client-import-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{STEP_TITLES[step]}</h2>
