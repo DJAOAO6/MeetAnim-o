@@ -22,11 +22,7 @@ const PAGES = [
 ] as const;
 
 test("les pages principales tiennent dans un écran de téléphone", async ({ page }) => {
-  await page.goto("/login");
-  await page.fill('input[type="email"]', "praticien-test@pf-osteo-animale.fr");
-  await page.fill('input[type="password"]', "Praticien-Test-2026!");
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/dashboard**", { timeout: 20000 });
+  // Session ouverte par le projet "setup" (tests/auth.setup.ts).
 
   for (const [label, path] of PAGES) {
     await page.goto(path);

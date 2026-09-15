@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Icon } from "@/components/ui/icon";
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { Reminder } from "@/data/reminders";
 
@@ -33,26 +33,23 @@ export function ReminderModal({ reminder, professionalSlug, messageTemplate, sen
   function guardedClose() {
     if (confirmDiscard()) onClose();
   }
-  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reminder-dialog-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[18px] border border-white/20 bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white">
-              <Icon name="bell" className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Rappel par email</p>
-              <h2 id="reminder-dialog-title" className="mt-1 text-2xl font-black text-animeo-dark">Envoyer un rappel</h2>
-              <p className="mt-1 text-sm text-animeo-muted">Le message sera envoyé à {reminder.clientName}.</p>
-            </div>
-          </div>
-          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm transition hover:text-animeo-dark">×</button>
-        </div>
-
-        <div className="space-y-5 p-5 sm:p-6">
+    <Modal
+      title="Envoyer un rappel"
+      description={`Rappel par email — le message sera envoyé à ${reminder.clientName}.`}
+      onClose={guardedClose}
+      size="lg"
+      footer={
+        <>
+          <Button variant="secondary" onClick={guardedClose}>Annuler</Button>
+          <Button onClick={() => onSend(reminder, message)} disabled={!message.trim() || sending || !reminder.clientEmail}>
+            {sending ? "Envoi…" : "Envoyer le rappel"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <InfoCard label="Destinataire" value={reminder.clientName} />
             <InfoCard label="Animal" value={`${reminder.animalName} · ${reminder.animalSpecies}`} />
@@ -78,15 +75,7 @@ export function ReminderModal({ reminder, professionalSlug, messageTemplate, sen
             </div>
           )}
         </div>
-
-        <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
-          <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-          <button type="button" onClick={() => onSend(reminder, message)} disabled={!message.trim() || sending || !reminder.clientEmail} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">
-            {sending ? "Envoi…" : "Envoyer le rappel"}
-          </button>
-        </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
 

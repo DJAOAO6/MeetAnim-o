@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Icon } from "@/components/ui/icon";
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import type { City, Zone } from "@/data/tours";
@@ -31,7 +31,6 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
   function guardedClose() {
     if (confirmDiscard()) onClose();
   }
-  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   function updateCity(id: string, key: "name" | "postalCode", value: string) {
     setCities((current) => current.map((city) => city.id === id ? { ...city, [key]: value } : city));
@@ -59,21 +58,19 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="zone-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="map" className="h-6 w-6" /></div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-animeo">Villes et codes postaux</p>
-              <h2 id="zone-dialog-title" className="mt-1 text-2xl font-medium text-animeo-dark">{zone ? "Modifier la zone" : "Créer une zone"}</h2>
-              <p className="mt-1 text-sm text-animeo-muted">Aucun rayon ni contour géographique n’est utilisé en V1.</p>
-            </div>
-          </div>
-          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit}>
+      <Modal
+        title={zone ? "Modifier la zone" : "Créer une zone"}
+        description="Villes et codes postaux — aucun rayon ni contour géographique n’est utilisé en V1."
+        onClose={guardedClose}
+        size="lg"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
+            <Button type="submit">{zone ? "Enregistrer" : "Créer la zone"}</Button>
+          </>
+        }
+      >
           <div className="space-y-5 p-5 sm:p-6">
             <label>
               <span className="mb-2 block text-xs font-medium uppercase tracking-[0.11em] text-animeo-muted">Nom de la zone</span>
@@ -111,12 +108,7 @@ export function ZoneModal({ zone, onClose, onSave }: ZoneModalProps) {
             </div>
           </div>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-animeo-hover">{zone ? "Enregistrer" : "Créer la zone"}</button>
-          </div>
-        </form>
-      </section>
-    </div>
+      </Modal>
+    </form>
   );
 }

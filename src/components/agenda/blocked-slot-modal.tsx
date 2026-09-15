@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { CreateBlockedSlotInput } from "@/lib/blocked-slots-actions";
 
@@ -34,7 +35,6 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   function guardedClose() {
     if (confirmDiscard()) onClose();
   }
-  const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,22 +50,20 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="blocked-slot-dialog-title" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo-dark text-white"><LockIcon /></div>
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Agenda unique</p>
-              <h2 id="blocked-slot-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">Bloquer un créneau</h2>
-              <p className="mt-1 text-sm text-animeo-muted">Ce créneau sera indisponible au cabinet et à domicile.</p>
-            </div>
-          </div>
-          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-4 p-5">
+    <form onSubmit={handleSubmit}>
+      <Modal
+        title="Bloquer un créneau"
+        description="Ce créneau sera indisponible au cabinet et à domicile."
+        onClose={guardedClose}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
+            <Button type="submit" disabled={pending}>{pending ? "Blocage…" : "Bloquer ce créneau"}</Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
             <Field label="Date">
               <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName} required />
             </Field>
@@ -97,17 +95,9 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
             </Field>
 
             {error ? <p className="rounded-xl bg-animeo-danger-soft px-3.5 py-2.5 text-sm font-bold text-animeo-danger">{error}</p> : null}
-          </div>
-
-          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" disabled={pending} className="rounded-xl bg-animeo-dark px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:cursor-not-allowed disabled:opacity-60">
-              {pending ? "Blocage…" : "Bloquer ce créneau"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+        </div>
+      </Modal>
+    </form>
   );
 }
 
@@ -123,11 +113,3 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-      <rect x="5" y="10" width="14" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    </svg>
-  );
-}

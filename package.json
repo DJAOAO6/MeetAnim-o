@@ -14,6 +14,9 @@
     "seed:document-templates": "node --import tsx prisma/seed-document-templates.ts"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/modifiers": "^9.0.0",
+    "@dnd-kit/sortable": "^10.0.0",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",

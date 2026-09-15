@@ -78,11 +78,7 @@ test.describe("Agenda tactile", () => {
     await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
       VALUES (${`e2e-touch-${Date.now()}`}, ${`${dateId}T00:00:00.000Z`}, ${TEST_START}, 60, ${TEST_CLIENT_NAME}, 'Touchy', 'Séance test', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now())`;
 
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "praticien-test@pf-osteo-animale.fr");
-    await page.fill('input[type="password"]', "Praticien-Test-2026!");
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 20000 });
+    // Session ouverte par le projet "setup" (tests/auth.setup.ts).
     await page.goto("/dashboard/agenda");
 
     const card = page.getByTestId("agenda-event").filter({ hasText: "Touchy" }).first();

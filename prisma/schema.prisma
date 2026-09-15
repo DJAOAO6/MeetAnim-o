@@ -200,6 +200,7 @@ model User {
   tourRuns                TourRun[]
   savedPlaces             SavedPlace[]
   tourPreferences         TourPreferences?
+  dashboardPreferences    DashboardPreferences?
   clientImports           ClientImport[]
   studioDocuments         StudioDocument[]
   studioDocumentTemplates StudioDocumentTemplate[]
@@ -963,6 +964,34 @@ model TourPreferences {
   avoidTolls             Boolean                @default(false)
   avoidHighways          Boolean                @default(false)
   avoidFerries           Boolean                @default(false)
+
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * Disposition du tableau de bord, propre à chaque utilisateur : deux
+ * praticiens du même cabinet n'ont pas les mêmes priorités d'affichage.
+ * Même patron que TourPreferences (relation 1-1 sur User, suppression en
+ * cascade).
+ *
+ * `widgets` est un tableau JSON ordonné de { id, span, visible } plutôt que
+ * des coordonnées en pixels : une position absolue enregistrée sur un écran
+ * large ne voudrait plus rien dire sur un téléphone. L'ordre du tableau est
+ * l'ordre d'affichage, et `span` est un nombre de colonnes de la grille
+ * (1 à 4), traduit en largeur réelle selon la taille de l'écran — la
+ * disposition reste donc responsive après personnalisation.
+ *
+ * Un identifiant de widget inconnu (supprimé d'une version à l'autre) est
+ * ignoré à la lecture, et un widget nouvellement livré apparaît avec ses
+ * réglages par défaut : la disposition enregistrée n'a jamais besoin d'être
+ * migrée quand le catalogue évolue.
+ */
+model DashboardPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  widgets Json
 
   updatedAt DateTime @updatedAt
 }

@@ -21,7 +21,22 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // Connexion jouée une fois pour toutes (tests/auth.setup.ts) : les specs
+    // qui en dépendent repartent d'une session déjà ouverte, sans consommer
+    // le quota de connexions du serveur.
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "chromium",
+      // Les specs à session partagée ont leur propre projet ci-dessous.
+      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag)\.(spec\.)?ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium-connecte",
+      testMatch: /(dashboard-layout|accessibility-dashboard)\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/practitioner.json" },
+    },
     // Scopé au calendrier (PROMPT-CALENDRIER.md, test attendu #8) plutôt
     // qu'à toute la suite : faire rejouer chaque test deux fois ralentirait
     // sensiblement l'exécution locale sans valeur ajoutée pour les specs qui
@@ -37,7 +52,8 @@ export default defineConfig({
     {
       name: "mobile-chromium",
       testMatch: /(schedule-calendar|agenda-touch-drag|responsive-mobile)\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true },
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true, storageState: "tests/.auth/practitioner.json" },
     },
   ],
   webServer: {
