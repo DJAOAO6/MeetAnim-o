@@ -36,7 +36,7 @@ export default defineConfig({
     // mobiles réelles) sans dépendre d'un moteur absent de la machine.
     {
       name: "mobile-chromium",
-      testMatch: /schedule-calendar\.spec\.ts/,
+      testMatch: /(schedule-calendar|agenda-touch-drag)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true },
     },
   ],

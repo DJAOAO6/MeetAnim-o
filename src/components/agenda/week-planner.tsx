@@ -53,6 +53,14 @@ const MIN_PENDING_HEIGHT = 100;
 const TIME_COLUMN_WIDTH = 56;
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD_PX = 4;
+// Tactile : le glissement n'est jamais armé au premier mouvement du doigt —
+// un swipe destiné à faire défiler l'agenda déplaçait sinon le rendez-vous
+// touché au départ, et changeait son horaire sans que rien ne le demande.
+// Il faut un appui maintenu, immobile, avant que le déplacement devienne
+// possible ; le défilement garde la priorité pendant tout ce délai.
+const TOUCH_HOLD_MS = 500;
+// Tolérance de tremblement pendant l'appui : au-delà, c'est un défilement.
+const TOUCH_HOLD_TOLERANCE_PX = 10;
 
 /**
  * Plage horaire affichée dérivée des vraies disponibilités plutôt que
@@ -158,6 +166,15 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const justDraggedRef = useRef(false);
+  // Rendez-vous dont le déplacement tactile est armé : sert au retour visuel
+  // « mode déplacement » et n'a aucun effet à la souris.
+  const [armedEventId, setArmedEventId] = useState<string | null>(null);
+  const releaseTouchScrollRef = useRef<(() => void) | null>(null);
+
+  // Le verrou de défilement tactile vit sur window : un démontage pendant un
+  // déplacement armé (changement de semaine, navigation) le laisserait actif
+  // et figerait le défilement de la page.
+  useEffect(() => () => { releaseTouchScrollRef.current?.(); }, []);
 
   function handleSelectEvent(event: CalendarEvent, anchorRect: DOMRect) {
     if (justDraggedRef.current) { justDraggedRef.current = false; return; }
@@ -173,6 +190,80 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   const selectedAppointment = selection?.event.appointmentId
     ? appointments.find((item) => item.id === selection.event.appointmentId)
     : undefined;
+
+  /**
+   * Geste tactile sécurisé (doigt, stylet) : le déplacement d'un rendez-vous
+   * n'est jamais déclenché par le premier mouvement du doigt. Il faut un
+   * appui maintenu et immobile — tout mouvement avant la fin du délai annule
+   * l'armement et laisse le navigateur faire défiler l'agenda. Sans cela, un
+   * simple défilement vertical replanifiait le rendez-vous touché au départ.
+   * La souris garde le glissement immédiat : il n'y a pas d'ambiguïté entre
+   * glisser et faire défiler avec un pointeur fin.
+   */
+  function withTouchArming(event: CalendarEvent, pointerEvent: React.PointerEvent, startDrag: () => void) {
+    if (pointerEvent.pointerType === "mouse") { startDrag(); return; }
+
+    const startClientX = pointerEvent.clientX;
+    const startClientY = pointerEvent.clientY;
+    let settled = false;
+
+    function cleanup() {
+      window.clearTimeout(holdTimer);
+      window.removeEventListener("pointermove", handleHoldMove);
+      window.removeEventListener("pointerup", handleHoldEnd);
+      window.removeEventListener("pointercancel", handleHoldEnd);
+    }
+
+    function handleHoldMove(moveEvent: PointerEvent) {
+      if (Math.abs(moveEvent.clientX - startClientX) <= TOUCH_HOLD_TOLERANCE_PX && Math.abs(moveEvent.clientY - startClientY) <= TOUCH_HOLD_TOLERANCE_PX) return;
+      settled = true;
+      cleanup();
+    }
+
+    function handleHoldEnd() {
+      settled = true;
+      cleanup();
+    }
+
+    const holdTimer = window.setTimeout(() => {
+      cleanup();
+      if (settled) return;
+      setArmedEventId(event.id);
+      lockTouchScroll();
+      // Un appui long n'a aucun signal visible par lui-même : vibration
+      // courte quand l'appareil la propose, en plus du retour visuel porté
+      // par armedEventId.
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(25);
+      // Le doigt sera relevé sur le rendez-vous : sans ça, le relâchement
+      // rouvrirait la fiche par-dessus le déplacement qui vient d'avoir lieu.
+      justDraggedRef.current = true;
+      startDrag();
+    }, TOUCH_HOLD_MS);
+
+    window.addEventListener("pointermove", handleHoldMove);
+    window.addEventListener("pointerup", handleHoldEnd);
+    window.addEventListener("pointercancel", handleHoldEnd);
+  }
+
+  /**
+   * `touch-action` ne suffit pas une fois le geste commencé : le navigateur a
+   * déjà arbitré entre défilement et glissement au premier contact. Un
+   * écouteur touchmove non passif qui refuse l'événement est le seul moyen
+   * fiable de figer le défilement pendant un déplacement armé.
+   */
+  function lockTouchScroll() {
+    const prevent = (touchEvent: TouchEvent) => { if (touchEvent.cancelable) touchEvent.preventDefault(); };
+    window.addEventListener("touchmove", prevent, { passive: false });
+    releaseTouchScrollRef.current = () => {
+      window.removeEventListener("touchmove", prevent);
+      releaseTouchScrollRef.current = null;
+    };
+  }
+
+  function disarmTouch() {
+    releaseTouchScrollRef.current?.();
+    setArmedEventId(null);
+  }
 
   function beginMove(event: CalendarEvent, pointerEvent: React.PointerEvent) {
     if (!gridRef.current) return;
@@ -209,8 +300,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       void finishDrag();
     }
 
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
+    withTouchArming(event, pointerEvent, () => {
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleUp);
+    });
   }
 
   function beginResize(event: CalendarEvent, pointerEvent: React.PointerEvent) {
@@ -239,14 +332,17 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       void finishDrag();
     }
 
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
+    withTouchArming(event, pointerEvent, () => {
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleUp);
+    });
   }
 
   async function finishDrag() {
     const state = dragRef.current;
     dragRef.current = null;
     setDrag(null);
+    disarmTouch();
     if (!state) return;
 
     const original = appointments.find((item) => item.id === state.event.appointmentId);
@@ -312,7 +408,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
         <div className="flex flex-col gap-3 border-b border-animeo-border-soft px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="font-extrabold text-animeo-dark">{isDayView ? "Planning du jour" : "Planning de la semaine"}</h2>
-            <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de {String(startHour).padStart(2, "0")}h00 à {String(endHour).padStart(2, "0")}h00 · glissez un rendez-vous pour le replanifier</p>
+            <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de {String(startHour).padStart(2, "0")}h00 à {String(endHour).padStart(2, "0")}h00 · glissez un rendez-vous pour le replanifier · sur mobile, appui long avant de déplacer</p>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2" aria-label="Légende du planning">
             {legend.map((item) => (
@@ -366,6 +462,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   plannerHeight={plannerHeight}
                   events={allEvents.filter((event) => event.day === dayIndex)}
                   draggedEventId={drag?.event.id ?? null}
+                  armedEventId={armedEventId}
                   onPendingAction={onPendingAction}
                   onSelectEvent={handleSelectEvent}
                   onBeginMove={beginMove}
@@ -415,8 +512,16 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
 }
 
 function TimeColumn({ startHour, endHour, plannerHeight }: { startHour: number; endHour: number; plannerHeight: number }) {
+  // sticky : sur les petites largeurs, le planning peut défiler
+  // horizontalement — l'axe horaire doit rester lisible en permanence
+  // plutôt que sortir de l'écran avec les premières colonnes. z-index
+  // modeste : au-dessus des colonnes, sous les rendez-vous sélectionnés.
   return (
-    <div className="relative border-r border-animeo-border bg-animeo-surface-alt" style={{ height: plannerHeight }}>
+    <div
+      className="sticky left-0 z-20 border-r border-animeo-border bg-animeo-surface-alt"
+      style={{ height: plannerHeight }}
+      data-testid="agenda-time-column"
+    >
       {Array.from({ length: endHour - startHour + 1 }, (_, index) => (
         <span
           key={index}
@@ -430,7 +535,7 @@ function TimeColumn({ startHour, endHour, plannerHeight }: { startHour: number; 
   );
 }
 
-function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, events: dayEvents, draggedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId }: {
+function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId }: {
   date: Date;
   now: Date;
   availability: AvailabilitySettings;
@@ -441,6 +546,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   draggedEventId: string | null;
   onPendingAction: WeekPlannerProps["onPendingAction"];
   onSelectEvent: (event: CalendarEvent, anchorRect: DOMRect) => void;
+  armedEventId: string | null;
   onBeginMove: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   onBeginResize: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   selectedEventId: string | null;
@@ -498,6 +604,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           isDragging={event.id === draggedEventId}
           onPendingAction={onPendingAction}
           onSelectEvent={onSelectEvent}
+          isArmed={armedEventId === event.id}
           onBeginMove={onBeginMove}
           onBeginResize={onBeginResize}
           isSelected={event.id === selectedEventId}
@@ -507,13 +614,14 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   );
 }
 
-function CalendarEventCard({ event, startHour, columnLayout, isDragging, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
+function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
   event: CalendarEvent;
   startHour: number;
   columnLayout: { column: number; columns: number };
   isDragging: boolean;
   onPendingAction: WeekPlannerProps["onPendingAction"];
   onSelectEvent: (event: CalendarEvent, anchorRect: DOMRect) => void;
+  isArmed: boolean;
   onBeginMove: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   onBeginResize: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   isSelected: boolean;
@@ -568,7 +676,9 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, onPendi
       aria-label={isSelectable ? selectableLabel : undefined}
       className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
         isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgb(var(--theme-shadow-rgb)/0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
-      } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "-translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""}`}
+      } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "-translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""} ${isArmed ? "scale-[1.04] shadow-[0_14px_28px_rgb(var(--theme-shadow-rgb)/0.28)] ring-2 ring-animeo ring-offset-2" : ""}`}
+      data-drag-armed={isArmed ? "true" : undefined}
+      data-testid="agenda-event"
       style={{
         top: position.top + 3,
         height: position.height - 6,
