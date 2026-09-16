@@ -51,7 +51,7 @@ const spanClassName: Record<DashboardWidgetSpan, string> = {
   4: "md:col-span-2 xl:col-span-4",
 };
 
-export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable, initialLayout, startEditing = false }: DashboardViewProps) {
+export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable, availability, initialLayout, startEditing = false }: DashboardViewProps) {
   const dueReminders = useMemo(() => reminders.filter((reminder) => reminder.status === "À relancer").length, [reminders]);
 
   const [layout, setLayout] = useState(initialLayout);
@@ -63,14 +63,14 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   const widgetContent = useMemo<Record<DashboardWidgetId, ReactNode>>(() => ({
-    availability: <DashboardAvailabilityControls cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} />,
+    availability: <DashboardAvailabilityControls cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} availability={availability} />,
     stats: <DashboardStats clients={clients} dueReminders={dueReminders} />,
     planning: <DashboardPlanning clients={clients} />,
     activityChart: <DashboardActivityChart />,
     nextTour: <DashboardNextTour tours={tours} zones={zones} tourAppointments={tourAppointments} />,
     reminders: <DashboardRemindersCard reminders={reminders} />,
     activitySummary: <DashboardActivitySummary clients={clients} />,
-  }), [cabinetAvailable, homeAvailable, clients, dueReminders, tours, zones, tourAppointments, reminders]);
+  }), [cabinetAvailable, homeAvailable, availability, clients, dueReminders, tours, zones, tourAppointments, reminders]);
 
   // Souris : quelques pixels avant de déplacer, pour ne pas confondre avec un
   // clic. Doigt : appui maintenu, même règle que l'agenda — le défilement de

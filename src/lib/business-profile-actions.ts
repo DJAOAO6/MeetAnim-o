@@ -305,3 +305,37 @@ export async function updateReminderSettingsAction(input: ReminderSettings): Pro
 
   return { ok: true };
 }
+
+export type PeriodAppointment = { id: string; date: string; start: string; clientName: string; animalName: string; mode: "cabinet" | "home" };
+
+/**
+ * Rendez-vous déjà prévus sur une période, pour avertir avant de fermer.
+ *
+ * Fermer ne les annule jamais : la fermeture ne concerne que les nouvelles
+ * réservations. L'avertissement existe pour que le praticien sache qu'il a
+ * des personnes à prévenir, pas pour l'empêcher de fermer.
+ */
+export async function getAppointmentsInPeriodAction(startDateId: string, endDateId: string, scope: "cabinet" | "home" | "both"): Promise<PeriodAppointment[]> {
+  await requireUser();
+  if (!startDateId || !endDateId || endDateId < startDateId) return [];
+
+  const rows = await prisma.appointment.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "PENDING"] },
+      date: { gte: new Date(`${startDateId}T00:00:00.000Z`), lte: new Date(`${endDateId}T23:59:59.999Z`) },
+      ...(scope === "both" ? {} : { mode: scope === "cabinet" ? "CABINET" : "DOMICILE" }),
+    },
+    select: { id: true, date: true, start: true, clientName: true, animalName: true, mode: true },
+    orderBy: [{ date: "asc" }, { start: "asc" }],
+    take: 50,
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    date: row.date.toISOString().slice(0, 10),
+    start: row.start,
+    clientName: row.clientName,
+    animalName: row.animalName,
+    mode: row.mode === "CABINET" ? "cabinet" : "home",
+  }));
+}

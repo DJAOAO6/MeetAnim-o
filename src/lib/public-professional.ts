@@ -57,6 +57,7 @@ export async function loadPublicProfessional(slug?: string): Promise<PublicProfe
     showSocialsPublicly: profile.showSocialsPublicly,
     showPaymentsPublicly: profile.showPaymentsPublicly,
     openingHours: formatPublicOpeningHours(availability),
+    availabilityMessage: availability.publicMessage?.trim() || undefined,
   };
 }
 

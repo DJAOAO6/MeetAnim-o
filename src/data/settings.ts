@@ -77,12 +77,28 @@ export type DayAvailability = {
   slots: TimeSlot[];
 };
 
+export type ClosureScope = "Cabinet uniquement" | "Domicile uniquement" | "Tout fermer";
+
+/**
+ * Fermeture exceptionnelle : une période pendant laquelle les clients ne
+ * peuvent pas réserver, le cabinet, le domicile ou les deux.
+ *
+ * `date` est le premier jour, `endDate` le dernier (absent = une seule
+ * journée) : une fermeture du 25/09 au 02/10 est donc une seule ligne, et
+ * elle cesse de s'appliquer d'elle-même passé sa date de fin — la
+ * réouverture est automatique par construction, sans tâche de fond.
+ *
+ * `start`/`end` bornent les heures concernées dans chacune de ces journées :
+ * une fermeture d'une semaine entière va simplement de 00:00 à 23:59.
+ */
 export type ExceptionalClosure = {
   id: string;
   date: string;
+  /** Dernier jour inclus. Absent : la fermeture ne dure qu'un jour. */
+  endDate?: string;
   start: string;
   end: string;
-  scope: "Cabinet uniquement" | "Domicile uniquement" | "Tout fermer";
+  scope: ClosureScope;
   reason: string;
 };
 
@@ -94,6 +110,11 @@ export type Vacation = {
 
 export type AvailabilitySettings = {
   days: DayAvailability[];
+  /**
+   * Message affiché aux visiteurs sur la page de réservation (300 caractères
+   * au plus). Vide = rien n'est affiché, plutôt qu'un encart inutile.
+   */
+  publicMessage?: string;
   travelBuffer: number;
   closures: ExceptionalClosure[];
   vacations: Vacation[];

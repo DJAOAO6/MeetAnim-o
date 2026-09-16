@@ -85,6 +85,12 @@ export type PublicProfessional = {
   showSocialsPublicly: boolean;
   showPaymentsPublicly: boolean;
   openingHours: PublicHoursRow[];
+  /**
+   * Message libre écrit par le praticien dans le gestionnaire de
+   * disponibilités (« fermé cette semaine », « absence exceptionnelle »).
+   * Vide le plus souvent : rien ne s'affiche alors, plutôt qu'un encart vide.
+   */
+  availabilityMessage?: string;
 };
 
 export type BookingAddress = {

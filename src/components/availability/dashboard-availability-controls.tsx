@@ -1,101 +1,82 @@
 "use client";
 
 import { useState } from "react";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { updateManualAvailabilityAction } from "@/lib/business-profile-actions";
-import { notify } from "@/lib/notify";
-
-type Mode = "cabinet" | "home";
+import { AvailabilityManager } from "@/components/availability/availability-manager";
+import { availabilityStatus, statusLabel, type AvailabilityMode, type AvailabilityStatus } from "@/lib/availability-status";
+import type { AvailabilitySettings } from "@/data/settings";
 
 type DashboardAvailabilityControlsProps = {
   cabinetAvailable: boolean;
   homeAvailable: boolean;
+  availability: AvailabilitySettings;
 };
 
 /**
- * Ferme/rouvre réellement la réservation publique — persisté en base
- * (cabinetAvailable/homeAvailable sur BusinessProfile), revérifié côté
- * serveur par submitPublicBookingAction. Remplace l'ancienne version qui
- * n'écrivait qu'en localStorage : le badge changeait de couleur sur l'écran
- * de la praticienne sans le moindre effet sur ce que voyaient ses visiteurs
- * (AUDIT-PRODUIT-2026-08-30.md, finding P0 en tête).
+ * Badges d'ouverture du tableau de bord. Ils répondent d'un coup d'œil à la
+ * seule question qui compte le matin : « mes clients peuvent-ils réserver ? ».
  *
- * Version volontairement simple (bascule ouvert/fermé) plutôt que la
- * programmation de date/durée/réouverture automatique de l'ancienne
- * interface — la praticienne rouvre manuellement. Voir le rapport d'audit
- * pour la version plus riche si le besoin se confirme.
+ * Le clic ouvre le gestionnaire de disponibilités plutôt que de fermer
+ * directement : fermer, programmer des congés et corriger ses horaires sont
+ * trois gestes voisins, autant les réunir. La fermeture immédiate y reste à
+ * un clic, et toujours confirmée.
+ *
+ * L'ouverture réelle est persistée en base (cabinetAvailable/homeAvailable
+ * sur BusinessProfile) et revérifiée côté serveur par
+ * submitPublicBookingAction : le badge ne fait jamais qu'afficher un état,
+ * il ne le simule pas.
  */
-export function DashboardAvailabilityControls({ cabinetAvailable, homeAvailable }: DashboardAvailabilityControlsProps) {
+export function DashboardAvailabilityControls({ cabinetAvailable, homeAvailable, availability }: DashboardAvailabilityControlsProps) {
   const [cabinet, setCabinet] = useState(cabinetAvailable);
   const [home, setHome] = useState(homeAvailable);
-  const [pendingClose, setPendingClose] = useState<Mode | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  async function apply(nextCabinet: boolean, nextHome: boolean, successMessage: string) {
-    setSaving(true);
-    const result = await updateManualAvailabilityAction(nextCabinet, nextHome);
-    setSaving(false);
-    if (!result.ok) {
-      notify.error(result.error);
-      return;
-    }
-    setCabinet(nextCabinet);
-    setHome(nextHome);
-    notify.success(successMessage);
-  }
-
-  function toggle(mode: Mode) {
-    const isOpen = mode === "cabinet" ? cabinet : home;
-    const label = mode === "cabinet" ? "Cabinet" : "Domicile";
-    if (isOpen) {
-      setPendingClose(mode);
-      return;
-    }
-    void apply(mode === "cabinet" ? true : cabinet, mode === "home" ? true : home, `${label} rouvert aux réservations en ligne.`);
-  }
-
-  function confirmClose() {
-    if (!pendingClose) return;
-    const mode = pendingClose;
-    const label = mode === "cabinet" ? "Cabinet" : "Domicile";
-    setPendingClose(null);
-    void apply(mode === "cabinet" ? false : cabinet, mode === "home" ? false : home, `${label} fermé aux réservations en ligne.`);
-  }
+  const [settings, setSettings] = useState(availability);
+  const [managing, setManaging] = useState<AvailabilityMode | null>(null);
 
   return (
     <>
-      <section aria-label="Ouverture manuelle des réservations" className="mb-6 flex flex-wrap items-center gap-3">
-        <AvailabilityBadge label="Cabinet" open={cabinet} disabled={saving} onClick={() => toggle("cabinet")} />
-        <AvailabilityBadge label="Domicile" open={home} disabled={saving} onClick={() => toggle("home")} />
+      <section aria-label="Disponibilités aux réservations" className="mb-6 flex flex-wrap items-center gap-3">
+        <AvailabilityBadge mode="cabinet" status={availabilityStatus("cabinet", cabinet, settings)} onManage={() => setManaging("cabinet")} />
+        <AvailabilityBadge mode="home" status={availabilityStatus("home", home, settings)} onManage={() => setManaging("home")} />
       </section>
 
-      {pendingClose ? (
-        <ConfirmModal
-          title={`Fermer ${pendingClose === "cabinet" ? "Cabinet" : "Domicile"} aux réservations ?`}
-          message={`Les visiteurs de votre page de réservation ne pourront plus prendre de rendez-vous ${pendingClose === "cabinet" ? "au cabinet" : "à domicile"} tant que vous ne rouvrez pas manuellement ce mode ici.`}
-          confirmLabel="Fermer"
-          onConfirm={confirmClose}
-          onClose={() => setPendingClose(null)}
+      {managing ? (
+        <AvailabilityManager
+          initialMode={managing}
+          cabinetAvailable={cabinet}
+          homeAvailable={home}
+          availability={settings}
+          onClose={() => setManaging(null)}
+          onApplied={(next) => {
+            setCabinet(next.cabinetAvailable);
+            setHome(next.homeAvailable);
+            setSettings(next.availability);
+          }}
         />
       ) : null}
     </>
   );
 }
 
-function AvailabilityBadge({ label, open, disabled, onClick }: { label: string; open: boolean; disabled: boolean; onClick: () => void }) {
+/**
+ * Trois états, trois couleurs — mais jamais la couleur seule : le libellé dit
+ * toujours l'état en toutes lettres, pour qui ne distingue pas le vert du
+ * rouge comme pour qui écoute la page.
+ */
+function AvailabilityBadge({ mode, status, onManage }: { mode: AvailabilityMode; status: AvailabilityStatus; onManage: () => void }) {
+  const tone =
+    status.kind === "open" ? { dot: "bg-animeo-success shadow-[0_0_0_4px_rgba(54,162,107,0.16)]", frame: "border-animeo-soft-strong bg-white text-animeo-dark hover:bg-animeo-soft" }
+    : status.kind === "closed" ? { dot: "bg-[#E05D5D] shadow-[0_0_0_4px_rgba(224,93,93,0.14)]", frame: "border-animeo-border bg-animeo-border-soft text-animeo-muted hover:bg-white" }
+    : { dot: "bg-animeo-accent shadow-[0_0_0_4px_rgba(231,166,74,0.18)]", frame: "border-animeo-warning-border bg-animeo-warning-soft text-animeo-dark hover:bg-white" };
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={`${open ? "Fermer" : "Rouvrir"} ${label} aux réservations en ligne`}
-      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${open ? "border-animeo-soft-strong bg-white text-animeo-dark hover:bg-animeo-soft" : "border-animeo-border bg-animeo-border-soft text-animeo-muted hover:bg-white"}`}
+      onClick={onManage}
+      aria-label={`${statusLabel(mode, status)} — gérer les disponibilités`}
+      className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-extrabold transition ${tone.frame}`}
     >
-      <span className={`h-2.5 w-2.5 rounded-full ${open ? "bg-animeo-success shadow-[0_0_0_4px_rgba(54,162,107,0.16)]" : "bg-[#E05D5D] shadow-[0_0_0_4px_rgba(224,93,93,0.14)]"}`} />
-      {label} {open ? "ouvert" : "fermé"}
-      {/* Sans opacité : à 60 %, ce libellé tombait à 3,91:1 sur le fond de la
-          carte, sous le seuil AA. Le token muted vaut 5,53:1. */}
-      <span aria-hidden="true" className="ml-1 text-xs text-animeo-muted">{open ? "Fermer" : "Rouvrir"}</span>
+      <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${tone.dot}`} />
+      {statusLabel(mode, status)}
+      <span aria-hidden="true" className="ml-1 text-xs text-animeo-muted">Gérer</span>
     </button>
   );
 }

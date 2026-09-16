@@ -52,7 +52,11 @@ export function getDayAvailability(date: Date, availability: AvailabilitySetting
   }
 
   for (const closure of availability.closures) {
-    if (closure.date !== dateId) continue;
+    // Fermeture sur plusieurs jours : `endDate` borne la période, `date` en
+    // est le premier jour. Passé cette date de fin, la fermeture ne
+    // s'applique plus — la réouverture n'a besoin d'aucune tâche planifiée.
+    const lastDay = closure.endDate && closure.endDate >= closure.date ? closure.endDate : closure.date;
+    if (dateId < closure.date || dateId > lastDay) continue;
     const startMinutes = timeToMinutes(closure.start);
     const endMinutes = timeToMinutes(closure.end);
     for (let hour = 0; hour < 24; hour++) {

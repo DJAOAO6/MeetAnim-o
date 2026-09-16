@@ -373,6 +373,18 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
   return (
     <main style={themeStyle} className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
       <BookingHeader professional={professional} />
+
+      {/* Message du praticien, affiché avant le parcours : c'est souvent une
+          information qui change la décision du visiteur (fermeture, absence).
+          Rien ne s'affiche quand le message est vide. */}
+      {professional.availabilityMessage ? (
+        <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
+          <p role="status" className="rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm font-semibold leading-6 text-animeo-dark">
+            {professional.availabilityMessage}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
           <div className="min-w-0">
