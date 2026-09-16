@@ -12,7 +12,6 @@ config({ path: ".env.local" });
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
-const testPassword = "Praticien-Test-2026!";
 const unresolvableCity = "Zzznonexistentplacexyz123";
 
 type BusinessProfileRow = { id: string; address: string; postalCode: string; city: string; latitude: number | null; longitude: number | null };
@@ -45,12 +44,10 @@ test.describe("Profil — géocodage non bloquant de l'adresse du cabinet (Phase
     await revokePermission();
   });
 
+  // Session ouverte une fois par le projet « setup » (tests/auth.setup.ts) :
+  // se reconnecter à chaque test épuisait le quota de connexions du serveur
+  // (10 par quart d'heure et par compte).
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', testEmail);
-    await page.fill('input[type="password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 10000 });
     await page.goto("/dashboard/parametres");
     await page.waitForTimeout(600);
   });
@@ -59,7 +56,9 @@ test.describe("Profil — géocodage non bloquant de l'adresse du cabinet (Phase
     await page.getByRole("combobox").fill(unresolvableCity);
     await page.getByLabel("Code postal").fill("00000");
     await page.getByLabel("Ville").fill(unresolvableCity);
-    await page.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    // « Mon profil » est désormais une section de l'onglet « Mon cabinet »,
+    // qui porte deux formulaires : on vise la bonne section.
+    await page.getByTestId("settings-profile").getByRole("button", { name: "Enregistrer les modifications" }).click();
 
     await expect(page.getByText("Profil enregistré et visible sur votre page publique")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("L’adresse du cabinet n’a pas pu être localisée.")).toBeVisible();

@@ -18,8 +18,6 @@ config({ path: ".env.local" });
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
-const testZoneId = "tmp-toast-zone";
-const testTourId = "tmp-toast-tour";
 
 /**
  * Sa propre zone utilisée par une tournée plutôt qu'une dépendance aux
@@ -27,17 +25,7 @@ const testTourId = "tmp-toast-tour";
  * zones pré-existantes, le test doit rester autonome pour déclencher le
  * rejet de suppression (contrainte de clé étrangère) de façon fiable.
  */
-async function seedZoneUsedByTour() {
-  const sql = neon(process.env.DATABASE_URL!);
-  await sql`INSERT INTO "Zone" (id, name) VALUES (${testZoneId}, 'Zone E2E Toast Erreur')`;
-  await sql`INSERT INTO "Tour" (id, name, recurrence, day, "dateLabel", "startTime", "endTime", "zoneId", status) VALUES (${testTourId}, 'Tournée E2E Toast Erreur', 'Toutes les semaines', 'Lundi', 'test', '08:00', '18:00', ${testZoneId}, 'ACTIVE')`;
-}
 
-async function cleanupZoneUsedByTour() {
-  const sql = neon(process.env.DATABASE_URL!);
-  await sql`DELETE FROM "Tour" WHERE id = ${testTourId}`;
-  await sql`DELETE FROM "Zone" WHERE id = ${testZoneId}`;
-}
 
 async function grantPublicSettingsPermission() {
   const sql = neon(process.env.DATABASE_URL!);
@@ -50,21 +38,24 @@ async function revokePublicSettingsPermission() {
 }
 
 test.describe("Système de notifications (toasts)", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', testEmail);
-    await page.fill('input[type="password"]', "Praticien-Test-2026!");
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 10000 });
-  });
-
+  // Session ouverte une fois par le projet « setup » (tests/auth.setup.ts) :
+  // se reconnecter à chaque test épuisait le quota de connexions du serveur
+  // (10 par quart d'heure et par compte) et faisait échouer des tests
+  // parfaitement corrects.
   test("un toast de succès disparaît automatiquement après ~4s", async ({ page }) => {
     await grantPublicSettingsPermission();
     const sql = neon(process.env.DATABASE_URL!);
 
-    await page.goto("/dashboard/tournees");
-    await page.getByRole("button", { name: "Nouvelle zone" }).click();
-    const dialog = page.locator('[role="dialog"]').first();
+    // Les zones se règlent dans Paramètres › Tournées depuis la refonte des
+    // tournées ; la page /dashboard/tournees ne porte plus que les journées.
+    await page.goto("/dashboard/parametres?tab=tours");
+    // Les zones vivent dans un panneau latéral ouvert depuis les réglages de
+    // tournées, et non plus sur la page Tournées elle-même.
+    await page.getByRole("button", { name: /^Zones \(/ }).click();
+    await page.getByRole("button", { name: "+ Nouvelle zone" }).click();
+    // Deux dialogues empilés : le panneau des zones, puis la fenêtre de
+    // création — on vise celle qui porte le formulaire.
+    const dialog = page.locator('[role="dialog"]').filter({ has: page.getByPlaceholder("Ex. Zone Le Havre") });
     await dialog.getByPlaceholder("Ex. Zone Le Havre").fill("Zone E2E Toast");
     await dialog.getByPlaceholder("Ville").fill("Yvetot");
     await dialog.getByPlaceholder("Code postal").fill("76190");
@@ -72,7 +63,9 @@ test.describe("Système de notifications (toasts)", () => {
 
     const toast = page.locator('[data-sonner-toast][data-type="success"]');
     await expect(toast).toBeVisible();
-    await expect(toast).toContainText("Zone E2E Toast a été créée.");
+    // Message réel de tours-settings-tab.tsx : le libellé attendu ici datait
+    // d'une version antérieure.
+    await expect(toast).toContainText("Zone créée.");
 
     // Toujours présent juste avant l'échéance des 4s...
     await page.waitForTimeout(3500);
@@ -88,19 +81,41 @@ test.describe("Système de notifications (toasts)", () => {
   });
 
   test("un toast d'erreur reste affiché jusqu'à fermeture manuelle", async ({ page }) => {
-    // Une zone utilisée par une tournée : sa suppression est rejetée côté
-    // serveur (contrainte de clé étrangère), ce qui déclenche notify.error.
-    await grantPublicSettingsPermission();
-    await cleanupZoneUsedByTour();
-    await seedZoneUsedByTour();
+    // Erreur réellement atteignable : déplacer un rendez-vous sur un créneau
+    // déjà occupé. L'ancien scénario (supprimer une zone utilisée par une
+    // tournée) ne l'est plus — l'interface propose une réassignation au lieu
+    // de laisser le serveur refuser, et les réglages publics sont désactivés
+    // faute de permission plutôt que rejetés à l'envoi.
+    const sql = neon(process.env.DATABASE_URL!);
+    const dateId = new Date().toISOString().slice(0, 10);
+    const names = ["E2E Toast A", "E2E Toast B"];
+    await sql`DELETE FROM "Appointment" WHERE "clientName" = ANY(${names})`;
+    await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
+      VALUES (${`e2e-toast-a-${Date.now()}`}, ${`${dateId}T00:00:00.000Z`}, '09:00', 60, ${names[0]}, 'Alpha', 'Séance', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now()),
+             (${`e2e-toast-b-${Date.now()}`}, ${`${dateId}T00:00:00.000Z`}, '11:00', 60, ${names[1]}, 'Beta', 'Séance', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now())`;
 
     try {
-      await page.goto("/dashboard/tournees");
-      await page.getByRole("button", { name: "Supprimer", exact: true }).click();
+      await page.goto("/dashboard/agenda");
+      const source = page.getByTestId("agenda-event").filter({ hasText: "Beta" }).first();
+      const target = page.getByTestId("agenda-event").filter({ hasText: "Alpha" }).first();
+      await expect(source).toBeVisible({ timeout: 15000 });
+
+      // hover() d'abord : il fait défiler la cible dans la vue et place le
+      // pointeur sur l'élément réel, là où des coordonnées calculées peuvent
+      // tomber à côté après un défilement.
+      await source.hover();
+      const from = (await source.boundingBox())!;
+      const to = (await target.boundingBox())!;
+      await page.mouse.down();
+      for (let step = 1; step <= 8; step += 1) {
+        await page.mouse.move(to.x + to.width / 2, from.y + from.height / 2 + ((to.y + to.height / 2 - from.y - from.height / 2) * step) / 8, { steps: 2 });
+        await page.waitForTimeout(40);
+      }
+      await page.mouse.up();
 
       const toast = page.locator('[data-sonner-toast][data-type="error"]');
-      await expect(toast).toBeVisible();
-      await expect(toast).toContainText("ne peut pas être supprimée");
+      await expect(toast).toBeVisible({ timeout: 10000 });
+      await expect(toast).toContainText("n’est pas disponible");
 
       // Toujours là bien après la durée d'auto-dismiss des succès (4s).
       await page.waitForTimeout(5000);
@@ -109,8 +124,7 @@ test.describe("Système de notifications (toasts)", () => {
       await toast.getByRole("button", { name: "Close toast" }).click();
       await expect(toast).toHaveCount(0);
     } finally {
-      await cleanupZoneUsedByTour();
-      await revokePublicSettingsPermission();
+      await sql`DELETE FROM "Appointment" WHERE "clientName" = ANY(${names})`;
     }
   });
 

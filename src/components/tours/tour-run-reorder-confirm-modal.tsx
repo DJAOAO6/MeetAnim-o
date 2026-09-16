@@ -1,6 +1,7 @@
 "use client";
 
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import type { ReorderTimeChange } from "@/lib/tour-runs-actions";
 
 type TourRunReorderConfirmModalProps = {
@@ -17,35 +18,31 @@ type TourRunReorderConfirmModalProps = {
  * précisément ce qui bougerait avant que quoi que ce soit ne soit écrit.
  */
 export function TourRunReorderConfirmModal({ changes, applying, onConfirm, onCancel }: TourRunReorderConfirmModalProps) {
-  const dialogRef = useModalFocusTrap<HTMLElement>(onCancel);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="reorder-confirm-title" className="w-full max-w-md rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="p-6">
-          <h2 id="reorder-confirm-title" className="text-lg font-black text-animeo-dark">
-            {changes.length > 1 ? `${changes.length} rendez-vous vont changer d'heure` : "1 rendez-vous va changer d'heure"}
-          </h2>
-          <p className="mt-2 text-sm text-animeo-muted">Ce nouvel ordre décale les heures ci-dessous. Confirmez pour les appliquer aux rendez-vous.</p>
-
-          <ul className="mt-4 space-y-2">
-            {changes.map((change) => (
-              <li key={change.stopId} className="flex items-center justify-between rounded-xl bg-animeo-bg px-4 py-3">
-                <span className="font-extrabold text-animeo-dark">{change.label}</span>
-                <span className="text-sm font-bold text-animeo-muted">
-                  {change.currentTime} <span aria-hidden="true">→</span> <span className="text-animeo-dark">{change.proposedTime}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-          <button type="button" onClick={onConfirm} disabled={applying} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+    <Modal
+      title={changes.length > 1 ? `${changes.length} rendez-vous vont changer d'heure` : "1 rendez-vous va changer d'heure"}
+      description="Ce nouvel ordre décale les heures ci-dessous. Confirmez pour les appliquer aux rendez-vous."
+      onClose={onCancel}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onCancel}>Annuler</Button>
+          <Button onClick={onConfirm} disabled={applying}>
             {applying ? "Application…" : "Confirmer les nouveaux horaires"}
-          </button>
-        </div>
-      </section>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <ul className="space-y-2">
+        {changes.map((change) => (
+          <li key={change.stopId} className="flex items-center justify-between gap-3 rounded-xl bg-animeo-bg px-4 py-3">
+            <span className="min-w-0 truncate font-extrabold text-animeo-dark">{change.label}</span>
+            <span className="shrink-0 text-sm font-bold text-animeo-muted">
+              {change.currentTime} <span aria-hidden="true">→</span> <span className="text-animeo-dark">{change.proposedTime}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Modal>
   );
 }

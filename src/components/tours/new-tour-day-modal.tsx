@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { TourRunEndpointPicker, type EndpointValue } from "@/components/tours/tour-run-endpoint-picker";
 import { createTourRunAction } from "@/lib/tour-runs-actions";
 import { findTourPatternForDateAction, type TourPatternMatch } from "@/lib/tours-actions";
@@ -37,7 +38,6 @@ function defaultNameFor(dateId: string): string {
  * jamais les appliquer automatiquement.
  */
 export function NewTourDayModal({ defaultDateId, savedPlaces, cabinetAvailable, onClose, onCreated }: NewTourDayModalProps) {
-  const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
   const [dateId, setDateId] = useState(defaultDateId);
   const [name, setName] = useState(() => defaultNameFor(defaultDateId));
   const [departureTime, setDepartureTime] = useState("09:00");
@@ -91,14 +91,19 @@ export function NewTourDayModal({ defaultDateId, savedPlaces, cabinetAvailable, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="new-tour-day-title" className="w-full max-w-md rounded-[18px] bg-white p-5 shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <h2 id="new-tour-day-title" className="text-lg font-medium text-animeo-dark">Nouvelle journée</h2>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl text-animeo-muted hover:bg-animeo-bg">✕</button>
-        </div>
-
-        <div className="mt-5 space-y-4">
+    <Modal
+      title="Nouvelle journée"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Annuler</Button>
+          <Button onClick={submit} disabled={submitting || !name.trim()}>
+            {submitting ? "Création…" : "Créer la journée"}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
           <div>
             <label htmlFor="new-tour-day-date" className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-animeo-muted">Date</label>
             <input id="new-tour-day-date" type="date" value={dateId} onChange={(event) => setDateId(event.target.value)} className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm text-animeo-dark" />
@@ -123,13 +128,6 @@ export function NewTourDayModal({ defaultDateId, savedPlaces, cabinetAvailable, 
           <TourRunEndpointPicker label="Arrivée" value={end} onChange={setEnd} savedPlaces={savedPlaces} cabinetAvailable={cabinetAvailable} allowMirrorStart />
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-          <button type="button" onClick={submit} disabled={submitting || !name.trim()} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
-            {submitting ? "Création…" : "Créer la journée"}
-          </button>
-        </div>
-      </section>
-    </div>
+    </Modal>
   );
 }

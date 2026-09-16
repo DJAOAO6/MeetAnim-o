@@ -20,10 +20,13 @@ export const PRACTITIONER_STATE = "tests/.auth/practitioner.json";
  */
 // Session réutilisée tant qu'elle est fraîche : sans cela, chaque exécution
 // de la suite consommait une connexion, et quelques itérations suffisaient à
-// déclencher la limitation anti-force brute du serveur. Un quart d'heure
-// couvre largement une session de développement ; au-delà, on se reconnecte
-// plutôt que de risquer un cookie expiré.
-const MAX_AGE_MS = 15 * 60 * 1000;
+// déclencher la limitation anti-force brute du serveur.
+//
+// Six heures : le cookie de session vaut sept jours côté serveur
+// (src/lib/auth/session.ts), la marge est donc large, et une journée de
+// développement tient en deux ou trois connexions au lieu d'une par
+// exécution.
+const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
 setup("connexion praticien", async ({ page }) => {
   if (existsSync(PRACTITIONER_STATE) && Date.now() - statSync(PRACTITIONER_STATE).mtimeMs < MAX_AGE_MS) {
