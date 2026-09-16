@@ -35,9 +35,12 @@ export function SortableBlock({ id, editing, toolbar, label, className = "", chi
       ref={setNodeRef}
       data-testid={`block-${id}`}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={`relative rounded-[22px] outline-2 outline-dashed outline-offset-4 outline-animeo-border-strong ${isDragging ? "z-30 opacity-80" : ""} ${className}`}
+      className={`rounded-[22px] p-2 outline-2 outline-dashed outline-offset-2 outline-animeo-border-strong ${isDragging ? "z-30 opacity-80" : ""} ${className}`}
     >
-      <div className="absolute -top-3 left-3 right-3 z-20 flex flex-wrap items-center gap-2">
+      {/* Barre d'outils dans le flux, pas en superposition : sur téléphone
+          elle passe sur deux lignes et recouvrait le haut du bloc — titre et
+          premières commandes devenaient illisibles. */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
           {...attributes}
@@ -53,7 +56,7 @@ export function SortableBlock({ id, editing, toolbar, label, className = "", chi
       {/* Le contenu reste visible mais inerte : on personnalise la disposition,
           on n'utilise pas les blocs. Évite qu'un glissement finisse par
           déclencher le bouton qui se trouvait sous le doigt. */}
-      <div className="pointer-events-none pt-4">{children}</div>
+      <div className="pointer-events-none">{children}</div>
     </div>
   );
 }
