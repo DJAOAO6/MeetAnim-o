@@ -170,7 +170,12 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
+    // Seuil 2xl et non xl : l'éditeur vit désormais dans l'onglet
+    // Personnalisation, qui occupe déjà une colonne de navigation à gauche.
+    // À xl, les trois colonnes de l'éditeur devenaient si étroites qu'elles
+    // se chevauchaient ; elles s'empilent maintenant tant que la place
+    // manque.
+    <div className="grid gap-5 2xl:grid-cols-[240px_minmax(0,1fr)_280px]">
       {/* Sections : colonne de gauche sur grand écran, rangée repliable au-dessus
           de l'aperçu sur les écrans plus étroits. */}
       <section className="rounded-[22px] border border-animeo-border bg-animeo-surface p-4">

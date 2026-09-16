@@ -36,9 +36,10 @@ test("les écrans principaux ne présentent pas de violation d'accessibilité s�
 });
 
 test("le mode personnalisation du tableau de bord reste accessible", async ({ page }) => {
-  await page.goto("/dashboard");
-  await page.getByRole("button", { name: /personnaliser mon tableau de bord/i }).click();
-  await page.waitForTimeout(800);
+  // Le mode personnalisation s'ouvre depuis Paramètres › Personnalisation,
+  // qui renvoie ici avec ce paramètre.
+  await page.goto("/dashboard?personnaliser=1");
+  await page.waitForTimeout(1200);
 
   const violations = await seriousViolations(page);
   expect(violations, JSON.stringify(violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.length })), null, 2)).toEqual([]);

@@ -47,7 +47,8 @@ test("composer la page, enregistrer un brouillon invisible des clients, puis pub
   await sql`UPDATE "BusinessProfile" SET "publicPageDraft" = NULL, "publicPagePublished" = NULL, "publicPagePublishedAt" = NULL`;
   const slug = await professionalSlug();
 
-  await page.goto("/dashboard/parametres");
+  // Paramètres › Personnalisation › Page de réservation.
+  await page.goto("/dashboard/parametres?tab=customization");
   await page.getByRole("button", { name: /page de réservation/i }).click();
   await expect(page.getByTestId("public-page-preview")).toBeVisible({ timeout: 15000 });
 
@@ -76,7 +77,8 @@ test("composer la page, enregistrer un brouillon invisible des clients, puis pub
   await expect(page.getByRole("heading", { name: "Horaires" })).toBeVisible({ timeout: 15000 });
 
   // Publication.
-  await page.goto("/dashboard/parametres");
+  // Paramètres › Personnalisation › Page de réservation.
+  await page.goto("/dashboard/parametres?tab=customization");
   await page.getByRole("button", { name: /page de réservation/i }).click();
   await expect(page.getByTestId("public-page-preview")).toBeVisible({ timeout: 15000 });
   await page.getByRole("button", { name: "Publier", exact: true }).click();

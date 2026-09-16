@@ -25,9 +25,9 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   await sql`DELETE FROM "DashboardPreferences" WHERE "userId" IN (SELECT id FROM "User" WHERE email = ${EMAIL})`;
 
   // Session ouverte par le projet "setup" (tests/auth.setup.ts).
-  await page.goto("/dashboard");
-
-  await page.getByRole("button", { name: /personnaliser mon tableau de bord/i }).click();
+  // Le mode personnalisation s'ouvre depuis Paramètres › Personnalisation,
+  // qui renvoie sur le tableau de bord avec ce paramètre.
+  await page.goto("/dashboard?personnaliser=1");
 
   // Redimensionnement : « Prochaine tournée » passe de 1 à 2 colonnes.
   const tourWidth = page.getByRole("group", { name: /largeur du bloc prochaine tournée/i });
@@ -58,7 +58,9 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   expect(orderAfter, "le glissement doit réordonner les blocs").not.toEqual(orderBefore);
 
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
-  await expect(page.getByTestId("save-status")).toHaveText(/modifications enregistrées/i, { timeout: 10000 });
+  // Le bandeau de personnalisation disparaît en sortant du mode édition :
+  // la confirmation passe par un message, pas par l'indicateur d'état.
+  await expect(page.getByText(/disposition du tableau de bord enregistrée/i)).toBeVisible({ timeout: 15000 });
 
   const saved = await storedLayout();
   expect(saved, "la disposition doit être enregistrée en base pour ce compte").not.toBeNull();
@@ -68,8 +70,9 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   const savedVisibleOrder = saved!.filter((widget) => widget.visible).map((widget) => `block-${widget.id}`);
   expect(savedVisibleOrder).toEqual(orderAfter);
 
-  // Rechargement : la disposition revient telle quelle, sans personnalisation en cours.
-  await page.reload();
-  await expect(page.getByRole("button", { name: /personnaliser mon tableau de bord/i })).toBeVisible();
+  // Rechargement sans le paramètre : la disposition revient telle quelle, et
+  // le tableau de bord n'est plus en mode personnalisation.
+  await page.goto("/dashboard");
+  await expect(page.getByText("Personnalisation en cours")).toHaveCount(0);
   await expect(page.getByText("Répartition des clients", { exact: false })).toHaveCount(0);
 });

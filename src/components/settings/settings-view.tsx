@@ -9,7 +9,6 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
 import { PublicProfileSettingsTab } from "@/components/settings/public-profile-settings-tab";
-import { PublicPageEditor } from "@/components/settings/public-page-editor";
 import { ServicesSettingsShortcut } from "@/components/settings/services-settings-tab";
 import { AvailabilitySettingsTab } from "@/components/settings/availability-settings-tab";
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
@@ -27,7 +26,14 @@ import type { Tour, Zone } from "@/data/tours";
 import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
 import type { SavedPlaceView, TourPreferencesView } from "@/lib/tour-runs";
 
-type SettingsTab = "profile" | "publicProfile" | "bookingPage" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
+/**
+ * Cinq onglets au lieu de neuf. Les réglages étaient éparpillés au point
+ * qu'on ne savait plus où chercher : « Mon profil » et « Profil public »
+ * décrivent le même cabinet, « Disponibilités » et « Rappels » règlent tous
+ * deux le rythme de travail, et la page de réservation apparaissait à trois
+ * endroits (onglet dédié, section vide de Personnalisation, aperçu du thème).
+ */
+type SettingsTab = "cabinet" | "customization" | "schedule" | "tours" | "integrations";
 
 type SettingsViewProps = {
   tours: Tour[];
@@ -48,14 +54,10 @@ type SettingsViewProps = {
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
-  { id: "profile", label: "Mon profil", icon: "clients" },
-  { id: "publicProfile", label: "Profil public", icon: "shield" },
-  { id: "bookingPage", label: "Page de réservation", icon: "externalLink" },
-  { id: "services", label: "Prestations", icon: "services" },
-  { id: "availability", label: "Disponibilités", icon: "calendar" },
-  { id: "tours", label: "Tournées", icon: "tournees" },
-  { id: "reminders", label: "Rappels", icon: "bell" },
+  { id: "cabinet", label: "Mon cabinet", icon: "clients" },
   { id: "customization", label: "Personnalisation", icon: "settings" },
+  { id: "schedule", label: "Disponibilités et rappels", icon: "calendar" },
+  { id: "tours", label: "Tournées", icon: "tournees" },
   { id: "integrations", label: "Intégrations", icon: "calendarPlus" },
 ];
 
@@ -75,7 +77,12 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => (searchParams.get("tab") === "integrations" ? "integrations" : "profile"));
+  // ?tab= : utilisé par le retour du callback Google (integrations) et par
+  // les liens qui mènent droit à un réglage précis.
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    const requested = searchParams.get("tab");
+    return tabs.some((tab) => tab.id === requested) ? (requested as SettingsTab) : "cabinet";
+  });
 
   // Retour du callback OAuth Google (?tab=integrations&connected=google ou
   // &google_error=...) : un seul toast, puis l'URL est nettoyée pour ne pas
@@ -205,17 +212,31 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
         </nav>
       </Card>
 
-      {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
-      {activeTab === "publicProfile" ? <PublicProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil public enregistré et visible sur votre page de réservation")} /> : null}
-      {activeTab === "bookingPage" ? (
-        canManagePublicSettings && publicProfessional
-          ? <PublicPageEditor initialState={publicPage} professional={publicProfessional} />
-          : <p className="rounded-2xl bg-animeo-soft p-5 text-sm font-bold text-animeo-dark">Vous n’avez pas la permission de modifier la page publique.</p>
+      {activeTab === "cabinet" ? (
+        // Deux formulaires sur un même onglet : chacun garde un repère
+        // stable, pour que les liens profonds et les tests visent une section
+        // précise plutôt que « le premier bouton Enregistrer de la page ».
+        <div className="space-y-8">
+          <section data-testid="settings-profile">
+            <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} />
+          </section>
+          <section data-testid="settings-public-profile">
+            <PublicProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil public enregistré et visible sur votre page de réservation")} />
+          </section>
+          <ServicesSettingsShortcut />
+        </div>
       ) : null}
-      {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
-      {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} /> : null}
+      {activeTab === "schedule" ? (
+        <div className="space-y-8">
+          <section data-testid="settings-availability">
+            <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} />
+          </section>
+          <section data-testid="settings-reminders">
+            <RemindersSettingsTab value={settings.reminders} onSave={saveReminders} />
+          </section>
+        </div>
+      ) : null}
       {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} initialZones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} cabinetAvailable={businessProfile.latitude != null} upcomingGeneratedCounts={upcomingGeneratedCounts} /> : null}
-      {activeTab === "reminders" ? <RemindersSettingsTab value={settings.reminders} onSave={saveReminders} /> : null}
       {activeTab === "customization" ? (
         <PersonalizationView
           profile={settings.profile}
@@ -223,6 +244,8 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
           saving={saving}
           canEdit={canManagePublicSettings}
           onSaveTheme={saveTheme}
+          publicPage={publicPage}
+          publicProfessional={publicProfessional}
         />
       ) : null}
       {activeTab === "integrations" ? <IntegrationsSettingsTab google={google} icsFeed={icsFeed} /> : null}

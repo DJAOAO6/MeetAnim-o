@@ -21,10 +21,21 @@ import {
   type DashboardWidgetPreference,
   type DashboardWidgetSpan,
 } from "@/data/dashboard-widgets";
+import { notify } from "@/lib/notify";
 import { resetDashboardLayoutAction, saveDashboardLayoutAction } from "@/lib/dashboard-layout-actions";
 import type { DashboardOverviewData } from "@/lib/dashboard-overview";
 
-type DashboardViewProps = DashboardOverviewData & { initialLayout: DashboardWidgetPreference[] };
+type DashboardViewProps = DashboardOverviewData & {
+  initialLayout: DashboardWidgetPreference[];
+  /**
+   * Le mode personnalisation s'ouvre depuis Paramètres › Personnalisation,
+   * qui renvoie ici avec ?personnaliser=1 : le réglage vit avec les autres
+   * réglages, et le tableau de bord du quotidien n'est pas encombré d'un
+   * bouton d'édition permanent. L'édition, elle, reste sur le vrai tableau
+   * de bord — on déplace ses blocs là où on les regarde.
+   */
+  startEditing?: boolean;
+};
 
 /**
  * Largeur réelle d'un bloc selon l'écran. La largeur choisie ne s'applique
@@ -39,11 +50,11 @@ const spanClassName: Record<DashboardWidgetSpan, string> = {
   4: "md:col-span-2 xl:col-span-4",
 };
 
-export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable, initialLayout }: DashboardViewProps) {
+export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable, initialLayout, startEditing = false }: DashboardViewProps) {
   const dueReminders = useMemo(() => reminders.filter((reminder) => reminder.status === "À relancer").length, [reminders]);
 
   const [layout, setLayout] = useState(initialLayout);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   // Disposition d'avant l'entrée en édition : « Annuler » doit la restituer
   // exactement, y compris après plusieurs déplacements.
   const [snapshot, setSnapshot] = useState(initialLayout);
@@ -91,11 +102,15 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   async function save() {
     setSaveState("saving");
     const result = await saveDashboardLayoutAction(layout);
-    if (!result.ok) { setSaveState("error"); return; }
+    if (!result.ok) { setSaveState("error"); notify.error(result.error); return; }
     setLayout(result.layout);
     setSnapshot(result.layout);
     setSaveState("saved");
     setEditing(false);
+    // Le bandeau de personnalisation disparaît en quittant le mode édition :
+    // sans ce message, la confirmation partirait avec lui et on ne saurait
+    // pas si la disposition a bien été enregistrée.
+    notify.success("Disposition du tableau de bord enregistrée.");
   }
 
   function cancel() {
@@ -107,10 +122,11 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   async function reset() {
     setSaveState("saving");
     const result = await resetDashboardLayoutAction();
-    if (!result.ok) { setSaveState("error"); return; }
+    if (!result.ok) { setSaveState("error"); notify.error(result.error); return; }
     setLayout(result.layout);
     setSnapshot(result.layout);
     setSaveState("saved");
+    notify.success("Disposition d’origine rétablie.");
   }
 
   const grid = (
@@ -163,27 +179,22 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
     <>
       <DashboardHeader />
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SaveStatus state={saveState} />
-        <div className="flex flex-wrap gap-2 sm:justify-end [&>*]:flex-1 sm:[&>*]:flex-none">
-          {editing ? (
-            <>
-              <Button variant="ghost" onClick={reset}>Réinitialiser</Button>
-              <Button variant="secondary" onClick={cancel}>Annuler</Button>
-              <Button onClick={save} disabled={saveState === "saving"}>
-                {saveState === "saving" ? "Enregistrement…" : "Enregistrer"}
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="secondary"
-              onClick={() => { setSnapshot(layout); setEditing(true); setSaveState("idle"); }}
-            >
-              Personnaliser mon tableau de bord
+      {editing ? (
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-dashed border-animeo-border-strong p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-black text-animeo-dark">Personnalisation en cours</p>
+            <p className="mt-0.5 text-xs text-animeo-muted">Déplacez les blocs par leur poignée, changez leur largeur ou masquez-les.</p>
+            <SaveStatus state={saveState} className="mt-2" />
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end [&>*]:flex-1 sm:[&>*]:flex-none">
+            <Button variant="ghost" onClick={reset}>Réinitialiser</Button>
+            <Button variant="secondary" onClick={cancel}>Annuler</Button>
+            <Button onClick={save} disabled={saveState === "saving"}>
+              {saveState === "saving" ? "Enregistrement…" : "Enregistrer"}
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {editing ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToWindowEdges]} onDragEnd={handleDragEnd}>

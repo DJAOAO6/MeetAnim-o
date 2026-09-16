@@ -54,14 +54,17 @@ test.describe("Paramètres — onglet Profil public", () => {
   });
 
   test("modifier la phrase d'accroche, le nom du cabinet, les paiements et une bascule d'affichage persiste réellement en base", async ({ page }) => {
-    await page.getByRole("button", { name: "Profil public" }).click();
+    // « Profil public » est désormais une section de l'onglet « Mon cabinet »
+    // (regroupement des réglages) : plus d'onglet à ouvrir, mais un repère de
+    // section pour ne pas confondre les deux formulaires de la page.
+    const section = page.getByTestId("settings-public-profile");
 
     await page.getByLabel("Phrase d’accroche").fill(testTagline);
     await page.getByLabel("Nom du cabinet").fill("Centre Rivada E2E");
     await page.getByLabel("Moyens de paiement acceptés").fill("Chèque, espèces ou virement");
     await page.getByRole("switch", { name: "Afficher mon téléphone" }).click();
 
-    await page.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await section.getByRole("button", { name: "Enregistrer les modifications" }).click();
     await expect(page.getByText("Profil public enregistré et visible sur votre page de réservation")).toBeVisible({ timeout: 10000 });
 
     const sql = neon(process.env.DATABASE_URL!);
