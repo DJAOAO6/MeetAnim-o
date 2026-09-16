@@ -94,3 +94,35 @@ test("composer la page, enregistrer un brouillon invisible des clients, puis pub
   await expect(page.getByRole("heading", { name: "Qui suis-je" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: "Horaires" })).toHaveCount(0);
 });
+
+/**
+ * Filet de sécurité : après avoir tout personnalisé et publié, on doit pouvoir
+ * revenir à la présentation d'origine — sinon on n'ose pas essayer.
+ */
+test("tout remettre d'origine efface le brouillon comme la version publiée", async ({ page }) => {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${EMAIL}`;
+  const slug = await professionalSlug();
+
+  await page.goto("/dashboard/parametres?tab=customization");
+  await page.getByRole("button", { name: /page de réservation/i }).click();
+  await expect(page.getByTestId("public-page-preview")).toBeVisible({ timeout: 15000 });
+
+  // Une personnalisation publiée, puis on la regrette.
+  await page.getByTestId("block-hours").getByRole("button", { name: "Masquer" }).click();
+  await page.getByRole("button", { name: "Publier", exact: true }).click();
+  await expect(page.getByTestId("save-status")).toHaveText(/modifications enregistrées/i, { timeout: 15000 });
+  expect((await storedPages()).published).not.toBeNull();
+
+  await page.getByRole("button", { name: /tout remettre d’origine/i }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /tout remettre d’origine/i }).click();
+  await expect(page.getByText(/rétablie dans sa présentation d’origine/i)).toBeVisible({ timeout: 15000 });
+
+  const after = await storedPages();
+  expect(after.draft, "le brouillon doit être effacé").toBeNull();
+  expect(after.published, "la version publiée doit être effacée").toBeNull();
+
+  // La page publique retrouve sa présentation d'origine : les horaires sont de retour.
+  await page.goto(`/reserver/${slug}`);
+  await expect(page.getByRole("heading", { name: "Horaires" })).toBeVisible({ timeout: 15000 });
+});

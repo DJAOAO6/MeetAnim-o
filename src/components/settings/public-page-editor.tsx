@@ -5,6 +5,7 @@ import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, 
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { PublicPagePreview, type PreviewDevice } from "@/components/settings/public-page-preview";
 import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SaveStatus, type SaveState } from "@/components/ui/save-status";
 import { SortableBlock } from "@/components/ui/sortable-block";
 import {
@@ -18,7 +19,8 @@ import {
   type PublicSectionId,
   type SectionTone,
 } from "@/data/public-page";
-import { discardPublicPageDraftAction, publishPublicPageAction, savePublicPageDraftAction, type PublicPageState } from "@/lib/public-page-actions";
+import { discardPublicPageDraftAction, publishPublicPageAction, resetPublicPageAction, savePublicPageDraftAction, type PublicPageState } from "@/lib/public-page-actions";
+import { notify } from "@/lib/notify";
 import type { PublicProfessional } from "@/data/public-booking";
 
 const devices: Array<{ id: PreviewDevice; label: string }> = [
@@ -109,6 +111,7 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
   const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [selectedId, setSelectedId] = useState<PublicSectionId | "theme">("theme");
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -158,6 +161,22 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
     setState(result.state);
     setConfig(result.state.draft);
     setSaveState("saved");
+  }
+
+  /**
+   * Retour à la présentation d'origine. Confirmé parce que c'est la seule
+   * action de cet écran qui efface à la fois le brouillon et la version en
+   * ligne : elle change immédiatement ce que voient les clients.
+   */
+  async function resetToOriginal() {
+    setConfirmingReset(false);
+    setSaveState("saving");
+    const result = await resetPublicPageAction();
+    if (!result.ok) { setSaveState("error"); notify.error(result.error); return; }
+    setState(result.state);
+    setConfig(result.state.draft);
+    setSaveState("idle");
+    notify.success("Page de réservation rétablie dans sa présentation d’origine.");
   }
 
   async function discard() {
@@ -243,6 +262,7 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
         <PublicPagePreview config={config} professional={professional} device={device} />
 
         <div className="mt-4 flex flex-wrap gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
+          <Button variant="ghost" onClick={() => setConfirmingReset(true)} disabled={saveState === "saving"}>Tout remettre d’origine</Button>
           <Button variant="ghost" onClick={discard} disabled={saveState === "saving"}>Annuler les modifications</Button>
           <Button variant="secondary" onClick={save} disabled={saveState === "saving"}>Enregistrer le brouillon</Button>
           <Button onClick={publish} disabled={saveState === "saving"}>Publier</Button>
@@ -315,6 +335,16 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
           </div>
         )}
       </section>
+
+      {confirmingReset ? (
+        <ConfirmModal
+          title="Remettre la page d’origine ?"
+          message="Vos couleurs, l’ordre des sections et les sections masquées seront effacés, et vos clients retrouveront immédiatement la présentation d’origine. Vous pourrez toujours repersonnaliser ensuite."
+          confirmLabel="Tout remettre d’origine"
+          onConfirm={resetToOriginal}
+          onClose={() => setConfirmingReset(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -76,3 +76,30 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   await expect(page.getByText("Personnalisation en cours")).toHaveCount(0);
   await expect(page.getByText("Répartition des clients", { exact: false })).toHaveCount(0);
 });
+
+/**
+ * Même filet de sécurité que pour la page de réservation : après avoir
+ * réorganisé son tableau de bord, on doit pouvoir revenir à la disposition
+ * d'origine.
+ */
+test("tout remettre d'origine efface la disposition enregistrée", async ({ page }) => {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`DELETE FROM "DashboardPreferences" WHERE "userId" IN (SELECT id FROM "User" WHERE email = ${EMAIL})`;
+
+  await page.goto("/dashboard?personnaliser=1");
+  await page.getByTestId("block-reminders").getByRole("button", { name: "Masquer" }).click();
+  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect(page.getByText(/disposition du tableau de bord enregistrée/i)).toBeVisible({ timeout: 15000 });
+  expect(await storedLayout(), "la personnalisation doit être enregistrée").not.toBeNull();
+
+  await page.goto("/dashboard?personnaliser=1");
+  await page.getByRole("button", { name: /tout remettre d’origine/i }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /tout remettre d’origine/i }).click();
+  await expect(page.getByText(/disposition d’origine rétablie/i)).toBeVisible({ timeout: 15000 });
+
+  expect(await storedLayout(), "plus aucune disposition enregistrée pour ce compte").toBeNull();
+
+  // Et le bloc masqué est bien revenu.
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("block-reminders")).toBeVisible({ timeout: 15000 });
+});

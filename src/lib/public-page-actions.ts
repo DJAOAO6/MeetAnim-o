@@ -124,3 +124,30 @@ export async function discardPublicPageDraftAction(): Promise<PublicPageActionRe
 
   return { ok: true, state: await getPublicPageState() };
 }
+
+/**
+ * Rétablit la présentation d'origine : brouillon et version publiée sont
+ * effacés, la page publique revient exactement à ce qu'elle était avant toute
+ * personnalisation. C'est le filet de sécurité de l'éditeur — on peut tout
+ * essayer sans craindre de ne pas savoir revenir en arrière.
+ *
+ * Contrairement à l'abandon du brouillon, cette action change ce que voient
+ * les clients : la page publique est donc revalidée.
+ */
+export async function resetPublicPageAction(): Promise<PublicPageActionResult> {
+  const access = await requireEditor();
+  if (!access.ok) return access;
+
+  try {
+    await prisma.businessProfile.update({
+      where: { id: access.profileId },
+      data: { publicPageDraft: Prisma.DbNull, publicPagePublished: Prisma.DbNull, publicPagePublishedAt: null },
+    });
+  } catch (error) {
+    console.error("[page publique] Échec du rétablissement de la page d'origine", error);
+    return { ok: false, error: "La page n'a pas pu être rétablie. Réessayez dans un instant." };
+  }
+
+  revalidatePath("/reserver/[slug]", "page");
+  return { ok: true, state: await getPublicPageState() };
+}

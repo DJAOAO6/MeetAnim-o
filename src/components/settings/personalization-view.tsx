@@ -127,6 +127,7 @@ function DashboardLayoutPanel() {
         <li>• Déplacez un bloc par sa poignée, à la souris, au doigt ou au clavier.</li>
         <li>• Réglez sa largeur de 1 à 4 colonnes, ou masquez-le.</li>
         <li>• Ajoutez les blocs masqués depuis le panneau du bas.</li>
+        <li>• « Tout remettre d’origine » rétablit la disposition initiale si le résultat ne vous plaît pas.</li>
       </ul>
       <Link
         href="/dashboard?personnaliser=1"

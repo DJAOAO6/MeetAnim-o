@@ -13,6 +13,7 @@ import { DashboardPlanning } from "@/components/dashboard/dashboard-planning";
 import { DashboardRemindersCard } from "@/components/dashboard/dashboard-reminders-card";
 import { DashboardStats } from "@/components/dashboard/dashboard-stats";
 import { Button } from "@/components/ui/button";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SaveStatus, type SaveState } from "@/components/ui/save-status";
 import { SortableBlock } from "@/components/ui/sortable-block";
 import {
@@ -59,6 +60,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   // exactement, y compris après plusieurs déplacements.
   const [snapshot, setSnapshot] = useState(initialLayout);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const widgetContent = useMemo<Record<DashboardWidgetId, ReactNode>>(() => ({
     availability: <DashboardAvailabilityControls cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} />,
@@ -119,7 +121,12 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
     setEditing(false);
   }
 
+  /**
+   * Retour à la disposition d'origine. Confirmé : le travail de
+   * personnalisation disparaît, et rien ne permettrait de le retrouver.
+   */
   async function reset() {
+    setConfirmingReset(false);
     setSaveState("saving");
     const result = await resetDashboardLayoutAction();
     if (!result.ok) { setSaveState("error"); notify.error(result.error); return; }
@@ -187,7 +194,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
             <SaveStatus state={saveState} className="mt-2" />
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end [&>*]:flex-1 sm:[&>*]:flex-none">
-            <Button variant="ghost" onClick={reset}>Réinitialiser</Button>
+            <Button variant="ghost" onClick={() => setConfirmingReset(true)}>Tout remettre d’origine</Button>
             <Button variant="secondary" onClick={cancel}>Annuler</Button>
             <Button onClick={save} disabled={saveState === "saving"}>
               {saveState === "saving" ? "Enregistrement…" : "Enregistrer"}
@@ -229,6 +236,16 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
             </ul>
           )}
         </section>
+      ) : null}
+
+      {confirmingReset ? (
+        <ConfirmModal
+          title="Remettre la disposition d’origine ?"
+          message="L’ordre, les largeurs et les blocs masqués que vous avez choisis seront effacés, et le tableau de bord retrouvera sa disposition initiale. Vous pourrez toujours le repersonnaliser ensuite."
+          confirmLabel="Tout remettre d’origine"
+          onConfirm={reset}
+          onClose={() => setConfirmingReset(false)}
+        />
       ) : null}
 
       {visibleWidgets.length === 0 && !editing ? (

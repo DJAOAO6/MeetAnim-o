@@ -7,8 +7,10 @@ type AnimeoLogoProps = {
   tone?: "dark" | "light";
 };
 
-// Proportions réelles de public/1002-pattes-logo.png (560 × 328).
-const LOGO_RATIO = 560 / 328;
+// Proportions réelles de public/1002-pattes-logo.png (560 × 329), détouré de
+// ses marges transparentes : sans ce détourage, le logo paraîtrait plus petit
+// que la hauteur demandée, les marges vides comptant dans le cadre.
+const LOGO_RATIO = 560 / 329;
 
 const heights = {
   hero: "clamp(96px, 26vw, 140px)",
