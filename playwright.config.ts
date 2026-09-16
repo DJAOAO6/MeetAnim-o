@@ -28,12 +28,12 @@ export default defineConfig({
     {
       name: "chromium",
       // Les specs à session partagée ont leur propre projet ci-dessous.
-      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor)\.(spec\.)?ts/,
+      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths)\.(spec\.)?ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "chromium-connecte",
-      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor)\.spec\.ts/,
+      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/practitioner.json" },
     },

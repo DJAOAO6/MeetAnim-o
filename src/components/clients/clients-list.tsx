@@ -274,8 +274,13 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
 
         {filteredClients.length > 0 ? (
           <>
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[980px] border-collapse text-left">
+            {/* Seuil xl et non lg : à 1024 px, la barre latérale fixe laisse
+                686 px utiles — un tableau de 980 px y imposait un défilement
+                horizontal permanent, et faisait glisser la page entière de
+                côté. Les cartes, elles, tiennent parfaitement dans cette
+                largeur. */}
+            <div className="hidden overflow-x-auto xl:block">
+              <table className="w-full min-w-[880px] border-collapse text-left">
                 <thead className="bg-animeo-surface-alt text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
                   <tr>
                     {canDelete && selectionMode ? (
@@ -311,7 +316,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
               </table>
             </div>
 
-            <div className="grid gap-4 p-4 sm:grid-cols-2 lg:hidden">
+            <div className="grid gap-4 p-4 sm:grid-cols-2 xl:hidden">
               {filteredClients.map((client) => (
                 <ClientMobileCard
                   key={client.id}
@@ -364,7 +369,10 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
       </td>
       <td className="px-4 py-4">
         <p className="text-sm font-bold text-animeo-dark">{client.phone}</p>
-        <p className="mt-1 text-xs text-animeo-muted">{client.email}</p>
+        {/* break-all : une adresse email est une chaîne insécable ; sans
+            coupure, elle imposait sa largeur à toute la colonne et poussait
+            le tableau au-delà de la place disponible. */}
+        <p className="mt-1 break-all text-xs text-animeo-muted">{client.email}</p>
       </td>
       <td className="px-4 py-4 text-sm font-semibold text-animeo-muted">{client.city}</td>
       <td className="px-4 py-4">

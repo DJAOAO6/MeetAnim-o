@@ -84,7 +84,10 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
             <Field label="Slug public" hint="Lettres minuscules, chiffres et tirets uniquement.">
               <div className="flex overflow-hidden rounded-xl border border-animeo-border bg-white focus-within:border-animeo">
-                <span className="flex items-center border-r border-animeo-border bg-animeo-bg px-3 text-sm font-bold text-animeo-muted">{publicLinkPrefix}</span>
+                {/* Le domaine est une chaîne insécable : sans troncature, sa
+                    largeur minimale imposait 421 px au formulaire entier et
+                    faisait déborder la page sur les petits écrans. */}
+                <span className="flex max-w-[55%] items-center truncate border-r border-animeo-border bg-animeo-bg px-3 text-sm font-bold text-animeo-muted" title={publicLinkPrefix}>{publicLinkPrefix}</span>
                 <input value={draft.slug} onChange={(event) => update("slug", cleanSlug(event.target.value))} className="h-11 min-w-0 flex-1 px-3 text-sm font-bold text-animeo-dark outline-none" required />
               </div>
             </Field>

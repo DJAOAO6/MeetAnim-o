@@ -31,7 +31,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <DashboardThemeProvider>
         <AppointmentsProvider initialAppointments={appointments}>
           <RemindersProvider initialReminders={reminders}>
-            <div className="min-h-screen bg-animeo-bg pt-16 text-animeo-text md:pl-64 md:pt-0">
+            {/* overflow-x-clip : la page elle-même ne défile jamais
+                latéralement. Les conteneurs qui en ont besoin (tableaux
+                larges, planning, barre d'onglets) gardent leur propre
+                défilement horizontal — `clip` plutôt que `hidden` pour ne pas
+                créer un conteneur de défilement, ce qui casserait les
+                éléments `sticky` (colonne des heures, en-têtes de tableaux).
+                Sans cette règle, un seul élément trop large suffisait à faire
+                glisser toute l'interface de côté. */}
+            <div className="min-h-screen overflow-x-clip bg-animeo-bg pt-16 text-animeo-text md:pl-64 md:pt-0">
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} />
               {/* pb-24 sous md : dégagement pour la barre de navigation
                   fixe du bas, sinon elle recouvre la fin du contenu. */}

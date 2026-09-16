@@ -52,8 +52,10 @@ export function RemindersTable(props: RemindersTableProps) {
           de forcer 7 colonnes serrées dès 1024px, au lieu de retomber sur
           les cartes mobiles jusqu'à 1536px (incohérence visuelle sur les
           largeurs d'écran de portable les plus courantes, 1280-1440px). */}
-      <div className="hidden overflow-x-auto lg:block">
-        <div className="min-w-[1080px]">
+      {/* Même seuil que clients-list.tsx, pour la même raison : à 1024 px la
+          place utile n'est que de 686 px une fois la barre latérale déduite. */}
+      <div className="hidden overflow-x-auto xl:block">
+        <div className="min-w-[980px]">
           <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-animeo-border-soft bg-animeo-surface-alt px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
             <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Sélectionner tous les rappels affichés" className="h-4 w-4 accent-animeo-brand" />
             <span>Client</span>
@@ -70,7 +72,7 @@ export function RemindersTable(props: RemindersTableProps) {
         </div>
       </div>
 
-      <div className="grid gap-4 p-4 sm:grid-cols-2 lg:hidden">
+      <div className="grid gap-4 p-4 sm:grid-cols-2 xl:hidden">
         {reminders.map((reminder) => <MobileReminderCard key={reminder.id} reminder={reminder} {...props} />)}
       </div>
     </Card>
