@@ -7,6 +7,7 @@ import { DashboardFloatingActions } from "@/components/dashboard/dashboard-float
 import { DashboardRealtimeRefresh } from "@/components/dashboard/dashboard-realtime-refresh";
 import { RemindersProvider } from "@/components/dashboard/reminders-context";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provider";
 import { getAppointments } from "@/lib/appointments";
@@ -28,7 +29,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <CurrentUserProvider user={user}>
-      <DashboardThemeProvider>
+      <SidebarProvider>
+        <DashboardThemeProvider>
         <AppointmentsProvider initialAppointments={appointments}>
           <RemindersProvider initialReminders={reminders}>
             {/* overflow-x-clip : la page elle-même ne défile jamais
@@ -39,7 +41,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 éléments `sticky` (colonne des heures, en-têtes de tableaux).
                 Sans cette règle, un seul élément trop large suffisait à faire
                 glisser toute l'interface de côté. */}
-            <div className="min-h-screen overflow-x-clip bg-animeo-bg pt-16 text-animeo-text md:pl-64 md:pt-0">
+            {/* Le décalage suit la largeur réelle de la barre latérale, la
+                même variable que celle-ci applique : réduire le menu rend
+                l'espace au contenu, sans bande vide ni recouvrement, et sans
+                qu'aucune page ait à connaître l'existence de la barre.
+                `md:` seulement : sous ce seuil la navigation est un tiroir
+                posé par-dessus le contenu. */}
+            <div className="min-h-screen overflow-x-clip bg-animeo-bg pt-16 text-animeo-text transition-[padding] duration-200 ease-out md:pl-[var(--sidebar-width,260px)] md:pt-0">
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} />
               {/* pb-24 sous md : dégagement pour la barre de navigation
                   fixe du bas, sinon elle recouvre la fin du contenu. */}
@@ -70,7 +78,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </div>
           </RemindersProvider>
         </AppointmentsProvider>
-      </DashboardThemeProvider>
+        </DashboardThemeProvider>
+      </SidebarProvider>
     </CurrentUserProvider>
   );
 }

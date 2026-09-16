@@ -3,7 +3,7 @@ import Image from "next/image";
 type AnimeoLogoProps = {
   className?: string;
   priority?: boolean;
-  size?: "hero" | "sidebar" | "mobile" | "footer";
+  size?: "hero" | "sidebar" | "mobile" | "footer" | "mark";
   tone?: "dark" | "light";
 };
 
@@ -17,7 +17,12 @@ const heights = {
   sidebar: "76px",
   mobile: "40px",
   footer: "22px",
+  // Marque seule (la tête du teckel), pour la barre latérale repliée : le
+  // logo complet réduit à cette largeur deviendrait illisible.
+  mark: "40px",
 } satisfies Record<NonNullable<AnimeoLogoProps["size"]>, string>;
+
+const MARK_RATIO = 128 / 155;
 
 /**
  * Logo 1002 Pattes. Sur la barre latérale et l'en-tête mobile (tone="light"),
@@ -27,10 +32,18 @@ const heights = {
  */
 export function AnimeoLogo({ className = "", priority = false, size = "sidebar", tone = "dark" }: AnimeoLogoProps) {
   const height = heights[size];
+  const isMark = size === "mark";
 
   const image = (
-    <span className="relative inline-block" style={{ height, aspectRatio: String(LOGO_RATIO) }}>
-      <Image src="/1002-pattes-logo.png" alt="1002 Pattes" fill priority={priority} sizes="(max-width: 768px) 160px, 280px" className="object-contain" />
+    <span className="relative inline-block" style={{ height, aspectRatio: String(isMark ? MARK_RATIO : LOGO_RATIO) }}>
+      <Image
+        src={isMark ? "/1002-pattes-mark.png" : "/1002-pattes-logo.png"}
+        alt="1002 Pattes"
+        fill
+        priority={priority}
+        sizes={isMark ? "48px" : "(max-width: 768px) 160px, 280px"}
+        className="object-contain"
+      />
     </span>
   );
 
