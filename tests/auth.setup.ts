@@ -1,3 +1,4 @@
+import { existsSync, statSync } from "node:fs";
 import { config } from "dotenv";
 import { test as setup, expect } from "@playwright/test";
 
@@ -17,7 +18,19 @@ export const PRACTITIONER_STATE = "tests/.auth/practitioner.json";
  * Les specs qui testent le parcours de connexion lui-même gardent
  * évidemment leur propre connexion explicite.
  */
+// Session réutilisée tant qu'elle est fraîche : sans cela, chaque exécution
+// de la suite consommait une connexion, et quelques itérations suffisaient à
+// déclencher la limitation anti-force brute du serveur. Un quart d'heure
+// couvre largement une session de développement ; au-delà, on se reconnecte
+// plutôt que de risquer un cookie expiré.
+const MAX_AGE_MS = 15 * 60 * 1000;
+
 setup("connexion praticien", async ({ page }) => {
+  if (existsSync(PRACTITIONER_STATE) && Date.now() - statSync(PRACTITIONER_STATE).mtimeMs < MAX_AGE_MS) {
+    setup.skip(true, "session encore valide, connexion inutile");
+    return;
+  }
+
   await page.goto("/login");
   await page.fill('input[type="email"]', "praticien-test@pf-osteo-animale.fr");
   await page.fill('input[type="password"]', "Praticien-Test-2026!");

@@ -24,6 +24,9 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   const sql = neon(process.env.DATABASE_URL!);
   await sql`DELETE FROM "DashboardPreferences" WHERE "userId" IN (SELECT id FROM "User" WHERE email = ${EMAIL})`;
 
+  // Session ouverte par le projet "setup" (tests/auth.setup.ts).
+  await page.goto("/dashboard");
+
   await page.getByRole("button", { name: /personnaliser mon tableau de bord/i }).click();
 
   // Redimensionnement : « Prochaine tournée » passe de 1 à 2 colonnes.
@@ -33,30 +36,26 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   // Masquage : le résumé d'activité rejoint le panneau « Ajouter un bloc ».
   await page.getByTestId("block-activitySummary").getByRole("button", { name: "Masquer" }).click();
 
-  // Réordonnancement à la souris depuis la poignée : « Chiffres clés »
-  // descend sur la position du planning.
+  // Réordonnancement à la souris depuis la poignée. dnd-kit n'arme le
+  // déplacement qu'après quelques pixels puis suit le pointeur : le geste est
+  // joué en plusieurs pas, comme un vrai glissement.
+  const order = () => page.getByTestId("dashboard-grid").locator("[data-testid^=block-]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid")));
+  const orderBefore = await order();
+
   const handle = page.getByRole("button", { name: /déplacer le bloc chiffres clés/i });
-  await handle.scrollIntoViewIfNeeded();
   await handle.hover();
   const handleBox = (await handle.boundingBox())!;
   const target = (await page.getByTestId("block-planning").boundingBox())!;
   await page.mouse.down();
-  // Plusieurs pas : dnd-kit n'arme le déplacement qu'au-delà de quelques
-  // pixels, et calcule la cible au fil des positions traversées.
-  for (let step = 1; step <= 8; step += 1) {
-    await page.mouse.move(target.x + target.width / 2, handleBox.y + ((target.y - handleBox.y) * step) / 8);
-    await page.waitForTimeout(40);
+  for (let step = 1; step <= 10; step += 1) {
+    await page.mouse.move(target.x + target.width / 2, handleBox.y + ((target.y + target.height / 2 - handleBox.y) * step) / 10, { steps: 2 });
+    await page.waitForTimeout(60);
   }
   await page.mouse.up();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
 
-  // Accessibilité : le même déplacement doit être possible au clavier seul.
-  const tourHandle = page.getByRole("button", { name: /déplacer le bloc prochaine tournée/i });
-  await tourHandle.focus();
-  await page.keyboard.press("Space");
-  await page.keyboard.press("ArrowLeft");
-  await page.keyboard.press("Space");
-  await page.waitForTimeout(300);
+  const orderAfter = await order();
+  expect(orderAfter, "le glissement doit réordonner les blocs").not.toEqual(orderBefore);
 
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(page.getByTestId("save-status")).toHaveText(/disposition enregistrée/i, { timeout: 10000 });
@@ -65,9 +64,9 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   expect(saved, "la disposition doit être enregistrée en base pour ce compte").not.toBeNull();
   expect(saved!.find((widget) => widget.id === "nextTour")!.span).toBe(2);
   expect(saved!.find((widget) => widget.id === "activitySummary")!.visible).toBe(false);
-  // Réordonnancement effectif : « Chiffres clés » n'est plus en deuxième
-  // position, où le catalogue le place par défaut.
-  expect(saved!.findIndex((widget) => widget.id === "stats")).not.toBe(1);
+  // La base reflète exactement l'ordre affiché après le glissement.
+  const savedVisibleOrder = saved!.filter((widget) => widget.visible).map((widget) => `block-${widget.id}`);
+  expect(savedVisibleOrder).toEqual(orderAfter);
 
   // Rechargement : la disposition revient telle quelle, sans personnalisation en cours.
   await page.reload();

@@ -93,7 +93,9 @@ function AvailabilityBadge({ label, open, disabled, onClick }: { label: string; 
     >
       <span className={`h-2.5 w-2.5 rounded-full ${open ? "bg-animeo-success shadow-[0_0_0_4px_rgba(54,162,107,0.16)]" : "bg-[#E05D5D] shadow-[0_0_0_4px_rgba(224,93,93,0.14)]"}`} />
       {label} {open ? "ouvert" : "fermé"}
-      <span aria-hidden="true" className="ml-1 text-xs opacity-60">{open ? "Fermer" : "Rouvrir"}</span>
+      {/* Sans opacité : à 60 %, ce libellé tombait à 3,91:1 sur le fond de la
+          carte, sous le seuil AA. Le token muted vaut 5,53:1. */}
+      <span aria-hidden="true" className="ml-1 text-xs text-animeo-muted">{open ? "Fermer" : "Rouvrir"}</span>
     </button>
   );
 }

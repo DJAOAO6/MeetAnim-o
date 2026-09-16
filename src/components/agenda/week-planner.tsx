@@ -717,9 +717,13 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
       <p className="mt-0.5 truncate text-xs font-extrabold">
         {isUnavailable || isTournee ? event.title : event.animal}
       </p>
-      {event.client ? <p className="truncate text-[10px] font-bold opacity-75">{event.client}</p> : null}
+      {event.client ? <p className="truncate text-[10px] font-bold">{event.client}</p> : null}
+      {/* Sans opacité sur ces deux lignes : appliquée à un texte de 10 px sur
+          une pastille colorée, elle les faisait passer sous le seuil de
+          contraste AA. Elles héritent désormais de la couleur de la pastille,
+          déjà vérifiée. */}
       {event.location ? (
-        <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-semibold opacity-80">
+        <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-semibold">
           {isTournee ? <Icon name="tournees" className="h-3 w-3 shrink-0" /> : null}
           {event.kind === "cabinet" ? <Icon name="home" className="h-3 w-3 shrink-0" /> : null}
           {event.kind === "domicile" ? <Icon name="car" className="h-3 w-3 shrink-0" /> : null}

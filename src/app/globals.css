@@ -34,14 +34,20 @@
   --theme-logo-plate: transparent;
   --theme-sidebar-hover: #efe5da;
   --theme-sidebar-active-bg: #f7e2d2;
-  --theme-sidebar-active-text: #a9531c;
+  /* #a9531c ne donnait que 4,25:1 sur le fond actif ci-dessus (sous le seuil
+     AA de 4,5:1 pour du texte de 16 px) : teinte assombrie, 5,53:1. */
+  --theme-sidebar-active-text: #8f4515;
   --theme-sidebar-border: #ebe0d5;
   --theme-action: #a9531c;
   --theme-text: #4a2412;
   --theme-heading: #4a2412;
   --theme-heading-deep: #3a1b0d;
   --theme-muted: #7a6355;
-  --theme-subtle: #a08b7e;
+  /* #a08b7e ne donnait que 3,2:1 sur une carte blanche et 2,9:1 sur le fond
+     de l'application : insuffisant pour du texte, y compris les indications
+     discrètes (jours hors mois, marques de saisie). Assombri à 5,0:1 sur
+     blanc, 4,5:1 sur le fond. */
+  --theme-subtle: #83695a;
   --theme-soft: #f7e7da;
   --theme-soft-strong: #f1d8c4;
   --theme-border: #e8ded3;
