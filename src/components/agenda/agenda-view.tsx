@@ -7,6 +7,10 @@ import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
 import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/agenda-view-switcher";
 import { AgendaFilterBar } from "@/components/agenda/agenda-filter-bar";
 import { BlockedSlotModal } from "@/components/agenda/blocked-slot-modal";
+import { SlotActionMenu, type SlotAction } from "@/components/agenda/slot-action-menu";
+import { SlotActionSheet } from "@/components/agenda/slot-action-sheet";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { availableDurations, formatMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { BlockedSlotPopover } from "@/components/agenda/blocked-slot-popover";
 import { DayDetailPanel } from "@/components/agenda/day-detail-panel";
 import { MonthCalendarView, type MonthFilter } from "@/components/agenda/month-calendar-view";
@@ -137,6 +141,29 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>(initialBlockedSlots);
   const [blockedSlotModalDate, setBlockedSlotModalDate] = useState<string | null>(null);
   const [selectedBlockedSlot, setSelectedBlockedSlot] = useState<{ slot: BlockedSlot; anchorRect: DOMRect } | null>(null);
+  /**
+   * Créneau libre choisi dans la grille.
+   *
+   * `pointerType` décide de la présentation : menu flottant à la souris,
+   * feuille ancrée en bas au doigt. C'est la capacité du périphérique qui
+   * tranche, pas la largeur de l'écran — une tablette branchée à une souris
+   * mérite le menu, un grand téléphone mérite la feuille (§22).
+   *
+   * `bounds` voyage avec la sélection : les durées proposées sur téléphone
+   * doivent connaître le rendez-vous suivant, sinon elles proposeraient deux
+   * heures là où il n'y en a qu'une de libre.
+   */
+  const [slotSelection, setSlotSelection] = useState<{
+    selection: SlotSelection;
+    date: Date;
+    anchorRect: DOMRect;
+    closed: boolean;
+    pointerType: string;
+    bounds: SelectionBounds;
+  } | null>(null);
+  // Création demandée sur une période fermée : confirmée avant d'ouvrir le
+  // formulaire, jamais par une boîte de dialogue du navigateur.
+  const [confirmingClosedSlot, setConfirmingClosedSlot] = useState<{ date: string; start: string; duration: number } | null>(null);
   const weekDates = getWeekDates(weekOffset);
   const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
   const monthDate = getMonthDate(monthOffset);
@@ -228,6 +255,61 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
   function openBlockSlotModal() {
     setBlockedSlotModalDate(smartDefaultDateId());
+  }
+
+  /**
+   * Créneau tracé dans la grille : on ne fait que le retenir. Rien n'est
+   * enregistré tant qu'une action n'a pas été choisie — c'est ce qui permet
+   * de tracer, changer d'avis, retracer, sans qu'aucune requête ne parte.
+   */
+  function handleSelectSlot(selection: SlotSelection, date: Date, anchorRect: DOMRect, closed: boolean, pointerType: string, bounds: SelectionBounds) {
+    setSlotSelection({ selection, date, anchorRect, closed, pointerType, bounds });
+  }
+
+  /** Durée ajustée depuis la feuille mobile, sans rouvrir le menu. */
+  function adjustSlotDuration(minutes: number) {
+    setSlotSelection((current) => current && ({
+      ...current,
+      selection: { ...current.selection, endMinutes: current.selection.startMinutes + minutes },
+    }));
+  }
+
+  async function handleSlotAction(action: SlotAction) {
+    if (!slotSelection) return;
+    const { selection, date, closed } = slotSelection;
+    const duration = selection.endMinutes - selection.startMinutes;
+    const day = dateId(date);
+    const start = formatMinutes(selection.startMinutes);
+    setSlotSelection(null);
+
+    if (action === "create" || action === "more") {
+      // Une zone fermée n'interdit pas au professionnel de poser lui-même un
+      // rendez-vous : elle l'avertit, et ne change pas les horaires publics.
+      if (closed) { setConfirmingClosedSlot({ date: day, start, duration }); return; }
+      openNewAppointment(day, { date: day, start, duration });
+      return;
+    }
+
+    if (action === "block") {
+      const result = await saveBlockedSlot({ date: day, startTime: start, endTime: formatMinutes(selection.endMinutes) });
+      if (!result.ok) notify.error(result.error ?? "Une erreur est survenue.");
+      return;
+    }
+
+    if (action === "editHours") {
+      router.push("/dashboard/parametres?tab=schedule");
+      return;
+    }
+
+    // « Indisponibilité » et « Ouvrir exceptionnellement » demandent une
+    // distinction que la base ne porte pas encore : BlockedSlot n'a pas de
+    // type, et il n'existe pas d'ouverture exceptionnelle. Plutôt que de
+    // faire passer l'un pour l'autre, on le dit.
+    notify.info(
+      action === "unavailable"
+        ? "Les indisponibilités arrivent — en attendant, « Bloquer ce créneau » empêche les réservations en ligne."
+        : "L’ouverture exceptionnelle arrive — en attendant, vous pouvez ajouter le rendez-vous manuellement.",
+    );
   }
 
   async function saveBlockedSlot(input: Parameters<typeof createBlockedSlotAction>[0]) {
@@ -422,6 +504,9 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               onPendingAction={handlePendingAction}
               onSelectTour={handleSelectTour}
               onSelectBlockedSlot={handleSelectBlockedSlot}
+              onSelectSlot={handleSelectSlot}
+              onClearSlot={() => setSlotSelection(null)}
+              activeSlot={slotSelection?.selection ?? null}
             />
             <AgendaSidePanel weekDates={weekDates} tours={tours} tourAppointments={tourAppointments} onSelectDate={jumpToDay} />
           </div>
@@ -481,6 +566,44 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
           </div>
         </>
       )}
+
+      {slotSelection && slotSelection.pointerType === "mouse" ? (
+        <SlotActionMenu
+          selection={slotSelection.selection}
+          date={slotSelection.date}
+          closed={slotSelection.closed}
+          anchorRect={slotSelection.anchorRect}
+          onAction={handleSlotAction}
+          onClose={() => setSlotSelection(null)}
+        />
+      ) : null}
+
+      {slotSelection && slotSelection.pointerType !== "mouse" ? (
+        <SlotActionSheet
+          selection={slotSelection.selection}
+          date={slotSelection.date}
+          closed={slotSelection.closed}
+          durations={availableDurations(slotSelection.selection, slotSelection.bounds)}
+          onSelectDuration={adjustSlotDuration}
+          onAction={handleSlotAction}
+          onClose={() => setSlotSelection(null)}
+        />
+      ) : null}
+
+      {confirmingClosedSlot ? (
+        <ConfirmModal
+          title="Créneau normalement fermé"
+          message={`Le ${formatDayLabel(new Date(`${confirmingClosedSlot.date}T12:00:00`)).toLocaleLowerCase("fr-FR")} à ${confirmingClosedSlot.start}, vous n’acceptez pas de réservations. Créer ce rendez-vous ne changera pas vos horaires habituels.`}
+          confirmLabel="Créer quand même"
+          destructive={false}
+          onConfirm={() => {
+            const slot = confirmingClosedSlot;
+            setConfirmingClosedSlot(null);
+            openNewAppointment(slot.date, { date: slot.date, start: slot.start, duration: slot.duration });
+          }}
+          onClose={() => setConfirmingClosedSlot(null)}
+        />
+      ) : null}
 
       {blockedSlotModalDate ? (
         <BlockedSlotModal

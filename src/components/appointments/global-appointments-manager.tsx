@@ -25,6 +25,7 @@ export function GlobalAppointmentsManager({ context }: { context: AppointmentMod
     selectedAppointmentId,
     creatingAppointment,
     newAppointmentDefaultDate,
+    newAppointmentPrefill,
     openManager,
     openNewAppointment,
     closeManager,
@@ -65,6 +66,7 @@ export function GlobalAppointmentsManager({ context }: { context: AppointmentMod
         appointment={appointment}
         template={duplicating ?? undefined}
         defaultDate={newAppointmentDefaultDate}
+        prefill={duplicating || editing ? undefined : newAppointmentPrefill}
         context={context}
         onSave={saveAppointment}
         onClose={() => {

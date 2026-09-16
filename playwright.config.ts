@@ -28,12 +28,12 @@ export default defineConfig({
     {
       name: "chromium",
       // Les specs à session partagée ont leur propre projet ci-dessous.
-      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal)\.(spec\.)?ts/,
+      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection)\.(spec\.)?ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "chromium-connecte",
-      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal)\.spec\.ts/,
+      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/practitioner.json" },
     },
@@ -58,7 +58,7 @@ export default defineConfig({
     },
     {
       name: "mobile-chromium-connecte",
-      testMatch: /(agenda-touch-drag|responsive-mobile)\.spec\.ts/,
+      testMatch: /(agenda-touch-drag|agenda-slot-touch|responsive-mobile)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true, storageState: "tests/.auth/practitioner.json" },
     },

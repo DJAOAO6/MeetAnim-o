@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import type { AppointmentPrefill } from "@/components/appointments/appointments-context";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 import type { ServiceSettings } from "@/data/settings";
@@ -72,7 +73,7 @@ function animalDetailOf(animal: { species?: string; breed?: string; age?: string
  * font que rendre un résultat, elles ne détiennent jamais l'état du
  * rendez-vous.
  */
-export function useAppointmentDraft({ appointment, template, defaultDate, services }: {
+export function useAppointmentDraft({ appointment, template, defaultDate, prefill, services }: {
   /** Rendez-vous en cours de modification. */
   appointment?: Appointment;
   /**
@@ -83,6 +84,8 @@ export function useAppointmentDraft({ appointment, template, defaultDate, servic
    */
   template?: Appointment;
   defaultDate?: string;
+  /** Créneau choisi dans la grille de l'agenda, appliqué par-dessus les valeurs par défaut. */
+  prefill?: AppointmentPrefill;
   services: ServiceSettings[];
 }) {
   const [draft, setDraft] = useState<AppointmentDraft>(() => {
@@ -124,12 +127,15 @@ export function useAppointmentDraft({ appointment, template, defaultDate, servic
     // prestations, leurs durées et leurs tarifs sont réglés dans Prestations,
     // et c'est la seule source.
     const firstService = services.find((service) => service.active) ?? services[0];
+    // Créneau tracé dans l'agenda : il prime sur la prestation et sur l'heure
+    // par défaut, puisqu'il vient d'être choisi à la main.
+    const place: AppointmentPlace = prefill?.mode === "home" ? "home" : "cabinet";
     return {
-      place: "cabinet",
+      place,
       tourRunId: null,
-      date: defaultDate ?? toLocalDateId(new Date()),
-      start: "09:00",
-      duration: firstService?.duration ?? 60,
+      date: prefill?.date ?? defaultDate ?? toLocalDateId(new Date()),
+      start: prefill?.start ?? "09:00",
+      duration: prefill?.duration ?? firstService?.duration ?? 60,
       clientId: undefined,
       clientName: "",
       clientPhone: "",
@@ -138,7 +144,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, servic
       animalSpecies: undefined,
       animalDetail: "",
       serviceName: firstService?.name ?? "",
-      price: firstService?.cabinetPrice ?? 0,
+      price: (place === "cabinet" ? firstService?.cabinetPrice : firstService?.homePrice) ?? 0,
       status: "confirmed",
       notes: "",
       addressLine: "",

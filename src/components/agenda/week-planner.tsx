@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AgendaEventPopover } from "@/components/agenda/agenda-event-popover";
+import { SlotSelectionLayer } from "@/components/agenda/slot-selection-layer";
+import { toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -37,6 +39,16 @@ type WeekPlannerProps = {
   onPendingAction: (action: string, event: CalendarEvent) => void;
   onSelectTour: (tourId: string, anchorRect: DOMRect) => void;
   onSelectBlockedSlot: (blockedSlotId: string, anchorRect: DOMRect) => void;
+  /**
+   * Créneau libre choisi dans la grille : la suite (menu d'actions, création,
+   * blocage) est décidée par AgendaView, qui détient déjà les actions et les
+   * modales. Le planner ne fait que dire ce qui a été sélectionné.
+   */
+  onSelectSlot?: (selection: SlotSelection, date: Date, anchorRect: DOMRect, closed: boolean, pointerType: string, bounds: SelectionBounds) => void;
+  /** Un clic ailleurs, ou sur une zone non sélectionnable, efface la sélection. */
+  onClearSlot?: () => void;
+  /** Sélection à mettre en évidence, renvoyée par AgendaView. */
+  activeSlot?: SlotSelection | null;
   appointmentEvents?: CalendarEvent[];
   tourEvents?: CalendarEvent[];
   blockedEvents?: CalendarEvent[];
@@ -153,7 +165,7 @@ type DragState =
   | { kind: "move"; event: CalendarEvent; originDay: number; originStartMinutes: number; grabOffsetMinutes: number; currentDay: number; currentStartMinutes: number }
   | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
 
-export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, appointmentEvents = [], tourEvents = [], blockedEvents = [] }: WeekPlannerProps) {
+export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [] }: WeekPlannerProps) {
   const { appointments, saveAppointment } = useAppointments();
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -480,6 +492,12 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   onBeginMove={beginMove}
                   onBeginResize={beginResize}
                   selectedEventId={selection?.event.id ?? null}
+                  slotInterval={availability.slotInterval}
+                  defaultDuration={availability.defaultAppointmentDuration}
+                  dayIndex={dayIndex}
+                  activeSlot={activeSlot && activeSlot.day === dayIndex ? activeSlot : null}
+                  onSelectSlot={onSelectSlot ? (slot, rect, closed, pointerType, bounds) => onSelectSlot(slot, date, rect, closed, pointerType, bounds) : undefined}
+                  onClearSlot={onClearSlot}
                 />
               ))}
 
@@ -547,7 +565,7 @@ function TimeColumn({ startHour, endHour, plannerHeight }: { startHour: number; 
   );
 }
 
-function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId }: {
+function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
   date: Date;
   now: Date;
   availability: AvailabilitySettings;
@@ -562,6 +580,13 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   onBeginMove: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   onBeginResize: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   selectedEventId: string | null;
+  dayIndex: number;
+  /** Pas de temps réglé dans Disponibilités — jamais une granularité inventée ici. */
+  slotInterval: number;
+  defaultDuration: number;
+  activeSlot: SlotSelection | null;
+  onSelectSlot?: (selection: SlotSelection, anchorRect: DOMRect, closed: boolean, pointerType: string, bounds: SelectionBounds) => void;
+  onClearSlot?: () => void;
 }) {
   const dayAvailability = useMemo(() => getDayAvailability(date, availability), [date, availability]);
   const closedRanges = useMemo(
@@ -569,6 +594,28 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
     [dayAvailability, startHour, endHour],
   );
   const layout = useMemo(() => computeEventColumns(dayEvents), [dayEvents]);
+
+  /**
+   * Ce qui empêche de sélectionner : tout ce qui occupe déjà la colonne —
+   * rendez-vous, tournées et créneaux bloqués. Un créneau tracé par-dessus
+   * l'un d'eux serait refusé par le serveur ensuite ; autant ne pas le
+   * laisser tracer.
+   */
+  const selectionBounds = useMemo<SelectionBounds>(() => ({
+    dayStart: startHour * 60,
+    dayEnd: endHour * 60,
+    step: slotInterval > 0 ? slotInterval : 15,
+    defaultDuration: defaultDuration > 0 ? defaultDuration : 45,
+    busy: dayEvents.map((event) => {
+      const start = slotToMinutes(event.start);
+      return { start, end: start + event.duration };
+    }),
+  }), [startHour, endHour, slotInterval, defaultDuration, dayEvents]);
+
+  const closedAt = useMemo(() => (minutes: number) => {
+    if (!dayAvailability.open) return true;
+    return isHourClosed(dayAvailability.hourly, Math.floor(minutes / 60));
+  }, [dayAvailability]);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const showTimeLine = isReferenceDay(date) && nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60;
 
@@ -606,6 +653,18 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           ) : null}
         </div>
       ))}
+
+      {onSelectSlot ? (
+        <SlotSelectionLayer
+          dayIndex={dayIndex}
+          bounds={selectionBounds}
+          hourHeight={HOUR_HEIGHT}
+          selection={activeSlot}
+          closedAt={closedAt}
+          onSelect={(slot, rect, closed, pointerType) => onSelectSlot(slot, rect, closed, pointerType, selectionBounds)}
+          onClear={() => onClearSlot?.()}
+        />
+      ) : null}
 
       {dayEvents.map((event) => (
         <CalendarEventCard

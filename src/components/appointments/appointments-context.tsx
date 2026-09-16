@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { saveAppointmentAction, updateAppointmentStatusAction, type SaveAppointmentInput } from "@/lib/appointments-actions";
-import type { Appointment, AppointmentStatus } from "@/data/appointments";
+import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 
 /**
   * `appointment` n'est présent qu'en cas de succès : il sert aux appelants
@@ -22,11 +22,28 @@ type AppointmentsContextValue = {
   // AgendaView.smartDefaultDateId. Absent (undefined) quand la création est
   // ouverte sans contexte de date (ex. depuis le gestionnaire global).
   newAppointmentDefaultDate: string | undefined;
+  /** Créneau choisi dans la grille de l'agenda — voir AppointmentPrefill. */
+  newAppointmentPrefill: AppointmentPrefill | undefined;
   openManager: (appointmentId?: string) => void;
-  openNewAppointment: (defaultDate?: string) => void;
+  openNewAppointment: (defaultDate?: string, prefill?: AppointmentPrefill) => void;
   closeManager: () => void;
   saveAppointment: (input: SaveAppointmentInput) => Promise<ActionOutcome>;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => Promise<ActionOutcome>;
+};
+
+/**
+ * Créneau déjà choisi avant d'ouvrir le formulaire.
+ *
+ * Sert à la sélection dans la grille de l'agenda : une plage tracée à la
+ * souris ne doit pas être ressaisie dans le formulaire. Tous les champs sont
+ * facultatifs — ouvrir « Nouveau rendez-vous » depuis un bouton n'en fournit
+ * aucun, et le formulaire garde alors ses valeurs par défaut.
+ */
+export type AppointmentPrefill = {
+  date?: string;
+  start?: string;
+  duration?: number;
+  mode?: AppointmentMode;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(null);
@@ -48,6 +65,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [creatingAppointment, setCreatingAppointment] = useState(false);
   const [newAppointmentDefaultDate, setNewAppointmentDefaultDate] = useState<string | undefined>(undefined);
+  const [newAppointmentPrefill, setNewAppointmentPrefill] = useState<AppointmentPrefill | undefined>(undefined);
 
   function openManager(appointmentId?: string) {
     setSelectedAppointmentId(appointmentId ?? null);
@@ -55,10 +73,11 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     setManagerOpen(true);
   }
 
-  function openNewAppointment(defaultDate?: string) {
+  function openNewAppointment(defaultDate?: string, prefill?: AppointmentPrefill) {
     setSelectedAppointmentId(null);
     setCreatingAppointment(true);
-    setNewAppointmentDefaultDate(defaultDate);
+    setNewAppointmentDefaultDate(prefill?.date ?? defaultDate);
+    setNewAppointmentPrefill(prefill);
     setManagerOpen(true);
   }
 
@@ -67,6 +86,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     setSelectedAppointmentId(null);
     setCreatingAppointment(false);
     setNewAppointmentDefaultDate(undefined);
+    setNewAppointmentPrefill(undefined);
   }
 
   // Ne notifie jamais elle-même (ni succès ni erreur) : partagée par des
@@ -102,6 +122,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
     selectedAppointmentId,
     creatingAppointment,
     newAppointmentDefaultDate,
+    newAppointmentPrefill,
     openManager,
     openNewAppointment,
     closeManager,

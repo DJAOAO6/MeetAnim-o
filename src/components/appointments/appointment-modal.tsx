@@ -24,6 +24,7 @@ import { addAppointmentStopsAction } from "@/lib/tour-runs-actions";
 import { checkGeographicWarningAction, type GeoWarning, type SaveAppointmentInput } from "@/lib/appointments-actions";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
+import type { AppointmentPrefill } from "@/components/appointments/appointments-context";
 import type { Appointment } from "@/data/appointments";
 import type { ClientPickerAnimal, ClientPickerOption } from "@/data/clients";
 import type { ServiceSettings } from "@/data/settings";
@@ -47,11 +48,13 @@ export type AppointmentModalContext = {
  * Le brouillon vit ici, au-dessus des sous-fenêtres de création rapide :
  * ouvrir « Créer un client » au milieu de la saisie ne perd donc rien.
  */
-export function AppointmentModal({ appointment, template, defaultDate, context, onSave, onClose, onCreated }: {
+export function AppointmentModal({ appointment, template, defaultDate, prefill, context, onSave, onClose, onCreated }: {
   appointment?: Appointment;
   /** Duplication : les valeurs de départ viennent de ce rendez-vous, mais on en crée un nouveau. */
   template?: Appointment;
   defaultDate?: string;
+  /** Créneau choisi dans la grille de l'agenda. */
+  prefill?: AppointmentPrefill;
   context: AppointmentModalContext;
   onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string; appointment?: Appointment }>;
   onClose: () => void;
@@ -59,7 +62,7 @@ export function AppointmentModal({ appointment, template, defaultDate, context, 
   onCreated?: () => void;
 }) {
   const { clients, services, cabinetAddress, reminderSummary } = context;
-  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, services });
+  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, services });
 
   // Clients et animaux créés pendant la saisie : ils n'existent pas encore
   // dans la liste venue du serveur, qui ne sera rafraîchie qu'au prochain
