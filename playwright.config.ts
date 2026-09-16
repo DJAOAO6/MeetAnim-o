@@ -51,7 +51,14 @@ export default defineConfig({
     // mobiles réelles) sans dépendre d'un moteur absent de la machine.
     {
       name: "mobile-chromium",
-      testMatch: /(schedule-calendar|agenda-touch-drag|responsive-mobile)\.spec\.ts/,
+      // Parcours public (réservation) : joué en visiteur, sans session — y
+      // poser un storageState connecté changerait le parcours testé.
+      testMatch: /schedule-calendar\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true },
+    },
+    {
+      name: "mobile-chromium-connecte",
+      testMatch: /(agenda-touch-drag|responsive-mobile)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true, storageState: "tests/.auth/practitioner.json" },
     },
