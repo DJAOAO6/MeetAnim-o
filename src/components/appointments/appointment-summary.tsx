@@ -1,13 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { completeAppointmentAction, type SuggestedReminder } from "@/lib/appointments-actions";
-import { saveReminderAction } from "@/lib/reminders-actions";
-import { createDocumentAction, getDocumentIdForAppointment, getDocumentTemplates } from "@/lib/documents-actions";
-import { pickDefaultTemplate } from "@/lib/documents/templates";
-import { notify } from "@/lib/notify";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { useAppointmentActions } from "@/components/appointments/use-appointment-actions";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import { toTelHref } from "@/lib/phone";
@@ -36,80 +29,12 @@ type AppointmentSummaryProps = {
  * modifier une information par mégarde en atterrissant sur un champ éditable.
  */
 export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: AppointmentSummaryProps) {
-  const router = useRouter();
   const isHomeVisit = appointment.mode === "home";
-  const [completing, setCompleting] = useState(false);
-  const [reminderPrompt, setReminderPrompt] = useState<SuggestedReminder | null>(null);
-  const [creatingDocument, setCreatingDocument] = useState(false);
-
-  // "Terminer" ne modifie jamais l'appointment affiché ici en place (pas de
-  // resynchronisation live du prop appointment entre popover et contexte,
-  // voir AppointmentForm) : on referme la fiche et on rafraîchit les
-  // données serveur de la page, plutôt que de tenter un état intermédiaire
-  // incohérent.
-  async function handleComplete() {
-    setCompleting(true);
-    const result = await completeAppointmentAction(appointment.id);
-    setCompleting(false);
-    if (!result.ok) {
-      notify.error(result.error);
-      return;
-    }
-    notify.success("Consultation marquée comme réalisée.");
-    if (result.suggestedReminder) {
-      setReminderPrompt(result.suggestedReminder);
-      return;
-    }
-    router.refresh();
-    onBack();
-  }
-
-  async function confirmReminder() {
-    if (!reminderPrompt) return;
-    const { clientId, animalId, delay, dueDate } = reminderPrompt;
-    setReminderPrompt(null);
-    const result = await saveReminderAction({ clientId, animalId, dueDate, delay, note: "" });
-    if (!result.ok) notify.error(result.error);
-    else notify.success(`Rappel programmé dans ${delay}.`);
-    router.refresh();
-    onBack();
-  }
-
-  function declineReminder() {
-    setReminderPrompt(null);
-    router.refresh();
-    onBack();
-  }
-
-  /**
-   * Rouvre le compte rendu existant s'il y en a déjà un pour ce rendez-vous
-   * (contrainte unique sur appointmentId) plutôt que d'échouer sur une
-   * seconde création — le type d'animal choisit automatiquement le modèle
-   * le plus adapté s'il en existe un (pickDefaultTemplate).
-   */
-  async function handleCreateDocument() {
-    setCreatingDocument(true);
-    const existingId = await getDocumentIdForAppointment(appointment.id);
-    if (existingId) {
-      router.push(`/dashboard/documents/${existingId}`);
-      return;
-    }
-    const templates = await getDocumentTemplates();
-    const template = pickDefaultTemplate(appointment.animalSpecies ?? null, templates);
-    const result = await createDocumentAction({
-      title: `Compte rendu — ${appointment.animalName}`,
-      clientId: appointment.clientId,
-      animalId: appointment.animalId,
-      appointmentId: appointment.id,
-      templateId: template?.id,
-    });
-    setCreatingDocument(false);
-    if (!result.ok) {
-      notify.error(result.error);
-      return;
-    }
-    router.push(`/dashboard/documents/${result.id}`);
-  }
+  // Mêmes gestes que dans le centre de gestion, par le même hook : « terminer »
+  // crée la consultation au dossier et propose un rappel, et le compte rendu
+  // rouvre celui qui existe déjà. Deux implémentations d'un même geste
+  // auraient fini par diverger.
+  const { complete, completing, createDocument, creatingDocument, reminderDialog } = useAppointmentActions(onBack);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -165,12 +90,12 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
           </div>
         ) : null}
         {appointment.status === "confirmed" ? (
-          <button type="button" onClick={handleComplete} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={() => complete(appointment)} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
             {completing ? "…" : "Consultation réalisée"}
           </button>
         ) : null}
         {appointment.status === "completed" ? (
-          <button type="button" onClick={handleCreateDocument} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="button" onClick={() => createDocument(appointment)} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
             <Icon name="document" className="h-4 w-4" />
             {creatingDocument ? "…" : "Créer le compte rendu"}
           </button>
@@ -180,17 +105,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
         </button>
       </div>
 
-      {reminderPrompt ? (
-        <ConfirmModal
-          title="Programmer un rappel ?"
-          message={`Proposer un nouveau rendez-vous à ${appointment.clientName} dans ${reminderPrompt.delay}, à partir de la prestation d'aujourd'hui.`}
-          confirmLabel={`Programmer dans ${reminderPrompt.delay}`}
-          cancelLabel="Non merci"
-          destructive={false}
-          onConfirm={confirmReminder}
-          onClose={declineReminder}
-        />
-      ) : null}
+      {reminderDialog}
     </div>
   );
 }

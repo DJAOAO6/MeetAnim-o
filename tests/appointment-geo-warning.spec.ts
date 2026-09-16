@@ -59,13 +59,28 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
+/**
+ * Client et animal saisis sans fiche : ce parcours existe toujours après la
+ * refonte du formulaire (le serveur enregistre alors le nom seul, clientId à
+ * null). Il convient ici, où le test porte sur l'avertissement de trajet et
+ * non sur le fichier clients.
+ */
+async function fillClientAndAnimal(dialog: ReturnType<Page["locator"]>, name: string) {
+  const search = dialog.getByRole("combobox", { name: /rechercher un client/i });
+  if (await search.count()) {
+    await search.fill(name);
+    await dialog.getByRole("button", { name: "Utiliser ce nom sans créer de fiche" }).click();
+  }
+  await dialog.getByLabel("Nom de l’animal").fill(name);
+}
+
 async function openNewAppointmentForm(page: Page) {
   await page.goto("/dashboard/agenda");
   // Course d'hydratation connue (voir appointment-overlap.spec.ts) : un clic
   // immédiatement après goto() peut atterrir avant que React n'ait attaché
   // ses gestionnaires.
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Nouveau rendez-vous", exact: true }).click();
+  await page.getByRole("button", { name: "Nouveau rendez-vous", exact: true }).first().click();
   const dialog = page.locator('[role="dialog"]').first();
   await expect(dialog).toBeVisible();
   return dialog;
@@ -86,15 +101,14 @@ test.describe("Avertissement d'incompatibilité géographique (Phase 3.3)", () =
     await login(page);
     const dialog = await openNewAppointmentForm(page);
 
-    await dialog.getByPlaceholder("Nom du client, ou recherchez une fiche existante").fill(NEW_CLIENT_NAME);
-    await dialog.getByPlaceholder("Nom de l’animal").fill(NEW_CLIENT_NAME);
+    await fillClientAndAnimal(dialog, NEW_CLIENT_NAME);
     await dialog.locator('input[type="date"]').fill(TEST_DATE);
     // Le voisin (cabinet, 09:00-10:00) laisse 15 minutes avant ce rendez-vous.
     await dialog.locator('input[type="time"]').fill("10:15");
     await dialog.getByLabel("Durée").selectOption("30");
-    await dialog.getByLabel("Mode").selectOption("home");
+    await dialog.getByRole("group", { name: "Lieu du rendez-vous" }).getByRole("button", { name: "Domicile" }).click();
 
-    const addressInput = dialog.getByLabel("Adresse", { exact: false }).and(dialog.locator('input[role="combobox"]'));
+    const addressInput = dialog.getByLabel("Adresse du rendez-vous").and(dialog.locator('input[role="combobox"]'));
     await addressInput.fill("1 rue test marseille");
     await dialog.getByRole("listbox").getByRole("option").first().click();
 
@@ -127,16 +141,15 @@ test.describe("Avertissement d'incompatibilité géographique (Phase 3.3)", () =
     await login(page);
     const dialog = await openNewAppointmentForm(page);
 
-    await dialog.getByPlaceholder("Nom du client, ou recherchez une fiche existante").fill(NEW_CLIENT_NAME);
-    await dialog.getByPlaceholder("Nom de l’animal").fill(NEW_CLIENT_NAME);
+    await fillClientAndAnimal(dialog, NEW_CLIENT_NAME);
     // Aucun rendez-vous seedé ce jour-là : rien à comparer, même avec une
     // adresse très éloignée.
     await dialog.locator('input[type="date"]').fill(TEST_DATE_NO_NEIGHBOR);
     await dialog.locator('input[type="time"]').fill("07:00");
     await dialog.getByLabel("Durée").selectOption("30");
-    await dialog.getByLabel("Mode").selectOption("home");
+    await dialog.getByRole("group", { name: "Lieu du rendez-vous" }).getByRole("button", { name: "Domicile" }).click();
 
-    const addressInput = dialog.getByLabel("Adresse", { exact: false }).and(dialog.locator('input[role="combobox"]'));
+    const addressInput = dialog.getByLabel("Adresse du rendez-vous").and(dialog.locator('input[role="combobox"]'));
     await addressInput.fill("1 rue test marseille");
     await dialog.getByRole("listbox").getByRole("option").first().click();
     await page.waitForTimeout(700);

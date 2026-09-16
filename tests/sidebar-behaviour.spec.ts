@@ -60,7 +60,7 @@ test("le survol déplie la barre sans déplacer le contenu", async ({ page }) =>
   expect(hovered.asideWidth, "la barre doit se déplier au survol").toBeGreaterThan(200);
   expect(hovered.left, "le contenu ne doit pas se déplacer").toBe(collapsed.left);
   expect(hovered.width, "le contenu ne doit pas changer de largeur").toBe(collapsed.width);
-  await expect(page.getByRole("button", { name: "Planning" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Planning", exact: true })).toBeVisible();
 
   // La souris s'éloigne : repli après le délai de tolérance.
   await page.mouse.move(1200, 500);
@@ -106,8 +106,8 @@ test("une seule catégorie ouverte à la fois, au clic comme au survol", async (
   await setBehaviours(page, "Manuelle au clic", "Manuelle au clic");
   await page.goto("/dashboard", { waitUntil: "networkidle" });
 
-  const planning = page.getByRole("button", { name: "Planning" });
-  const clientele = page.getByRole("button", { name: "Clientèle" });
+  const planning = page.getByRole("button", { name: "Planning", exact: true });
+  const clientele = page.getByRole("button", { name: "Clientèle", exact: true });
 
   await planning.hover();
   await page.waitForTimeout(500);
@@ -125,16 +125,16 @@ test("une seule catégorie ouverte à la fois, au clic comme au survol", async (
   await setBehaviours(page, "Manuelle au clic", "Automatique au survol");
   await page.goto("/dashboard", { waitUntil: "networkidle" });
 
-  await page.getByRole("button", { name: "Planning" }).hover();
-  await expect(page.getByRole("button", { name: "Planning" })).toHaveAttribute("aria-expanded", "true", { timeout: 3000 });
-  await page.getByRole("button", { name: "Gestion" }).hover();
-  await expect(page.getByRole("button", { name: "Gestion" })).toHaveAttribute("aria-expanded", "true", { timeout: 3000 });
-  await expect(page.getByRole("button", { name: "Planning" })).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "Planning", exact: true }).hover();
+  await expect(page.getByRole("button", { name: "Planning", exact: true })).toHaveAttribute("aria-expanded", "true", { timeout: 3000 });
+  await page.getByRole("button", { name: "Gestion", exact: true }).hover();
+  await expect(page.getByRole("button", { name: "Gestion", exact: true })).toHaveAttribute("aria-expanded", "true", { timeout: 3000 });
+  await expect(page.getByRole("button", { name: "Planning", exact: true })).toHaveAttribute("aria-expanded", "false");
 
   // Descendre vers les sous-pages de la catégorie ouverte ne la referme pas.
   await page.getByRole("link", { name: "Documents" }).hover();
   await page.waitForTimeout(600);
-  await expect(page.getByRole("button", { name: "Gestion" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "Gestion", exact: true })).toHaveAttribute("aria-expanded", "true");
 });
 
 test("la catégorie de la page affichée est ouverte, et peut être refermée", async ({ page }) => {
@@ -142,7 +142,7 @@ test("la catégorie de la page affichée est ouverte, et peut être refermée", 
   await setBehaviours(page, "Automatique au survol", "Manuelle au clic");
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
 
-  const planning = page.getByRole("button", { name: "Planning" });
+  const planning = page.getByRole("button", { name: "Planning", exact: true });
   await expect(planning, "l’entrée active ne doit pas être cachée dans un accordéon fermé").toHaveAttribute("aria-expanded", "true");
   await planning.click();
   await expect(planning, "la catégorie active doit pouvoir se refermer").toHaveAttribute("aria-expanded", "false");

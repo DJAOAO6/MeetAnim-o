@@ -4,7 +4,12 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { saveAppointmentAction, updateAppointmentStatusAction, type SaveAppointmentInput } from "@/lib/appointments-actions";
 import type { Appointment, AppointmentStatus } from "@/data/appointments";
 
-type ActionOutcome = { ok: boolean; error?: string };
+/**
+  * `appointment` n'est présent qu'en cas de succès : il sert aux appelants
+  * qui enchaînent sur le rendez-vous tout juste enregistré — le rattachement
+  * à une tournée a besoin de son identifiant, qui n'existe pas avant.
+  */
+type ActionOutcome = { ok: boolean; error?: string; appointment?: Appointment };
 
 type AppointmentsContextValue = {
   appointments: Appointment[];
@@ -80,7 +85,7 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
       : [...current, result.appointment]);
     setSelectedAppointmentId(result.appointment.id);
     setCreatingAppointment(false);
-    return { ok: true };
+    return { ok: true, appointment: result.appointment };
   }
 
   async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus): Promise<ActionOutcome> {

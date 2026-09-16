@@ -34,6 +34,15 @@ export const notify = {
   info(message: string) {
     return toast.info(message, { duration: SUCCESS_DURATION_MS });
   },
+  /**
+   * Résultat partiel : l'action a abouti, mais pas entièrement (ex. trois
+   * occurrences créées sur quatre). Ni un succès — ce serait mentir par
+   * omission — ni une erreur, puisqu'il y a bien quelque chose d'enregistré.
+   * Durée allongée : il y a une information à retenir, souvent une date.
+   */
+  warning(message: string) {
+    return toast.warning(message, { duration: UNDO_DURATION_MS });
+  },
   promise<T>(
     promiseValue: Promise<T> | (() => Promise<T>),
     options: {

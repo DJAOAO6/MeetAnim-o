@@ -50,15 +50,27 @@ test.describe("Chevauchement de créneaux (dashboard)", () => {
       // ne rien faire silencieusement (même contournement que les tests de
       // notifications).
       await page.waitForTimeout(600);
-      await page.getByRole("button", { name: "Nouveau rendez-vous", exact: true }).click();
+      // Deux commandes portent ce nom depuis la refonte (le bouton de la page
+      // et le bouton flottant) : les deux ouvrent la même fenêtre.
+      await page.getByRole("button", { name: "Nouveau rendez-vous", exact: true }).first().click();
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible();
       return dialog;
     }
 
+    /**
+     * Rendez-vous sans fiche client : ce parcours existe toujours après la
+     * refonte, et c'est celui qui convient ici — le test porte sur le conflit
+     * de créneau, pas sur le fichier clients, et il n'a donc pas à créer de
+     * vraies fiches à nettoyer ensuite.
+     */
     async function fill(dialog: ReturnType<typeof page.locator>, opts: { time: string; duration: number; name: string }) {
-      await dialog.getByPlaceholder("Nom du client, ou recherchez une fiche existante").fill(opts.name);
-      await dialog.getByPlaceholder("Nom de l’animal").fill(opts.name);
+      const search = dialog.getByRole("combobox", { name: /rechercher un client/i });
+      if (await search.count()) {
+        await search.fill(opts.name);
+        await dialog.getByRole("button", { name: "Utiliser ce nom sans créer de fiche" }).click();
+      }
+      await dialog.getByLabel("Nom de l’animal").fill(opts.name);
       await dialog.locator('input[type="date"]').fill(TEST_DATE);
       await dialog.locator('input[type="time"]').fill(opts.time);
       await dialog.getByLabel("Durée").selectOption(String(opts.duration));

@@ -3,7 +3,7 @@
 import { useEffect, useId, type ReactNode } from "react";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 
-type ModalSize = "sm" | "md" | "lg" | "xl";
+type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl";
 
 type ModalProps = {
   title: string;
@@ -27,6 +27,10 @@ const sizeClassName: Record<ModalSize, string> = {
   md: "sm:max-w-lg",
   lg: "sm:max-w-2xl",
   xl: "sm:max-w-4xl",
+  // Modules à deux colonnes (formulaire + aperçu, liste + détail) : en
+  // dessous de cette largeur, les deux colonnes ne tiennent pas et la
+  // fenêtre retombe sur une colonne inutilement étroite.
+  "2xl": "sm:max-w-[1100px]",
 };
 
 /**

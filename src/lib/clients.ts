@@ -117,7 +117,9 @@ export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption
       lastName: true,
       address: true,
       city: true,
-      animals: { select: { id: true, name: true, species: true }, orderBy: { name: "asc" } },
+      phone: true,
+      email: true,
+      animals: { select: { id: true, name: true, species: true, breed: true, age: true }, orderBy: { name: "asc" } },
     },
   });
 

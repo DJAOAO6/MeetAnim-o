@@ -23,7 +23,9 @@ export function DashboardPlanning({ clients }: { clients: Client[] }) {
     lastName: client.lastName,
     address: client.address,
     city: client.city,
-    animals: client.animals.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species })),
+    phone: client.phone,
+    email: client.email,
+    animals: client.animals.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, breed: animal.breed, age: animal.age })),
   })), [clients]);
 
   const todayAppointments = useMemo(() => {

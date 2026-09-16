@@ -15,17 +15,50 @@ import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getClientPickerOptions } from "@/lib/clients";
 import { getReminders } from "@/lib/reminders";
+import { getServices } from "@/lib/services-actions";
+import { getBusinessProfile, getReminderSettings } from "@/lib/business-profile-actions";
+import { describeReminderSetting } from "@/lib/appointment-reminders";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
 export const dynamic = "force-dynamic";
+
+/**
+ * Adresse du cabinet en une ligne lisible.
+ *
+ * L'adresse enregistrée vient de l'autocomplétion et contient déjà, le plus
+ * souvent, le code postal et la ville : les rajouter donnait « 453 Boulevard
+ * de l'Europe 76360 Barentin, 76360 Barentin ». On ne complète donc que ce
+ * qui manque vraiment.
+ */
+function composeCabinetAddress(address: string, postalCode: string, city: string): string {
+  const line = address.trim();
+  const suffix = [postalCode.trim(), city.trim()].filter(Boolean).join(" ");
+  if (!line) return suffix;
+  if (!suffix || line.includes(postalCode.trim()) || line.toLocaleLowerCase("fr-FR").includes(city.trim().toLocaleLowerCase("fr-FR"))) return line;
+  return `${line}, ${suffix}`;
+}
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Contrôle "sûr" en complément du contrôle optimiste du proxy : relit
   // l'utilisateur en base et invalide la session si le mot de passe a
   // changé ou si le compte a été désactivé depuis l'émission du cookie.
   const user = await requireUser();
-  const [appointments, clientOptions, reminders] = await Promise.all([getAppointments(), getClientPickerOptions(), getReminders()]);
+  // Une seule lecture pour tout l'espace professionnel : les deux fenêtres
+  // de rendez-vous (création, gestion) sont montées ici, et un formulaire de
+  // rendez-vous a besoin des prestations réglées, de l'adresse du cabinet et
+  // du réglage de rappels. Les charger ici évite qu'ils soient rechargés à
+  // chaque ouverture de la fenêtre.
+  const [appointments, clientOptions, reminders, services, businessProfile, reminderSettings] = await Promise.all([
+    getAppointments(),
+    getClientPickerOptions(),
+    getReminders(),
+    getServices(),
+    getBusinessProfile(),
+    getReminderSettings(),
+  ]);
+
+  const cabinetAddress = composeCabinetAddress(businessProfile.address, businessProfile.postalCode, businessProfile.city);
 
   return (
     <CurrentUserProvider user={user}>
@@ -54,7 +87,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               <main className="mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10">
                 {children}
               </main>
-              <GlobalAppointmentsManager clients={clientOptions} />
+              <GlobalAppointmentsManager
+                context={{
+                  clients: clientOptions,
+                  services,
+                  cabinetAddress,
+                  reminderSummary: describeReminderSetting(reminderSettings),
+                }}
+              />
               <DashboardFloatingActions />
               <MobileBottomNav />
               <DashboardRealtimeRefresh />

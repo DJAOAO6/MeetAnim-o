@@ -59,11 +59,15 @@ test.describe("Documents — points d'entrée rendez-vous et fiche animal (étap
     await login(page);
     await page.goto("/dashboard");
     await page.waitForTimeout(600);
-    await page.getByRole("button", { name: /Gérer les rendez-vous/ }).click();
+    await page.getByRole("button", { name: /^Gestion des rendez-vous/ }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await dialog.getByPlaceholder("Rechercher un client, un animal ou une prestation").fill(clientName);
-    await dialog.locator("article", { hasText: clientName }).getByRole("button", { name: "Voir la fiche" }).click();
+    // Le rendez-vous de test est daté d'octobre 2026 : la liste s'ouvre sur la
+    // semaine en cours, il faut donc lever le filtre de date.
+    await dialog.getByLabel("Filtrer par date").selectOption("all");
+    await dialog.getByPlaceholder("Rechercher un client, un animal ou une prestation…").fill(clientName);
+    // Sélection de la ligne : la fiche s'ouvre à droite, sans quitter la liste.
+    await dialog.locator("li").first().getByRole("button").first().click();
 
     await dialog.getByRole("button", { name: "Créer le compte rendu" }).click();
     await page.waitForURL(/\/dashboard\/documents\/[a-z0-9]+/, { timeout: 10000 });
