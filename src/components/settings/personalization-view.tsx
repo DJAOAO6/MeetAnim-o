@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { NavigationBehaviourPanel } from "@/components/settings/navigation-behaviour-panel";
 import { PersonalizationPreview } from "@/components/settings/personalization-preview";
 import { PublicPageEditor } from "@/components/settings/public-page-editor";
 import { ThemeColorsPanel, type ThemeDraft } from "@/components/settings/theme-colors-panel";
@@ -22,10 +23,11 @@ import type { PublicPageState } from "@/lib/public-page-actions";
  * des réglages inexistants, et « Profil professionnel » doublonnait l'onglet
  * dédié.
  */
-type PersonalizationSection = "theme" | "dashboard" | "booking";
+type PersonalizationSection = "theme" | "navigation" | "dashboard" | "booking";
 
 const sections: Array<{ id: PersonalizationSection; label: string; description: string; icon: IconName }> = [
   { id: "theme", label: "Thème et couleurs", description: "L’apparence de votre logiciel", icon: "sun" },
+  { id: "navigation", label: "Navigation", description: "Le comportement du menu latéral", icon: "settings" },
   { id: "dashboard", label: "Tableau de bord", description: "Les blocs affichés et leur disposition", icon: "dashboard" },
   { id: "booking", label: "Page de réservation", description: "La page que voient vos clients", icon: "calendar" },
 ];
@@ -85,6 +87,8 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
         {activeSection === "theme" ? (
           <ThemeColorsPanel draft={draft} onChange={setDraft} saving={saving} canEdit={canEdit} onSave={() => onSaveTheme(draft)} />
         ) : null}
+
+        {activeSection === "navigation" ? <NavigationBehaviourPanel /> : null}
 
         {activeSection === "dashboard" ? <DashboardLayoutPanel /> : null}
 

@@ -42,7 +42,10 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
   const [profileOpen, setProfileOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
-  const { collapsed, toggleCollapsed } = useSidebar();
+  const { collapsed, hoverExpanded, showLabels: contextLabels, toggleCollapsed, handleSidebarHover } = useSidebar();
+  // Sous 768 px la barre est un tiroir de 260 px : le repli n'y a pas cours,
+  // et une colonne d'icônes seules dans un tiroir large serait absurde.
+  const showLabels = contextLabels || mobileOpen;
   const user = useCurrentUser();
 
   // Ferme le popover profil au clic en dehors — même logique que
@@ -89,16 +92,31 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
       <aside
         data-open={mobileOpen}
         data-collapsed={collapsed}
+        data-hover-expanded={hoverExpanded}
+        onMouseEnter={() => handleSidebarHover(true)}
+        onMouseLeave={() => handleSidebarHover(false)}
         // Largeur pilotée par la même variable que le décalage du contenu :
         // les deux ne peuvent pas se désynchroniser, donc pas de bande vide
         // ni de recouvrement pendant l'animation. Sur mobile la barre reste
         // un tiroir de 260 px, le repli n'y a pas de sens.
-        className="dashboard-sidebar fixed inset-y-0 left-0 z-[60] flex w-[260px] flex-col border-r border-[var(--theme-sidebar-border)] px-3 py-6 text-[var(--theme-sidebar-text)] shadow-[16px_0_45px_rgb(var(--theme-shadow-rgb)/0.2)] transition-[transform,width] duration-200 ease-out md:z-40 md:w-[var(--sidebar-width)] md:shadow-none"
+        // Survol d'une barre réduite : elle reprend sa pleine largeur par
+        // -dessus le contenu (ombre portée, z-index au-dessus), sans toucher
+        // à --sidebar-width — le contenu reste donc parfaitement immobile.
+        className={`dashboard-sidebar fixed inset-y-0 left-0 z-[60] flex w-[260px] flex-col border-r border-[var(--theme-sidebar-border)] px-3 py-6 text-[var(--theme-sidebar-text)] shadow-[16px_0_45px_rgb(var(--theme-shadow-rgb)/0.2)] transition-[transform,width] duration-200 ease-out md:z-40 ${
+          // Les deux ombres se décident dans la même branche : laisser un
+          // md:shadow-none dans la partie fixe rendait l'ordre des deux
+          // utilitaires dépendant de l'ordre de génération de Tailwind, et
+          // c'est « pas d'ombre » qui l'emportait — le flyout se posait alors
+          // sur le contenu sans aucune séparation visible.
+          hoverExpanded
+            ? "md:w-[260px] md:shadow-[16px_0_45px_rgb(var(--theme-shadow-rgb)/0.18)]"
+            : "md:w-[var(--sidebar-width)] md:shadow-none"
+        }`}
         style={{ backgroundColor: "var(--theme-sidebar)" }}
       >
-        <div className={`mb-6 flex min-h-11 items-center gap-2 ${collapsed ? "flex-col" : "justify-between px-1"}`}>
+        <div className={`mb-6 flex min-h-11 items-center gap-2 ${showLabels ? "justify-between px-1" : "flex-col"}`}>
           <Link href="/dashboard" onClick={() => setMobileOpen(false)} aria-label="1002 Pattes — Tableau de bord" className="min-w-0">
-            <AnimeoLogo size={collapsed ? "mark" : "sidebar"} tone="light" priority />
+            <AnimeoLogo size={showLabels ? "sidebar" : "mark"} tone="light" priority />
           </Link>
 
           {/* Repli : masqué sous md, où la navigation passe par le tiroir. */}
@@ -107,6 +125,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
             onClick={toggleCollapsed}
             aria-label={collapsed ? "Déployer le menu" : "Réduire le menu"}
             title={collapsed ? "Déployer le menu" : "Réduire le menu"}
+            aria-pressed={!collapsed}
             className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--theme-sidebar-text-strong)] transition hover:bg-[var(--theme-sidebar-hover)] md:flex"
           >
             {collapsed ? <PanelLeftOpen aria-hidden="true" className="h-5 w-5" /> : <PanelLeftClose aria-hidden="true" className="h-5 w-5" />}
@@ -117,12 +136,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
           </button>
         </div>
 
-        <SidebarNavigation
-          pathname={pathname}
-          showStatistics={showStatistics}
-          collapsed={collapsed}
-          onNavigate={() => setMobileOpen(false)}
-        />
+        <SidebarNavigation pathname={pathname} showStatistics={showStatistics} onNavigate={() => setMobileOpen(false)} forceLabels={mobileOpen} />
 
         {user ? (
           // relative + le popover en absolute/bottom-full : le sous-menu
@@ -135,12 +149,12 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
               type="button"
               onClick={() => setProfileOpen((current) => !current)}
               aria-expanded={profileOpen}
-              aria-label={collapsed ? `${user.firstName} — compte et réglages` : undefined}
-              title={collapsed ? `${user.firstName} — compte et réglages` : undefined}
-              className={`flex w-full items-center rounded-[14px] py-2.5 text-left transition hover:bg-[var(--theme-sidebar-hover)] ${collapsed ? "justify-center px-0" : "gap-3 px-3"}`}
+              aria-label={showLabels ? undefined : `${user.firstName} — compte et réglages`}
+              title={showLabels ? undefined : `${user.firstName} — compte et réglages`}
+              className={`flex w-full items-center rounded-[14px] py-2.5 text-left transition hover:bg-[var(--theme-sidebar-hover)] ${showLabels ? "gap-3 px-3" : "justify-center px-0"}`}
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--theme-sidebar-hover)] text-sm font-black text-[var(--theme-sidebar-text-strong)]">{initialsFor(user.firstName, user.lastName)}</span>
-              {collapsed ? null : (
+              {showLabels ? (
                 <>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-extrabold text-[var(--theme-sidebar-text-strong)]">{user.firstName}</span>
@@ -148,7 +162,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
                   </span>
                   <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 text-[var(--theme-sidebar-text)] transition-transform ${profileOpen ? "-rotate-90" : ""}`} />
                 </>
-              )}
+              ) : null}
             </button>
 
             {profileOpen ? (

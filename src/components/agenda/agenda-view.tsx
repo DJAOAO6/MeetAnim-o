@@ -353,7 +353,11 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
             </h2>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          {/* flex-wrap : entre 768 et 1536 px, barre latérale déployée, ces
+              trois éléments ne tiennent pas sur une ligne. Sans retour à la
+              ligne, « Nouveau rendez-vous » sortait de l'écran — rogné, donc
+              inatteignable, alors que la page ne défilait pas latéralement. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <AgendaViewSwitcher value={view} onChange={handleViewChange} />
 
             <button

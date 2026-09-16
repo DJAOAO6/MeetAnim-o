@@ -115,7 +115,11 @@ test.describe("Système de notifications (toasts)", () => {
 
       const toast = page.locator('[data-sonner-toast][data-type="error"]');
       await expect(toast).toBeVisible({ timeout: 10000 });
-      await expect(toast).toContainText("n’est pas disponible");
+      // Deux refus légitimes selon le pixel exact où le rendez-vous est lâché
+      // (créneau indisponible, ou chevauchement d'un rendez-vous existant) :
+      // ce qui est vérifié ici, c'est qu'une erreur est annoncée et reste
+      // affichée, pas laquelle des deux le geste a déclenchée.
+      await expect(toast).toContainText(/n’est pas disponible|chevauche un autre rendez-vous/);
 
       // Toujours là bien après la durée d'auto-dismiss des succès (4s).
       await page.waitForTimeout(5000);

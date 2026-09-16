@@ -30,9 +30,13 @@ export type NavigationIconName =
   | "fileText"
   | "chartColumn";
 
+export type GroupIconName = "calendarRange" | "usersRound" | "briefcaseBusiness" | "chartTrend";
+
 export type NavigationGroup = {
   id: string;
   label: string;
+  /** Icône de la catégorie, légèrement plus marquée que celles des pages. */
+  icon: GroupIconName;
   items: NavigationEntry[];
 };
 
@@ -46,6 +50,7 @@ export const dashboardEntry: NavigationEntry = {
 export const navigationGroups: NavigationGroup[] = [
   {
     id: "planning",
+    icon: "calendarRange",
     label: "Planning",
     items: [
       { label: "Agenda", href: "/dashboard/agenda", icon: "calendarDays", assetKey: "agenda" },
@@ -55,6 +60,7 @@ export const navigationGroups: NavigationGroup[] = [
   },
   {
     id: "clientele",
+    icon: "usersRound",
     label: "Clientèle",
     items: [
       { label: "Clients & animaux", href: "/dashboard/clients", icon: "users", assetKey: "clients" },
@@ -63,6 +69,7 @@ export const navigationGroups: NavigationGroup[] = [
   },
   {
     id: "gestion",
+    icon: "briefcaseBusiness",
     label: "Gestion",
     items: [
       { label: "Prestations", href: "/dashboard/prestations", icon: "briefcase", assetKey: "services" },
@@ -71,6 +78,7 @@ export const navigationGroups: NavigationGroup[] = [
   },
   {
     id: "pilotage",
+    icon: "chartTrend",
     label: "Pilotage",
     items: [
       { label: "Statistiques", href: "/dashboard/statistiques", icon: "chartColumn", assetKey: "stats", requiresFinances: true },
