@@ -5,6 +5,7 @@ import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingProgress } from "@/components/booking/booking-progress";
 import { ProfessionalSidebar } from "@/components/booking/sidebar/professional-sidebar";
+import { DEFAULT_PUBLIC_PAGE, buttonRadius, fontStacks, type PublicPageConfig } from "@/data/public-page";
 import { ConsultationStep } from "@/components/booking/location-service-steps";
 import { DetailsStep } from "@/components/booking/details-step";
 import { ScheduleStep } from "@/components/booking/schedule-step";
@@ -86,7 +87,12 @@ function clearPersistedBooking(slug: string) {
   }
 }
 
-export function PublicBookingFlow({ professional }: { professional: PublicProfessional }) {
+/**
+ * `page` : configuration composée dans l'éditeur (ordre et visibilité des
+ * sections d'information, thème). Absente, la page garde sa présentation
+ * d'origine — un profil qui n'a jamais ouvert l'éditeur ne voit rien changer.
+ */
+export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: { professional: PublicProfessional; page?: PublicPageConfig }) {
   const [screen, setScreen] = useState<BookingScreen>("consultation");
   const [mode, setMode] = useState<BookingMode | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
@@ -346,8 +352,26 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Thème publié appliqué en redéfinissant les variables que les composants
+  // lisent déjà : aucun composant de la page n'a besoin de connaître
+  // l'éditeur, et l'aperçu (public-page-preview.tsx) applique exactement les
+  // mêmes variables — d'où la fidélité de ce qu'on y voit.
+  const themeStyle = {
+    "--theme-primary": page.theme.primaryColor,
+    "--theme-primary-hover": page.theme.primaryColor,
+    "--theme-brand": page.theme.primaryColor,
+    "--theme-accent": page.theme.accentColor,
+    "--theme-background": page.theme.backgroundColor,
+    "--theme-surface": page.theme.surfaceColor,
+    "--theme-surface-alt": page.theme.backgroundColor,
+    "--theme-text": page.theme.textColor,
+    "--theme-heading": page.theme.textColor,
+    "--theme-card-radius": buttonRadius[page.theme.buttonShape],
+    fontFamily: fontStacks[page.theme.font],
+  } as React.CSSProperties;
+
   return (
-    <main className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
+    <main style={themeStyle} className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
       <BookingHeader professional={professional} />
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
@@ -400,7 +424,7 @@ export function PublicBookingFlow({ professional }: { professional: PublicProfes
         </section>
           </div>
 
-          <ProfessionalSidebar professional={professional} className="mt-6 lg:sticky lg:top-6 lg:mt-0" />
+          <ProfessionalSidebar professional={professional} sections={page.sections} className="mt-6 lg:sticky lg:top-6 lg:mt-0" />
         </div>
 
         <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 py-6 text-center text-xs font-bold text-animeo-muted">

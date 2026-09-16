@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { buildSingleStopMapsUrl } from "@/lib/tour-maps";
 import { notify } from "@/lib/notify";
 import type { PublicProfessional } from "@/data/public-booking";
+import { DEFAULT_PUBLIC_SECTIONS, sectionDefinition, type PublicSection, type PublicSectionId } from "@/data/public-page";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
@@ -15,9 +16,14 @@ const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) =
 
 const ABOUT_TRUNCATE_LENGTH = 220;
 
-function SidebarCard({ title, icon, children }: { title: string; icon: Parameters<typeof Icon>[0]["name"]; children: React.ReactNode }) {
+/**
+ * `tone` vient de l'éditeur de page : la carte habituelle, une teinte douce,
+ * ou pas de fond du tout pour une section qui doit se fondre dans la page.
+ */
+function SidebarCard({ title, icon, tone = "surface", children }: { title: string; icon: Parameters<typeof Icon>[0]["name"]; tone?: PublicSection["tone"]; children: React.ReactNode }) {
+  const toneClassName = tone === "soft" ? "bg-animeo-soft" : tone === "transparent" ? "border-transparent bg-transparent shadow-none" : "";
   return (
-    <Card className="p-5">
+    <Card className={`p-5 ${toneClassName}`}>
       <h2 className="mb-3 flex items-center gap-2 text-sm font-black text-animeo-dark">
         <Icon name={icon} className="h-4 w-4 text-animeo" aria-hidden="true" />
         {title}
@@ -27,7 +33,7 @@ function SidebarCard({ title, icon, children }: { title: string; icon: Parameter
   );
 }
 
-function AboutCard({ professional }: { professional: PublicProfessional }) {
+function AboutCard({ professional, section }: { professional: PublicProfessional; section: PublicSection }) {
   const [expanded, setExpanded] = useState(false);
   const bio = professional.bio.trim();
   if (!bio) return null;
@@ -35,7 +41,7 @@ function AboutCard({ professional }: { professional: PublicProfessional }) {
   const shown = expanded || !isLong ? bio : `${bio.slice(0, ABOUT_TRUNCATE_LENGTH).trimEnd()}…`;
 
   return (
-    <SidebarCard title="À propos" icon="clients">
+    <SidebarCard title={section.title ?? "À propos"} icon="clients" tone={section.tone}>
       <p className="text-sm leading-6 text-animeo-muted">{shown}</p>
       {isLong ? (
         <button type="button" onClick={() => setExpanded((current) => !current)} className="mt-2 text-xs font-extrabold text-animeo hover:underline">
@@ -46,7 +52,7 @@ function AboutCard({ professional }: { professional: PublicProfessional }) {
   );
 }
 
-function PracticalInfoCard({ professional }: { professional: PublicProfessional }) {
+function PracticalInfoCard({ professional, section }: { professional: PublicProfessional; section: PublicSection }) {
   const rows: { icon: Parameters<typeof Icon>[0]["name"]; text: string }[] = [];
   if (professional.showPhonePublicly && professional.phone.trim()) rows.push({ icon: "phone", text: professional.phone.trim() });
   if (professional.showPaymentsPublicly && professional.acceptedPayments?.trim()) rows.push({ icon: "euro", text: professional.acceptedPayments.trim() });
@@ -61,7 +67,7 @@ function PracticalInfoCard({ professional }: { professional: PublicProfessional 
   if (rows.length === 0) return null;
 
   return (
-    <SidebarCard title="Infos pratiques" icon="shield">
+    <SidebarCard title={section.title ?? "Infos pratiques"} icon="shield" tone={section.tone}>
       <ul className="space-y-2.5">
         {rows.map((row, index) => (
           <li key={index} className="flex items-start gap-2.5 text-sm font-semibold text-animeo-dark">
@@ -74,7 +80,7 @@ function PracticalInfoCard({ professional }: { professional: PublicProfessional 
   );
 }
 
-function CabinetAddressCard({ professional }: { professional: PublicProfessional }) {
+function CabinetAddressCard({ professional, section }: { professional: PublicProfessional; section: PublicSection }) {
   const [copied, setCopied] = useState(false);
   if (!professional.cabinetAvailable || !professional.showAddressPublicly || !professional.cabinetAddress.trim()) return null;
 
@@ -95,7 +101,7 @@ function CabinetAddressCard({ professional }: { professional: PublicProfessional
   }
 
   return (
-    <SidebarCard title="Adresse du cabinet" icon="map">
+    <SidebarCard title={section.title ?? "Adresse du cabinet"} icon="map" tone={section.tone}>
       {professional.cabinetName?.trim() ? <p className="text-sm font-black text-animeo-dark">{professional.cabinetName}</p> : null}
       <p className="text-sm font-semibold text-animeo-dark">{professional.cabinetAddress}</p>
       <p className="text-sm text-animeo-muted">{[professional.cabinetPostalCode, professional.cabinetCity].filter(Boolean).join(" ")}</p>
@@ -138,11 +144,11 @@ function CabinetAddressCard({ professional }: { professional: PublicProfessional
   );
 }
 
-function OpeningHoursCard({ professional }: { professional: PublicProfessional }) {
+function OpeningHoursCard({ professional, section }: { professional: PublicProfessional; section: PublicSection }) {
   if (!professional.showHoursPublicly || professional.openingHours.length === 0) return null;
 
   return (
-    <SidebarCard title="Horaires" icon="calendar">
+    <SidebarCard title={section.title ?? "Horaires"} icon="calendar" tone={section.tone}>
       <ul className="space-y-1.5">
         {professional.openingHours.map((row) => (
           <li key={row.label} className="flex items-baseline justify-between gap-3 text-sm">
@@ -156,13 +162,30 @@ function OpeningHoursCard({ professional }: { professional: PublicProfessional }
   );
 }
 
-export function ProfessionalSidebar({ professional, className = "" }: { professional: PublicProfessional; className?: string }) {
+const cards: Partial<Record<PublicSectionId, (props: { professional: PublicProfessional; section: PublicSection }) => React.ReactNode>> = {
+  about: AboutCard,
+  practical: PracticalInfoCard,
+  address: CabinetAddressCard,
+  hours: OpeningHoursCard,
+};
+
+/**
+ * L'ordre et la visibilité des cartes viennent de la page publiée composée
+ * dans l'éditeur (`sections`). Sans configuration — profil qui n'a jamais
+ * ouvert l'éditeur — on retombe sur l'ordre d'origine : rien ne change pour
+ * qui n'a rien personnalisé.
+ *
+ * Les sections « en-tête » et « prestations » ne passent pas par ici : elles
+ * sont rendues par la page elle-même, pas par cette colonne.
+ */
+export function ProfessionalSidebar({ professional, className = "", sections = DEFAULT_PUBLIC_SECTIONS }: { professional: PublicProfessional; className?: string; sections?: PublicSection[] }) {
   return (
     <aside className={`space-y-4 ${className}`}>
-      <AboutCard professional={professional} />
-      <PracticalInfoCard professional={professional} />
-      <CabinetAddressCard professional={professional} />
-      <OpeningHoursCard professional={professional} />
+      {sections.map((section) => {
+        const Card = cards[section.id];
+        if (!Card || !section.visible || !sectionDefinition(section.id)) return null;
+        return <Card key={section.id} professional={professional} section={section} />;
+      })}
     </aside>
   );
 }

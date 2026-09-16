@@ -753,6 +753,16 @@ model BusinessProfile {
   showHoursPublicly        Boolean  @default(true)
   showSocialsPublicly      Boolean  @default(true)
   showPaymentsPublicly     Boolean  @default(true)
+
+  // Éditeur de page de réservation : configuration structurée (thème +
+  // sections ordonnées), jamais du HTML. Deux versions distinctes — le
+  // brouillon que l'éditeur enregistre à volonté, et la version publiée,
+  // seule lue par la page publique : les essais en cours ne doivent jamais
+  // apparaître aux visiteurs. Null des deux côtés = page d'origine.
+  publicPageDraft          Json?
+  publicPagePublished      Json?
+  publicPagePublishedAt    DateTime?
+
   updatedAt                DateTime @updatedAt
 }
 

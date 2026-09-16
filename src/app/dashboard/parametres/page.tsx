@@ -7,6 +7,8 @@ import { getServices } from "@/lib/services-actions";
 import { getGoogleIntegrationState, getIcsFeedState } from "@/lib/calendar";
 import { getOrCreateTourPreferences, getUpcomingGeneratedCounts, listSavedPlaces, toSavedPlaceView } from "@/lib/tour-runs";
 import { requireUser } from "@/lib/auth/dal";
+import { getPublicPageState } from "@/lib/public-page-actions";
+import { loadPublicProfessional } from "@/lib/public-professional";
 
 export const metadata: Metadata = { title: "Paramètres" };
 
@@ -25,6 +27,9 @@ export default async function ParametresPage() {
     getOrCreateTourPreferences(user.id),
     getUpcomingGeneratedCounts(user.id),
   ]);
+  // Mêmes données que la page publique : l'aperçu de l'éditeur doit montrer
+  // ce que verront réellement les clients (voir loadPublicProfessional).
+  const [publicPage, publicProfessional] = await Promise.all([getPublicPageState(), loadPublicProfessional()]);
   return (
     // Suspense requis par useSearchParams (retour du callback OAuth Google —
     // voir settings-view.tsx) : toutes les données sont déjà résolues
@@ -42,6 +47,8 @@ export default async function ParametresPage() {
         savedPlaces={savedPlaceRows.map(toSavedPlaceView)}
         tourPreferences={preferences}
         upcomingGeneratedCounts={upcomingGeneratedCounts}
+        publicPage={publicPage}
+        publicProfessional={publicProfessional}
       />
     </Suspense>
   );

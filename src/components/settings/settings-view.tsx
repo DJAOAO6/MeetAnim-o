@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
 import { PublicProfileSettingsTab } from "@/components/settings/public-profile-settings-tab";
+import { PublicPageEditor } from "@/components/settings/public-page-editor";
 import { ServicesSettingsShortcut } from "@/components/settings/services-settings-tab";
 import { AvailabilitySettingsTab } from "@/components/settings/availability-settings-tab";
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
@@ -19,12 +20,14 @@ import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings, type ServiceSettings, type SettingsState } from "@/data/settings";
 import { updateAvailabilityAction, updateBusinessProfileAction, updateReminderSettingsAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
+import type { PublicPageState } from "@/lib/public-page-actions";
+import type { PublicProfessional } from "@/data/public-booking";
 import { notify } from "@/lib/notify";
 import type { Tour, Zone } from "@/data/tours";
 import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
 import type { SavedPlaceView, TourPreferencesView } from "@/lib/tour-runs";
 
-type SettingsTab = "profile" | "publicProfile" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
+type SettingsTab = "profile" | "publicProfile" | "bookingPage" | "services" | "availability" | "tours" | "reminders" | "customization" | "integrations";
 
 type SettingsViewProps = {
   tours: Tour[];
@@ -38,11 +41,16 @@ type SettingsViewProps = {
   savedPlaces: SavedPlaceView[];
   tourPreferences: TourPreferencesView;
   upcomingGeneratedCounts: Record<string, number>;
+  publicPage: PublicPageState;
+  // Null tant qu'aucun profil professionnel n'existe : l'éditeur affiche
+  // alors un message plutôt qu'un aperçu vide.
+  publicProfessional: PublicProfessional | null;
 };
 
 const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
   { id: "profile", label: "Mon profil", icon: "clients" },
   { id: "publicProfile", label: "Profil public", icon: "shield" },
+  { id: "bookingPage", label: "Page de réservation", icon: "externalLink" },
   { id: "services", label: "Prestations", icon: "services" },
   { id: "availability", label: "Disponibilités", icon: "calendar" },
   { id: "tours", label: "Tournées", icon: "tournees" },
@@ -61,7 +69,7 @@ const googleOAuthErrorMessages: Record<string, string> = {
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaces, tourPreferences, upcomingGeneratedCounts }: SettingsViewProps) {
+export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaces, tourPreferences, upcomingGeneratedCounts, publicPage, publicProfessional }: SettingsViewProps) {
   const currentUser = useCurrentUser();
   const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
@@ -199,6 +207,11 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
 
       {activeTab === "profile" ? <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} /> : null}
       {activeTab === "publicProfile" ? <PublicProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil public enregistré et visible sur votre page de réservation")} /> : null}
+      {activeTab === "bookingPage" ? (
+        canManagePublicSettings && publicProfessional
+          ? <PublicPageEditor initialState={publicPage} professional={publicProfessional} />
+          : <p className="rounded-2xl bg-animeo-soft p-5 text-sm font-bold text-animeo-dark">Vous n’avez pas la permission de modifier la page publique.</p>
+      ) : null}
       {activeTab === "services" ? <ServicesSettingsShortcut /> : null}
       {activeTab === "availability" ? <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} /> : null}
       {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} initialZones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} cabinetAvailable={businessProfile.latitude != null} upcomingGeneratedCounts={upcomingGeneratedCounts} /> : null}

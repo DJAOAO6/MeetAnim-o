@@ -5,7 +5,7 @@ export type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 const labels: Record<Exclude<SaveState, "idle">, string> = {
   dirty: "Modifications non enregistrées",
   saving: "Enregistrement…",
-  saved: "Disposition enregistrée",
+  saved: "Modifications enregistrées",
   error: "Échec de l'enregistrement",
 };
 

@@ -58,7 +58,7 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   expect(orderAfter, "le glissement doit réordonner les blocs").not.toEqual(orderBefore);
 
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
-  await expect(page.getByTestId("save-status")).toHaveText(/disposition enregistrée/i, { timeout: 10000 });
+  await expect(page.getByTestId("save-status")).toHaveText(/modifications enregistrées/i, { timeout: 10000 });
 
   const saved = await storedLayout();
   expect(saved, "la disposition doit être enregistrée en base pour ce compte").not.toBeNull();
