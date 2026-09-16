@@ -82,3 +82,50 @@ export function statusLabel(mode: AvailabilityMode, status: AvailabilityStatus):
       return `${label} ouvert · fermeture ${formatClosurePeriod(status.closure)}`;
   }
 }
+
+export type DaySlot = { start: string; end: string };
+
+const dayIds = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+
+/**
+ * Créneaux réellement ouverts aujourd'hui pour ce mode, tels qu'ils sont
+ * configurés dans Disponibilités. Un créneau peut n'être ouvert qu'au cabinet
+ * ou qu'à domicile : les deux cartes du tableau de bord n'affichent donc pas
+ * forcément les mêmes horaires, et c'est voulu.
+ */
+export function daySlotsFor(availability: AvailabilitySettings, mode: AvailabilityMode, date = new Date()): DaySlot[] {
+  const day = availability.days.find((entry) => entry.id === dayIds[date.getDay()]);
+  if (!day || !day.enabled) return [];
+  return day.slots
+    .filter((slot) => (mode === "cabinet" ? slot.cabinet : slot.home))
+    .map((slot) => ({ start: slot.start, end: slot.end }))
+    .sort((first, second) => first.start.localeCompare(second.start));
+}
+
+/** « 08:00 » → « 08h00 », la façon dont on lit une heure en français. */
+export function formatHour(value: string): string {
+  return value.replace(":", "h");
+}
+
+export function formatSlot(slot: DaySlot): string {
+  return `${formatHour(slot.start)} – ${formatHour(slot.end)}`;
+}
+
+/**
+ * Précision d'horloge ajoutée au statut du jour : « ferme à 19h00 » en dit
+ * bien plus que « ouvert » à 18h50. Renvoie null quand il n'y a rien de plus
+ * à dire que le statut lui-même.
+ *
+ * Volontairement séparé de availabilityStatus : cette phrase-ci dépend de
+ * l'heure courante, donc elle ne peut être calculée qu'après montage côté
+ * client, sans quoi le rendu serveur et le rendu navigateur divergeraient.
+ */
+export function todayTimingLabel(slots: DaySlot[], now = new Date()): string | null {
+  if (slots.length === 0) return null;
+  const current = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const openSlot = slots.find((slot) => current >= slot.start && current < slot.end);
+  if (openSlot) return `Ferme à ${formatHour(openSlot.end)}`;
+  const nextSlot = slots.find((slot) => current < slot.start);
+  if (nextSlot) return `Ouvre à ${formatHour(nextSlot.start)}`;
+  return "Journée terminée";
+}

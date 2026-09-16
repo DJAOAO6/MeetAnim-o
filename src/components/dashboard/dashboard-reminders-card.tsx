@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { Card } from "@/components/ui/card";
+import { DashboardCard, DashboardEmptyState, dashboardFooterLinkClassName } from "@/components/dashboard/dashboard-card";
 import { Icon } from "@/components/ui/icon";
 import { relativeDayLabel } from "@/components/dashboard/dashboard-date";
 import type { Reminder } from "@/data/reminders";
@@ -15,15 +15,18 @@ export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] })
   const visible = dueReminders.slice(0, 4);
 
   return (
-    <Card className="p-5 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-warning-soft text-animeo-warning"><Icon name="bell" className="h-5 w-5" /></span>
-          <h2 className="font-black text-animeo-dark">Rappels à envoyer</h2>
-        </div>
-        <span className="rounded-full bg-animeo-warning-soft px-2.5 py-1 text-xs font-black text-animeo-warning">{dueReminders.length}</span>
-      </div>
-
+    <DashboardCard
+      icon="bell"
+      tone="warning"
+      title="Rappels à envoyer"
+      action={
+        <span className="rounded-full bg-animeo-warning-soft px-2.5 py-1 text-xs font-black text-animeo-warning">
+          <span className="sr-only">Rappels en attente : </span>
+          {dueReminders.length}
+        </span>
+      }
+      footer={<Link href="/dashboard/rappels" className={dashboardFooterLinkClassName("warning")}>Voir tous les rappels</Link>}
+    >
       {visible.length > 0 ? (
         <ul className="space-y-1">
           {visible.map((reminder) => (
@@ -43,13 +46,9 @@ export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] })
           ))}
         </ul>
       ) : (
-        <p className="rounded-2xl bg-animeo-bg px-4 py-6 text-center text-sm font-bold text-animeo-muted">Aucun rappel à envoyer pour le moment.</p>
+        <DashboardEmptyState icon="bell" title="Aucun rappel à envoyer" message="Vos clients sont tous à jour." />
       )}
-
-      <Link href="/dashboard/rappels" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-warning-soft px-4 py-3 text-sm font-extrabold text-animeo-warning transition hover:bg-animeo-warning-soft">
-        Voir tous les rappels
-      </Link>
-    </Card>
+    </DashboardCard>
   );
 }
 

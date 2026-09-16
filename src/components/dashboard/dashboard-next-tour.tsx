@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { Card } from "@/components/ui/card";
+import { DashboardCard, DashboardEmptyState, dashboardFooterLinkClassName } from "@/components/dashboard/dashboard-card";
 import { Icon } from "@/components/ui/icon";
 import { SimulatedMap } from "@/components/tours/simulated-map";
 import { referenceDate } from "@/components/dashboard/dashboard-date";
@@ -59,44 +59,56 @@ export function DashboardNextTour({ tours, zones, tourAppointments }: { tours: T
     }));
 
   return (
-    <Card className="overflow-hidden p-5 sm:p-6">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark"><Icon name="map" className="h-5 w-5" /></span>
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Prochaine tournée</p>
-          <h2 className="mt-0.5 font-black text-animeo-dark">{nextTour ? nextTour.name : "Aucune tournée programmée"}</h2>
-        </div>
-      </div>
-
-      {nextTour ? (
-        <>
-          <p className="mb-1 text-sm font-bold text-animeo-dark">{zone?.name ?? "Zone non définie"}</p>
-          <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-animeo-muted">
-            <span>{nextTour.appointmentCount} rendez-vous</span>
-            {nextTour.estimatedDistanceKm !== null ? <span>≈ {Math.round(nextTour.estimatedDistanceKm)} km</span> : null}
-            <span>{nextTour.day} · {nextTour.startTime}</span>
-          </div>
-          <SimulatedMap points={points} heightClassName="h-40" showLabels={false} />
-          <div className="mt-4 flex flex-wrap gap-2">
+    <DashboardCard
+      className="overflow-hidden"
+      icon="map"
+      eyebrow="Prochaine tournée"
+      title={nextTour ? nextTour.name : "Aucune tournée programmée"}
+      subtitle={nextTour ? (zone?.name ?? "Zone non définie") : undefined}
+      footer={
+        nextTour ? (
+          <div className="flex flex-wrap gap-2">
             {mapsResult.links.map((link) => (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-animeo px-4 py-3 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
+              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
                 <Icon name="car" className="h-4 w-4" />
                 {mapsResult.links.length > 1 ? link.label : "Itinéraire"}
               </a>
             ))}
-            <Link href="/dashboard/tournees" className="flex flex-1 items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
-              Voir la tournée
-            </Link>
+            <Link href="/dashboard/tournees" className={`flex-1 ${dashboardFooterLinkClassName()}`}>Voir la tournée</Link>
           </div>
+        ) : (
+          <Link href="/dashboard/tournees" className={dashboardFooterLinkClassName()}>Gérer les tournées</Link>
+        )
+      }
+    >
+      {nextTour ? (
+        <>
+          {/* Les trois repères que l'on cherche avant de partir : combien
+              d'arrêts, quelle distance, à quelle heure. */}
+          <dl className="mb-[var(--dashboard-card-gap)] grid grid-cols-3 gap-2 rounded-2xl bg-animeo-bg p-3 text-center">
+            <TourFigure value={String(nextTour.appointmentCount)} label="rendez-vous" />
+            <TourFigure value={nextTour.estimatedDistanceKm !== null ? `${Math.round(nextTour.estimatedDistanceKm)} km` : "—"} label="distance" />
+            <TourFigure value={nextTour.startTime} label={nextTour.day.toLocaleLowerCase("fr-FR")} />
+          </dl>
+          <SimulatedMap points={points} heightClassName="h-36" showLabels={false} />
         </>
       ) : (
-        <>
-          <p className="text-sm text-animeo-muted">Aucune tournée active n’est programmée dans les prochains jours.</p>
-          <Link href="/dashboard/tournees" className="mt-4 flex w-full items-center justify-center rounded-2xl bg-animeo-soft px-4 py-3 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
-            Gérer les tournées
-          </Link>
-        </>
+        <DashboardEmptyState
+          icon="map"
+          title="Rien de prévu"
+          message="Aucune tournée active n’est programmée dans les prochains jours."
+        />
       )}
-    </Card>
+    </DashboardCard>
+  );
+}
+
+function TourFigure({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="sr-only">{label}</dt>
+      <dd className="truncate text-base font-black text-animeo-dark">{value}</dd>
+      <p aria-hidden="true" className="truncate text-[11px] font-bold text-animeo-muted">{label}</p>
+    </div>
   );
 }

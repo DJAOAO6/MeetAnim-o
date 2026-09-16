@@ -44,7 +44,7 @@ test("fermer, programmer une fermeture, afficher un message, puis rouvrir", asyn
     await page.goto("/dashboard");
 
     // CAS 1 — fermeture immédiate du cabinet, confirmée.
-    await page.getByRole("button", { name: /cabinet ouvert — gérer/i }).click();
+    await page.getByTestId("block-availabilityCabinet").getByRole("button", { name: /gérer les disponibilités/i }).click();
     await expect(page.getByRole("heading", { name: "Gérer les disponibilités" })).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "⏸ Fermer maintenant" }).click();
     await page.getByRole("dialog").filter({ hasText: "Fermer le cabinet aux réservations" }).getByRole("button", { name: "Fermer" }).click();
@@ -63,7 +63,7 @@ test("fermer, programmer une fermeture, afficher un message, puis rouvrir", asyn
 
     // CAS 2 — réouverture immédiate.
     await page.goto("/dashboard");
-    await page.getByRole("button", { name: /cabinet fermé — gérer/i }).click();
+    await page.getByTestId("block-availabilityCabinet").getByRole("button", { name: /gérer les disponibilités/i }).click();
     await page.getByRole("button", { name: "▶ Ouvrir maintenant" }).click();
     await expect(page.getByText(/cabinet ouvert aux réservations/i)).toBeVisible({ timeout: 15000 });
     expect((await profile()).cabinetAvailable).toBe(true);
@@ -91,9 +91,14 @@ test("fermer, programmer une fermeture, afficher un message, puis rouvrir", asyn
     await page.goto(`/reserver/${slug}`);
     await expect(page.getByText("Le cabinet est fermé la semaine prochaine.")).toBeVisible({ timeout: 15000 });
 
-    // Le badge annonce la fermeture à venir plutôt qu'un simple « ouvert ».
+    // La carte du cabinet annonce la fermeture à venir plutôt qu'un simple
+    // « ouvert » : c'est toute la raison d'être de cette carte.
     await page.goto("/dashboard");
-    await expect(page.getByRole("button", { name: /fermeture/i }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId("block-availabilityCabinet").getByText(/fermeture prévue/i)).toBeVisible({ timeout: 15000 });
+
+    // Et l'autre mode n'est pas concerné : une fermeture du cabinet seul ne
+    // doit pas teinter la carte du domicile.
+    await expect(page.getByTestId("block-availabilityHome").getByText(/fermeture prévue/i)).toHaveCount(0);
   } finally {
     await restore(original);
   }

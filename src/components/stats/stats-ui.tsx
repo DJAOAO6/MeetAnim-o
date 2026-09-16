@@ -122,7 +122,14 @@ export function SimpleBarChart({ items, formatter = (value) => `${value} %`, max
   );
 }
 
-export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d’affaires", ariaLabel = "Courbe mensuelle du chiffre d’affaires", valueSuffix = " €", roundStep = 500 }: { data: ReadonlyArray<{ label: string; value: number }>; title?: string; ariaLabel?: string; valueSuffix?: string; roundStep?: number }) {
+export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d’affaires", ariaLabel = "Courbe mensuelle du chiffre d’affaires", valueSuffix = " €", roundStep = 500, minWidthClassName = "min-w-[620px]" }: { data: ReadonlyArray<{ label: string; value: number }>; title?: string; ariaLabel?: string; valueSuffix?: string; roundStep?: number;
+  /**
+   * Largeur minimale du tracé avant que son conteneur ne défile. 620 px
+   * conviennent à la pleine largeur de la page Statistiques ; une carte de
+   * tableau de bord, elle, a besoin de descendre plus bas pour ne pas imposer
+   * un défilement horizontal dans son propre cadre.
+   */
+  minWidthClassName?: string }) {
   const width = 720;
   const height = 250;
   const left = 54;
@@ -143,7 +150,7 @@ export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d�
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel} className="min-w-[620px]">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel} className={minWidthClassName}>
         <title>{title}</title>
         {gridValues.map((ratio) => {
           const y = top + chartHeight - ratio * chartHeight;

@@ -29,9 +29,11 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   // qui renvoie sur le tableau de bord avec ce paramètre.
   await page.goto("/dashboard?personnaliser=1");
 
-  // Redimensionnement : « Prochaine tournée » passe de 1 à 2 colonnes.
+  // Redimensionnement : « Prochaine tournée » passe d'un tiers à la moitié de
+  // la largeur. Les boutons portent la largeur en toutes lettres — le glyphe
+  // « ½ » ne se prononce pas.
   const tourWidth = page.getByRole("group", { name: /largeur du bloc prochaine tournée/i });
-  await tourWidth.getByRole("button", { name: "2", exact: true }).click();
+  await tourWidth.getByRole("button", { name: "La moitié de la largeur" }).click();
 
   // Masquage : le résumé d'activité rejoint le panneau « Ajouter un bloc ».
   await page.getByTestId("block-activitySummary").getByRole("button", { name: "Masquer" }).click();
@@ -64,7 +66,8 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
 
   const saved = await storedLayout();
   expect(saved, "la disposition doit être enregistrée en base pour ce compte").not.toBeNull();
-  expect(saved!.find((widget) => widget.id === "nextTour")!.span).toBe(2);
+  // Largeurs exprimées en douzièmes depuis le passage à la grille 12 colonnes.
+  expect(saved!.find((widget) => widget.id === "nextTour")!.span).toBe(6);
   expect(saved!.find((widget) => widget.id === "activitySummary")!.visible).toBe(false);
   // La base reflète exactement l'ordre affiché après le glissement.
   const savedVisibleOrder = saved!.filter((widget) => widget.visible).map((widget) => `block-${widget.id}`);
@@ -74,7 +77,8 @@ test("réorganiser, redimensionner et masquer un bloc, puis retrouver sa disposi
   // le tableau de bord n'est plus en mode personnalisation.
   await page.goto("/dashboard");
   await expect(page.getByText("Personnalisation en cours")).toHaveCount(0);
-  await expect(page.getByText("Répartition des clients", { exact: false })).toHaveCount(0);
+  // Le bloc masqué ne revient pas de lui-même.
+  await expect(page.getByTestId("block-activitySummary")).toHaveCount(0);
 });
 
 /**

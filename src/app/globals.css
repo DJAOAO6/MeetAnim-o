@@ -18,6 +18,25 @@
  * du logo (#C86A2B, 3,8:1 seulement) est réservée aux éléments décoratifs
  * via --theme-brand.
  */
+:root {
+  /* Rythme du tableau de bord. Une seule source pour l'écart entre les blocs,
+     le padding des cartes et l'écart interne d'une carte : sans cela, chaque
+     bloc rouvrait le débat et deux cartes voisines ne tombaient jamais au
+     même endroit. Ces valeurs se resserrent sur petit écran (voir plus bas),
+     où 24 px de gouttière mangent la moitié de la largeur utile. */
+  --dashboard-gap: 24px;
+  --dashboard-card-padding: 24px;
+  --dashboard-card-gap: 16px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --dashboard-gap: 14px;
+    --dashboard-card-padding: 16px;
+    --dashboard-card-gap: 12px;
+  }
+}
+
 :root,
 [data-palette="1002pattes"] {
   --theme-primary: #a9531c;

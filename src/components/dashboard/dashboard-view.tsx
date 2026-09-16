@@ -4,19 +4,24 @@ import { useMemo, useState, type ReactNode } from "react";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { DashboardAvailabilityControls } from "@/components/availability/dashboard-availability-controls";
+import { AvailabilityStateProvider } from "@/components/availability/availability-state-provider";
+import { AvailabilityStatusCard } from "@/components/availability/availability-status-card";
 import { DashboardActivityChart } from "@/components/dashboard/dashboard-activity-chart";
 import { DashboardActivitySummary } from "@/components/dashboard/dashboard-activity-summary";
+import { DashboardAnimals } from "@/components/dashboard/dashboard-animals";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardNextTour } from "@/components/dashboard/dashboard-next-tour";
 import { DashboardPlanning } from "@/components/dashboard/dashboard-planning";
 import { DashboardRemindersCard } from "@/components/dashboard/dashboard-reminders-card";
 import { DashboardStats } from "@/components/dashboard/dashboard-stats";
+import { DashboardWidgetBoundary } from "@/components/dashboard/dashboard-widget-boundary";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SaveStatus, type SaveState } from "@/components/ui/save-status";
 import { SortableBlock } from "@/components/ui/sortable-block";
 import {
+  DASHBOARD_SPANS,
+  spanLabels,
   widgetDefinition,
   type DashboardWidgetId,
   type DashboardWidgetPreference,
@@ -39,21 +44,28 @@ type DashboardViewProps = DashboardOverviewData & {
 };
 
 /**
- * Largeur réelle d'un bloc selon l'écran. La largeur choisie ne s'applique
- * qu'à partir de xl, là où quatre colonnes tiennent vraiment : sur tablette
- * tout se ramène à une ou deux colonnes, sur téléphone à une seule. L'ordre
- * choisi, lui, est toujours respecté — c'est lui qui porte l'intention.
+ * Largeur réelle d'un bloc selon l'écran.
+ *
+ * La grille fait douze colonnes, mais la largeur choisie ne s'applique
+ * pleinement qu'à partir de xl. C'est une question de place réelle, pas de
+ * principe : à 768 px, barre latérale déployée, le contenu ne fait que 452 px,
+ * et deux blocs côte à côte y tombent à 214 px — « Ouvert aujourd'hui » n'y
+ * tient même pas. Tout se met donc en pleine largeur jusqu'à lg, en moitiés
+ * jusqu'à xl, et seulement ensuite au tiers ou au quart.
+ *
+ * L'ordre choisi par l'utilisateur, lui, est respecté à toutes les largeurs :
+ * c'est lui qui porte l'intention.
  */
 const spanClassName: Record<DashboardWidgetSpan, string> = {
-  1: "md:col-span-1 xl:col-span-1",
-  2: "md:col-span-2 xl:col-span-2",
-  3: "md:col-span-2 xl:col-span-3",
-  4: "md:col-span-2 xl:col-span-4",
+  3: "md:col-span-12 lg:col-span-6 xl:col-span-3",
+  4: "md:col-span-12 lg:col-span-6 xl:col-span-4",
+  6: "md:col-span-12 lg:col-span-6",
+  8: "md:col-span-12 xl:col-span-8",
+  9: "md:col-span-12 xl:col-span-9",
+  12: "md:col-span-12",
 };
 
 export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable, availability, initialLayout, startEditing = false }: DashboardViewProps) {
-  const dueReminders = useMemo(() => reminders.filter((reminder) => reminder.status === "À relancer").length, [reminders]);
-
   const [layout, setLayout] = useState(initialLayout);
   const [editing, setEditing] = useState(startEditing);
   // Disposition d'avant l'entrée en édition : « Annuler » doit la restituer
@@ -63,14 +75,16 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   const widgetContent = useMemo<Record<DashboardWidgetId, ReactNode>>(() => ({
-    availability: <DashboardAvailabilityControls cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} availability={availability} />,
-    stats: <DashboardStats clients={clients} dueReminders={dueReminders} />,
+    availabilityCabinet: <AvailabilityStatusCard mode="cabinet" />,
+    availabilityHome: <AvailabilityStatusCard mode="home" />,
+    stats: <DashboardStats clients={clients} />,
     planning: <DashboardPlanning clients={clients} />,
     activityChart: <DashboardActivityChart />,
     nextTour: <DashboardNextTour tours={tours} zones={zones} tourAppointments={tourAppointments} />,
-    reminders: <DashboardRemindersCard reminders={reminders} />,
+    animals: <DashboardAnimals />,
     activitySummary: <DashboardActivitySummary clients={clients} />,
-  }), [cabinetAvailable, homeAvailable, availability, clients, dueReminders, tours, zones, tourAppointments, reminders]);
+    reminders: <DashboardRemindersCard reminders={reminders} />,
+  }), [clients, tours, zones, tourAppointments, reminders]);
 
   // Souris : quelques pixels avant de déplacer, pour ne pas confondre avec un
   // clic. Doigt : appui maintenu, même règle que l'agenda — le défilement de
@@ -137,7 +151,10 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   }
 
   const grid = (
-    <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 xl:grid-cols-4" data-testid="dashboard-grid">
+    // items-stretch (par défaut) plutôt qu'items-start : les cartes d'une même
+    // rangée prennent la hauteur de la plus haute, et leurs pieds s'alignent.
+    // Un seul écart, celui de --dashboard-gap, partout.
+    <div className="grid grid-cols-1 gap-[var(--dashboard-gap)] md:grid-cols-12" data-testid="dashboard-grid">
       {visibleWidgets.map((widget) => {
         const definition = widgetDefinition(widget.id);
         if (!definition) return null;
@@ -151,17 +168,20 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
             toolbar={
               <div className="flex flex-wrap items-center gap-1.5">
                 <div className="flex items-center gap-1 rounded-xl bg-animeo-surface px-2 py-1 shadow-sm" role="group" aria-label={`Largeur du bloc ${definition.label}`}>
-                  {([1, 2, 3, 4] as DashboardWidgetSpan[]).map((span) => (
+                  {DASHBOARD_SPANS.map((span) => (
                     <button
                       key={span}
                       type="button"
                       disabled={span < definition.minSpan}
                       aria-pressed={widget.span === span}
+                      // Le glyphe seul (« ⅔ ») ne se prononce pas : le nom
+                      // accessible porte la largeur en toutes lettres.
+                      aria-label={spanLabels[span].long}
                       onClick={() => updateWidget(widget.id, { span })}
-                      title={`${span} colonne${span > 1 ? "s" : ""}`}
+                      title={spanLabels[span].long}
                       className={`min-h-7 min-w-7 rounded-lg text-xs font-black transition disabled:opacity-30 ${widget.span === span ? "bg-animeo text-white" : "text-animeo-muted hover:bg-animeo-bg"}`}
                     >
-                      {span}
+                      <span aria-hidden="true">{spanLabels[span].short}</span>
                     </button>
                   ))}
                 </div>
@@ -175,7 +195,13 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
               </div>
             }
           >
-            {widgetContent[widget.id]}
+            {/* h-full sur l'enveloppe : sans elle, la carte ne peut pas
+                s'étirer à la hauteur de sa rangée. */}
+            <div className="h-full">
+              <DashboardWidgetBoundary label={definition.label}>
+                {widgetContent[widget.id]}
+              </DashboardWidgetBoundary>
+            </div>
           </SortableBlock>
         );
       })}
@@ -183,11 +209,13 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   );
 
   return (
-    <>
+    // Les deux cartes d'ouverture partagent un même état : une fermeture
+    // « Tout fermer » saisie depuis l'une doit se voir sur l'autre.
+    <AvailabilityStateProvider cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} availability={availability}>
       <DashboardHeader />
 
       {editing ? (
-        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-dashed border-animeo-border-strong p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-[var(--dashboard-gap)] flex flex-col gap-3 rounded-2xl border border-dashed border-animeo-border-strong p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-sm font-black text-animeo-dark">Personnalisation en cours</p>
             <p className="mt-0.5 text-xs text-animeo-muted">Déplacez les blocs par leur poignée, changez leur largeur ou masquez-les.</p>
@@ -254,6 +282,6 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
           <p className="mt-1 text-sm text-animeo-muted">Ajoutez les blocs qui vous sont utiles depuis « Personnaliser mon tableau de bord ».</p>
         </div>
       ) : null}
-    </>
+    </AvailabilityStateProvider>
   );
 }

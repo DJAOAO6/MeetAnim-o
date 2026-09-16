@@ -2,70 +2,71 @@
 
 import { useMemo } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
-import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
-import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
-import { SimpleBarChart } from "@/components/stats/stats-ui";
-import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
-import { dateId, referenceDate, startOfWeek, weekDatesFrom } from "@/components/dashboard/dashboard-date";
+import { DashboardCard } from "@/components/dashboard/dashboard-card";
+import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
+import { useHasMounted } from "@/components/ui/use-has-mounted";
 import type { Client } from "@/data/clients";
 
+/**
+ * Le portrait du cabinet, à côté des chiffres du jour.
+ *
+ * Cette carte affichait auparavant « Total rendez-vous · cette semaine », qui
+ * répétait mot pour mot le chiffre clé « Cette semaine » situé quelques
+ * centimètres plus haut. Un tableau de bord qui donne deux fois la même
+ * donnée fait douter de toutes les autres.
+ *
+ * Elle réunit donc désormais quatre informations qui ne figurent nulle part
+ * ailleurs sur cet écran, et toutes calculées à partir des données déjà
+ * chargées — aucune requête supplémentaire.
+ */
 export function DashboardActivitySummary({ clients }: { clients: Client[] }) {
   const { appointments } = useAppointments();
-  const { theme } = useDashboardTheme();
+  // Les mesures « ce mois-ci » dépendent de la date d'exécution : calculées
+  // seulement après montage, pour que serveur et navigateur rendent la même
+  // chose au premier passage.
+  const mounted = useHasMounted();
 
-  const { weekTotal, previousWeekTotal } = useMemo(() => {
-    const weekStart = startOfWeek(referenceDate());
-    const weekIds = new Set(weekDatesFrom(weekStart).map(dateId));
-    const previousWeekStart = new Date(weekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const previousWeekIds = new Set(weekDatesFrom(previousWeekStart).map(dateId));
-    const active = appointments.filter((appointment) => appointment.status !== "cancelled");
+  const animals = useMemo(() => clients.reduce((total, client) => total + client.animals.length, 0), [clients]);
+  const activeClients = useMemo(() => clients.filter((client) => client.status === "Actif").length, [clients]);
 
-    return {
-      weekTotal: active.filter((appointment) => weekIds.has(appointment.date)).length,
-      previousWeekTotal: active.filter((appointment) => previousWeekIds.has(appointment.date)).length,
-    };
-  }, [appointments]);
+  const { averageDuration, topService } = useMemo(() => {
+    if (!mounted) return { averageDuration: null as number | null, topService: null as string | null };
 
-  const variation = previousWeekTotal > 0 ? Math.round(((weekTotal - previousWeekTotal) / previousWeekTotal) * 100) : null;
+    const monthPrefix = dateId(referenceDate()).slice(0, 7);
+    const honoured = appointments.filter(
+      (appointment) => appointment.date.startsWith(monthPrefix) && (appointment.status === "confirmed" || appointment.status === "completed"),
+    );
+    if (honoured.length === 0) return { averageDuration: null, topService: null };
 
-  const speciesBreakdown = useMemo(() => {
+    const totalDuration = honoured.reduce((sum, appointment) => sum + appointment.duration, 0);
+
     const counts = new Map<string, number>();
-    let totalAnimals = 0;
-    for (const client of clients) {
-      for (const animal of client.animals) {
-        counts.set(animal.species, (counts.get(animal.species) ?? 0) + 1);
-        totalAnimals += 1;
-      }
+    for (const appointment of honoured) {
+      if (!appointment.serviceName) continue;
+      counts.set(appointment.serviceName, (counts.get(appointment.serviceName) ?? 0) + 1);
     }
-    if (totalAnimals === 0) return [];
-    return animalSpeciesList
-      .map((species) => ({ label: species, value: Math.round(((counts.get(species) ?? 0) / totalAnimals) * 100), color: resolveSpeciesColor(theme.speciesColors, species) }))
-      .filter((item) => item.value > 0)
-      .sort((first, second) => second.value - first.value);
-  }, [clients, theme]);
+    const best = [...counts.entries()].sort((first, second) => second[1] - first[1])[0];
+
+    return { averageDuration: Math.round(totalDuration / honoured.length), topService: best?.[0] ?? null };
+  }, [appointments, mounted]);
+
+  const rows: Array<{ value: string; label: string }> = [
+    { value: String(animals), label: animals > 1 ? "Animaux suivis" : "Animal suivi" },
+    { value: String(activeClients), label: activeClients > 1 ? "Clients actifs" : "Client actif" },
+    { value: averageDuration === null ? "—" : `${averageDuration} min`, label: "Durée moyenne ce mois-ci" },
+    { value: topService ?? "—", label: "Prestation la plus demandée" },
+  ];
 
   return (
-    <>
-      <Card className="p-5 sm:p-6">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark"><Icon name="calendar" className="h-5 w-5" /></div>
-        <p className="mt-4 text-sm font-bold text-animeo-muted">Total rendez-vous</p>
-        <p className="mt-1 text-3xl font-black text-animeo-dark">{weekTotal}</p>
-        <p className="mt-2 text-xs font-bold text-animeo-muted">
-          {variation === null ? "Cette semaine" : variation >= 0 ? `+${variation} % vs semaine précédente` : `${variation} % vs semaine précédente`}
-        </p>
-      </Card>
-
-      <Card className="p-5 sm:p-6">
-        <p className="text-sm font-bold text-animeo-muted">Animaux vus</p>
-        {speciesBreakdown.length > 0 ? (
-          <div className="mt-4">
-            <SimpleBarChart items={speciesBreakdown} />
+    <DashboardCard icon="stats" title="Mon activité" subtitle="Votre cabinet en résumé">
+      <dl className="space-y-[var(--dashboard-card-gap)]">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-baseline justify-between gap-3 border-b border-animeo-border-soft pb-[var(--dashboard-card-gap)] last:border-b-0 last:pb-0">
+            <dt className="min-w-0 text-xs font-bold text-animeo-muted">{row.label}</dt>
+            <dd className="shrink-0 truncate text-right text-lg font-black text-animeo-dark">{row.value}</dd>
           </div>
-        ) : (
-          <p className="mt-3 text-sm text-animeo-muted">Aucun animal enregistré pour le moment.</p>
-        )}
-      </Card>
-    </>
+        ))}
+      </dl>
+    </DashboardCard>
   );
 }

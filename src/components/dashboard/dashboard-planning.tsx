@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AgendaEventPopover } from "@/components/agenda/agenda-event-popover";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
-import { Card } from "@/components/ui/card";
+import { DashboardCard, DashboardEmptyState } from "@/components/dashboard/dashboard-card";
 import { Icon } from "@/components/ui/icon";
 import { resolveSpeciesColor } from "@/data/species";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
@@ -13,7 +13,7 @@ import type { Appointment } from "@/data/appointments";
 import type { Client, ClientPickerOption } from "@/data/clients";
 
 export function DashboardPlanning({ clients }: { clients: Client[] }) {
-  const { appointments, saveAppointment } = useAppointments();
+  const { appointments, saveAppointment, openNewAppointment } = useAppointments();
   const { theme } = useDashboardTheme();
   const [selection, setSelection] = useState<{ appointment: Appointment; anchorRect: DOMRect } | null>(null);
 
@@ -33,24 +33,21 @@ export function DashboardPlanning({ clients }: { clients: Client[] }) {
       .sort((first, second) => first.start.localeCompare(second.start));
   }, [appointments]);
 
-  const dateLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(referenceDate());
+  const rawDateLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(referenceDate());
+  const dateLabel = rawDateLabel.charAt(0).toLocaleUpperCase("fr-FR") + rawDateLabel.slice(1);
 
   return (
-    <Card className="p-5 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark"><Icon name="calendar" className="h-5 w-5" /></span>
-          <div>
-            <h2 className="font-black text-animeo-dark">Planning du jour</h2>
-            <p className="mt-0.5 text-xs capitalize text-animeo-muted">{dateLabel}</p>
-          </div>
-        </div>
-        <Link href="/dashboard/agenda" className="flex items-center gap-1 text-sm font-extrabold text-animeo transition hover:text-animeo-dark">
-          Agenda complet
+    <DashboardCard
+      icon="calendar"
+      title="Planning du jour"
+      subtitle={dateLabel}
+      action={
+        <Link href="/dashboard/agenda" className="flex min-h-9 items-center gap-1 text-sm font-extrabold text-animeo transition hover:text-animeo-dark">
+          Voir l’agenda complet
           <Icon name="arrow" className="h-4 w-4" />
         </Link>
-      </div>
-
+      }
+    >
       {todayAppointments.length > 0 ? (
         <ol className="relative space-y-0">
           {todayAppointments.map((appointment, index) => (
@@ -64,14 +61,20 @@ export function DashboardPlanning({ clients }: { clients: Client[] }) {
           ))}
         </ol>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-animeo-bg px-4 py-10 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-animeo-dark shadow-sm"><Icon name="calendar" className="h-6 w-6" /></span>
-          <p className="mt-4 font-bold text-animeo-dark">Aucun rendez-vous aujourd’hui</p>
-          <p className="mt-1 text-sm text-animeo-muted">Votre journée est libre pour le moment.</p>
-          <Link href="/dashboard/agenda" className="mt-5 rounded-2xl bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark shadow-sm transition hover:bg-animeo-soft">
-            Consulter l’agenda
-          </Link>
-        </div>
+        <DashboardEmptyState
+          title="Aucun rendez-vous aujourd’hui"
+          message="Votre journée est libre pour le moment."
+          action={
+            <button
+              type="button"
+              onClick={() => openNewAppointment()}
+              className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-extrabold text-animeo-dark shadow-sm transition hover:bg-animeo-soft"
+            >
+              <Icon name="calendarPlus" className="h-4 w-4" />
+              Nouveau rendez-vous
+            </button>
+          }
+        />
       )}
 
       {selection ? (
@@ -84,7 +87,7 @@ export function DashboardPlanning({ clients }: { clients: Client[] }) {
           onClose={() => setSelection(null)}
         />
       ) : null}
-    </Card>
+    </DashboardCard>
   );
 }
 
