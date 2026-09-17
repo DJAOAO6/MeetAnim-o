@@ -33,6 +33,15 @@ function git(...parameters) {
   return execFileSync("git", parameters, { encoding: "utf8" }).trim();
 }
 
+/**
+ * Même chose, mais sans laisser git écrire sur la sortie d'erreur : certains
+ * échecs sont attendus (interroger une branche qui n'existe pas encore) et
+ * leur message brut passerait avant l'explication donnée ici.
+ */
+function gitQuiet(...parameters) {
+  return execFileSync("git", parameters, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+}
+
 function fail(message, hint) {
   console.error(`\n✖ ${message}`);
   if (hint) console.error(`\n${hint}\n`);
@@ -90,8 +99,8 @@ if (aheadOfGitHub !== "0") {
 
 let alreadyDeployed = null;
 try {
-  git("fetch", REMOTE, REMOTE_BRANCH, "--quiet");
-  alreadyDeployed = git("rev-parse", `${REMOTE}/${REMOTE_BRANCH}`);
+  gitQuiet("fetch", REMOTE, REMOTE_BRANCH, "--quiet");
+  alreadyDeployed = gitQuiet("rev-parse", `${REMOTE}/${REMOTE_BRANCH}`);
 } catch {
   console.log("ℹ Première poussée vers Gitea (ou dépôt distant injoignable) — aperçu limité.\n");
 }
