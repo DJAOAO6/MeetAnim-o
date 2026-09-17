@@ -424,6 +424,25 @@ export async function deleteTourRunAction(tourRunId: string): Promise<ActionResu
   return { ok: true };
 }
 
+/**
+ * Suppression groupée. Supprimer une centaine de journées une par une n'est
+ * pas une tâche raisonnable à demander à quelqu'un — et c'est exactement la
+ * situation dans laquelle une génération répétée peut mettre un compte.
+ *
+ * Le filtre `userId` fait office de contrôle de propriété : les journées d'un
+ * autre compte glissées dans la liste ne correspondent simplement à rien, sans
+ * qu'il soit besoin de le dire — ni de révéler qu'elles existent.
+ */
+export async function deleteTourRunsAction(tourRunIds: string[]): Promise<ActionResult & { deleted?: number }> {
+  const user = await requireUser();
+  const parsed = z.array(z.string().cuid()).min(1).max(500).safeParse(tourRunIds);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+
+  const result = await prisma.tourRun.deleteMany({ where: { id: { in: parsed.data }, userId: user.id } });
+  revalidatePath(TOURS_PATH);
+  return { ok: true, deleted: result.count };
+}
+
 // ---------------------------------------------------------------------------
 // Arrêts
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import { Icon } from "@/components/ui/icon";
 import { PageHeader } from "@/components/layout/page-header";
 import { formatDistanceMeters } from "@/lib/maps/map-utils";
 import { buildTourMapsLinks } from "@/lib/tour-maps";
-import { deleteTourRunAction } from "@/lib/tour-runs-actions";
+import { deleteTourRunAction, deleteTourRunsAction } from "@/lib/tour-runs-actions";
 import { notify } from "@/lib/notify";
 import type { TourRunView, TourDayListData, TourDayListItem } from "@/lib/tour-runs";
 import type { Coordinates } from "@/data/tours";
@@ -33,10 +33,48 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
   // serveur reste la source de vérité, router.refresh() la resynchronise.
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const visibleUpcoming = listData.upcoming.filter((item) => !removedIds.has(item.id));
   const visiblePastAll = listData.past.filter((item) => !removedIds.has(item.id));
   const visiblePast = pastExpanded ? visiblePastAll : visiblePastAll.slice(0, PAST_VISIBLE_COUNT);
+
+  // Tout ce qui est réellement affiché, et donc sélectionnable : les journées
+  // passées repliées n'entrent pas dans « tout sélectionner », sinon on
+  // supprimerait des lignes qu'on n'a pas sous les yeux.
+  const selectableIds = [...visibleUpcoming, ...visiblePast].map((item) => item.id);
+  const selectedCount = selectedIds.size;
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(`Supprimer ${ids.length} journée${ids.length > 1 ? "s" : ""} de tournée ? Les rendez-vous eux-mêmes ne sont pas supprimés, seules les journées (les itinéraires) le sont.`)) return;
+
+    setBulkDeleting(true);
+    const result = await deleteTourRunsAction(ids);
+    setBulkDeleting(false);
+    if (!result.ok) {
+      notify.error(result.error);
+      return;
+    }
+
+    setRemovedIds((current) => new Set([...current, ...ids]));
+    setSelectedIds(new Set());
+    const deleted = result.deleted ?? ids.length;
+    notify.success(`${deleted} journée${deleted > 1 ? "s" : ""} supprimée${deleted > 1 ? "s" : ""}.`);
+    router.refresh();
+  }
 
   async function deleteDay(id: string, label: string) {
     if (!window.confirm(`Supprimer la tournée du ${label} ? Les rendez-vous eux-mêmes ne sont pas supprimés, seule la tournée (l’itinéraire) l’est.`)) return;
@@ -70,6 +108,34 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
       />
 
       <div className="space-y-8">
+        {selectableIds.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-animeo-border-soft bg-animeo-bg px-4 py-3">
+            <button
+              type="button"
+              onClick={() => setSelectedIds(allSelected ? new Set() : new Set(selectableIds))}
+              className="rounded-xl border border-animeo-border bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+            >
+              {allSelected ? "Tout désélectionner" : `Tout sélectionner (${selectableIds.length})`}
+            </button>
+            {selectedCount > 0 ? (
+              <>
+                <span className="text-xs font-bold text-animeo-muted">
+                  {selectedCount} journée{selectedCount > 1 ? "s" : ""} sélectionnée{selectedCount > 1 ? "s" : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  disabled={bulkDeleting}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-animeo-danger-soft px-3 py-1.5 text-xs font-extrabold text-animeo-error transition hover:opacity-80 disabled:opacity-50"
+                >
+                  <TrashIcon />
+                  {bulkDeleting ? "Suppression…" : "Supprimer la sélection"}
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
         {today && !removedIds.has(today.id) ? (
           <TodayCard
             tourRun={today}
@@ -89,7 +155,7 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
             <Card className="overflow-hidden p-0">
               <ul>
                 {visibleUpcoming.map((item) => (
-                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => deleteDay(item.id, item.dateLabel)} deleting={deletingIds.has(item.id)} />
+                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => deleteDay(item.id, item.dateLabel)} deleting={deletingIds.has(item.id) || (bulkDeleting && selectedIds.has(item.id))} selected={selectedIds.has(item.id)} onToggleSelected={() => toggleSelected(item.id)} />
                 ))}
               </ul>
             </Card>
@@ -102,7 +168,7 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
             <Card className="overflow-hidden p-0">
               <ul>
                 {visiblePast.map((item) => (
-                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => deleteDay(item.id, item.dateLabel)} deleting={deletingIds.has(item.id)} dimmed />
+                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => deleteDay(item.id, item.dateLabel)} deleting={deletingIds.has(item.id) || (bulkDeleting && selectedIds.has(item.id))} selected={selectedIds.has(item.id)} onToggleSelected={() => toggleSelected(item.id)} dimmed />
                 ))}
               </ul>
             </Card>
@@ -198,7 +264,7 @@ function DateBadge({ dateId, dimmed }: { dateId: string; dimmed: boolean }) {
   );
 }
 
-function DayRow({ item, onOpen, onDelete, deleting, dimmed = false }: { item: TourDayListItem; onOpen: () => void; onDelete: () => void; deleting: boolean; dimmed?: boolean }) {
+function DayRow({ item, onOpen, onDelete, deleting, selected, onToggleSelected, dimmed = false }: { item: TourDayListItem; onOpen: () => void; onDelete: () => void; deleting: boolean; selected: boolean; onToggleSelected: () => void; dimmed?: boolean }) {
   const detailParts = [
     item.stopCount > 0 ? `${item.stopCount} arrêt${item.stopCount > 1 ? "s" : ""}` : "Aucun rendez-vous pour l’instant",
     item.freeSlotCount != null && item.freeSlotCount > 0 ? `${item.freeSlotCount} créneau${item.freeSlotCount > 1 ? "x" : ""} libre${item.freeSlotCount > 1 ? "s" : ""}` : null,
@@ -206,7 +272,14 @@ function DayRow({ item, onOpen, onDelete, deleting, dimmed = false }: { item: To
 
   return (
     <li className="border-b border-animeo-border-soft last:border-b-0">
-      <div className={`flex min-h-11 items-center gap-2 pl-4 pr-2 transition ${dimmed ? "opacity-60" : ""} ${deleting ? "opacity-40" : ""}`}>
+      <div className={`flex min-h-11 items-center gap-2 pl-4 pr-2 transition ${dimmed ? "opacity-60" : ""} ${deleting ? "opacity-40" : ""} ${selected ? "bg-animeo-soft" : ""}`}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          aria-label={`Sélectionner la tournée du ${item.dateLabel}`}
+          className="h-4 w-4 shrink-0 cursor-pointer accent-[var(--theme-primary)]"
+        />
         <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left transition hover:opacity-80">
           <DateBadge dateId={item.dateId} dimmed={dimmed} />
           <div className="min-w-0 flex-1">
