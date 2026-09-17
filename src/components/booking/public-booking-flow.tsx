@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingProgress } from "@/components/booking/booking-progress";
+import { PawCursor } from "@/components/ui/paw-cursor";
 import { ProfessionalSidebar } from "@/components/booking/sidebar/professional-sidebar";
 import { DEFAULT_PUBLIC_PAGE, buttonRadius, fontStacks, type PublicPageConfig } from "@/data/public-page";
 import { ConsultationStep } from "@/components/booking/location-service-steps";
@@ -372,6 +373,18 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
 
   return (
     <main style={themeStyle} className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
+      {/* Curseur en patte : uniquement si le professionnel l'a activé pour sa
+          page. Ses couleurs suivent celles de la page, pour que l'effet reste
+          le sien plutôt qu'un ajout plaqué dessus. */}
+      {page.theme.pawCursor || page.theme.pawTrail ? (
+        <PawCursor
+          replaceCursor={page.theme.pawCursor}
+          trail={page.theme.pawTrail}
+          color={page.theme.pawColor || page.theme.primaryColor}
+          strongColor={page.theme.pawColor ? undefined : page.theme.accentColor}
+        />
+      ) : null}
+
       <BookingHeader professional={professional} />
 
       {/* Message du praticien, affiché avant le parcours : c'est souvent une

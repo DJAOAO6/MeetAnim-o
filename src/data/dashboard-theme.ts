@@ -35,6 +35,16 @@ export type DashboardDisplayOptions = {
   roundedCards: boolean;
   smoothAnimations: boolean;
   fontFamily: FontChoice;
+  /**
+   * Curseur en patte dans l'espace de travail. Éteint par défaut : remplacer
+   * le curseur système est un parti pris fort pour un outil utilisé toute la
+   * journée, et ce choix appartient au professionnel, pas au produit.
+   */
+  pawCursor: boolean;
+  /** Traces de pattes au sol pendant le déplacement. Indépendante du curseur. */
+  pawTrail: boolean;
+  /** Couleur des pattes. Vide : elles suivent les couleurs du thème. */
+  pawColor: string;
 };
 
 export const defaultDisplayOptions: DashboardDisplayOptions = {
@@ -44,6 +54,9 @@ export const defaultDisplayOptions: DashboardDisplayOptions = {
   roundedCards: true,
   smoothAnimations: true,
   fontFamily: "Nunito Sans",
+  pawCursor: false,
+  pawTrail: false,
+  pawColor: "",
 };
 
 /**

@@ -53,6 +53,23 @@ const shapes: Array<{ id: ButtonShape; label: string }> = [
   { id: "square", label: "Carré" },
 ];
 
+function PawCheck({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-2.5 py-1.5 text-sm font-bold text-animeo-dark">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--theme-primary)]"
+      />
+      <span>
+        {label}
+        <span className="mt-0.5 block text-xs font-semibold text-animeo-muted">{hint}</span>
+      </span>
+    </label>
+  );
+}
+
 function ColorControl({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="flex items-center justify-between gap-3 py-2">
@@ -314,6 +331,47 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
             <OptionRow label="Police" options={fonts} value={config.theme.font} onChange={(font) => updateTheme({ font })} />
             <OptionRow label="Espacement" options={densities} value={config.theme.density} onChange={(density) => updateTheme({ density })} />
             <OptionRow label="Boutons" options={shapes} value={config.theme.buttonShape} onChange={(buttonShape) => updateTheme({ buttonShape })} />
+
+            <div className="py-2">
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Effet patte</p>
+              <p className="mb-2 text-xs font-semibold text-animeo-muted">
+                Chez vos visiteurs, à la souris seulement : sans effet sur écran tactile, et le curseur de saisie des
+                champs reste normal.
+              </p>
+              <PawCheck
+                label="Traînée de pattes"
+                hint="Des traces suivent la souris sur la page. La flèche habituelle reste."
+                checked={config.theme.pawTrail}
+                onChange={(pawTrail) => updateTheme({ pawTrail })}
+              />
+              <PawCheck
+                label="Remplacer le curseur"
+                hint="La flèche cède la place à une patte, qui se referme quand on attrape quelque chose."
+                checked={config.theme.pawCursor}
+                onChange={(pawCursor) => updateTheme({ pawCursor })}
+              />
+              <div className="flex items-center justify-between gap-3 py-2">
+                <span className="text-sm font-bold text-animeo-dark">Couleur des pattes</span>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateTheme({ pawColor: "" })}
+                    aria-pressed={config.theme.pawColor === ""}
+                    title="Suivre les couleurs de la page"
+                    className={`rounded-lg border px-2 py-1 text-xs font-extrabold transition ${config.theme.pawColor === "" ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}
+                  >
+                    Page
+                  </button>
+                  <input
+                    type="color"
+                    value={config.theme.pawColor || config.theme.primaryColor}
+                    onChange={(event) => updateTheme({ pawColor: event.target.value })}
+                    aria-label="Couleur des pattes"
+                    className="h-9 w-12 cursor-pointer rounded-lg border border-animeo-border bg-transparent"
+                  />
+                </span>
+              </div>
+            </div>
             <label className="block py-2">
               <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">
                 Assombrissement de la couverture — {config.theme.coverOverlay} %

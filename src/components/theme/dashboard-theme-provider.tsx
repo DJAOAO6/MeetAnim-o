@@ -1,5 +1,6 @@
 "use client";
 
+import { PawCursor } from "@/components/ui/paw-cursor";
 import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
   defaultDashboardTheme,
@@ -205,6 +206,18 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
         data-animations={displayOptions.smoothAnimations ? "on" : "off"}
         style={style}
       >
+        {/* Curseur en patte : réglage propre à cet appareil, éteint par
+            défaut, aux couleurs du thème choisi. */}
+        {displayOptions.pawCursor || displayOptions.pawTrail ? (
+          <PawCursor
+            replaceCursor={displayOptions.pawCursor}
+            trail={displayOptions.pawTrail}
+            color={displayOptions.pawColor || theme.primaryColor}
+            // Couleur choisie : le ton soutenu en est dérivé. Couleur du
+            // thème : la seconde couleur du thème va déjà avec la première.
+            strongColor={displayOptions.pawColor ? undefined : theme.secondaryColor}
+          />
+        ) : null}
         {children}
       </div>
     </DashboardThemeContext.Provider>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Field, Toggle, inputClassName } from "@/components/settings/settings-fields";
@@ -161,6 +162,13 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
             <ToggleRow label="Arrondis des cartes" description="Appliquer des coins arrondis aux cartes." checked={draft.displayOptions.roundedCards} onChange={(value) => updateDisplayOptions({ roundedCards: value })} />
             <ToggleRow label="Afficher les icônes seulement" description="N’afficher que les icônes dans le menu." checked={draft.displayOptions.iconsOnly} onChange={(value) => updateDisplayOptions({ iconsOnly: value })} />
             <ToggleRow label="Animations douces" description="Activer les animations et transitions." checked={draft.displayOptions.smoothAnimations} onChange={(value) => updateDisplayOptions({ smoothAnimations: value })} />
+            <div className="sm:col-span-2">
+              <PawSettings
+                options={draft.displayOptions}
+                themeColor={draft.primaryColor}
+                onChange={updateDisplayOptions}
+              />
+            </div>
             <Field label="Densité d’affichage" hint="Adapter la taille des éléments de l’interface.">
               <select value={draft.displayOptions.density} onChange={(event) => updateDisplayOptions({ density: event.target.value as DisplayDensity })} className={inputClassName}>
                 {densityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -225,14 +233,73 @@ function CheckIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Effet patte : deux réglages indépendants et une couleur.
+ *
+ * Indépendants parce qu'ils ne se valent pas : les traces au sol s'ajoutent à
+ * ce qui existe, tandis que remplacer la flèche retire un repère du système.
+ * On peut vouloir l'un sans l'autre.
+ *
+ * Réglage propre à cet appareil, et sans effet sur écran tactile, où il n'y a
+ * pas de curseur à remplacer.
+ */
+function PawSettings({ options, themeColor, onChange }: { options: DashboardDisplayOptions; themeColor: string; onChange: (patch: Partial<DashboardDisplayOptions>) => void }) {
+  const suitLeTheme = options.pawColor === "";
+
+  return (
+    <div className="rounded-2xl border border-animeo-border-soft bg-animeo-bg px-4 py-3.5">
+      <p className="text-sm font-extrabold text-animeo-dark">Effet patte</p>
+      <p className="mt-0.5 text-xs text-animeo-muted">
+        Propre à cet appareil, et sans effet sur écran tactile. Le curseur de saisie reste visible dans les champs.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Toggle
+          checked={options.pawTrail}
+          onChange={(pawTrail) => onChange({ pawTrail })}
+          label={`Traînée de pattes : ${options.pawTrail ? "ON" : "OFF"}`}
+        />
+        <Toggle
+          checked={options.pawCursor}
+          onChange={(pawCursor) => onChange({ pawCursor })}
+          label={`Remplacer le curseur : ${options.pawCursor ? "ON" : "OFF"}`}
+        />
+
+        <span className="flex items-center gap-2 pl-1">
+          <span className="text-sm font-bold text-animeo-dark">Couleur</span>
+          <button
+            type="button"
+            onClick={() => onChange({ pawColor: "" })}
+            aria-pressed={suitLeTheme}
+            title="Suivre les couleurs du thème"
+            className={`rounded-lg border px-2 py-1 text-xs font-extrabold transition ${suitLeTheme ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}
+          >
+            Thème
+          </button>
+          <input
+            type="color"
+            // Champ jamais vide : « suivre le thème » s'affiche avec la
+            // couleur qu'il donnerait, pour qu'on voie ce qu'on remplace.
+            value={options.pawColor || themeColor}
+            onChange={(event) => onChange({ pawColor: event.target.value })}
+            aria-label="Couleur des pattes"
+            className="h-9 w-12 cursor-pointer rounded-lg border border-animeo-border bg-transparent"
+          />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  const labelId = useId();
   return (
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg px-4 py-3.5">
       <div className="min-w-0">
-        <p className="text-sm font-extrabold text-animeo-dark">{label}</p>
+        <p id={labelId} className="text-sm font-extrabold text-animeo-dark">{label}</p>
         <p className="mt-0.5 text-xs text-animeo-muted">{description}</p>
       </div>
-      <Toggle checked={checked} onChange={onChange} label="" compact />
+      <Toggle checked={checked} onChange={onChange} label="" labelledBy={labelId} compact />
     </div>
   );
 }

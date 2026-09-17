@@ -24,9 +24,12 @@ export function Field({ id, label, hint, children }: { id?: string; label: strin
   );
 }
 
-export function Toggle({ checked, onChange, label, compact = false, disabled = false }: { checked: boolean; onChange: (checked: boolean) => void; label: string; compact?: boolean; disabled?: boolean }) {
+export function Toggle({ checked, onChange, label, compact = false, disabled = false, labelledBy }: { checked: boolean; onChange: (checked: boolean) => void; label: string; compact?: boolean; disabled?: boolean; labelledBy?: string }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>
+    // labelledBy : pour les interrupteurs dont le libellé est posé à côté
+    // plutôt que dedans. Sans lui, ils s'annoncent « interrupteur, activé »
+    // sans dire de quoi il s'agit.
+    <button type="button" role="switch" aria-checked={checked} aria-labelledby={labelledBy} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>
       <span className={`relative inline-flex h-5 w-9 rounded-full transition ${checked ? "bg-animeo" : "bg-animeo-subtle"}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition ${checked ? "left-[18px]" : "left-0.5"}`} />
       </span>

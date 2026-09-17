@@ -9,6 +9,7 @@ import { NavigationBehaviourPanel } from "@/components/settings/navigation-behav
 import { PersonalizationPreview } from "@/components/settings/personalization-preview";
 import { PublicPageEditor } from "@/components/settings/public-page-editor";
 import { ThemeColorsPanel, type ThemeDraft } from "@/components/settings/theme-colors-panel";
+import type { DashboardThemeSettings } from "@/data/dashboard-theme";
 import type { ProfileSettings, ServiceSettings } from "@/data/settings";
 import type { PublicProfessional } from "@/data/public-booking";
 import type { PublicPageState } from "@/lib/public-page-actions";
@@ -42,17 +43,35 @@ type PersonalizationViewProps = {
   publicProfessional: PublicProfessional | null;
 };
 
-export function PersonalizationView({ profile, services, saving = false, canEdit = true, onSaveTheme, publicPage, publicProfessional }: PersonalizationViewProps) {
-  const { theme } = useDashboardTheme();
-  const [activeSection, setActiveSection] = useState<PersonalizationSection>("theme");
-  const [draft, setDraft] = useState<ThemeDraft>({
+function draftFromTheme(theme: DashboardThemeSettings): ThemeDraft {
+  return {
     mode: theme.mode,
     palette: theme.palette,
     primaryColor: theme.primaryColor,
     secondaryColor: theme.secondaryColor,
     accentColor: theme.accentColor,
     displayOptions: theme.displayOptions,
-  });
+  };
+}
+
+export function PersonalizationView({ profile, services, saving = false, canEdit = true, onSaveTheme, publicPage, publicProfessional }: PersonalizationViewProps) {
+  const { theme } = useDashboardTheme();
+  const [activeSection, setActiveSection] = useState<PersonalizationSection>("theme");
+  const [draft, setDraft] = useState<ThemeDraft>(() => draftFromTheme(theme));
+
+  // Le thème réel n'est relu du stockage local qu'après le premier rendu : à
+  // cet instant précis, le brouillon ci-dessus est une copie des valeurs par
+  // défaut, pas des réglages du professionnel. Sans cette remise à niveau, le
+  // panneau affiche des réglages qui ne sont pas les siens — et « Enregistrer »
+  // les écrit par-dessus les vrais.
+  //
+  // Une fois synchronisé, `theme` ne change plus que lorsque ce panneau
+  // enregistre : une modification en cours n'est donc jamais écrasée.
+  const [syncedTheme, setSyncedTheme] = useState(theme);
+  if (syncedTheme !== theme) {
+    setSyncedTheme(theme);
+    setDraft(draftFromTheme(theme));
+  }
 
   // L'éditeur de page de réservation a son propre aperçu, bien plus fidèle :
   // l'aperçu latéral du thème n'est affiché que là où il apporte quelque chose.

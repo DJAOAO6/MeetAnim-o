@@ -54,6 +54,16 @@ export type PublicPageTheme = {
   buttonShape: ButtonShape;
   /** Image de couverture assombrie pour que le texte posé dessus reste lisible. */
   coverOverlay: number;
+  /**
+   * Curseur en patte sur la page de réservation. Éteint par défaut, et réglé
+   * ici seulement : un visiteur ne choisit pas l'habillage de la page, c'est
+   * le professionnel qui décide de l'allure de la sienne.
+   */
+  pawCursor: boolean;
+  /** Traces de pattes au sol pendant le déplacement. Indépendante du curseur. */
+  pawTrail: boolean;
+  /** Couleur des pattes. Vide : elles suivent les couleurs de la page. */
+  pawColor: string;
 };
 
 export type PublicPageConfig = {
@@ -89,6 +99,9 @@ export const DEFAULT_PUBLIC_THEME: PublicPageTheme = {
   density: "normal",
   buttonShape: "rounded",
   coverOverlay: 35,
+  pawCursor: false,
+  pawTrail: false,
+  pawColor: "",
 };
 
 export const DEFAULT_PUBLIC_SECTIONS: PublicSection[] = PUBLIC_SECTIONS.map((section) => ({
@@ -137,6 +150,10 @@ export function normalizePublicPage(raw: unknown): PublicPageConfig {
     density: safeOption(rawTheme.density, ["compact", "normal", "spacious"], DEFAULT_PUBLIC_THEME.density),
     buttonShape: safeOption(rawTheme.buttonShape, ["rounded", "pill", "square"], DEFAULT_PUBLIC_THEME.buttonShape),
     coverOverlay: typeof rawTheme.coverOverlay === "number" ? Math.min(80, Math.max(0, Math.round(rawTheme.coverOverlay))) : DEFAULT_PUBLIC_THEME.coverOverlay,
+    // Absent des configurations enregistrées avant ce réglage : éteint.
+    pawCursor: rawTheme.pawCursor === true,
+    pawTrail: rawTheme.pawTrail === true,
+    pawColor: typeof rawTheme.pawColor === "string" ? rawTheme.pawColor : "",
   };
 
   const entries = Array.isArray(source.sections) ? source.sections : [];
