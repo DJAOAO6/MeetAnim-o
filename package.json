@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "playwright test",
     "test:unit": "node --import tsx --test tests-unit/**/*.test.ts",
+    "deploy": "node scripts/deploy-iridflow.mjs",
     "geocode:profile": "node --import tsx prisma/geocode-business-profile.ts",
     "geocode:clients": "node --import tsx prisma/geocode-clients.ts",
     "seed:document-templates": "node --import tsx prisma/seed-document-templates.ts"
