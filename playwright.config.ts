@@ -53,7 +53,7 @@ export default defineConfig({
       name: "mobile-chromium",
       // Parcours public (réservation) : joué en visiteur, sans session — y
       // poser un storageState connecté changerait le parcours testé.
-      testMatch: /schedule-calendar\.spec\.ts/,
+      testMatch: /(schedule-calendar|tour-suggestions)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: devices["iPhone 13"].viewport, deviceScaleFactor: devices["iPhone 13"].deviceScaleFactor, isMobile: true, hasTouch: true },
     },
     {

@@ -425,6 +425,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
               onAddressChange={changeAddress}
               zoneId={zoneId}
               onZoneChange={setZoneId}
+              onSlotChange={(nextDateId, nextTime) => { setDateId(nextDateId); setTime(nextTime); }}
               animal={animal}
               onAnimalChange={setAnimal}
               onBack={goToPreviousScreen}

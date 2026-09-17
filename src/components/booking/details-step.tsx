@@ -52,6 +52,8 @@ function findMatchingZone(professional: PublicProfessional, address: BookingAddr
   );
 }
 
+import { TourSuggestionPanel } from "@/components/booking/tour-suggestion-panel";
+
 type FieldKey = "firstName" | "lastName" | "phone" | "email" | "address" | "postalCode" | "city" | "animalName" | "reason";
 type GroupKey = "contact" | "address" | "animal";
 
@@ -70,13 +72,27 @@ type DetailsStepProps = {
   onAddressChange: (value: BookingAddress) => void;
   zoneId: string | null;
   onZoneChange: (zoneId: string | null) => void;
+  /**
+   * Créneau retenu depuis un passage de tournée : remplace la date et l'heure
+   * déjà choisies, sans rien toucher d'autre au formulaire.
+   */
+  onSlotChange: (dateId: string, time: string) => void;
   animal: AnimalInformation;
   onAnimalChange: (value: AnimalInformation) => void;
   onBack: () => void;
   onNext: () => void;
 };
 
-export function DetailsStep({ professional, mode, service, dateId, time, owner, onOwnerChange, address, onAddressChange, zoneId, onZoneChange, animal, onAnimalChange, onBack, onNext }: DetailsStepProps) {
+export function DetailsStep({ professional, mode, service, dateId, time, owner, onOwnerChange, address, onAddressChange, zoneId, onZoneChange, onSlotChange, animal, onAnimalChange, onBack, onNext }: DetailsStepProps) {
+  /**
+   * Passage retenu, et zone dans laquelle il l'a été.
+   *
+   * La zone est mémorisée pour le cas du §10 : si l'adresse change ensuite et
+   * sort du secteur, le rendez-vous ne correspond plus à aucun passage et il
+   * faut le dire plutôt que de laisser un créneau incohérent.
+   */
+  const [pickedTour, setPickedTour] = useState<{ tourName: string; dateLabel: string; time: string; zoneId: string } | null>(null);
+  const [suggestionCount, setSuggestionCount] = useState(0);
   const [touched, setTouched] = useState<Set<FieldKey>>(new Set());
   const [submitted, setSubmitted] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
@@ -455,7 +471,9 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
               </BookingField>
             </div>
 
-            {mode === "HOME" && zone ? (
+            {/* Bandeau de secteur : effacé dès que des créneaux sont proposés
+                juste en dessous, qui disent la même chose en mieux. */}
+            {mode === "HOME" && zone && suggestionCount === 0 ? (
               <div className="mt-4 rounded-2xl border border-animeo-border-strong bg-animeo-positive-soft p-3.5 text-sm">
                 {zoneRunsOnSelectedDate ? (
                   <p className="font-black text-animeo-positive">✓ Vous êtes déjà dans notre secteur ce jour-là — {zone.name}, passage régulier le {selectedDateWeekday.toLocaleLowerCase("fr-FR")}.</p>
@@ -464,6 +482,7 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
                 )}
               </div>
             ) : null}
+
           </DynamicReveal>
         </AccordionGroup>
 
@@ -534,6 +553,43 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
           </div>
         </AccordionGroup>
       </div>
+
+      {/* Suggestions de tournée : hors de l'accordéon adresse, qui se referme
+          dès que l'adresse est complète — c'est-à-dire au moment précis où la
+          suggestion devient utile. Elles restent donc visibles quelle que soit
+          la section ouverte, juste au-dessus des boutons d'étape. */}
+          {/* Le rendez-vous a été déplacé sur un passage, puis l'adresse a
+              quitté ce secteur : le créneau ne correspond plus à rien. */}
+          {pickedTour && zoneId !== pickedTour.zoneId ? (
+            <p role="alert" className="mt-4 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft p-3.5 text-sm font-bold text-animeo-warning">
+              Votre nouvelle adresse n’est plus dans le secteur de « {pickedTour.tourName} ». Choisissez un autre
+              créneau ci-dessous, ou revenez à l’étape précédente pour reprendre une date.
+            </p>
+          ) : null}
+
+          {mode === "HOME" ? (
+            <TourSuggestionPanel
+              zoneId={zoneId}
+              durationMinutes={service.duration}
+              dateId={dateId}
+              time={time}
+              onCountChange={setSuggestionCount}
+              onPick={(choice) => {
+                onSlotChange(choice.dateId, choice.time);
+                setPickedTour({ tourName: choice.tourName, dateLabel: choice.dateLabel, time: choice.time, zoneId: zoneId ?? "" });
+              }}
+              onDismiss={() => setPickedTour(null)}
+            />
+          ) : null}
+
+          {/* Confirmation légère : le déplacement doit se voir, sans
+              interrompre la saisie en cours. */}
+          {pickedTour && zoneId === pickedTour.zoneId ? (
+            <p role="status" className="mt-3 rounded-2xl bg-animeo-positive-soft px-4 py-3 text-sm font-bold text-animeo-positive">
+              Votre rendez-vous a été déplacé au {pickedTour.dateLabel.toLocaleLowerCase("fr-FR")} à {pickedTour.time},
+              pendant le passage du professionnel dans votre secteur.
+            </p>
+          ) : null}
 
       {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">{revalidationError}</p> : null}
       <BookingActions onBack={onBack} loading={revalidating} />
