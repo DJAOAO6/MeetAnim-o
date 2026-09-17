@@ -630,6 +630,17 @@ model Zone {
   id           String @id @default(cuid())
   name         String
   cities       City[]
+
+  // Secteur d'intervention : un lieu et un rayon autour de lui. Une zone
+  // peut être décrite par ses communes (historique), par un secteur, ou par
+  // les deux — un rendez-vous rattaché à l'un ou à l'autre appartient à la
+  // zone. Nullable partout : les zones existantes n'ont pas de secteur, et
+  // continuent de fonctionner exactement comme avant.
+  centerLabel     String?
+  centerLatitude  Float?
+  centerLongitude Float?
+  /** Rayon en kilomètres autour du centre. */
+  radiusKm        Int?
   tours        Tour[]
   // Multi-zone (refonte tournées, formulaire enrichi) : source de vérité
   // pour le nouveau sélecteur multi-zone. `tours` (ci-dessus, relation

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { haversineDistanceKm } from "@/lib/geo";
 import type { PublicService, PublicZone } from "@/data/public-booking";
 import type { HourAvailability } from "@/lib/availability";
 
@@ -53,19 +54,43 @@ function normalizeLocationText(value: string): string {
 }
 
 /**
- * Retrouve la zone correspondant à une ville/code postal, indépendamment de
- * ce que le client prétend. Mêmes règles que findMatchingZone côté client
- * (src/components/booking/details-step.tsx) : ville normalisée ou code
- * postal à 5 chiffres présent dans la liste de la zone.
+ * Une adresse tombe-t-elle dans le secteur d'intervention d'une zone ?
+ *
+ * Exportée pour que l'écran public applique exactement la même règle que le
+ * serveur : deux règles qui divergeraient donneraient une suggestion à
+ * quelqu'un à qui elle serait ensuite refusée.
  */
-export function findMatchingZone(zones: PublicZone[], postalCode: string | undefined, city: string | undefined): PublicZone | undefined {
+export function isWithinZoneSector(zone: PublicZone, coordinates: { lat: number; lng: number } | null | undefined): boolean {
+  if (!zone.sector || !coordinates) return false;
+  return haversineDistanceKm(coordinates, { lat: zone.sector.lat, lng: zone.sector.lng }) <= zone.sector.radiusKm;
+}
+
+/**
+ * Retrouve la zone correspondant à une adresse, indépendamment de ce que le
+ * client prétend. Deux façons d'appartenir à une zone, et il suffit d'une :
+ *
+ * - la commune ou le code postal figure dans la liste de la zone ;
+ * - l'adresse tombe dans son secteur d'intervention (lieu + rayon).
+ *
+ * Les coordonnées sont facultatives : sans elles, on retrouve exactement le
+ * comportement d'avant les secteurs, et les appelants qui n'en ont pas (un
+ * rendez-vous jamais géocodé, par exemple) continuent de fonctionner.
+ */
+export function findMatchingZone(
+  zones: PublicZone[],
+  postalCode: string | undefined,
+  city: string | undefined,
+  coordinates?: { lat: number; lng: number } | null,
+): PublicZone | undefined {
   const normalizedCity = city ? normalizeLocationText(city) : "";
   const normalizedPostalCode = (postalCode ?? "").replace(/\s/g, "");
-  if (!normalizedCity && normalizedPostalCode.length !== 5) return undefined;
+  const hasTextualClue = normalizedCity.length > 0 || normalizedPostalCode.length === 5;
+  if (!hasTextualClue && !coordinates) return undefined;
 
   return zones.find((zone) =>
     (normalizedCity.length > 0 && zone.cities.some((cityName) => normalizeLocationText(cityName) === normalizedCity))
-    || (normalizedPostalCode.length === 5 && zone.postalCodes.includes(normalizedPostalCode)),
+    || (normalizedPostalCode.length === 5 && zone.postalCodes.includes(normalizedPostalCode))
+    || isWithinZoneSector(zone, coordinates),
   );
 }
 

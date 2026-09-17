@@ -110,7 +110,7 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
   const [completedAppointments, cancelledCount, totalBookedCount, prevRevenueAgg] = await Promise.all([
     prisma.appointment.findMany({
       where: completedWhere,
-      select: { date: true, mode: true, price: true, serviceName: true, animalId: true, clientId: true, postalCode: true, city: true },
+      select: { date: true, mode: true, price: true, serviceName: true, animalId: true, clientId: true, postalCode: true, city: true, latitude: true, longitude: true },
     }),
     prisma.appointment.count({ where: { ...baseWhere, status: "CANCELLED" } }),
     prisma.appointment.count({ where: { ...baseWhere, status: { in: ["CONFIRMED", "COMPLETED", "CANCELLED"] } } }),
@@ -262,7 +262,12 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
   const publicZones = await getPublicZones();
   const zoneAgg = new Map<string, { revenue: number; consultations: number; clients: Set<string> }>();
   for (const a of completedAppointments) {
-    const zone = findMatchingZone(publicZones, a.postalCode ?? undefined, a.city ?? undefined);
+    const zone = findMatchingZone(
+      publicZones,
+      a.postalCode ?? undefined,
+      a.city ?? undefined,
+      a.latitude != null && a.longitude != null ? { lat: a.latitude, lng: a.longitude } : null,
+    );
     if (!zone) continue;
     const entry = zoneAgg.get(zone.name) ?? { revenue: 0, consultations: 0, clients: new Set<string>() };
     entry.revenue += a.price;

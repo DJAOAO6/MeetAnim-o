@@ -111,13 +111,13 @@ export async function resolveTourEndpoints(
 
 const stopInclude = {
   appointment: {
-    select: { animalSpecies: true, price: true, clientId: true, animalId: true, status: true, date: true, completedAt: true, city: true, postalCode: true, client: { select: { phone: true } } },
+    select: { animalSpecies: true, price: true, clientId: true, animalId: true, status: true, date: true, completedAt: true, city: true, postalCode: true, latitude: true, longitude: true, client: { select: { phone: true } } },
   },
 } as const;
 
 const templateZonesInclude = { template: { select: { zones: { select: { name: true, cities: { select: { name: true, postalCode: true } } } } } } } as const;
 
-type StopAppointment = { animalSpecies: string | null; price: number; clientId: string | null; animalId: string | null; status: string; date: Date; completedAt: Date | null; city: string | null; postalCode: string | null; client: { phone: string } | null };
+type StopAppointment = { animalSpecies: string | null; price: number; clientId: string | null; animalId: string | null; status: string; date: Date; completedAt: Date | null; city: string | null; postalCode: string | null; latitude: number | null; longitude: number | null; client: { phone: string } | null };
 
 export type TourRunWithStops = DbTourRun & { stops: (DbTourStop & { appointment: StopAppointment | null })[] } & { template: { zones: { name: string; cities: { name: string; postalCode: string }[] }[] } | null };
 
@@ -274,7 +274,12 @@ export function toTourRunView(tourRun: TourRunWithStops, resolvedStart: Resolved
       phone: stop.appointment?.client?.phone ?? null,
       completedAt: stop.appointment?.completedAt ? formatTimeHHMM(stop.appointment.completedAt) : null,
       outOfZone: templateZones && stop.appointment?.city
-        ? !findMatchingZone(templateZones, stop.appointment.postalCode ?? undefined, stop.appointment.city)
+        ? !findMatchingZone(
+            templateZones,
+            stop.appointment.postalCode ?? undefined,
+            stop.appointment.city,
+            stop.appointment.latitude != null && stop.appointment.longitude != null ? { lat: stop.appointment.latitude, lng: stop.appointment.longitude } : null,
+          )
         : null,
     })),
   };

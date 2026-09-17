@@ -7,6 +7,7 @@ import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { Toggle } from "@/components/settings/settings-fields";
+import { ZoneModal, type ZoneFormValue } from "@/components/tours/zone-modal";
 import { notify } from "@/lib/notify";
 import { saveZoneAction } from "@/lib/tours-actions";
 import type { GeocodedAddress } from "@/data/geocoding";
@@ -64,6 +65,7 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
   const [zoneIds, setZoneIds] = useState<string[]>(tour?.zoneIds ?? []);
   const [zoneQuery, setZoneQuery] = useState("");
   const [creatingZone, setCreatingZone] = useState(false);
+  const [zoneDraftName, setZoneDraftName] = useState<string | null>(null);
   const [status, setStatus] = useState<Tour["status"]>(tour?.status ?? "Active");
   const [startType, setStartType] = useState<Tour["startType"]>(tour?.startType ?? "Cabinet");
   const [startAddressQuery, setStartAddressQuery] = useState(tour?.startAddress ?? "");
@@ -98,11 +100,19 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
     setZoneIds((current) => current.includes(id) ? current.filter((zoneId) => zoneId !== id) : [...current, id]);
   }
 
-  async function createZoneInline() {
-    const trimmed = zoneQuery.trim();
-    if (!trimmed || exactZoneMatch) return;
+  /**
+   * Créer la zone depuis ce formulaire ouvrait jusqu'ici une zone vide : ni
+   * commune, ni secteur. Une telle zone ne correspond à aucune adresse — la
+   * tournée s'affichait « Secteur Rouen » mais aucun rendez-vous ne s'y
+   * rattachait jamais, sans que rien ne l'explique.
+   *
+   * Le nom seul ne suffit donc pas : on ouvre l'éditeur de zone, déjà
+   * rempli de ce qui vient d'être tapé, pour définir le secteur ou les
+   * communes. La zone créée est ensuite sélectionnée automatiquement.
+   */
+  async function saveNewZone(value: ZoneFormValue) {
     setCreatingZone(true);
-    const result = await saveZoneAction({ name: trimmed, cities: [] });
+    const result = await saveZoneAction(value);
     setCreatingZone(false);
     if (!result.ok) {
       notify.error(result.error);
@@ -111,6 +121,8 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
     onZoneCreated(result.zone);
     setZoneIds((current) => [...current, result.zone.id]);
     setZoneQuery("");
+    setZoneDraftName(null);
+    notify.success("Zone créée.");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -189,7 +201,7 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
                 })}
               </div>
               {zoneQuery.trim() && !exactZoneMatch ? (
-                <button type="button" onClick={createZoneInline} disabled={creatingZone} className="mt-2 text-xs font-medium text-animeo hover:underline disabled:opacity-60">
+                <button type="button" onClick={() => setZoneDraftName(zoneQuery.trim())} disabled={creatingZone} className="mt-2 text-xs font-medium text-animeo hover:underline disabled:opacity-60">
                   {creatingZone ? "Création…" : `+ Créer la zone "${zoneQuery.trim()}"`}
                 </button>
               ) : null}
@@ -283,6 +295,10 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
           </div>
         </form>
       </section>
+
+      {zoneDraftName !== null ? (
+        <ZoneModal defaultName={zoneDraftName} onClose={() => setZoneDraftName(null)} onSave={saveNewZone} />
+      ) : null}
 
       {tour && onDelete && deleteConfirmOpen ? (
         <ConfirmModal

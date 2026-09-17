@@ -10,10 +10,26 @@ export type City = {
   postalCode: string;
 };
 
+/**
+ * Secteur d'intervention : un lieu et un rayon autour de lui.
+ *
+ * C'est la façon dont on pense réellement une tournée — « je suis du côté de
+ * Rouen ce jour-là, dans un rayon de 20 km » — là où une liste de communes
+ * demande de deviner à l'avance tout ce qu'on accepte de desservir.
+ */
+export type ZoneSector = {
+  label: string;
+  lat: number;
+  lng: number;
+  radiusKm: number;
+};
+
 export type Zone = {
   id: string;
   name: string;
   cities: City[];
+  /** Absent tant que la zone n'est décrite que par ses communes. */
+  sector?: ZoneSector | null;
 };
 
 export type TourStatus = "Active" | "Inactive";

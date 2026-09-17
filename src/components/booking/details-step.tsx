@@ -9,7 +9,7 @@ import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { computeAgeLabel } from "@/lib/animal-age";
 import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
-import { formatBookingDateLabels, intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
+import { formatBookingDateLabels, intervalsOverlap, isWithinZoneSector, timeToMinutes } from "@/lib/booking-validation";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicAnimalType, PublicProfessional, PublicService } from "@/data/public-booking";
 
 const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
@@ -42,13 +42,20 @@ function normalizeCity(value: string) {
   return value.trim().toLocaleLowerCase("fr-FR").normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[’']/g, "'");
 }
 
+/**
+ * Même règle que le serveur (findMatchingZone, booking-validation.ts) : la
+ * commune, le code postal, ou le secteur d'intervention. Une règle plus
+ * large ici proposerait un créneau qui serait ensuite refusé.
+ */
 function findMatchingZone(professional: PublicProfessional, address: BookingAddress) {
   const normalizedCity = normalizeCity(address.city);
   const normalizedPostalCode = address.postalCode.replace(/\s/g, "");
+  const coordinates = address.latitude != null && address.longitude != null ? { lat: address.latitude, lng: address.longitude } : null;
 
   return professional.zones.find((item) =>
     item.cities.some((city) => normalizeCity(city) === normalizedCity)
-    || (normalizedPostalCode.length === 5 && item.postalCodes.includes(normalizedPostalCode)),
+    || (normalizedPostalCode.length === 5 && item.postalCodes.includes(normalizedPostalCode))
+    || isWithinZoneSector(item, coordinates),
   );
 }
 

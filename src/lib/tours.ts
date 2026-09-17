@@ -8,7 +8,7 @@ import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import type { AnimalSpecies } from "@/data/species";
-import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone } from "@/data/tours";
+import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone, ZoneSector } from "@/data/tours";
 import type { PublicZone } from "@/data/public-booking";
 import type { Tour as DbTour, TourStartType as DbTourStartType, TourStatus as DbTourStatus, Zone as DbZone } from "@/generated/prisma/client";
 
@@ -31,11 +31,27 @@ export async function getZones(): Promise<Zone[]> {
     id: zone.id,
     name: zone.name,
     cities: zone.cities.map((city): City => ({ id: city.id, name: city.name, postalCode: city.postalCode })),
+    sector: zoneSectorOf(zone),
   }));
 }
 
+/**
+ * Secteur d'une ligne Zone, ou null. Les quatre colonnes ne valent que
+ * ensemble : un centre sans rayon (ou l'inverse) ne décrit aucun secteur et
+ * ne doit surtout pas en laisser croire un.
+ */
+function zoneSectorOf(zone: { centerLabel: string | null; centerLatitude: number | null; centerLongitude: number | null; radiusKm: number | null }): ZoneSector | null {
+  if (zone.centerLatitude == null || zone.centerLongitude == null || zone.radiusKm == null) return null;
+  return { label: zone.centerLabel ?? "", lat: zone.centerLatitude, lng: zone.centerLongitude, radiusKm: zone.radiusKm };
+}
+
 function zoneToPublicShape(zone: Zone): PublicZone {
-  return { id: zone.id, name: zone.name, cities: zone.cities.map((c) => c.name), postalCodes: zone.cities.map((c) => c.postalCode), tourDays: [] };
+  return { id: zone.id, name: zone.name, cities: zone.cities.map((c) => c.name), postalCodes: zone.cities.map((c) => c.postalCode), tourDays: [], sector: publicSectorOf(zone) };
+}
+
+/** Le libellé du centre reste interne : seul le cercle sort vers le public. */
+function publicSectorOf(zone: Zone): { lat: number; lng: number; radiusKm: number } | null {
+  return zone.sector ? { lat: zone.sector.lat, lng: zone.sector.lng, radiusKm: zone.sector.radiusKm } : null;
 }
 
 function formatConsultationHours(totalMinutes: number): string {
@@ -82,7 +98,10 @@ async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZ
   // uniquement pour ne rien casser côté existant, voir tours-actions.ts).
   const tourZoneIds = new Set(tour.zones.length > 0 ? tour.zones.map((zone) => zone.id) : [tour.zoneId]);
   const matched = appointments.filter((a) => {
-    const zoneId = findMatchingZone(publicZones, a.postalCode ?? undefined, a.city ?? undefined)?.id;
+    // Les coordonnées comptent autant que la commune : un rendez-vous à une
+    // adresse jamais listée peut tomber dans le secteur de la tournée.
+    const coordinates = a.latitude != null && a.longitude != null ? { lat: a.latitude, lng: a.longitude } : null;
+    const zoneId = findMatchingZone(publicZones, a.postalCode ?? undefined, a.city ?? undefined, coordinates)?.id;
     return zoneId != null && tourZoneIds.has(zoneId);
   });
   const totalMinutes = matched.reduce((sum, a) => sum + a.duration, 0);
@@ -200,6 +219,7 @@ export async function getPublicZones(): Promise<PublicZone[]> {
     cities: zone.cities.map((city) => city.name),
     postalCodes: zone.cities.map((city) => city.postalCode),
     tourDays: [...new Set(tours.filter((tour) => tour.zoneId === zone.id && tour.status === "Active").map((tour) => tour.day))],
+    sector: publicSectorOf(zone),
   }));
 }
 

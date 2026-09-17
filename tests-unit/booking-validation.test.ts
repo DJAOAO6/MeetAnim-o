@@ -16,6 +16,7 @@ import {
   intervalsOverlap,
   isBookingDateAcceptable,
   isModeAvailableForService,
+  isWithinZoneSector,
   minutesToTime,
   parseDateIdToLocalNoon,
   passesMinimumFillTime,
@@ -50,6 +51,65 @@ const zones: PublicZone[] = [
   { id: "zone-rouen", name: "Zone Rouen", cities: ["Rouen", "Bois-Guillaume"], postalCodes: ["76000", "76130"], tourDays: ["Mardi"] },
   { id: "zone-le-havre", name: "Zone Le Havre", cities: ["Le Havre"], postalCodes: ["76600"], tourDays: ["Lundi"] },
 ];
+
+/**
+ * Secteur d'intervention : un lieu et un rayon.
+ *
+ * Ce qui se joue ici, c'est qu'une tournée cesse d'être une liste de communes
+ * à deviner à l'avance.
+ */
+const ROUEN = { lat: 49.4404, lng: 1.0939 };
+
+/**
+ * Point à `km` au nord de Rouen. Un degré de latitude vaut ~111,19 km partout
+ * — une distance exacte et lisible, là où « telle ville est à peu près à tant
+ * de kilomètres » se vérifie mal et vieillit mal.
+ */
+function nordDeRouen(km: number) {
+  return { lat: ROUEN.lat + km / 111.19, lng: ROUEN.lng };
+}
+const sectorZones: PublicZone[] = [
+  { id: "zone-secteur", name: "Secteur Rouen", cities: [], postalCodes: [], tourDays: [], sector: { lat: ROUEN.lat, lng: ROUEN.lng, radiusKm: 20 } },
+];
+
+test("une adresse du secteur appartient à la zone, même sans commune listée", () => {
+  const bonsecours = { lat: 49.4222, lng: 1.1225 };
+  const match = findMatchingZone(sectorZones, "76240", "Bonsecours", bonsecours);
+  assert.equal(match?.id, "zone-secteur");
+});
+
+test("une adresse hors du rayon n'appartient pas à la zone", () => {
+  const leHavre = { lat: 49.4944, lng: 0.1079 };
+  assert.equal(findMatchingZone(sectorZones, "76600", "Le Havre", leHavre), undefined);
+});
+
+test("sans coordonnées, une zone décrite par son seul secteur ne rattache rien", () => {
+  // Ne jamais deviner : un rendez-vous jamais géocodé reste hors secteur
+  // plutôt que d'être rattaché à tort.
+  assert.equal(findMatchingZone(sectorZones, "76240", "Bonsecours"), undefined);
+});
+
+test("le secteur s'ajoute aux communes, il ne les remplace pas", () => {
+  const mixte: PublicZone[] = [{ ...zones[0], sector: { lat: ROUEN.lat, lng: ROUEN.lng, radiusKm: 10 } }];
+  // Par la commune, sans coordonnées.
+  assert.equal(findMatchingZone(mixte, "76000", "Rouen")?.id, "zone-rouen");
+  // Par le secteur, à une adresse dont la commune n'est pas dans la liste.
+  assert.equal(findMatchingZone(mixte, undefined, "Commune non listée", nordDeRouen(8))?.id, "zone-rouen");
+});
+
+test("isWithinZoneSector est faux sans secteur ou sans coordonnées", () => {
+  assert.equal(isWithinZoneSector(zones[0], ROUEN), false);
+  assert.equal(isWithinZoneSector(sectorZones[0], null), false);
+  assert.equal(isWithinZoneSector(sectorZones[0], ROUEN), true);
+});
+
+test("le rayon est une vraie distance : changer le rayon change le résultat", () => {
+  const a25km = nordDeRouen(25);
+  const large: PublicZone[] = [{ ...sectorZones[0], sector: { lat: ROUEN.lat, lng: ROUEN.lng, radiusKm: 30 } }];
+  // 25 km : dehors à 20 km de rayon, dedans à 30.
+  assert.equal(findMatchingZone(sectorZones, undefined, undefined, a25km), undefined);
+  assert.equal(findMatchingZone(large, undefined, undefined, a25km)?.id, "zone-secteur");
+});
 
 test("isBookingDateAcceptable rejects past dates", () => {
   assert.equal(isBookingDateAcceptable("2026-08-27", "2026-08-28", "2026-11-24"), false);

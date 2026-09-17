@@ -33,6 +33,12 @@ export type PublicZone = {
   cities: string[];
   postalCodes: string[];
   tourDays: string[];
+  /**
+   * Secteur d'intervention, quand la zone en a un. Seules les coordonnées du
+   * centre et le rayon voyagent : de quoi dire « vous êtes dans le secteur »
+   * sans révéler comment le professionnel organise sa semaine.
+   */
+  sector?: { lat: number; lng: number; radiusKm: number } | null;
 };
 
 export type BookingDate = {

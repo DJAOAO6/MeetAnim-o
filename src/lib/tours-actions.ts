@@ -7,10 +7,10 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getPublicZones, getTours } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { saveAppointmentAction } from "@/lib/appointments-actions";
-import { computeTotalPrice, parseDateIdToLocalNoon } from "@/lib/booking-validation";
+import { computeTotalPrice, parseDateIdToLocalNoon, toLocalDateId } from "@/lib/booking-validation";
 import { geocodeAddress } from "@/lib/maps/geocoding-provider";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
-import type { City, Tour, Zone } from "@/data/tours";
+import type { City, Tour, Zone, ZoneSector } from "@/data/tours";
 import type { Tour as DbTour, TourStartType as DbTourStartType, TourStatus as DbTourStatus } from "@/generated/prisma/client";
 
 const dbTourStatus: Record<Tour["status"], DbTourStatus> = { Active: "ACTIVE", Inactive: "INACTIVE" };
@@ -179,6 +179,22 @@ export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
   const existing = await prisma.tour.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Cette tournée n'existe plus." };
 
+  // Les journées déjà générées à partir de ce motif survivraient à sa
+  // suppression (TourRun.template est en SetNull) : orphelines, elles
+  // resteraient dans la liste sans que rien ne les explique, et surtout
+  // l'index unique (templateId, date, userId) ne les couvrirait plus — deux
+  // NULL n'étant jamais égaux en SQL, la génération suivante recréerait le
+  // même lot, encore et encore.
+  //
+  // Seules partent les journées à venir et encore vides : une journée qui
+  // porte des arrêts porte du travail, et une journée passée est de
+  // l'historique. Ni l'une ni l'autre n'appartient à ce motif au point de
+  // disparaître avec lui.
+  const todayUtc = new Date(`${toLocalDateId(new Date())}T00:00:00.000Z`);
+  await prisma.tourRun.deleteMany({
+    where: { templateId: id, date: { gte: todayUtc }, stops: { none: {} } },
+  });
+
   await prisma.tour.delete({ where: { id } });
   await revalidateToursPages();
   return { ok: true };
@@ -186,7 +202,7 @@ export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
 
 export type ZoneActionResult = { ok: true; zone: Zone } | { ok: false; error: string };
 
-export type SaveZoneInput = { id?: string; name: string; cities: City[] };
+export type SaveZoneInput = { id?: string; name: string; cities: City[]; sector?: ZoneSector | null };
 
 export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionResult> {
   const user = await requireUser();
@@ -206,18 +222,40 @@ export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionRe
     .map((city) => ({ name: city.name.trim(), postalCode: city.postalCode.trim() }))
     .filter((city) => city.name.length > 0 && city.postalCode.length > 0);
 
+  // Le secteur ne vaut que complet : un centre sans rayon ne décrit rien.
+  const sector = input.sector && Number.isFinite(input.sector.lat) && Number.isFinite(input.sector.lng) && input.sector.radiusKm > 0
+    ? { centerLabel: input.sector.label.trim() || null, centerLatitude: input.sector.lat, centerLongitude: input.sector.lng, radiusKm: Math.round(input.sector.radiusKm) }
+    : { centerLabel: null, centerLatitude: null, centerLongitude: null, radiusKm: null };
+
+  // Une zone sans communes ET sans secteur ne correspond à aucune adresse :
+  // elle s'enregistre sans rien dire, puis aucun rendez-vous ne s'y rattache
+  // jamais, sans que rien ne l'explique. Mieux vaut le refuser tout de suite.
+  if (cities.length === 0 && sector.radiusKm == null) {
+    return { ok: false, error: "Décrivez la zone : au moins une commune, ou un secteur d'intervention (un lieu et un rayon)." };
+  }
+
   // Les villes soumises n'ont pas d'id fiable côté client (ids temporaires
   // générés par le formulaire pour React) : on remplace systématiquement
   // tout le jeu de villes de la zone plutôt que de tenter un diff.
   const zone = input.id
     ? await prisma.$transaction(async (tx) => {
         await tx.city.deleteMany({ where: { zoneId: input.id } });
-        return tx.zone.update({ where: { id: input.id }, data: { name, cities: { create: cities } }, include: { cities: true } });
+        return tx.zone.update({ where: { id: input.id }, data: { name, ...sector, cities: { create: cities } }, include: { cities: true } });
       })
-    : await prisma.zone.create({ data: { name, cities: { create: cities } }, include: { cities: true } });
+    : await prisma.zone.create({ data: { name, ...sector, cities: { create: cities } }, include: { cities: true } });
 
   await revalidateToursPages();
-  return { ok: true, zone: { id: zone.id, name: zone.name, cities: zone.cities.map((city) => ({ id: city.id, name: city.name, postalCode: city.postalCode })) } };
+  return {
+    ok: true,
+    zone: {
+      id: zone.id,
+      name: zone.name,
+      cities: zone.cities.map((city) => ({ id: city.id, name: city.name, postalCode: city.postalCode })),
+      sector: zone.radiusKm != null && zone.centerLatitude != null && zone.centerLongitude != null
+        ? { label: zone.centerLabel ?? "", lat: zone.centerLatitude, lng: zone.centerLongitude, radiusKm: zone.radiusKm }
+        : null,
+    },
+  };
 }
 
 export type DeleteZoneResult = { ok: true } | { ok: false; error: string };
