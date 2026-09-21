@@ -129,6 +129,19 @@ export async function deleteUserAction(userId: string): Promise<DeleteUserResult
     }
   }
 
+  // Les comptes rendus sont rattachés à leur auteur en cascade : supprimer le
+  // compte les effacerait tous, sans retour possible hors restauration de la
+  // base. Ce sont des dossiers cliniques — ils appartiennent au cabinet, pas
+  // à la personne qui les a tapés. On refuse donc, et on oriente vers la
+  // désactivation, qui coupe l'accès sans rien perdre.
+  const documentCount = await prisma.studioDocument.count({ where: { createdByUserId: userId } });
+  if (documentCount > 0) {
+    return {
+      ok: false,
+      error: `Ce compte a rédigé ${documentCount} compte${documentCount > 1 ? "s" : ""} rendu${documentCount > 1 ? "s" : ""}, qui ser${documentCount > 1 ? "aient" : "ait"} supprimé${documentCount > 1 ? "s" : ""} avec lui. Désactivez-le plutôt : il ne pourra plus se connecter, et ses documents restent au dossier.`,
+    };
+  }
+
   await prisma.user.delete({ where: { id: userId } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { deleted: true, email: target.email } });
   revalidatePath("/dashboard/admin");
