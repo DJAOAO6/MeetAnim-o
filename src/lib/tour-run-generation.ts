@@ -1,7 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
-import { parseDateIdToLocalNoon, toLocalDateId } from "@/lib/booking-validation";
+import { parseDateIdToLocalNoon } from "@/lib/booking-validation";
+import { parisDateId } from "@/lib/paris-time";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Tour } from "@/data/tours";
 
@@ -13,14 +14,11 @@ const GENERATION_WINDOW_DAYS = 21;
 // deux valeurs — mappage explicite plutôt qu'une assignation directe.
 const startTypeToEndpointType = { CABINET: "CABINET", CUSTOM: "CUSTOM" } as const;
 
+// « Aujourd'hui » à Paris, pas à l'heure du serveur (UTC en production) :
+// entre minuit et 2 h, le serveur se croyait encore la veille.
 function upcomingDateIds(count: number): string[] {
-  const today = new Date();
-  const ids: string[] = [];
-  for (let offset = 0; offset < count; offset++) {
-    const candidate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-    ids.push(toLocalDateId(candidate));
-  }
-  return ids;
+  const now = new Date();
+  return Array.from({ length: count }, (_, offset) => parisDateId(now, offset));
 }
 
 export type GenerateTourRunsResult = { created: number };

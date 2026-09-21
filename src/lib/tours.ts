@@ -1,11 +1,12 @@
 import "server-only";
+import { parisDateId } from "@/lib/paris-time";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { formatFrenchDate } from "@/lib/format";
 import { destinationPoint, projectToPercent } from "@/lib/geo";
 import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
-import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
+import { findMatchingZone, minutesToTime, timeToMinutes } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import type { AnimalSpecies } from "@/data/species";
 import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone, ZoneSector } from "@/data/tours";
@@ -147,7 +148,7 @@ async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZ
 const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> => {
   const [rows, zones, businessProfile] = await Promise.all([prisma.tour.findMany({ include: { zones: true } }), getZones(), getBusinessProfile()]);
   const publicZones = zones.map(zoneToPublicShape);
-  const todayId = toLocalDateId(new Date());
+  const todayId = parisDateId();
   const cabinetCoordinates = businessProfile.latitude != null && businessProfile.longitude != null ? { lat: businessProfile.latitude, lng: businessProfile.longitude } : null;
 
   const occurrences = await Promise.all(rows.map((tour) => computeTourOccurrence(tour, publicZones, todayId, cabinetCoordinates)));
@@ -323,7 +324,7 @@ export async function getMapClients(near?: { lat: number; lng: number; radiusKm:
  * encore correcte, pourrait resservir pour un futur indicateur.
  */
 export async function getWeeklyHomeAppointmentCount(): Promise<number> {
-  const todayId = toLocalDateId(new Date());
+  const todayId = parisDateId();
   const today = new Date(`${todayId}T00:00:00.000Z`);
   const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 

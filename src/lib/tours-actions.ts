@@ -1,5 +1,6 @@
 "use server";
 
+import { parisDateId } from "@/lib/paris-time";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
@@ -7,7 +8,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getPublicZones, getTours } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { saveAppointmentAction } from "@/lib/appointments-actions";
-import { computeTotalPrice, parseDateIdToLocalNoon, toLocalDateId } from "@/lib/booking-validation";
+import { computeTotalPrice, parseDateIdToLocalNoon } from "@/lib/booking-validation";
 import { geocodeAddress } from "@/lib/maps/geocoding-provider";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { City, Tour, Zone, ZoneSector } from "@/data/tours";
@@ -190,7 +191,7 @@ export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
   // porte des arrêts porte du travail, et une journée passée est de
   // l'historique. Ni l'une ni l'autre n'appartient à ce motif au point de
   // disparaître avec lui.
-  const todayUtc = new Date(`${toLocalDateId(new Date())}T00:00:00.000Z`);
+  const todayUtc = new Date(`${parisDateId()}T00:00:00.000Z`);
   await prisma.tourRun.deleteMany({
     where: { templateId: id, date: { gte: todayUtc }, stops: { none: {} } },
   });

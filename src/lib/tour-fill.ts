@@ -1,4 +1,5 @@
 import "server-only";
+import { parisDateId } from "@/lib/paris-time";
 import { prisma } from "@/lib/db";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
@@ -9,7 +10,6 @@ import {
   intervalsOverlap,
   parseDateIdToLocalNoon,
   timeToMinutes,
-  toLocalDateId,
 } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import { getZones } from "@/lib/tours";
@@ -100,7 +100,7 @@ async function computeTourFillOpportunity(tour: DbTour, publicZones: PublicZone[
 export async function getTourFillOpportunities(): Promise<Record<string, TourFillOpportunity>> {
   const [tours, zones] = await Promise.all([prisma.tour.findMany(), getZones()]);
   const publicZones: PublicZone[] = zones.map((zone) => ({ id: zone.id, name: zone.name, cities: zone.cities.map((c) => c.name), postalCodes: zone.cities.map((c) => c.postalCode), tourDays: [] }));
-  const todayId = toLocalDateId(new Date());
+  const todayId = parisDateId();
 
   const opportunities = await Promise.all(tours.map((tour) => computeTourFillOpportunity(tour, publicZones, todayId)));
   const result: Record<string, TourFillOpportunity> = {};

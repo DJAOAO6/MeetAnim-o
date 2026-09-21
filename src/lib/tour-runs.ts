@@ -1,4 +1,5 @@
 import "server-only";
+import { parisDateId } from "@/lib/paris-time";
 import { prisma } from "@/lib/db";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { haversineDistanceKm } from "@/lib/geo";
@@ -363,7 +364,7 @@ export async function getAvailableAppointmentsForDate(dateId: string, excludeTou
 }
 
 export function todayDateId(): string {
-  return toLocalDateId(new Date());
+  return parisDateId();
 }
 
 export type TourPreferencesView = {
@@ -429,7 +430,7 @@ async function resolveFillOpportunity(templateId: string, dateId: string): Promi
   const tour = await prisma.tour.findUnique({ where: { id: templateId }, select: { id: true, day: true, dateId: true, recurrence: true } });
   if (!tour) return null;
 
-  const todayId = toLocalDateId(new Date());
+  const todayId = parisDateId();
   const nextDateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
   if (nextDateId !== dateId) return null;
 
