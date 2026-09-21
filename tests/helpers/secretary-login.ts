@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { config } from "dotenv";
 import type { Page } from "@playwright/test";
-import { neon } from "@neondatabase/serverless";
+import { neon } from "./sql";
 
 config({ path: ".env.local" });
 

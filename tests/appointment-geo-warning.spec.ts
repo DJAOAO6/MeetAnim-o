@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { neon } from "@neondatabase/serverless";
+import { neon } from "./helpers/sql";
 
 config({ path: ".env.local" });
 

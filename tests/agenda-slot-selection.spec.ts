@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { neon } from "@neondatabase/serverless";
+import { neon } from "./helpers/sql";
 
 config({ path: ".env.local" });
 
@@ -29,9 +29,20 @@ function slotLayer(page: Page, day: number): Locator {
 
 const menu = (page: Page) => page.getByRole("dialog", { name: "Actions du créneau sélectionné" });
 
+/**
+ * Amène la colonne en haut de l'écran avant de calculer où cliquer. Les
+ * coordonnées de la souris sont celles de la fenêtre : une grille repoussée
+ * plus bas (par le panneau des demandes en attente, par exemple) recevrait
+ * sinon un clic hors de l'écran, qui ne fait rien.
+ */
+async function layerBox(layer: Locator) {
+  await layer.evaluate((element) => element.scrollIntoView({ block: "start" }));
+  return (await layer.boundingBox())!;
+}
+
 /** Glisse dans la colonne, du décalage `fromY` au décalage `toY`. */
 async function dragInColumn(page: Page, layer: Locator, fromY: number, toY: number) {
-  const box = (await layer.boundingBox())!;
+  const box = await layerBox(layer);
   const x = box.x + box.width / 2;
   await page.mouse.move(x, box.y + fromY);
   await page.mouse.down();
@@ -44,16 +55,37 @@ async function dragInColumn(page: Page, layer: Locator, fromY: number, toY: numb
 }
 
 async function clickInColumn(page: Page, layer: Locator, offsetY: number) {
-  const box = (await layer.boundingBox())!;
+  const box = await layerBox(layer);
   await page.mouse.move(box.x + box.width / 2, box.y + offsetY);
   await page.mouse.down();
   await page.mouse.up();
 }
 
+/**
+ * Semaines d'avance affichées. Les tests cliquent dans des zones qu'ils
+ * supposent libres : la semaine en cours ne l'est pas sur une base réellement
+ * remplie (les données de test y placent des rendez-vous sur les dix
+ * prochains jours). Quatre semaines plus loin, il ne reste que les tournées
+ * récurrentes du lundi, du mardi et du vendredi — d'où le mercredi (2) et le
+ * jeudi (3) comme colonnes de travail.
+ */
+const WEEKS_AHEAD = 4;
+
 async function openAgenda(page: Page) {
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+  for (let week = 0; week < WEEKS_AHEAD; week += 1) {
+    await page.getByRole("button", { name: "Afficher la semaine suivante" }).click();
+  }
   await page.waitForTimeout(1200);
+}
+
+/** Jour de la semaine affichée (0 = lundi), en identifiant YYYY-MM-DD. */
+function displayedWeekDay(dayIndex: number): string {
+  const today = new Date();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) + WEEKS_AHEAD * 7 + dayIndex);
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
 }
 
 test("un clic sur une zone libre sélectionne un créneau et ouvre les actions", async ({ page }) => {
@@ -106,13 +138,8 @@ test("Échap annule la sélection, un clic ailleurs ferme le menu", async ({ pag
  */
 test("une sélection s’arrête au rendez-vous existant au lieu de le traverser", async ({ page }) => {
   const sql = neon(process.env.DATABASE_URL!);
-  // Jeudi de la semaine affichée : calculé depuis la date du jour comme le fait l'agenda.
-  const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  const thursday = new Date(monday);
-  thursday.setDate(monday.getDate() + 3);
-  const dateId = `${thursday.getFullYear()}-${String(thursday.getMonth() + 1).padStart(2, "0")}-${String(thursday.getDate()).padStart(2, "0")}`;
+  // Jeudi de la semaine affichée.
+  const dateId = displayedWeekDay(3);
 
   await sql`DELETE FROM "Appointment" WHERE "clientName" LIKE 'E2E-Slot%'`;
   await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
@@ -122,7 +149,7 @@ test("une sélection s’arrête au rendez-vous existant au lieu de le traverser
 
   // Départ nettement au-dessus de 12:00, arrivée nettement en dessous de 13:00.
   const layer = slotLayer(page, 3);
-  const box = (await layer.boundingBox())!;
+  const box = await layerBox(layer);
   // La grille démarre à startHour ; on vise 10:00 puis on descend de 5 heures.
   const hourHeight = 72;
   const gridStartHour = Number((await page.getByText(/Horaires affichés de/).textContent())!.match(/de (\d{2})h00/)![1]);
@@ -153,7 +180,8 @@ test("« Créer un rendez-vous » ouvre le formulaire déjà rempli du créneau 
 test("« Bloquer ce créneau » enregistre vraiment le blocage", async ({ page }) => {
   const sql = neon(process.env.DATABASE_URL!);
   await openAgenda(page);
-  await clickInColumn(page, slotLayer(page, 4), 250);
+  // Jeudi : le vendredi porte une tournée récurrente dans les données de test.
+  await clickInColumn(page, slotLayer(page, 3), 250);
 
   const range = (await menu(page).textContent())!.match(/(\d{2}:\d{2}) → (\d{2}:\d{2})/)!;
   await menu(page).getByRole("button", { name: "Bloquer ce créneau" }).click();
@@ -187,8 +215,8 @@ test("une zone fermée propose d’autres actions, et prévient avant d’y pose
 
 test("un clic sur un rendez-vous existant n’ouvre pas le menu de zone libre", async ({ page }) => {
   const sql = neon(process.env.DATABASE_URL!);
-  const today = new Date();
-  const dateId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  // Mercredi de la semaine affichée (voir WEEKS_AHEAD).
+  const dateId = displayedWeekDay(2);
   await sql`DELETE FROM "Appointment" WHERE "clientName" LIKE 'E2E-Slot%'`;
   await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
     VALUES (${`e2e-slot-card-${Date.now()}`}, ${`${dateId}T00:00:00.000Z`}, '11:00', 60, ${TEST_CLIENT}, 'Praline', 'Séance', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now())`;

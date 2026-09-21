@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { expect, test } from "@playwright/test";
-import { neon } from "@neondatabase/serverless";
+import { neon } from "./helpers/sql";
 import AxeBuilder from "@axe-core/playwright";
 
 config({ path: ".env.local" });
