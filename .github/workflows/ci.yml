@@ -36,6 +36,12 @@ jobs:
       - name: Client Prisma
         run: npx prisma generate
 
+      # Types des routes (PageProps, LayoutProps…) et next-env.d.ts :
+      # générés par `next dev` sur un poste, absents d'un dépôt fraîchement
+      # cloné. Sans eux, le typage échoue sur des types qui n'existent pas.
+      - name: Types des routes Next.js
+        run: npx next typegen
+
       - name: Typage
         run: npx tsc --noEmit
 
