@@ -12,6 +12,11 @@ type ConsultationStepProps = {
   mode: BookingMode | null;
   onServiceChange: (serviceId: string) => void;
   onModeChange: (mode: BookingMode) => void;
+  /** Code postal déjà saisi, le cas échéant (retour en arrière, reprise). */
+  postalCode: string;
+  onPostalCodeChange: (postalCode: string) => void;
+  /** Secteur reconnu à partir du code postal, et ses jours de passage. */
+  tourZone: { name: string; tourDays: string[] } | null;
   onNext: () => void;
 };
 
@@ -21,8 +26,14 @@ function availabilityLabel(service: PublicService) {
   return "Au cabinet uniquement";
 }
 
-export function ConsultationStep({ professional, serviceId, mode, onServiceChange, onModeChange, onNext }: ConsultationStepProps) {
+export function ConsultationStep({ professional, serviceId, mode, onServiceChange, onModeChange, postalCode, onPostalCodeChange, tourZone, onNext }: ConsultationStepProps) {
   const service = professional.services.find((item) => item.id === serviceId);
+  /**
+   * Le code postal n'est demandé que s'il sert à quelque chose : sans aucune
+   * tournée, il n'y aurait rien à marquer dans le calendrier, et ce serait un
+   * champ de plus pour rien avant de choisir sa date.
+   */
+  const hasTours = professional.zones.some((zone) => zone.tourDays.length > 0);
   const locationRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const skipNextScroll = useRef(true);
@@ -145,6 +156,35 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               onClick={() => onModeChange("HOME")}
             />
           </div>
+
+          {mode === "HOME" && hasTours ? (
+            <div className="mt-4 rounded-2xl border border-animeo-border bg-animeo-bg p-4">
+              <label htmlFor="booking-postal-code" className="block text-sm font-black text-animeo-dark">
+                Votre code postal
+              </label>
+              <p className="mt-0.5 text-xs text-animeo-muted">
+                Pour vous montrer, à l’étape suivante, les jours où nous passons déjà près de chez vous.
+              </p>
+              <input
+                id="booking-postal-code"
+                value={postalCode}
+                onChange={(event) => onPostalCodeChange(event.target.value.replace(/\D/g, "").slice(0, 5))}
+                inputMode="numeric"
+                autoComplete="postal-code"
+                placeholder="76000"
+                aria-describedby="booking-postal-code-feedback"
+                className="mt-2.5 h-12 w-full max-w-[9rem] rounded-xl border border-animeo-border bg-white px-3.5 text-base font-extrabold tabular-nums text-animeo-dark outline-none transition focus:border-animeo focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+              />
+
+              {/* Secteur non desservi : on ne dit rien plutôt que d'annoncer
+                  une absence. Le parcours continue exactement comme avant. */}
+              <p id="booking-postal-code-feedback" role="status" aria-live="polite" className="mt-2 text-xs font-bold text-animeo-positive">
+                {tourZone
+                  ? `✓ ${tourZone.name} — passage régulier le${tourZone.tourDays.length > 1 ? "s" : ""} ${tourZone.tourDays.join(" et ").toLocaleLowerCase("fr-FR")}.`
+                  : ""}
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

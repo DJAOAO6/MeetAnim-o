@@ -228,6 +228,22 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
 
   const service = professional.services.find((item) => item.id === serviceId);
   const zone = professional.zones.find((item) => item.id === zoneId);
+
+  /**
+   * Secteur déduit du seul code postal, à l'étape « Où ? ».
+   *
+   * Volontairement plus pauvre que la détection complète de l'étape adresse
+   * (qui dispose de la commune et des coordonnées) : ici on n'a que cinq
+   * chiffres. Un code postal qui ne correspond à rien ne donne rien, et le
+   * parcours continue exactement comme avant.
+   */
+  const postalCodeZone = mode === "HOME" && address.postalCode.length === 5
+    ? professional.zones.find((item) => item.postalCodes.includes(address.postalCode) && item.tourDays.length > 0) ?? null
+    : null;
+
+  // Le secteur reconnu pendant le parcours prime sur celui du code postal
+  // seul : à l'étape adresse, la détection est plus fine.
+  const scheduleZone = (zone?.tourDays.length ? zone : null) ?? postalCodeZone;
   const consultationPrice = service && mode ? (mode === "CABINET" ? service.cabinetPrice : service.homePrice) : 0;
   const travelFee = service && mode === "HOME"
     ? service.travelFeeMode === "fixed" ? service.fixedTravelFee : service.travelFeeMode === "zone" ? (zone ? service.zoneFees[zone.name] ?? 0 : 0) : 0
@@ -410,6 +426,9 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
               mode={mode}
               onServiceChange={changeService}
               onModeChange={changeMode}
+              postalCode={address.postalCode}
+              onPostalCodeChange={(postalCode) => setAddress((current) => ({ ...current, postalCode }))}
+              tourZone={postalCodeZone}
               onNext={() => setScreen("schedule")}
             />
           ) : null}
@@ -421,6 +440,10 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
               time={time}
               onDateChange={(value) => { setDateId(value); setTime(null); }}
               onTimeChange={setTime}
+              // Au cabinet, le calendrier reste strictement celui d'avant :
+              // les tournées n'y changent rien.
+              tourWeekdays={mode === "HOME" ? scheduleZone?.tourDays ?? [] : []}
+              tourZoneName={scheduleZone?.name ?? null}
               onBack={goToPreviousScreen}
               onNext={() => setScreen("details")}
             />

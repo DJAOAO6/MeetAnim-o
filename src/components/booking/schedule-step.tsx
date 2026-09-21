@@ -15,13 +15,30 @@ type ScheduleStepProps = {
   time: string | null;
   onDateChange: (dateId: string | null) => void;
   onTimeChange: (time: string | null) => void;
+  /**
+   * Jours de passage de la tournée qui dessert le secteur du visiteur, tels
+   * que « Mardi ». Vide quand aucun secteur n'est connu, ou qu'aucune
+   * tournée ne le dessert : le calendrier ne marque alors rien du tout.
+   */
+  tourWeekdays?: string[];
+  /** Nom du secteur, pour dire de quoi on parle sous le calendrier. */
+  tourZoneName?: string | null;
   onBack: () => void;
   onNext: () => void;
 };
 
 const periodLabels = { morning: "Matin", afternoon: "Après-midi" } as const;
 
-export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTimeChange, onBack, onNext }: ScheduleStepProps) {
+export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTimeChange, tourWeekdays = [], tourZoneName, onBack, onNext }: ScheduleStepProps) {
+  // Comparaison insensible à la casse : le jour d'un motif de tournée est
+  // saisi côté professionnel, le libellé d'une date est produit par Intl.
+  const tourWeekdaySet = new Set(tourWeekdays.map((day) => day.toLocaleLowerCase("fr-FR")));
+  const showsTourDays = tourWeekdaySet.size > 0;
+
+  function isTourDay(candidateId: string): boolean {
+    return tourWeekdaySet.has(formatBookingDateLabels(candidateId).weekday.toLocaleLowerCase("fr-FR"));
+  }
+
   const [bookingDates, setBookingDates] = useState<BookingDate[]>([]);
   const [windowStartId, setWindowStartId] = useState<string | null>(null);
   const [windowEndId, setWindowEndId] = useState<string | null>(null);
@@ -209,7 +226,20 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
               selectedDateId={dateId}
               onSelectDate={selectDate}
               statusFor={statusFor}
+              isTourDay={showsTourDays ? isTourDay : undefined}
             />
+
+            {/* Légende : un repère sans légende laisse deviner. Affichée
+                seulement quand il y a quelque chose à expliquer. */}
+            {showsTourDays ? (
+              <p className="mt-3 flex items-start gap-2 rounded-xl bg-animeo-positive-soft/60 px-3 py-2.5 text-xs leading-5 text-animeo-dark">
+                <span aria-hidden="true" className="mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full bg-animeo-positive" />
+                <span>
+                  Ces jours-là, nous passons déjà {tourZoneName ? <>dans le secteur <strong className="font-extrabold">{tourZoneName}</strong></> : "dans votre secteur"}.
+                  C’est plus simple à organiser, mais vous restez libre de choisir une autre date.
+                </span>
+              </p>
+            ) : null}
           </div>
 
           {selectedDate ? (

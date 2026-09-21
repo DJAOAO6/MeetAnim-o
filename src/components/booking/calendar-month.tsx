@@ -13,6 +13,12 @@ type CalendarMonthProps = {
   selectedDateId: string | null;
   onSelectDate: (dateId: string) => void;
   statusFor: (dateId: string) => CalendarDayStatus;
+  /**
+   * Jours où le professionnel passe déjà dans le secteur du visiteur.
+   * Facultatif : sans secteur connu — ou sans tournée — le calendrier reste
+   * strictement celui d'avant, sans repère supplémentaire.
+   */
+  isTourDay?: (dateId: string) => boolean;
 };
 
 const weekdayHeaders = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
@@ -44,7 +50,7 @@ function chunkIntoWeeks(leadingBlanks: number, dateIds: string[]): (string | nul
  * (aria-disabled) restent focusables au clavier pour rester explorables
  * (jamais `disabled`, qui les retirerait entièrement de la navigation).
  */
-export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, selectedDateId, onSelectDate, statusFor }: CalendarMonthProps) {
+export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, selectedDateId, onSelectDate, statusFor, isTourDay }: CalendarMonthProps) {
   const { leadingBlanks, dateIds } = getMonthGridDays(monthId);
   const [focusedDateId, setFocusedDateId] = useState(() => selectedDateId ?? dateIds[0]);
   const [announcement, setAnnouncement] = useState("");
@@ -191,7 +197,12 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
               const { fullLabel, shortLabel } = formatBookingDateLabels(dateId);
               const dayNumber = Number(dateId.slice(-2));
               const monthAbbrev = shortLabel.split(" ")[1] ?? "";
-              const accessibleName = status === "full" ? `${fullLabel}, complet` : fullLabel;
+              // Un jour complet n'est pas réservable : le signaler comme jour
+              // de passage ne ferait que désigner une porte fermée.
+              const tourDay = isSelectable && Boolean(isTourDay?.(dateId));
+              const accessibleName = status === "full"
+                ? `${fullLabel}, complet`
+                : tourDay ? `${fullLabel}, passage prévu dans votre secteur` : fullLabel;
 
               return (
                 <button
@@ -212,15 +223,22 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
                   className={`touch-manipulation flex min-h-11 flex-col items-center justify-center rounded-lg border px-1 py-1.5 text-center outline-none transition focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 sm:min-h-14 ${
                     isSelected
                       ? "border-animeo-dark bg-animeo-dark text-white"
-                      : isSelectable
-                        ? "cursor-pointer border-animeo-border bg-white hover:border-animeo-border-strong"
-                        : "cursor-not-allowed border-transparent bg-transparent text-animeo-muted opacity-40"
+                      : tourDay
+                        ? "cursor-pointer border-animeo-positive bg-animeo-positive-soft hover:border-animeo-positive"
+                        : isSelectable
+                          ? "cursor-pointer border-animeo-border bg-white hover:border-animeo-border-strong"
+                          : "cursor-not-allowed border-transparent bg-transparent text-animeo-muted opacity-40"
                   }`}
                 >
                   <span aria-hidden="true" className={`text-sm font-black sm:text-base ${isSelected ? "text-white" : isSelectable ? "text-animeo-dark" : ""}`}>{dayNumber}</span>
                   <span aria-hidden="true" className={`text-[9px] font-bold uppercase sm:text-[10px] ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>
                     {status === "full" ? "Complet" : monthAbbrev}
                   </span>
+                  {/* Le repère ne tient pas qu'à la couleur : un point le dit
+                      aussi, y compris pour qui ne distingue pas les teintes. */}
+                  {tourDay ? (
+                    <span aria-hidden="true" className={`mt-0.5 block h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-animeo-positive"}`} />
+                  ) : null}
                 </button>
               );
             })}
