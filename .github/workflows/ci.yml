@@ -1,0 +1,46 @@
+# Intégration continue — vérifie chaque poussée et chaque demande de fusion.
+#
+# Typage, lint et tests unitaires : tout ce qui tourne sans base de données.
+# Les tests E2E (Playwright) ont besoin d'une base et d'un serveur ; ils
+# restent lancés localement tant qu'une base de test dédiée n'est pas
+# branchée ici — le dépôt étant public, pas question d'y exposer la base de
+# développement.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  verifier:
+    name: Typage, lint, tests unitaires
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # prisma generate lit la configuration mais ne se connecte à rien :
+      # une adresse factice suffit.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Client Prisma
+        run: npx prisma generate
+
+      - name: Typage
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src tests tests-unit
+
+      - name: Tests unitaires
+        run: npm run test:unit
