@@ -195,6 +195,7 @@ model User {
   auditLogs               AuditLog[]
   passwordResetTokens     PasswordResetToken[]
   twoFactorCodes          TwoFactorCode[]
+  sessions                Session[]
   blockedSlots            BlockedSlot[]
   calendarConnections     CalendarConnection[]
   tourRuns                TourRun[]
@@ -206,6 +207,22 @@ model User {
   studioDocumentTemplates StudioDocumentTemplate[]
 
   @@index([email])
+}
+
+/// Une session ouverte. Le jeton signé ne suffit plus : il porte l'identifiant
+/// de sa session, qui doit exister et ne pas être révoquée. Se déconnecter
+/// révoque la session côté serveur — un jeton copié avant la déconnexion
+/// cesse aussitôt de fonctionner, au lieu de rester valable sept jours.
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+
+  @@index([userId])
 }
 
 model AuditLog {
@@ -435,7 +452,11 @@ model StudioDocument {
   template      StudioDocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   createdByUserId String
-  createdByUser   User   @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  // Restrict, pas Cascade : un compte rendu est un dossier clinique du
+  // cabinet. Supprimer le compte de son auteur ne doit jamais l'effacer —
+  // la base refuse désormais, en plus du refus déjà affiché par l'écran
+  // d'administration (admin/actions.ts).
+  createdByUser   User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 
   contentJson Json
   // Dernier PDF finalisé (régénéré à chaque finalisation) et miniature
@@ -507,6 +528,10 @@ model Appointment {
   // tournée (refonte tournées, phase 2) pour l'indicateur de retard et
   // l'heure de fin réelle affichée sous un arrêt terminé.
   completedAt   DateTime?
+  // Rappel envoyé au client la veille du rendez-vous. Posé au moment de
+  // l'envoi : un rendez-vous déjà rappelé ne l'est jamais une seconde fois,
+  // même si la tâche quotidienne tourne deux fois.
+  reminderSentAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
