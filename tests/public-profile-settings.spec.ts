@@ -10,7 +10,6 @@ config({ path: ".env.local" });
  */
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
-const testPassword = "Praticien-Test-2026!";
 const testTagline = "Ostéopathe animalier diplômée et certifiée — E2E";
 
 type PublicProfileRow = { id: string; tagline: string | null; cabinetName: string | null; acceptedPayments: string | null; showPhonePublicly: boolean };
@@ -43,12 +42,9 @@ test.describe("Paramètres — onglet Profil public", () => {
     await revokePermission();
   });
 
+  // Session partagée (projet chromium-connecte, tests/auth.setup.ts) : se
+  // reconnecter à chaque test épuisait la limite de connexions du serveur.
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', testEmail);
-    await page.fill('input[type="password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 10000 });
     await page.goto("/dashboard/parametres");
     await page.waitForTimeout(600);
   });

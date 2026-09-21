@@ -142,10 +142,10 @@ test.describe("Page Tournées — liste de journées datées", () => {
     await login(page);
 
     await page.goto("/dashboard/tournees");
-    await expect(page.getByRole("button", { name: "Créer un nouveau rendez-vous" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Nouveau rendez-vous", exact: true })).toHaveCount(0);
 
     await page.goto("/dashboard/agenda");
-    await expect(page.getByRole("button", { name: "Créer un nouveau rendez-vous" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Nouveau rendez-vous", exact: true })).toBeVisible({ timeout: 10000 });
   });
 
   test("créer une nouvelle journée persiste réellement en base et ouvre directement son écran", async ({ page }) => {

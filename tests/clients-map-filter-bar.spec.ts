@@ -63,10 +63,10 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
+// La carte a quitté la page Tournées pour sa propre page (menu Clientèle ›
+// Carte clients) lors de l'unification des tournées.
 async function openMap(page: Page) {
-  await page.goto("/dashboard/tournees");
-  await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Carte clients" }).click();
+  await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
 }
 
 /** Bouton Espèce : seul élément de la barre portant aria-haspopup. */

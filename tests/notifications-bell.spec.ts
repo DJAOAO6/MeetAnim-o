@@ -11,12 +11,10 @@ config({ path: ".env.local" });
  */
 
 test.describe("Cloche de notifications", () => {
+  // Session partagée (projet chromium-connecte, tests/auth.setup.ts) : se
+  // reconnecter à chaque test épuisait la limite de connexions du serveur.
   test.beforeEach(async ({ page }) => {
-    await page.goto("/login");
-    await page.fill('input[type="email"]', "praticien-test@pf-osteo-animale.fr");
-    await page.fill('input[type="password"]', "Praticien-Test-2026!");
-    await page.click('button[type="submit"]');
-    await page.waitForURL("**/dashboard**", { timeout: 10000 });
+    await page.goto("/dashboard");
   });
 
   test("s'ouvre, se ferme par Échap et rend le focus au bouton", async ({ page }) => {
