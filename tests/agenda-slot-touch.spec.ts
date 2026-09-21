@@ -27,17 +27,44 @@ async function realTouch(page: Page, points: Array<{ x: number; y: number }>, ho
 /** Un point sûrement dans la couche interactive **et** dans l'écran. */
 async function touchPoint(page: Page) {
   const layer = page.getByTestId("agenda-slot-layer").first();
-  await layer.scrollIntoViewIfNeeded();
+  // Amener le haut de la grille près du haut de l'écran : « si besoin » ne
+  // suffit pas, une grille à peine entamée en bas d'écran (sous le panneau des
+  // demandes en attente) compte déjà comme visible, et l'appui tombait alors
+  // sur la barre de navigation du bas.
+  await layer.evaluate((element) => window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 120));
   await page.waitForTimeout(300);
   const box = (await layer.boundingBox())!;
   const viewport = page.viewportSize()!;
   const top = Math.max(box.y, 90);
   const bottom = Math.min(box.y + box.height, viewport.height - 110);
-  return { x: box.x + box.width / 2, y: (top + bottom) / 2 };
+  expect(bottom, "la grille doit occuper une partie de l'écran").toBeGreaterThan(top);
+  // Un point libre : ni rendez-vous ni bloc de tournée par-dessus (appuyer
+  // sur un bloc de tournée ouvre la tournée, pas la feuille de créneau).
+  const x = box.x + box.width / 2;
+  const y = await layer.evaluate((element, { x, top, bottom }) => {
+    for (let y = Math.round((top + bottom) / 2), step = 0; step < 400; step++) {
+      const candidate = step % 2 ? y + Math.ceil(step / 2) * 8 : y - Math.ceil(step / 2) * 8;
+      if (candidate < top || candidate > bottom) continue;
+      const hit = document.elementFromPoint(x, candidate);
+      if (hit && element.contains(hit) && !hit.closest("button, a, [role='button']")) return candidate;
+    }
+    return null;
+  }, { x, top, bottom });
+  expect(y, "aucun créneau libre visible dans la grille").not.toBeNull();
+  return { x, y: y! };
 }
 
+/**
+ * Sur mobile, l'agenda montre un jour. On l'amène sur un mercredi à quatre
+ * semaines : loin des rendez-vous de démonstration, et hors des tournées
+ * récurrentes (lundi, mardi, vendredi) — un créneau occupé ignore l'appui,
+ * à juste titre, et le test échouerait pour de mauvaises raisons.
+ */
 async function openAgenda(page: Page) {
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+  const daysAhead = ((3 - new Date().getDay() + 7) % 7) + 28;
+  const next = page.getByRole("button", { name: "Afficher le jour suivant" });
+  for (let day = 0; day < daysAhead; day += 1) await next.click();
   await page.waitForTimeout(1200);
 }
 

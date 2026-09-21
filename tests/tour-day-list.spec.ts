@@ -13,7 +13,9 @@ config({ path: ".env.local" });
 
 const testEmail = "praticien-test@pf-osteo-animale.fr";
 const testPassword = "Praticien-Test-2026!";
-const testUserId = "cmt9uie2k0001vow17mo9b4rj";
+// Retrouvé par e-mail : l'identifiant change d'une base à l'autre (une base
+// de test recréée n'a pas les mêmes que l'ancienne base de développement).
+let testUserId = "";
 const zoneName = "Zone E2E Liste";
 const tourName = "Tournée E2E Liste";
 
@@ -55,6 +57,9 @@ test.describe("Page Tournées — liste de journées datées", () => {
   // Filet de sécurité si une exécution précédente a planté avant son
   // afterAll (voir le commentaire ci-dessous sur la portée du nettoyage).
   test.beforeAll(async () => {
+    const [user] = await neon(process.env.DATABASE_URL!)`SELECT id FROM "User" WHERE email = ${testEmail}`;
+    if (!user) throw new Error(`Compte de test ${testEmail} absent de la base`);
+    testUserId = user.id;
     await cleanupE2EListFixtures();
   });
 
@@ -141,11 +146,14 @@ test.describe("Page Tournées — liste de journées datées", () => {
   test("le cluster de boutons flottants est masqué sur cette page mais reste présent ailleurs", async ({ page }) => {
     await login(page);
 
+    // Le bouton rond du cluster, nommé par aria-label : l'agenda a aussi son
+    // propre bouton « Nouveau rendez-vous » en tête, qui n'est pas en cause.
+    const floating = page.locator('button[aria-label="Nouveau rendez-vous"]');
     await page.goto("/dashboard/tournees");
-    await expect(page.getByRole("button", { name: "Nouveau rendez-vous", exact: true })).toHaveCount(0);
+    await expect(floating).toHaveCount(0);
 
     await page.goto("/dashboard/agenda");
-    await expect(page.getByRole("button", { name: "Nouveau rendez-vous", exact: true })).toBeVisible({ timeout: 10000 });
+    await expect(floating).toBeVisible({ timeout: 10000 });
   });
 
   test("créer une nouvelle journée persiste réellement en base et ouvre directement son écran", async ({ page }) => {
@@ -218,6 +226,9 @@ test.describe("Page Tournées — liste de journées datées", () => {
    */
   test("supprimer un motif emporte ses journées à venir vides, jamais celles qui portent quelque chose", async ({ page }) => {
     const sql = neon(process.env.DATABASE_URL!);
+    // Le motif du premier test porte le même nom : deux motifs homonymes, et
+    // on ne saurait plus lequel supprimer.
+    await cleanupE2EListFixtures();
     await sql`DELETE FROM "TourRun" WHERE "userId" = ${testUserId}`;
     await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${testEmail}`;
 
@@ -250,8 +261,17 @@ test.describe("Page Tournées — liste de journées datées", () => {
     // Paramètres › Tournées › le motif › Supprimer.
     await login(page);
     await page.goto("/dashboard/parametres?tab=tours");
-    await page.getByText(tourName, { exact: true }).waitFor({ timeout: 15000 });
-    await page.getByRole("button", { name: "Modifier" }).first().click();
+    // La page rend la liste deux fois selon la largeur d'écran, une copie
+    // masquée : seule la visible compte.
+    await page.getByText(tourName, { exact: true }).filter({ visible: true }).waitFor({ timeout: 15000 });
+    // « Modifier » de CE motif : le premier de la liste peut être une autre
+    // tournée — le test en supprimait alors une qui ne lui appartenait pas.
+    await page.locator("div")
+      .filter({ visible: true, has: page.getByRole("heading", { name: tourName, exact: true }) })
+      .filter({ has: page.getByRole("button", { name: "Modifier" }) })
+      .last()
+      .getByRole("button", { name: "Modifier" })
+      .click();
     await page.getByRole("button", { name: "Supprimer la tournée" }).first().click();
     await page.getByRole("button", { name: "Supprimer la tournée" }).last().click();
     await expect(page.getByText("Tournée supprimée.")).toBeVisible({ timeout: 15000 });

@@ -34,14 +34,10 @@ test.describe("Cloche de notifications", () => {
     await bell.click();
     await page.waitForTimeout(300);
 
-    const rowCount = await page.evaluate(() => {
-      const trigger = [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')].find((el) => el.offsetParent !== null);
-      const panel = trigger!.parentElement!.querySelector("[aria-labelledby]")!;
-      const appointmentRows = panel.querySelectorAll("button.flex.w-full.items-center.gap-3");
-      // Les liens de rappel individuels ; exclut le lien de pied "Voir tous les rappels".
-      const reminderRows = [...panel.querySelectorAll('a[href="/dashboard/rappels"]')].filter((el) => !el.textContent?.startsWith("Voir"));
-      return appointmentRows.length + reminderRows.length;
-    });
+    // Chaque notification — demande de rendez-vous ou rappel — porte son
+    // propre bouton « Masquer » : c'est le repère le plus stable pour les
+    // compter, quelle que soit la mise en forme de la ligne.
+    const rowCount = await page.getByRole("button", { name: /^Masquer la notification de / }).count();
 
     expect(rowCount).toBe(badgeCount);
   });

@@ -66,6 +66,13 @@ try {
   } else {
     console.log("✓ Base de test reconnue.");
   }
+  // UTC, comme Neon et la production. Les colonnes de date sont sans fuseau :
+  // sur un PostgreSQL local réglé sur Paris, un now() inséré en SQL brut
+  // (tests) était relu deux heures dans le futur — assez pour qu'un compte
+  // créé par un test refuse toute connexion (mot de passe « changé » après
+  // l'émission du jeton).
+  const { rows: [database] } = await client.query("SELECT current_database() AS name");
+  await client.query(`ALTER DATABASE "${database.name}" SET timezone TO 'UTC'`);
 } finally {
   await client.end();
 }

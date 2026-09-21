@@ -67,6 +67,10 @@ test.afterAll(async () => {
 // ---------------------------------------------------------------------------
 
 async function bookingFixture() {
+  // Toutes les demandes partent de la même adresse IP : après quelques
+  // exécutions, la protection anti-envoi en masse refusait tout — à raison.
+  // Ce qu'on vérifie ici est la course entre deux demandes, pas ce quota.
+  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'public-booking:%'`;
   const ids = await actionIds("/reserver/pauline-faucillon");
   const [service] = await sql`SELECT id, duration FROM "Service" WHERE active = true AND "cabinetEnabled" = true ORDER BY "createdAt" LIMIT 1`;
   const schedule = await callAction(ids.getPublicScheduleAction, ["cabinet", service.duration], { path: "/reserver/pauline-faucillon" });
@@ -126,13 +130,33 @@ test("une demande refusée pour conflit ne laisse pas de fiche client orpheline"
 // Session
 // ---------------------------------------------------------------------------
 
-test("après déconnexion, l'ancien jeton de session ne doit plus ouvrir l'espace pro", async () => {
-  const cookie = practitionerCookie();
+test("après déconnexion, l'ancien jeton de session ne doit plus ouvrir l'espace pro", async ({ browser }) => {
+  // Une session à part, ouverte pour l'occasion : se déconnecter avec la
+  // session partagée (tests/.auth) la révoquerait pour toutes les specs
+  // connectées qui passent ensuite.
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  let cookie: string;
+  try {
+    const page = await context.newPage();
+    await page.goto(`${BASE}/login`);
+    await page.fill('input[type="email"]', "praticien-test@pf-osteo-animale.fr");
+    await page.fill('input[type="password"]', "Praticien-Test-2026!");
+    await page.click('button[type="submit"]');
+    await page.waitForURL("**/dashboard**", { timeout: 20000 });
+    cookie = (await context.cookies()).map((c) => `${c.name}=${c.value}`).join("; ");
+  } finally {
+    await context.close();
+  }
+
   const ids = await actionIds("/dashboard", cookie);
   await callAction(ids.logout, [], { path: "/dashboard", cookie });
   const after = await fetch(`${BASE}/dashboard`, { headers: { Cookie: cookie }, redirect: "manual" });
   console.log("GET /dashboard avec le jeton d'avant la déconnexion :", after.status, after.headers.get("location") ?? "");
   expect(after.status, "le jeton volé reste utilisable 7 jours après la déconnexion").not.toBe(200);
+
+  // Se déconnecter d'un appareil ne déconnecte pas les autres.
+  const other = await fetch(`${BASE}/dashboard`, { headers: { Cookie: practitionerCookie() }, redirect: "manual" });
+  expect(other.status, "l'autre session du même compte reste ouverte").toBe(200);
 });
 
 // ---------------------------------------------------------------------------
@@ -169,6 +193,9 @@ test("un document ne doit pas pouvoir exécuter de script chez celui qui l'ouvre
 // ---------------------------------------------------------------------------
 
 test("une photo de téléphone de plusieurs Mo s'enregistre, réduite, et survit au rechargement", async ({ browser }) => {
+  // Réduire une photo de 12 mégapixels dans le navigateur prend du temps sur
+  // le serveur de développement : 30 s ne suffisent pas toujours.
+  test.setTimeout(90_000);
   const sharp = (await import("sharp")).default;
   // Bruit gaussien : incompressible, donc un JPEG réellement lourd, comme
   // une photo prise au téléphone.
@@ -176,6 +203,10 @@ test("une photo de téléphone de plusieurs Mo s'enregistre, réduite, et survit
   expect(photo.length, "la photo de test doit dépasser la limite d'origine (1 Mo)").toBeGreaterThan(3 * 1024 * 1024);
 
   const [before] = await sql`SELECT id, photo FROM "BusinessProfile" LIMIT 1`;
+  // Modifier le profil du cabinet demande ce droit ; le compte de test ne
+  // l'a pas d'office. Accordé le temps du test, puis rendu tel quel.
+  const [account] = await sql`SELECT permissions FROM "User" WHERE email = 'praticien-test@pf-osteo-animale.fr'`;
+  await sql`UPDATE "User" SET permissions = array_append(array_remove(permissions, 'MANAGE_PUBLIC_SETTINGS'), 'MANAGE_PUBLIC_SETTINGS') WHERE email = 'praticien-test@pf-osteo-animale.fr'`;
   const context = await browser.newContext({ storageState: "tests/.auth/practitioner.json" });
   const page = await context.newPage();
   try {
@@ -187,7 +218,9 @@ test("une photo de téléphone de plusieurs Mo s'enregistre, réduite, et survit
     // apparu.
     await expect(page.locator('img[alt="Aperçu local"][src^="data:image/jpeg"]').first()).toBeVisible({ timeout: 30000 });
     await page.getByRole("button", { name: /enregistrer les modifications/i }).first().click();
-    await expect(page.getByText(/enregistr/i).first()).toBeVisible({ timeout: 15000 });
+    // Le message de réussite, pas n'importe quel « enregistr… » : le bouton
+    // lui-même en contient un, et la base était lue avant l'écriture.
+    await expect(page.getByText("Profil enregistré", { exact: false }).first()).toBeVisible({ timeout: 15000 });
 
     const [after] = await sql`SELECT photo FROM "BusinessProfile" WHERE id = ${before.id}`;
     const stored = String(after.photo ?? "");
@@ -195,8 +228,11 @@ test("une photo de téléphone de plusieurs Mo s'enregistre, réduite, et survit
     expect(stored.startsWith("data:image/jpeg"), "photo réencodée en JPEG").toBe(true);
     expect(stored.length, "photo réduite sous la limite d'une action").toBeLessThan(1024 * 1024);
   } finally {
-    await context.close();
+    // Un test arrêté par le délai a déjà fermé son contexte : le nettoyage
+    // qui suit doit avoir lieu quand même.
+    await context.close().catch(() => {});
     await sql`UPDATE "BusinessProfile" SET photo = ${before.photo} WHERE id = ${before.id}`;
+    await sql`UPDATE "User" SET permissions = ${account.permissions}::text[] WHERE email = 'praticien-test@pf-osteo-animale.fr'`;
   }
 });
 
@@ -205,6 +241,7 @@ test("une photo de téléphone de plusieurs Mo s'enregistre, réduite, et survit
 // ---------------------------------------------------------------------------
 
 test("supprimer le compte d'un auteur est refusé tant qu'il a des comptes rendus", async ({ browser }) => {
+  test.setTimeout(90_000);
   const bcrypt = (await import("bcryptjs")).default;
   const password = `Audit-${Date.now()}-Aa1!`;
   const suffix = Date.now();
@@ -241,7 +278,7 @@ test("supprimer le compte d'un auteur est refusé tant qu'il a des comptes rendu
     expect(user.n, "le compte de l'auteur existe toujours").toBe(1);
     expect(doc.n, "son compte rendu existe toujours").toBe(1);
   } finally {
-    await context.close();
+    await context.close().catch(() => {});
     await sql`DELETE FROM "StudioDocument" WHERE id = ${`auditdoc${suffix}`}`;
     await sql`DELETE FROM "User" WHERE id IN (${admin.id}, ${author.id})`;
   }

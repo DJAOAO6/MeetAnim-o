@@ -31,7 +31,10 @@ test("les écrans principaux ne présentent pas de violation d'accessibilité s�
     await page.goto(path);
     await page.waitForTimeout(1500);
     const violations = await seriousViolations(page);
-    expect(violations, `${label} : ${JSON.stringify(violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.length })), null, 2)}`).toEqual([]);
+    // Les éléments fautifs, pas seulement leur nombre : sans eux, un échec
+    // ne dit pas où chercher.
+    const detail = violations.map((violation) => ({ id: violation.id, nodes: violation.nodes.map((node) => `${node.target.join(" ")} — ${node.failureSummary?.split("\n")[1]?.trim() ?? ""}`) }));
+    expect(violations, `${label} : ${JSON.stringify(detail, null, 2)}`).toEqual([]);
   }
 });
 

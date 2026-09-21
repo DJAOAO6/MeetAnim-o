@@ -30,6 +30,16 @@ async function openCreate(page: Page) {
   await expect(page.getByRole("heading", { name: "Nouveau rendez-vous" })).toBeVisible();
 }
 
+/** Premier jour, à partir de J+3, où aucun rendez-vous actif n'est posé. */
+async function freeDayId(sql: ReturnType<typeof neon>): Promise<string> {
+  for (let offset = 3; offset < 120; offset++) {
+    const dateId = new Date(Date.now() + offset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const [row] = await sql`SELECT count(*)::int AS n FROM "Appointment" WHERE date::date = ${dateId}::date AND status <> 'CANCELLED'`;
+    if (row.n === 0) return dateId;
+  }
+  throw new Error("Aucun jour libre dans les 120 prochains jours");
+}
+
 test.beforeAll(cleanup);
 test.afterAll(cleanup);
 
@@ -98,8 +108,10 @@ test("la durée et le tarif viennent des prestations réglées, jamais d\u2019un
 
 test("le créneau est vérifié en direct et le conflit est annoncé avant d’enregistrer", async ({ page }) => {
   const sql = neon(process.env.DATABASE_URL!);
-  const dateId = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   await sql`DELETE FROM "Appointment" WHERE "clientName" LIKE 'E2E-Modal%'`;
+  // Un jour sans aucun rendez-vous : le seul conflit possible doit être
+  // celui que le test pose, sinon « Créneau disponible » dépend des données.
+  const dateId = await freeDayId(sql);
   await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
     VALUES (${`e2e-modal-${Date.now()}`}, ${`${dateId}T00:00:00.000Z`}, '10:00', 60, 'E2E-Modal Occupe', 'Bloc', 'Séance', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now())`;
 
