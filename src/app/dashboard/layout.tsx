@@ -10,7 +10,7 @@ import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provider";
-import { getAppointments } from "@/lib/appointments";
+import { defaultAppointmentRange, getAppointments } from "@/lib/appointments";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getClientPickerOptions } from "@/lib/clients";
@@ -49,8 +49,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // rendez-vous a besoin des prestations réglées, de l'adresse du cabinet et
   // du réglage de rappels. Les charger ici évite qu'ils soient rechargés à
   // chaque ouverture de la fenêtre.
+  const appointmentRange = defaultAppointmentRange();
   const [appointments, clientOptions, reminders, services, businessProfile, reminderSettings] = await Promise.all([
-    getAppointments(),
+    getAppointments(appointmentRange),
     getClientPickerOptions(),
     getReminders(),
     getServices(),
@@ -64,7 +65,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <CurrentUserProvider user={user}>
       <SidebarProvider>
         <DashboardThemeProvider>
-        <AppointmentsProvider initialAppointments={appointments}>
+        <AppointmentsProvider initialAppointments={appointments} initialRange={appointmentRange}>
           <RemindersProvider initialReminders={reminders}>
             {/* overflow-x-clip : la page elle-même ne défile jamais
                 latéralement. Les conteneurs qui en ont besoin (tableaux

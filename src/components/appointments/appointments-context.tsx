@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { saveAppointmentAction, updateAppointmentStatusAction, type SaveAppointmentInput } from "@/lib/appointments-actions";
+import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { getAppointmentsInRangeAction, saveAppointmentAction, updateAppointmentStatusAction, type SaveAppointmentInput } from "@/lib/appointments-actions";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 
 /**
@@ -11,8 +11,23 @@ import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/app
   */
 type ActionOutcome = { ok: boolean; error?: string; appointment?: Appointment };
 
+/** Période de rendez-vous, bornes incluses (YYYY-MM-DD). */
+export type AppointmentRange = { from: string; to: string };
+
 type AppointmentsContextValue = {
+  /**
+   * Rendez-vous chargés — une fenêtre autour d'aujourd'hui, plus ce qui a
+   * été demandé depuis (ensureRange). Pas tout l'historique.
+   */
   appointments: Appointment[];
+  /** Période couverte par `appointments`. */
+  loadedRange: AppointmentRange;
+  /**
+   * S'assure que les rendez-vous de cette période sont chargés, en ne
+   * demandant au serveur que ce qui manque. À appeler par tout écran qui
+   * sort de la fenêtre de départ.
+   */
+  ensureRange: (from: string, to: string) => Promise<void>;
   managerOpen: boolean;
   selectedAppointmentId: string | null;
   creatingAppointment: boolean;
@@ -48,8 +63,9 @@ export type AppointmentPrefill = {
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(null);
 
-export function AppointmentsProvider({ children, initialAppointments }: { children: ReactNode; initialAppointments: Appointment[] }) {
+export function AppointmentsProvider({ children, initialAppointments, initialRange }: { children: ReactNode; initialAppointments: Appointment[]; initialRange: AppointmentRange }) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
+  const [loadedRange, setLoadedRange] = useState<AppointmentRange>(initialRange);
   // Ajustement pendant le rendu plutôt que dans un effet (pattern React
   // recommandé pour resynchroniser un état sur une prop qui change) : c'est
   // ce qui permet à une demande de rendez-vous arrivée par la page publique
@@ -59,7 +75,40 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
   const [syncedInitialAppointments, setSyncedInitialAppointments] = useState(initialAppointments);
   if (initialAppointments !== syncedInitialAppointments) {
     setSyncedInitialAppointments(initialAppointments);
-    setAppointments(initialAppointments);
+    // Le serveur ne renvoie que la fenêtre de départ : on la remplace, et on
+    // garde ce qui a été chargé à la demande en dehors — sinon l'agenda
+    // ouvert sur l'an dernier se viderait à chaque rafraîchissement.
+    setAppointments((current) => [
+      ...current.filter((item) => item.date < initialRange.from || item.date > initialRange.to),
+      ...initialAppointments,
+    ]);
+  }
+  const pendingRanges = useRef(new Set<string>());
+
+  async function fetchRange(from: string, to: string) {
+    const key = `${from}:${to}`;
+    if (pendingRanges.current.has(key)) return;
+    pendingRanges.current.add(key);
+    try {
+      const fetched = await getAppointmentsInRangeAction(from, to);
+      setAppointments((current) => {
+        const known = new Set(current.map((item) => item.id));
+        return [...current, ...fetched.filter((item) => !known.has(item.id))];
+      });
+    } finally {
+      pendingRanges.current.delete(key);
+    }
+  }
+
+  async function ensureRange(from: string, to: string) {
+    const missing: Array<[string, string]> = [];
+    if (from < loadedRange.from) missing.push([from, shiftDay(loadedRange.from, -1)]);
+    if (to > loadedRange.to) missing.push([shiftDay(loadedRange.to, 1), to]);
+    if (missing.length === 0) return;
+    // La période couverte reste d'un seul tenant, étendue avant le
+    // chargement : un second appel pendant ce temps ne redemande rien.
+    setLoadedRange((current) => ({ from: from < current.from ? from : current.from, to: to > current.to ? to : current.to }));
+    await Promise.all(missing.map(([start, end]) => fetchRange(start, end)));
   }
   const [managerOpen, setManagerOpen] = useState(false);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
@@ -117,6 +166,8 @@ export function AppointmentsProvider({ children, initialAppointments }: { childr
   }
 
   const value: AppointmentsContextValue = {
+    loadedRange,
+    ensureRange,
     appointments,
     managerOpen,
     selectedAppointmentId,
@@ -137,4 +188,10 @@ export function useAppointments() {
   const context = useContext(AppointmentsContext);
   if (!context) throw new Error("useAppointments doit être utilisé dans AppointmentsProvider");
   return context;
+}
+
+function shiftDay(dateId: string, days: number): string {
+  const date = new Date(`${dateId}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { DashboardCard } from "@/components/dashboard/dashboard-card";
 import { PeriodSelect, type DashboardPeriod } from "@/components/dashboard/dashboard-period";
@@ -37,9 +37,17 @@ const subtitles: Record<DashboardPeriod, string> = {
  * les deux affichent d'abord la même courbe vide.
  */
 export function DashboardActivityChart() {
-  const { appointments } = useAppointments();
+  const { appointments, ensureRange } = useAppointments();
   const mounted = useHasMounted();
   const [period, setPeriod] = useState<DashboardPeriod>("week");
+  // La vue « année » couvre janvier à décembre, au-delà de la fenêtre
+  // chargée d'office : on la demande quand elle est choisie.
+  useEffect(() => {
+    if (period === "year") {
+      const year = new Date().getFullYear();
+      void ensureRange(`${year}-01-01`, `${year}-12-31`);
+    }
+  }, [ensureRange, period]);
 
   const series = useMemo(() => {
     if (!mounted) return [];

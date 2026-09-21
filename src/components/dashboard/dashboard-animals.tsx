@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { DashboardCard, DashboardEmptyState } from "@/components/dashboard/dashboard-card";
@@ -21,9 +21,17 @@ import { resolveSpeciesColor, type AnimalSpecies } from "@/data/species";
  * pas des rendez-vous (le nombre de rendez-vous est déjà un chiffre clé).
  */
 export function DashboardAnimals() {
-  const { appointments } = useAppointments();
+  const { appointments, ensureRange } = useAppointments();
   const { theme } = useDashboardTheme();
   const [period, setPeriod] = useState<DashboardPeriod>("month");
+  // Même règle que le graphique d'activité : l'année entière est demandée
+  // quand elle est choisie.
+  useEffect(() => {
+    if (period === "year") {
+      const year = new Date().getFullYear();
+      void ensureRange(`${year}-01-01`, `${year}-12-31`);
+    }
+  }, [ensureRange, period]);
   const { contains, mounted } = useDashboardPeriod(period);
 
   const { breakdown, total } = useMemo(() => {

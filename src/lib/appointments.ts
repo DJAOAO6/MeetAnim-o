@@ -57,8 +57,30 @@ export function toAppointment(row: {
   };
 }
 
-export async function getAppointments(): Promise<Appointment[]> {
+/** Période de rendez-vous, bornes incluses (identifiants YYYY-MM-DD). */
+export type AppointmentRange = { from: string; to: string };
+
+/**
+ * Fenêtre chargée d'office dans l'espace pro : 2 mois en arrière, 6 en
+ * avant. C'est ce dont le tableau de bord (semaine, mois) et l'agenda
+ * courant ont besoin. Le reste — l'agenda qui remonte dans le passé, la vue
+ * « année », les filtres « passés » et « tous » — est chargé à la demande
+ * (AppointmentsProvider.ensureRange).
+ *
+ * Jusqu'ici tout l'historique partait avec chaque page, et de nouveau à
+ * chaque rafraîchissement automatique (toutes les 60 s) : ~466 octets par
+ * rendez-vous, sérialisés deux fois — 4,4 Mo par page à 5 000 rendez-vous,
+ * sans limite avec les années.
+ */
+export function defaultAppointmentRange(now: Date = new Date()): AppointmentRange {
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2, 1));
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 7, 0));
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+export async function getAppointments(range: AppointmentRange): Promise<Appointment[]> {
   const appointments = await prisma.appointment.findMany({
+    where: { date: { gte: new Date(`${range.from}T00:00:00.000Z`), lte: new Date(`${range.to}T00:00:00.000Z`) } },
     orderBy: { date: "asc" },
     include: { animal: { select: { species: true } }, client: { select: { phone: true } } },
   });

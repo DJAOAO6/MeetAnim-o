@@ -117,7 +117,7 @@ type AgendaViewProps = {
 
 export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
   const router = useRouter();
-  const { appointments, openManager, openNewAppointment, updateAppointmentStatus } = useAppointments();
+  const { appointments, openManager, openNewAppointment, updateAppointmentStatus, ensureRange } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
 
   useEffect(() => {
@@ -168,6 +168,20 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
   const monthDate = getMonthDate(monthOffset);
   const yearValue = getYearValue(yearOffset);
+
+  // L'espace pro ne charge d'office qu'une fenêtre autour d'aujourd'hui :
+  // la période affichée est demandée dès qu'elle en sort (l'an dernier, la
+  // vue année…). Le mois est élargi d'une semaine de chaque côté, pour les
+  // jours débordants de la grille.
+  const visibleFrom = view === "year" ? `${yearValue}-01-01`
+    : view === "month" ? dateId(new Date(monthDate.getFullYear(), monthDate.getMonth(), -6, 12))
+    : dateId(activeDates[0]);
+  const visibleTo = view === "year" ? `${yearValue}-12-31`
+    : view === "month" ? dateId(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 7, 12))
+    : dateId(activeDates[activeDates.length - 1]);
+  useEffect(() => {
+    void ensureRange(visibleFrom, visibleTo);
+  }, [ensureRange, visibleFrom, visibleTo]);
 
   const appointmentEvents: CalendarEvent[] = appointments
     .filter((appointment) => appointment.status !== "cancelled")
@@ -522,7 +536,12 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               <h2 className="font-extrabold text-animeo-dark">Planning du mois</h2>
               <p className="mt-0.5 text-xs text-animeo-muted">Cliquez sur un jour pour afficher le détail des rendez-vous.</p>
             </div>
-            <div className="overflow-x-auto">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Planning du mois"
+              className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+            >
               <div className="min-w-[720px]">
                 <MonthCalendarView
                   monthDate={monthDate}

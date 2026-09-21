@@ -12,7 +12,7 @@ import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
 import { computeAgeLabel } from "@/lib/animal-age";
-import { toAppointment } from "@/lib/appointments";
+import { getAppointments, toAppointment } from "@/lib/appointments";
 import { getPublicZones } from "@/lib/tours";
 import { getPublicServices } from "@/lib/services-actions";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
@@ -307,6 +307,21 @@ export type AppointmentActionResult =
   | { ok: true; appointment: Appointment }
   | { ok: false; error: string };
 
+const dateIdFormat = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Rendez-vous d'une période, à la demande : l'espace pro ne charge d'office
+ * qu'une fenêtre autour d'aujourd'hui (defaultAppointmentRange), et va
+ * chercher le reste quand l'utilisateur en a besoin — agenda qui remonte
+ * dans le passé, vue « année », filtres « passés » et « tous ».
+ */
+export async function getAppointmentsInRangeAction(fromId: string, toId: string): Promise<Appointment[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  if (!dateIdFormat.test(fromId) || !dateIdFormat.test(toId) || toId < fromId) return [];
+  return getAppointments({ from: fromId, to: toId });
+}
+
 export async function saveAppointmentAction(input: SaveAppointmentInput): Promise<AppointmentActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
@@ -345,6 +360,9 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     price: input.price,
     status: dbStatus[input.status],
     notes: input.notes,
+    // Déplacé : le rappel déjà envoyé portait l'ancienne date. On le réarme
+    // pour que le client soit prévenu du nouvel horaire.
+    ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null } : {}),
   };
 
   const { travelBuffer } = await getAvailability();

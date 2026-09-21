@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAppointments } from "@/components/appointments/appointments-context";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, CalendarX } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -31,6 +32,10 @@ function normalize(value: string): string {
  * donnent des résultats différents un vendredi, et c'est la semaine
  * calendaire que lit un professionnel sur son planning.
  */
+/** Bornes de « tout l'historique » : bien au-delà de toute donnée réelle. */
+const HISTORY_START = "2000-01-01";
+const HISTORY_END = "2100-12-31";
+
 function matchesDateFilter(appointment: Appointment, filter: DateFilter): boolean {
   if (filter === "all") return true;
 
@@ -79,6 +84,18 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
     date: initialSelectedId ? "all" : defaultFilters.date,
   }));
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
+  const { ensureRange } = useAppointments();
+
+  // « Passés » et « tous » vont au-delà de la fenêtre chargée d'office :
+  // l'historique est demandé quand l'utilisateur choisit ces filtres. Pas à
+  // l'ouverture sur un rendez-vous précis, qui passe aussi par « tous » —
+  // c'est le geste le plus courant, il ne doit rien charger de plus.
+  const [initialDateFilter] = useState(filters.date);
+  useEffect(() => {
+    if (filters.date === initialDateFilter) return;
+    if (filters.date === "past") void ensureRange(HISTORY_START, dateId(referenceDate()));
+    if (filters.date === "all") void ensureRange(HISTORY_START, HISTORY_END);
+  }, [ensureRange, filters.date, initialDateFilter]);
   const [confirming, setConfirming] = useState<Appointment | null>(null);
   // Une seule instance pour toute la fenêtre : le menu d'une ligne et la
   // fiche de droite déclenchent exactement le même geste, avec la même
