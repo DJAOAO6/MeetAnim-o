@@ -8,6 +8,7 @@ import {
   appointmentConfirmedClientTemplate,
   appointmentDeclinedClientTemplate,
   appointmentRescheduledClientTemplate,
+  appointmentReminderClientTemplate,
   type AppointmentEmailParams,
 } from "@/lib/email/templates";
 import type { EmailMessage } from "@/lib/email/provider";
@@ -39,15 +40,21 @@ type TemplateBuilder = (params: AppointmentEmailParams) => Pick<EmailMessage, "s
  * si `clientId` est vide : un rendez-vous créé en mode "animal libre" côté
  * agenda interne n'a pas de fiche Client, donc pas d'email à qui écrire.
  */
-async function sendAppointmentEmail(clientId: string | null, appointment: AppointmentEmailSnapshot, build: TemplateBuilder, attachIcs: boolean): Promise<void> {
-  if (!clientId) return;
+/**
+ * Résultat d'un envoi : le rappel automatique a besoin de distinguer « pas
+ * d'adresse » (inutile de réessayer) d'un échec d'envoi (à retenter).
+ */
+export type AppointmentEmailOutcome = "sent" | "no-recipient" | "failed";
+
+async function sendAppointmentEmail(clientId: string | null, appointment: AppointmentEmailSnapshot, build: TemplateBuilder, attachIcs: boolean): Promise<AppointmentEmailOutcome> {
+  if (!clientId) return "no-recipient";
 
   try {
     const [client, professional] = await Promise.all([
       prisma.client.findUnique({ where: { id: clientId }, select: { email: true, firstName: true } }),
       getBusinessProfile(),
     ]);
-    if (!client) return;
+    if (!client || !client.email.trim()) return "no-recipient";
 
     const dateLabel = formatBookingDateLabels(appointment.date).fullLabel;
     const modeLabelText = appointment.mode === "cabinet" ? "Au cabinet" : "À domicile";
@@ -86,23 +93,30 @@ async function sendAppointmentEmail(clientId: string | null, appointment: Appoin
       : undefined;
 
     await getEmailProvider().send({ to: client.email, ...message, attachments, replyTo: professionalReplyTo(professional) });
+    return "sent";
   } catch (error) {
     console.error("[email] Échec de l'envoi d'une notification de rendez-vous", error);
+    return "failed";
   }
 }
 
-export function notifyAppointmentConfirmed(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
-  return sendAppointmentEmail(clientId, appointment, appointmentConfirmedClientTemplate, true);
+export async function notifyAppointmentConfirmed(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
+  await sendAppointmentEmail(clientId, appointment, appointmentConfirmedClientTemplate, true);
 }
 
-export function notifyAppointmentDeclined(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
-  return sendAppointmentEmail(clientId, appointment, appointmentDeclinedClientTemplate, false);
+export async function notifyAppointmentDeclined(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
+  await sendAppointmentEmail(clientId, appointment, appointmentDeclinedClientTemplate, false);
 }
 
-export function notifyAppointmentCancelled(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
-  return sendAppointmentEmail(clientId, appointment, appointmentCancelledClientTemplate, false);
+export async function notifyAppointmentCancelled(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
+  await sendAppointmentEmail(clientId, appointment, appointmentCancelledClientTemplate, false);
 }
 
-export function notifyAppointmentRescheduled(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
-  return sendAppointmentEmail(clientId, appointment, appointmentRescheduledClientTemplate, true);
+export async function notifyAppointmentRescheduled(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<void> {
+  await sendAppointmentEmail(clientId, appointment, appointmentRescheduledClientTemplate, true);
+}
+
+/** Rappel avant le rendez-vous, avec l'événement en pièce jointe. */
+export function sendAppointmentReminder(clientId: string | null, appointment: AppointmentEmailSnapshot): Promise<AppointmentEmailOutcome> {
+  return sendAppointmentEmail(clientId, appointment, appointmentReminderClientTemplate, true);
 }

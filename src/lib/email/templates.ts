@@ -383,6 +383,49 @@ export function appointmentConfirmedClientTemplate(params: AppointmentEmailParam
   };
 }
 
+/**
+ * Rappel envoyé au client avant son rendez-vous (24 ou 48 heures avant,
+ * selon Paramètres › Rappels). Même présentation que la confirmation, avec
+ * de quoi prévenir si l'on ne peut pas venir.
+ */
+export function appointmentReminderClientTemplate(params: AppointmentEmailParams): EmailContent {
+  const { clientFirstName, animalName, serviceName, dateLabel, time, modeLabel, locationLabel, professionalFirstName, professionalCompany, professionalPhone } = params;
+  const contact = contactLine(professionalFirstName, professionalPhone);
+  // « le lundi 21 septembre » : pas de majuscule au milieu d'une phrase.
+  const dateInSentence = dateLabel.charAt(0).toLocaleLowerCase("fr-FR") + dateLabel.slice(1);
+  return {
+    subject: `Rappel : rendez-vous le ${dateInSentence} à ${time}`,
+    text: [
+      `Bonjour ${clientFirstName},`,
+      "",
+      `Petit rappel : ${animalName} a rendez-vous avec ${professionalFirstName} (${professionalCompany}).`,
+      "",
+      `Prestation : ${serviceName}`,
+      `Date : ${dateLabel} à ${time}`,
+      `Mode : ${modeValue(modeLabel, locationLabel)}`,
+      "",
+      "En cas d’empêchement, merci de prévenir au plus tôt pour libérer le créneau.",
+      contact.text,
+    ].join("\n"),
+    html: layout({
+      preheader: `Rappel : ${animalName}, le ${dateInSentence} à ${time}.`,
+      title: "Rappel de rendez-vous",
+      body: [
+        paragraph(`Bonjour ${escapeHtml(clientFirstName)},`),
+        paragraph(`Petit rappel : <strong>${escapeHtml(animalName)}</strong> a rendez-vous avec ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}).`),
+        detailsTable([
+          ["Prestation", serviceName],
+          ["Date", `${dateLabel} à ${time}`],
+          ["Mode", modeValue(modeLabel, locationLabel)],
+        ]),
+        paragraph("En cas d’empêchement, merci de prévenir au plus tôt pour libérer le créneau."),
+        paragraph(contact.html),
+      ].join(""),
+      footer: professionalFooter(professionalCompany, professionalPhone),
+    }),
+  };
+}
+
 export function appointmentDeclinedClientTemplate(params: AppointmentEmailParams): EmailContent {
   const { clientFirstName, animalName, dateLabel, time, professionalFirstName, professionalCompany, professionalPhone, bookingUrl } = params;
   const contact = contactLine(professionalFirstName, professionalPhone);

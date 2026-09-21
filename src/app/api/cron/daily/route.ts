@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { refreshUpcomingRemindersAction } from "@/lib/reminders-actions";
-import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
+import { runScheduledJobs } from "@/lib/scheduler/jobs";
 
 /**
  * Prérequis technique de toutes les tâches de fond (rappel J-1, purges…) —
@@ -22,14 +21,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const results = await Promise.allSettled([refreshUpcomingRemindersAction(), generateUpcomingTourRuns()]);
-
-  const [remindersResult, tourRunsResult] = results;
-  const summary = {
-    remindersRefreshed: remindersResult.status === "fulfilled" ? remindersResult.value.updated : null,
-    tourRunsGenerated: tourRunsResult.status === "fulfilled" ? tourRunsResult.value.created : null,
-    errors: results.filter((result) => result.status === "rejected").map((result) => String((result as PromiseRejectedResult).reason)),
-  };
-
-  return NextResponse.json({ ok: summary.errors.length === 0, ...summary });
+  // Mêmes tâches que le planificateur interne (src/lib/scheduler/start.ts),
+  // qui les lance déjà chaque heure en production : cette route reste pour
+  // un déclenchement manuel ou externe, protégé par CRON_SECRET.
+  return NextResponse.json(await runScheduledJobs());
 }
