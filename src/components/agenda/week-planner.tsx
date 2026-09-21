@@ -452,7 +452,15 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
             de portable courantes. Le dégradé ci-dessous reste en filet de
             sécurité pour le cas extrême (très petit écran) où un
             défilement resterait malgré tout nécessaire. */}
-        <div className="relative overflow-x-auto">
+        {/* Zone défilante atteignable au clavier : sans tabIndex, une semaine
+            sans rendez-vous n'a rien de focalisable, et ne peut donc pas
+            défiler sans souris (axe : scrollable-region-focusable). */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={isDayView ? "Planning du jour" : "Planning de la semaine"}
+          className="relative overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+        >
           {!isDayView ? <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-20 w-8 bg-gradient-to-l from-white to-transparent sm:hidden" /> : null}
           <div>
             <div className="grid border-b border-animeo-border bg-animeo-surface-alt" style={{ gridTemplateColumns }}>
