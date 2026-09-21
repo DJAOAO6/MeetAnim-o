@@ -163,6 +163,7 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
                         defaultValue={city.name}
                         onSelect={(selection) => handleCitySearchSelect(city.id, selection)}
                         onSubmitFreeText={(text) => updateCity(city.id, "name", text)}
+                        commitOnBlur
                       />
                     </div>
                     <label>

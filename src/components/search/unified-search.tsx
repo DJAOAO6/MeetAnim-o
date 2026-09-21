@@ -42,6 +42,14 @@ type UnifiedSearchProps = {
   // zone existante) — lu une seule fois au montage, comme un
   // defaultValue natif : ce composant reste "à sélection", pas contrôlé.
   defaultValue?: string;
+  /**
+   * Valide aussi le texte libre quand on quitte le champ, pas seulement sur
+   * Entrée. Pour les formulaires où ce champ est une vraie saisie (la ville
+   * d'une zone) : sans cela, taper « Yvetot » puis cliquer « Créer la zone »
+   * perdait la ville sans rien dire. Désactivé par défaut, parce qu'ailleurs
+   * valider un texte libre lance une recherche.
+   */
+  commitOnBlur?: boolean;
   // Toutes les sources par défaut — un écran qui n'a besoin que d'un
   // sous-ensemble (ex. adresses seules pour un endpoint de tournée) le
   // précise ici plutôt que de filtrer les résultats après coup.
@@ -72,7 +80,7 @@ type FlatOption =
 
 const placeTypeLabels: Record<PlaceResult["type"], string> = { commune: "Ville / village", departement: "Département", region: "Région" };
 
-export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Rechercher un client, un animal ou un lieu", className, sources = ALL_SOURCES, placeTypes = ALL_PLACE_TYPES, defaultValue = "" }: UnifiedSearchProps) {
+export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Rechercher un client, un animal ou un lieu", className, sources = ALL_SOURCES, placeTypes = ALL_PLACE_TYPES, defaultValue = "", commitOnBlur = false }: UnifiedSearchProps) {
   const { theme } = useDashboardTheme();
   const [value, setValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
@@ -294,6 +302,10 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
           value={value}
           onChange={handleChange}
           onFocus={() => setOpen(true)}
+          // Les suggestions se choisissent sur mousedown avec preventDefault :
+          // cliquer l'une d'elles ne fait pas perdre le focus, ce blur ne
+          // peut donc pas écraser une sélection.
+          onBlur={commitOnBlur ? () => { if (value.trim()) onSubmitFreeText(value.trim()); } : undefined}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className="h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg pl-10 pr-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white"
