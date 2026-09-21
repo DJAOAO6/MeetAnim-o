@@ -9,6 +9,8 @@
     "lint": "eslint",
     "test": "playwright test",
     "db:migrate:local": "node scripts/apply-migrations.mjs",
+    "test:db:setup": "node scripts/test-db.mjs",
+    "test:e2e": "node scripts/e2e.mjs",
     "test:unit": "node --import tsx --test tests-unit/**/*.test.ts",
     "deploy": "node scripts/deploy-iridflow.mjs",
     "geocode:profile": "node --import tsx prisma/geocode-business-profile.ts",
