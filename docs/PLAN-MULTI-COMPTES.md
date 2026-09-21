@@ -50,8 +50,8 @@ Ses données deviennent celles du premier cabinet, sans perte. Son lien de rése
 
 Abonnement et facturation des cabinets, domaines personnalisés par cabinet.
 
-## Décisions à prendre
+## Décisions prises (21 septembre 2026)
 
-1. **Ouverture de l'inscription** : libre, sur validation manuelle, ou sur invitation seulement au début ?
-2. **Modèles de comptes rendus fournis** : partagés en lecture par tous les cabinets (proposé), chacun pouvant les dupliquer pour les modifier ?
-3. **Un utilisateur dans plusieurs cabinets** (remplaçant, associé multi-sites) : exclu dans un premier temps (proposé), ou nécessaire dès le départ ?
+1. **Inscription sur invitation.** Pas d'inscription publique au lancement : l'administrateur de la plateforme envoie un lien d'invitation à chaque professionnel, qui crée alors son cabinet. L'ouverture viendra avec la facturation. La phase 4 porte donc sur l'invitation et l'onboarding, pas sur une inscription libre — et la phase 7 (super-administration) en devient le point d'entrée.
+2. **Modèles fournis communs, en lecture.** Les modèles de comptes rendus livrés avec 1002 Pattes sont partagés par tous les cabinets et ne sont modifiables par aucun ; un cabinet qui veut les adapter les duplique. `StudioDocumentTemplate` distingue donc les modèles de la plateforme (sans cabinet) de ceux d'un cabinet.
+3. **Un compte = un cabinet, au départ.** Un utilisateur appartient à une seule organisation. Le modèle de données reste compatible avec une ouverture ultérieure (un remplaçant sur plusieurs cabinets) sans refonte.
