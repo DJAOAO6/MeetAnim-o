@@ -1,5 +1,6 @@
 import Image from "next/image";
-import type { ChangeEvent, ReactNode } from "react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
+import { fileToCompressedDataUrl, ImageTooLargeError } from "@/lib/images/compress-image";
 
 export const inputClassName = "h-11 w-full rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
 export const textareaClassName = `${inputClassName} h-auto min-h-28 resize-y py-3`;
@@ -51,12 +52,23 @@ export function SectionTitle({ title, description, action }: { title: string; de
 }
 
 export function ImagePicker({ label, value, onChange, shape = "round" }: { label: string; value: string; onChange: (value: string) => void; shape?: "round" | "square" }) {
-  function handleFile(event: ChangeEvent<HTMLInputElement>) {
+  const [error, setError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    // Réinitialisé pour qu'un nouveau choix du même fichier redéclenche.
+    event.target.value = "";
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === "string" && onChange(reader.result);
-    reader.readAsDataURL(file);
+    setError(null);
+    setPreparing(true);
+    try {
+      onChange(await fileToCompressedDataUrl(file));
+    } catch (caught) {
+      setError(caught instanceof ImageTooLargeError ? caught.message : "Cette image n’a pas pu être lue.");
+    } finally {
+      setPreparing(false);
+    }
   }
 
   const isImage = value.startsWith("data:image") || value.startsWith("http://") || value.startsWith("https://");
@@ -68,11 +80,12 @@ export function ImagePicker({ label, value, onChange, shape = "round" }: { label
       </div>
       <div>
         <p className="text-sm font-extrabold text-animeo-dark">{label}</p>
-        <p className="mb-2 text-xs text-animeo-muted">JPG ou PNG · aperçu local</p>
+        <p className="mb-2 text-xs text-animeo-muted">JPG ou PNG · réduite automatiquement</p>
         <label className="inline-flex cursor-pointer rounded-xl border border-animeo px-3 py-2 text-xs font-extrabold text-animeo transition hover:bg-animeo-soft">
-          Choisir une image
-          <input type="file" accept="image/png,image/jpeg" onChange={handleFile} className="sr-only" />
+          {preparing ? "Préparation…" : "Choisir une image"}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFile} disabled={preparing} className="sr-only" />
         </label>
+        {error ? <p role="alert" className="mt-2 text-xs font-bold text-animeo-danger">{error}</p> : null}
       </div>
     </div>
   );

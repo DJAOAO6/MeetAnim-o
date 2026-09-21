@@ -11,6 +11,7 @@ import { pickDefaultTemplate } from "@/lib/documents/templates";
 import { notify } from "@/lib/notify";
 import type { Animal } from "@/data/clients";
 import type { StudioDocumentSummary } from "@/data/documents";
+import { fileToCompressedDataUrl } from "@/lib/images/compress-image";
 
 type AnimalRecordProps = {
   animal: Animal;
@@ -35,7 +36,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
     }
 
     try {
-      const resizedPhoto = await resizeAnimalPhoto(file);
+      const resizedPhoto = await fileToCompressedDataUrl(file, { maxDimension: 640, maxBytes: 300_000 });
       onPhotoChange(resizedPhoto);
       setPhotoError(null);
     } catch {
@@ -117,22 +118,6 @@ function EditIcon() {
       <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
-}
-
-async function resizeAnimalPhoto(file: File) {
-  const bitmap = await createImageBitmap(file);
-  const maximumSize = 640;
-  const scale = Math.min(1, maximumSize / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas indisponible");
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-  return canvas.toDataURL("image/webp", 0.82);
 }
 
 function AnimalInfo({ label, value }: { label: string; value: string }) {

@@ -3,6 +3,8 @@
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { StudioPanel, StudioSectionLabel } from "@/components/documents/editor/studio-chrome";
 import { DEFAULT_POSITION, newElementId } from "@/components/documents/editor/element-factory";
+import { fileToCompressedDataUrl, ImageTooLargeError } from "@/lib/images/compress-image";
+import { notify } from "@/lib/notify";
 
 export function ImagesPanel({ readOnly }: { readOnly: boolean }) {
   const addElement = useDocumentStore((state) => state.addElement);
@@ -11,15 +13,17 @@ export function ImagesPanel({ readOnly }: { readOnly: boolean }) {
     const input = window.document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.onchange = () => {
+    input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result !== "string") return;
-        addElement({ id: newElementId("image"), type: "image", ...DEFAULT_POSITION, width: 220, height: 220, rotation: 0, src: reader.result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Réduite avant d'entrer dans le document : il est enregistré en
+        // entier à chaque sauvegarde (voir compress-image.ts).
+        const src = await fileToCompressedDataUrl(file, { maxDimension: 1600, maxBytes: 600_000 });
+        addElement({ id: newElementId("image"), type: "image", ...DEFAULT_POSITION, width: 220, height: 220, rotation: 0, src });
+      } catch (caught) {
+        notify.error(caught instanceof ImageTooLargeError ? caught.message : "Cette image n’a pas pu être lue.");
+      }
     };
     input.click();
   }
