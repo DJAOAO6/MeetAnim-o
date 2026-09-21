@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { findActiveUserByEmail, verifyPassword } from "@/lib/auth/credentials";
-import { createPendingTwoFactorSession, createSession, deleteSession, getSessionPayload } from "@/lib/auth/session";
+import { createPendingTwoFactorSession } from "@/lib/auth/session";
+import { closeCurrentSession, openSession } from "@/lib/auth/session-store";
 import { generateNumericCode, hashToken } from "@/lib/auth/tokens";
 import { logAudit } from "@/lib/audit";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
@@ -66,15 +67,14 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     redirect("/login/verification");
   }
 
-  await createSession(user.id);
+  await openSession(user.id);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await logAudit({ userId: user.id, action: "LOGIN_SUCCEEDED" });
   redirect("/dashboard");
 }
 
 export async function logout() {
-  const payload = await getSessionPayload();
-  await deleteSession();
+  const payload = await closeCurrentSession();
   if (payload) await logAudit({ userId: payload.userId, action: "LOGOUT" });
   redirect("/login");
 }

@@ -21,10 +21,15 @@ export type CurrentUser = {
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const payload = await getSessionPayload();
-  if (!payload?.userId) return null;
+  if (!payload?.userId || !payload.sid) return null;
 
-  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-  if (!user || !user.active) return null;
+  // La session doit exister, appartenir à ce compte, ne pas être révoquée
+  // (déconnexion) ni expirée : une seule lecture, utilisateur compris.
+  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: true } });
+  if (!session || session.userId !== payload.userId || session.revokedAt || session.expiresAt.getTime() <= Date.now()) return null;
+
+  const user = session.user;
+  if (!user.active) return null;
 
   const issuedAtMs = payload.iat * 1000;
   if (issuedAtMs < user.passwordChangedAt.getTime()) return null;

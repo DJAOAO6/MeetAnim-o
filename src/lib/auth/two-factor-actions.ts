@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { createSession, deletePendingTwoFactorSession, getPendingTwoFactorSession, createPendingTwoFactorSession } from "@/lib/auth/session";
+import { deletePendingTwoFactorSession, getPendingTwoFactorSession, createPendingTwoFactorSession } from "@/lib/auth/session";
+import { openSession } from "@/lib/auth/session-store";
 import { generateNumericCode, hashToken } from "@/lib/auth/tokens";
 import { logAudit } from "@/lib/audit";
 import { getEmailProvider } from "@/lib/email/provider";
@@ -47,7 +48,7 @@ export async function verifyTwoFactorCode(_prevState: TwoFactorState, formData: 
 
   await prisma.twoFactorCode.update({ where: { id: twoFactorCode.id }, data: { usedAt: new Date() } });
   await deletePendingTwoFactorSession();
-  await createSession(pending.userId);
+  await openSession(pending.userId);
   await prisma.user.update({ where: { id: pending.userId }, data: { lastLoginAt: new Date() } });
   await logAudit({ userId: pending.userId, action: "TWO_FACTOR_VERIFIED" });
   await logAudit({ userId: pending.userId, action: "LOGIN_SUCCEEDED" });

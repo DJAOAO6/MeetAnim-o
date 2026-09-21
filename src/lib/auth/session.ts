@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
 const sessionCookieName = "animeo-session";
-const sessionDurationMs = 7 * 24 * 60 * 60 * 1000;
+export const sessionDurationMs = 7 * 24 * 60 * 60 * 1000;
 
 const pendingTwoFactorCookieName = "animeo-2fa-pending";
 const pendingTwoFactorDurationMs = 10 * 60 * 1000;
@@ -16,6 +16,12 @@ function getSecretKey() {
 
 type SessionPayload = {
   userId: string;
+  /**
+   * Identifiant de la ligne Session en base. Le jeton seul ne suffit plus :
+   * dal.getCurrentUser vérifie que cette session existe et n'est pas
+   * révoquée. Un jeton sans `sid` (émis avant) est refusé.
+   */
+  sid?: string;
 };
 
 type PendingTwoFactorPayload = {
@@ -40,8 +46,13 @@ async function verifyPayload<T>(token: string | undefined) {
   }
 }
 
-export async function createSession(userId: string) {
-  const token = await signPayload<SessionPayload>({ userId }, sessionDurationMs);
+/**
+ * Pose le cookie d'une session déjà enregistrée en base. À appeler via
+ * session-store.openSession, qui crée la ligne Session avant — ce fichier
+ * reste sans accès à la base, parce que le proxy l'importe.
+ */
+export async function createSession(userId: string, sessionId: string) {
+  const token = await signPayload<SessionPayload>({ userId, sid: sessionId }, sessionDurationMs);
   const cookieStore = await cookies();
   cookieStore.set(sessionCookieName, token, {
     httpOnly: true,

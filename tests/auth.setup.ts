@@ -1,4 +1,4 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { config } from "dotenv";
 import { test as setup, expect } from "@playwright/test";
 
@@ -28,8 +28,25 @@ export const PRACTITIONER_STATE = "tests/.auth/practitioner.json";
 // exécution.
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * La session enregistrée ouvre-t-elle encore l'espace pro ? L'âge du fichier
+ * ne suffit plus : depuis que les sessions sont révocables côté serveur
+ * (déconnexion, migration, mot de passe changé), un fichier récent peut
+ * porter un jeton refusé — et toutes les specs connectées échoueraient.
+ */
+async function storedSessionStillWorks(): Promise<boolean> {
+  try {
+    const state = JSON.parse(readFileSync(PRACTITIONER_STATE, "utf8")) as { cookies: { name: string; value: string }[] };
+    const cookie = state.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    const response = await fetch("http://localhost:3000/dashboard", { headers: { Cookie: cookie }, redirect: "manual" });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 setup("connexion praticien", async ({ page }) => {
-  if (existsSync(PRACTITIONER_STATE) && Date.now() - statSync(PRACTITIONER_STATE).mtimeMs < MAX_AGE_MS) {
+  if (existsSync(PRACTITIONER_STATE) && Date.now() - statSync(PRACTITIONER_STATE).mtimeMs < MAX_AGE_MS && await storedSessionStillWorks()) {
     setup.skip(true, "session encore valide, connexion inutile");
     return;
   }
