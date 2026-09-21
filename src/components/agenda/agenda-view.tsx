@@ -676,7 +676,7 @@ function PendingRequestsPanel({ requests, onAction }: {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-animeo-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-animeo-warning">En attente</span>
+                  <span className="rounded-full border border-animeo-warning-border bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-animeo-warning">En attente</span>
                   <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>
                 </div>
                 <h3 className="mt-2 text-lg font-black text-animeo-dark">{request.animal}</h3>

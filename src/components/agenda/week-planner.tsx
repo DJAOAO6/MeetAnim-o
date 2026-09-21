@@ -716,7 +716,9 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
     ? `Ouvrir le créneau bloqué : ${event.title ?? "Indisponible"} à ${event.start}`
     : isTournee
       ? `Ouvrir la tournée ${event.title ?? ""} à ${event.start}`
-      : `Ouvrir le rendez-vous de ${event.animal ?? "l’animal"} à ${event.start}`;
+      : isPending
+        ? `Demande de rendez-vous pour ${event.animal ?? "l’animal"} à ${event.start}`
+        : `Ouvrir le rendez-vous de ${event.animal ?? "l’animal"} à ${event.start}`;
   const { column, columns } = columnLayout;
   const columnWidthPercent = 100 / columns;
 
@@ -747,10 +749,14 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
   return (
     <article
       ref={articleRef}
-      role={isSelectable ? "button" : undefined}
-      tabIndex={isSelectable ? 0 : undefined}
+      // Une demande en attente porte ses propres boutons (accepter, décaler,
+      // refuser) : un bouton dans un bouton, les lecteurs d'écran ne
+      // l'annoncent pas. La carte devient alors un simple groupe nommé, et
+      // « Décaler » ouvre la fiche au clavier. Le clic sur la carte reste.
+      role={isSelectable ? (isPending ? "group" : "button") : undefined}
+      tabIndex={isSelectable && !isPending ? 0 : undefined}
       onClick={isSelectable ? handleSelect : undefined}
-      onKeyDown={isSelectable ? handleKeyDown : undefined}
+      onKeyDown={isSelectable && !isPending ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
       aria-label={isSelectable ? selectableLabel : undefined}
       className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
