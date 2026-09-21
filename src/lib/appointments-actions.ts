@@ -96,15 +96,7 @@ async function notifyAppointmentChange(clientId: string | null, previousStatus: 
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
 async function hasConflict(dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
-  const [sameDayAppointments, availability, googleBusyPeriods] = await Promise.all([
-    prisma.appointment.findMany({
-      where: {
-        date: toDate(dateId),
-        status: { not: "CANCELLED" },
-        ...(excludeId ? { id: { not: excludeId } } : {}),
-      },
-      select: { start: true, duration: true, mode: true },
-    }),
+  const [availability, googleBusyPeriods] = await Promise.all([
     getAvailability(),
     // Best-effort (jamais levée, jamais bloquante — voir calendar-freebusy.ts) :
     // revalidation serveur de la disponibilité Google (étape 11 du chantier
@@ -112,19 +104,63 @@ async function hasConflict(dateId: string, start: string, duration: number, excl
     getGoogleBusyPeriods(`${dateId}T00:00:00.000Z`, `${dateId}T23:59:59.999Z`),
   ]);
 
+  if (await appointmentConflictIn(prisma, dateId, start, duration, availability.travelBuffer, excludeId)) return true;
+
   const startMinutes = timeToMinutes(start);
-  const conflictsWithAppointment = sameDayAppointments.some((appointment) => {
+  const googleIntervals = mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods)[dateId] ?? [];
+  return googleIntervals.some((interval) => intervalsOverlap(startMinutes, duration, timeToMinutes(interval.start), interval.duration));
+}
+
+type AppointmentReader = Pick<Prisma.TransactionClient, "appointment">;
+
+/**
+ * Chevauchement avec un rendez-vous déjà en base — la partie de hasConflict
+ * qui peut être perdue dans une course, isolée pour être rejouée sous verrou
+ * (withSlotLock) avec le client de la transaction.
+ */
+async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, travelBuffer: number, excludeId?: string): Promise<boolean> {
+  const sameDayAppointments = await db.appointment.findMany({
+    where: {
+      date: toDate(dateId),
+      status: { not: "CANCELLED" },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    select: { start: true, duration: true, mode: true },
+  });
+
+  const startMinutes = timeToMinutes(start);
+  return sameDayAppointments.some((appointment) => {
     // « Temps de déplacement » (AUDIT_COMPLET.md P2-20) : un rendez-vous à
     // domicile occupe, pour le calcul de conflit, sa durée réelle + le
     // temps de trajet configuré après sa fin, avant qu'un autre rendez-vous
     // (cabinet ou domicile) puisse démarrer.
-    const bufferedDuration = appointment.mode === "DOMICILE" ? appointment.duration + availability.travelBuffer : appointment.duration;
+    const bufferedDuration = appointment.mode === "DOMICILE" ? appointment.duration + travelBuffer : appointment.duration;
     return intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), bufferedDuration);
   });
-  if (conflictsWithAppointment) return true;
+}
 
-  const googleIntervals = mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods)[dateId] ?? [];
-  return googleIntervals.some((interval) => intervalsOverlap(startMinutes, duration, timeToMinutes(interval.start), interval.duration));
+/**
+ * Écrit un rendez-vous sous verrou de la journée concernée.
+ *
+ * hasConflict() puis create() ne sont pas atomiques : deux demandes qui se
+ * chevauchent (14 h 00 et 14 h 30) arrivées au même instant passaient toutes
+ * les deux la vérification, et l'index unique (date, start) ne les arrêtait
+ * pas puisqu'elles ne commencent pas à la même minute — constaté par
+ * tests/audit/audit-security.spec.ts.
+ *
+ * Le verrou consultatif de transaction sérialise les écritures d'une même
+ * journée, et seulement d'une même journée : deux réservations sur des jours
+ * différents ne s'attendent jamais. Il est relâché automatiquement à la fin
+ * de la transaction, y compris en cas d'erreur. La vérification rejouée
+ * dedans est la seule rapide (la base) : la disponibilité Google, appel
+ * réseau, reste vérifiée avant, pour ne jamais tenir un verrou pendant un
+ * appel extérieur.
+ */
+async function withSlotLock<T>(dateId: string, work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-day:${dateId}`}))`;
+    return work(tx);
+  });
 }
 
 export type GeoWarning = {
@@ -311,16 +347,24 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     notes: input.notes,
   };
 
+  const { travelBuffer } = await getAvailability();
   let row;
   try {
-    row = input.id
-      ? await prisma.appointment.update({ where: { id: input.id }, data, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } })
-      : await prisma.appointment.create({ data, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
+    row = await withSlotLock(input.date, async (tx) => {
+      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, travelBuffer, input.id)) return null;
+      const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
+      return input.id
+        ? tx.appointment.update({ where: { id: input.id }, data, include })
+        : tx.appointment.create({ data, include });
+    });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
       return { ok: false, error: "Ce créneau vient d’être pris par un autre rendez-vous. Choisissez une autre heure." };
     }
     throw error;
+  }
+  if (!row) {
+    return { ok: false, error: "Ce créneau vient d’être pris par un autre rendez-vous. Choisissez une autre heure." };
   }
 
   await logAudit({
@@ -851,9 +895,14 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   const zones = await getPublicZones();
   const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
 
+  const { travelBuffer } = await getAvailability();
   let row;
   try {
-    row = await prisma.appointment.create({
+    row = await withSlotLock(core.date, async (tx) => {
+      // Rejouée sous verrou : une demande concurrente a pu être enregistrée
+      // depuis la vérification du haut (voir withSlotLock).
+      if (await appointmentConflictIn(tx, core.date, core.start, service.duration, travelBuffer)) return null;
+      return tx.appointment.create({
       data: {
         clientId,
         animalId,
@@ -875,6 +924,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
         status: "PENDING",
         notes: core.notes,
       },
+      });
     });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
@@ -882,6 +932,12 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
       return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
     }
     throw error;
+  }
+  if (!row) {
+    // Même nettoyage que pour l'index unique : la fiche créée pour cette
+    // demande ne doit pas survivre à son refus.
+    await cleanupOrphanedClientAndAnimal(clientAndAnimal);
+    return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
 
   await logAudit({ action: "APPOINTMENT_CREATED", entityType: "Appointment", entityId: row.id, metadata: { source: "public_booking" } });
