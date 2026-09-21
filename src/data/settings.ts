@@ -1,3 +1,5 @@
+import type { PracticeMode } from "@/lib/practice-mode";
+
 export type AnimalType = "Chien" | "Chat" | "Cheval" | "NAC" | "Petit ruminant";
 
 export type ProfileSettings = {
@@ -35,6 +37,11 @@ export type ProfileSettings = {
   showHoursPublicly: boolean;
   showSocialsPublicly: boolean;
   showPaymentsPublicly: boolean;
+  /** Voir src/lib/practice-mode.ts : permanent, distinct d'une fermeture. */
+  practiceMode: PracticeMode;
+  /** Point de départ des tournées quand il n'y a pas de cabinet. Privé. */
+  departureLabel: string | null;
+  departureAddress: string | null;
 };
 
 export type TravelFeeMode = "fixed" | "zone" | "kilometric";
@@ -184,6 +191,9 @@ export const initialSettings: SettingsState = {
     showHoursPublicly: true,
     showSocialsPublicly: true,
     showPaymentsPublicly: true,
+    practiceMode: "BOTH",
+    departureLabel: null,
+    departureAddress: null,
   },
   services: [
     {

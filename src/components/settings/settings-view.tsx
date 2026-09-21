@@ -114,11 +114,13 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
   // bord (updateManualAvailabilityAction) ; latitude/longitude sont
   // recalculées côté serveur à partir de l'adresse, jamais reprises telles
   // quelles depuis ce formulaire.
-  const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable" | "latitude" | "longitude"> = {
+  const profileMeta: Pick<BusinessProfileData, "cabinetAvailable" | "homeAvailable" | "latitude" | "longitude" | "departureLatitude" | "departureLongitude"> = {
     cabinetAvailable: businessProfile.cabinetAvailable,
     homeAvailable: businessProfile.homeAvailable,
     latitude: businessProfile.latitude,
     longitude: businessProfile.longitude,
+    departureLatitude: businessProfile.departureLatitude,
+    departureLongitude: businessProfile.departureLongitude,
   };
   const [saving, setSaving] = useState(false);
 

@@ -36,6 +36,13 @@ async function restoreOriginal() {
 test.describe("Page publique de réservation — profil professionnel", () => {
   test.beforeAll(async () => {
     original = await loadOriginal();
+    // Carte et lien d'itinéraire n'apparaissent qu'avec des coordonnées. Un
+    // profil fraîchement créé n'en a pas : elles viennent du géocodage de
+    // l'adresse, un appel externe que les tests ne déclenchent pas. On les
+    // pose donc ici (place du Vieux-Marché, Rouen) plutôt que de dépendre
+    // d'un rattrapage lancé à la main sur la base.
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql`UPDATE "BusinessProfile" SET latitude = COALESCE(latitude, 49.4404), longitude = COALESCE(longitude, 1.0939) WHERE id = ${original.id}`;
   });
   test.afterAll(restoreOriginal);
 

@@ -5,6 +5,7 @@ import { useEffect, useRef, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 type ConsultationStepProps = {
   professional: PublicProfessional;
@@ -20,9 +21,11 @@ type ConsultationStepProps = {
   onNext: () => void;
 };
 
-function availabilityLabel(service: PublicService) {
-  if (service.cabinetEnabled && service.homeEnabled) return "Cabinet ou domicile";
-  if (service.homeEnabled) return "À domicile uniquement";
+function availabilityLabel(service: PublicService, mode: PracticeMode) {
+  const cabinet = service.cabinetEnabled && hasCabinet(mode);
+  const home = service.homeEnabled && visitsHomes(mode);
+  if (cabinet && home) return "Cabinet ou domicile";
+  if (home) return "À domicile uniquement";
   return "Au cabinet uniquement";
 }
 
@@ -71,8 +74,22 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
     onServiceChange(nextServiceId);
   }
 
-  const cabinetOpen = service ? professional.cabinetAvailable && service.cabinetEnabled : false;
-  const homeOpen = service ? professional.homeAvailable && service.homeEnabled : false;
+  // Ce qui est proposé : d'abord ce que le professionnel pratique, ensuite
+  // ce qui est ouvert en ce moment.
+  const offersCabinet = hasCabinet(professional.practiceMode);
+  const offersHome = visitsHomes(professional.practiceMode);
+  const cabinetOpen = service ? offersCabinet && professional.cabinetAvailable && service.cabinetEnabled : false;
+  const homeOpen = service ? offersHome && professional.homeAvailable && service.homeEnabled : false;
+  const singleMode = offersCabinet !== offersHome;
+
+  // Un seul mode d'exercice : il n'y a rien à choisir. Le mode est posé
+  // d'office, et la question « Où ? » disparaît plutôt que d'afficher une
+  // seule carte déjà cochée.
+  useEffect(() => {
+    if (!service || !singleMode) return;
+    const only = offersCabinet ? "CABINET" : "HOME";
+    if (mode !== only) onModeChange(only);
+  }, [service, singleMode, offersCabinet, mode, onModeChange]);
 
   return (
     <form onSubmit={submit}>
@@ -121,7 +138,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               <span className="mt-5 block h-px bg-animeo-border-soft" />
 
               <span className="mt-4 flex items-end justify-end text-right">
-                <span className="text-xs font-bold text-animeo-muted">{availabilityLabel(item)}</span>
+                <span className="text-xs font-bold text-animeo-muted">{availabilityLabel(item, professional.practiceMode)}</span>
               </span>
             </button>
           );
@@ -130,8 +147,9 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
 
       {service ? (
         <div ref={locationRef} className="mt-6 animate-gentle-reveal scroll-mt-6">
-          <p className="mb-3 text-sm font-black text-animeo-dark">Où ?</p>
-          <div className="grid gap-4 sm:grid-cols-2">
+          {singleMode ? null : <p className="mb-3 text-sm font-black text-animeo-dark">Où ?</p>}
+          <div className={singleMode ? "hidden" : "grid gap-4 sm:grid-cols-2"}>
+            {offersCabinet ? (
             <ModeCard
               icon="⌂"
               title="Au cabinet"
@@ -143,6 +161,8 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               disabledLabel={!service.cabinetEnabled ? `Non proposée au cabinet` : "Cabinet fermé pour le moment"}
               onClick={() => onModeChange("CABINET")}
             />
+            ) : null}
+            {offersHome ? (
             <ModeCard
               icon="⌖"
               title="À domicile"
@@ -155,6 +175,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               disabledLabel={!service.homeEnabled ? "Proposée uniquement au cabinet" : "Domicile fermé pour le moment"}
               onClick={() => onModeChange("HOME")}
             />
+            ) : null}
           </div>
 
           {mode === "HOME" && hasTours ? (

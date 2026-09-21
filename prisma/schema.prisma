@@ -64,6 +64,14 @@ enum TourStartType {
   CUSTOM
 }
 
+/// Manière d'exercer, choisie par le professionnel et modifiable à tout
+/// moment : à domicile uniquement, au cabinet uniquement, ou les deux.
+enum PracticeMode {
+  HOME_ONLY
+  OFFICE_ONLY
+  BOTH
+}
+
 enum TravelFeeMode {
   FIXED
   ZONE
@@ -506,28 +514,28 @@ model Appointment {
   animalId String?
   animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
 
-  clientName    String
-  animalName    String
-  animalSpecies String?
-  serviceName   String
-  date          DateTime
-  start         String
-  duration      Int
-  mode          VisitMode
-  location      String
-  postalCode    String?
-  city          String?
-  inseeCode     String?
-  latitude      Float?
-  longitude     Float?
-  price         Float
-  status        AppointmentStatus @default(PENDING)
-  notes         String            @db.Text
+  clientName     String
+  animalName     String
+  animalSpecies  String?
+  serviceName    String
+  date           DateTime
+  start          String
+  duration       Int
+  mode           VisitMode
+  location       String
+  postalCode     String?
+  city           String?
+  inseeCode      String?
+  latitude       Float?
+  longitude      Float?
+  price          Float
+  status         AppointmentStatus @default(PENDING)
+  notes          String            @db.Text
   // Horodatage réel de clôture (bouton "Consultation réalisée"), distinct de
   // updatedAt qui bouge à chaque modification du rendez-vous — sert au mode
   // tournée (refonte tournées, phase 2) pour l'indicateur de retard et
   // l'heure de fin réelle affichée sous un arrêt terminé.
-  completedAt   DateTime?
+  completedAt    DateTime?
   // Rappel envoyé au client la veille du rendez-vous. Posé au moment de
   // l'envoi : un rendez-vous déjà rappelé ne l'est jamais une seconde fois,
   // même si la tâche quotidienne tourne deux fois.
@@ -652,9 +660,9 @@ model Reminder {
 }
 
 model Zone {
-  id           String @id @default(cuid())
-  name         String
-  cities       City[]
+  id     String @id @default(cuid())
+  name   String
+  cities City[]
 
   // Secteur d'intervention : un lieu et un rayon autour de lui. Une zone
   // peut être décrite par ses communes (historique), par un secteur, ou par
@@ -664,13 +672,15 @@ model Zone {
   centerLabel     String?
   centerLatitude  Float?
   centerLongitude Float?
-  /** Rayon en kilomètres autour du centre. */
+  /**
+   * Rayon en kilomètres autour du centre.
+   */
   radiusKm        Int?
-  tours        Tour[]
+  tours           Tour[]
   // Multi-zone (refonte tournées, formulaire enrichi) : source de vérité
   // pour le nouveau sélecteur multi-zone. `tours` (ci-dessus, relation
   // zoneId simple) reste inchangée pour ne rien casser côté existant.
-  toursInZones Tour[] @relation("TourZones")
+  toursInZones    Tour[]  @relation("TourZones")
 }
 
 model City {
@@ -742,8 +752,8 @@ model Tour {
 }
 
 model BusinessProfile {
-  id                       String   @id @default(cuid())
-  slug                     String   @unique
+  id                       String       @id @default(cuid())
+  slug                     String       @unique
   firstName                String
   lastName                 String
   profession               String
@@ -756,12 +766,23 @@ model BusinessProfile {
   location                 String
   latitude                 Float?
   longitude                Float?
-  bio                      String   @db.Text
-  photo                    String   @db.Text
-  logo                     String   @db.Text
+  bio                      String       @db.Text
+  photo                    String       @db.Text
+  logo                     String       @db.Text
   publicColor              String
-  cabinetAvailable         Boolean  @default(true)
-  homeAvailable            Boolean  @default(true)
+  // Mode d'exercice : permanent, à ne pas confondre avec les deux bascules
+  // ci-dessous, qui ferment temporairement l'un ou l'autre. Ne pas avoir de
+  // cabinet n'est pas l'avoir fermé.
+  practiceMode             PracticeMode @default(BOTH)
+  // Point de départ des tournées et des trajets quand il n'y a pas de
+  // cabinet (domicile du praticien, local, autre). Jamais affiché
+  // publiquement, contrairement à l'adresse d'un cabinet.
+  departureLabel           String?
+  departureAddress         String?
+  departureLatitude        Float?
+  departureLongitude       Float?
+  cabinetAvailable         Boolean      @default(true)
+  homeAvailable            Boolean      @default(true)
   availability             Json?
   reminderSettings         Json?
   // Repères du schéma animalier du Studio de documents (étape 4) : 5
@@ -774,32 +795,32 @@ model BusinessProfile {
   // texte très court affiché dans le bandeau d'en-tête, pour ne jamais
   // dupliquer le même texte à deux endroits.
   tagline                  String?
-  coverPicture             String?  @db.Text
+  coverPicture             String?      @db.Text
   website                  String?
   facebook                 String?
   instagram                String?
   registrationNumber       String?
   acceptedPayments         String?
   cabinetName              String?
-  cabinetInstructions      String?  @db.Text
-  parkingInformation       String?  @db.Text
-  accessibilityInformation String?  @db.Text
-  showPhonePublicly        Boolean  @default(true)
-  showAddressPublicly      Boolean  @default(true)
-  showHoursPublicly        Boolean  @default(true)
-  showSocialsPublicly      Boolean  @default(true)
-  showPaymentsPublicly     Boolean  @default(true)
+  cabinetInstructions      String?      @db.Text
+  parkingInformation       String?      @db.Text
+  accessibilityInformation String?      @db.Text
+  showPhonePublicly        Boolean      @default(true)
+  showAddressPublicly      Boolean      @default(true)
+  showHoursPublicly        Boolean      @default(true)
+  showSocialsPublicly      Boolean      @default(true)
+  showPaymentsPublicly     Boolean      @default(true)
 
   // Éditeur de page de réservation : configuration structurée (thème +
   // sections ordonnées), jamais du HTML. Deux versions distinctes — le
   // brouillon que l'éditeur enregistre à volonté, et la version publiée,
   // seule lue par la page publique : les essais en cours ne doivent jamais
   // apparaître aux visiteurs. Null des deux côtés = page d'origine.
-  publicPageDraft          Json?
-  publicPagePublished      Json?
-  publicPagePublishedAt    DateTime?
+  publicPageDraft       Json?
+  publicPagePublished   Json?
+  publicPagePublishedAt DateTime?
 
-  updatedAt                DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 }
 
 model Service {
@@ -1019,14 +1040,12 @@ model TourPreferences {
  * praticiens du même cabinet n'ont pas les mêmes priorités d'affichage.
  * Même patron que TourPreferences (relation 1-1 sur User, suppression en
  * cascade).
- *
  * `widgets` est un tableau JSON ordonné de { id, span, visible } plutôt que
  * des coordonnées en pixels : une position absolue enregistrée sur un écran
  * large ne voudrait plus rien dire sur un téléphone. L'ordre du tableau est
  * l'ordre d'affichage, et `span` est un nombre de colonnes de la grille
  * (1 à 4), traduit en largeur réelle selon la taille de l'écran — la
  * disposition reste donc responsive après personnalisation.
- *
  * Un identifiant de widget inconnu (supprimé d'une version à l'autre) est
  * ignoré à la lecture, et un widget nouvellement livré apparaît avec ses
  * réglages par défaut : la disposition enregistrée n'a jamais besoin d'être

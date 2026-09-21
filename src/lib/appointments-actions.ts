@@ -49,6 +49,7 @@ import {
 import { Prisma } from "@/generated/prisma/client";
 import { getGoogleBusyPeriods, mapBusyPeriodsToOccupiedIntervals } from "@/lib/calendar/calendar-freebusy";
 import { syncAppointmentToCalendars } from "@/lib/calendar/calendar-sync";
+import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 
 const dbMode: Record<AppointmentMode, VisitMode> = { cabinet: "CABINET", home: "DOMICILE" };
 const modeLabel: Record<VisitMode, AppointmentMode> = { CABINET: "cabinet", DOMICILE: "home" };
@@ -894,6 +895,12 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   // que submitPublicBookingAction ignorait avant ce correctif
   // (AUDIT-PRODUIT-2026-08-30.md, finding P0 en tête).
   const professional = await getBusinessProfile();
+  // Le mode doit d'abord être pratiqué. Non pratiqué n'est pas « fermé » :
+  // la demande ne vient pas de la page publique, qui ne le propose pas.
+  const modeIsPracticed = core.mode === "cabinet" ? hasCabinet(professional.practiceMode) : visitsHomes(professional.practiceMode);
+  if (!modeIsPracticed) {
+    return { ok: false, error: "Ce mode de consultation n’est pas proposé. Merci de recommencer votre demande." };
+  }
   const modeIsManuallyOpen = core.mode === "cabinet" ? professional.cabinetAvailable : professional.homeAvailable;
   if (!modeIsManuallyOpen) {
     return { ok: false, error: "Ce mode de consultation est temporairement fermé aux réservations. Merci de choisir l’autre mode ou de réessayer plus tard." };

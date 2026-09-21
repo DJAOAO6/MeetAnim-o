@@ -16,6 +16,10 @@ export type BusinessProfileData = ProfileSettings & {
   homeAvailable: boolean;
   latitude: number | null;
   longitude: number | null;
+  // Coordonnées du point de départ privé : calculées ici à partir de
+  // l'adresse saisie, jamais renseignées par le formulaire.
+  departureLatitude: number | null;
+  departureLongitude: number | null;
 };
 
 const DEFAULT_PROFILE: BusinessProfileData = {
@@ -57,6 +61,11 @@ const DEFAULT_PROFILE: BusinessProfileData = {
   showHoursPublicly: true,
   showSocialsPublicly: true,
   showPaymentsPublicly: true,
+  practiceMode: "BOTH",
+  departureLabel: null,
+  departureAddress: null,
+  departureLatitude: null,
+  departureLongitude: null,
 };
 
 /** Adresse complète transmise au géocodeur IGN, dans un format qu'il résout de façon fiable. */
@@ -72,6 +81,8 @@ export async function getBusinessProfile(): Promise<BusinessProfileData> {
 }
 
 export type BusinessProfileActionResult = { ok: true; warning?: string } | { ok: false; error: string };
+
+const DEPARTURE_GEOCODING_FAILED_WARNING = "Le point de départ n’a pas pu être localisé. Les itinéraires de tournée partiront du premier arrêt.";
 
 const GEOCODING_FAILED_WARNING = "L’adresse du cabinet n’a pas pu être localisée. Les itinéraires de tournée partiront du premier arrêt.";
 
@@ -94,7 +105,7 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   // jamais reprises telles quelles depuis le formulaire (qui n'a pas la main
   // dessus).
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- exclues volontairement de profileFields, voir commentaire ci-dessus
-  const { cabinetAvailable, homeAvailable, latitude: _formLatitude, longitude: _formLongitude, ...profileFields } = input;
+  const { cabinetAvailable, homeAvailable, latitude: _formLatitude, longitude: _formLongitude, departureLatitude: _formDepartureLatitude, departureLongitude: _formDepartureLongitude, ...profileFields } = input;
   const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug };
 
   // Ne re-géocoder que si l'adresse a réellement changé : ni gaspiller un
@@ -116,6 +127,18 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
       data.longitude = null;
       warning = GEOCODING_FAILED_WARNING;
     }
+  }
+
+  // Point de départ privé : même prudence que pour l'adresse du cabinet —
+  // re-géocodé seulement s'il a changé, et vidé plutôt que laissé faux si
+  // l'adresse n'est plus localisable.
+  const departure = profileFields.departureAddress?.trim() || null;
+  data.departureAddress = departure;
+  if (!existing || (existing.departureAddress ?? null) !== departure) {
+    const geocoded = departure ? await geocodeAddress(departure) : null;
+    data.departureLatitude = geocoded?.latitude ?? null;
+    data.departureLongitude = geocoded?.longitude ?? null;
+    if (departure && !geocoded) warning = DEPARTURE_GEOCODING_FAILED_WARNING;
   }
 
   try {

@@ -36,6 +36,7 @@ export async function loadPublicProfessional(slug?: string): Promise<PublicProfe
     logo: profile.logo,
     photo: profile.photo,
     phone: profile.phone,
+    practiceMode: profile.practiceMode,
     cabinetAvailable: profile.cabinetAvailable,
     homeAvailable: profile.homeAvailable,
     services,

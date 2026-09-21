@@ -8,6 +8,7 @@ import { buildSingleStopMapsUrl } from "@/lib/tour-maps";
 import { notify } from "@/lib/notify";
 import type { PublicProfessional } from "@/data/public-booking";
 import { DEFAULT_PUBLIC_SECTIONS, sectionDefinition, type PublicSection, type PublicSectionId } from "@/data/public-page";
+import { hasCabinet } from "@/lib/practice-mode";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
@@ -82,6 +83,9 @@ function PracticalInfoCard({ professional, section }: { professional: PublicProf
 
 function CabinetAddressCard({ professional, section }: { professional: PublicProfessional; section: PublicSection }) {
   const [copied, setCopied] = useState(false);
+  // Sans cabinet, il n'y a pas d'adresse à montrer : celle qui sert aux
+  // tournées est privée (voir src/lib/practice-mode.ts).
+  if (!hasCabinet(professional.practiceMode)) return null;
   if (!professional.cabinetAvailable || !professional.showAddressPublicly || !professional.cabinetAddress.trim()) return null;
 
   const coordinates = professional.cabinetLatitude != null && professional.cabinetLongitude != null

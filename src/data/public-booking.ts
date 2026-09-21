@@ -1,3 +1,4 @@
+import type { PracticeMode } from "@/lib/practice-mode";
 import type { PublicHoursRow } from "@/lib/public-hours";
 
 export type BookingMode = "CABINET" | "HOME";
@@ -66,6 +67,13 @@ export type PublicProfessional = {
   logo: string;
   photo: string;
   phone: string;
+  /**
+   * Ce que le professionnel pratique, une fois pour toutes. Les deux
+   * bascules ci-dessous ne disent que ce qui est ouvert en ce moment : un
+   * mode qu'il ne pratique pas n'est pas « fermé », il n'existe pas, et rien
+   * ne doit en être dit au visiteur.
+   */
+  practiceMode: PracticeMode;
   cabinetAvailable: boolean;
   homeAvailable: boolean;
   services: PublicService[];

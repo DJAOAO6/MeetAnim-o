@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import type { PublicProfessional } from "@/data/public-booking";
+import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 
 function isImageValue(value: string): boolean {
   return value.startsWith("data:image") || value.startsWith("http://") || value.startsWith("https://");
@@ -13,10 +14,14 @@ function isImageValue(value: string): boolean {
  * actives, jamais d'une liste figée.
  */
 function computeBadges(professional: PublicProfessional): { modeBadges: string[]; animalBadges: string[] } {
+  // Un mode qui n'est pas pratiqué ne donne aucun badge : pas de cabinet
+  // annoncé quand il n'y en a pas, même fermé.
+  const cabinet = hasCabinet(professional.practiceMode) && professional.cabinetAvailable;
+  const home = visitsHomes(professional.practiceMode) && professional.homeAvailable;
   const modeBadges: string[] = [];
-  if (professional.cabinetAvailable) modeBadges.push("Cabinet");
-  if (professional.homeAvailable) modeBadges.push("À domicile");
-  if (professional.homeAvailable && professional.location.trim()) modeBadges.push(professional.location.trim());
+  if (cabinet) modeBadges.push("Cabinet");
+  if (home) modeBadges.push("À domicile");
+  if (home && professional.location.trim()) modeBadges.push(professional.location.trim());
   if (professional.registrationNumber?.trim()) modeBadges.push(professional.registrationNumber.trim());
 
   const animalBadges = [...new Set(professional.services.flatMap((service) => service.animalTypes))];
@@ -30,8 +35,8 @@ export function BookingHeader({ professional }: { professional: PublicProfession
 
   const locationParts = [
     professional.location.trim() ? `Basée en ${professional.location.trim()}` : null,
-    professional.cabinetAvailable && professional.cabinetCity.trim() ? professional.cabinetCity.trim() : null,
-    professional.homeAvailable ? "Déplacements à domicile" : null,
+    hasCabinet(professional.practiceMode) && professional.cabinetAvailable && professional.cabinetCity.trim() ? professional.cabinetCity.trim() : null,
+    visitsHomes(professional.practiceMode) && professional.homeAvailable ? "Déplacements à domicile" : null,
   ].filter((part): part is string => Boolean(part));
 
   return (
