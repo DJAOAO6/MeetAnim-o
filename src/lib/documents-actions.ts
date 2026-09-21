@@ -10,6 +10,7 @@ import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { buildLayoutSketch, createEmptyDocumentContent, type DocumentContent, type DocumentPageSize } from "@/lib/documents/content";
 import type { DocumentVariableContext } from "@/lib/documents/variables";
 import { getMarkerPresets } from "@/lib/documents/marker-presets-actions";
+import { sanitizeDocumentContent } from "@/lib/documents/sanitize-server";
 import { Prisma } from "@/generated/prisma/client";
 import type { StudioDocumentDetail, StudioDocumentStatus, StudioDocumentSummary, StudioDocumentTemplateSummary } from "@/data/documents";
 
@@ -163,6 +164,9 @@ export async function createDocumentAction(input: CreateDocumentInput): Promise<
     const template = await prisma.studioDocumentTemplate.findUnique({ where: { id: input.templateId }, select: { contentJson: true } });
     if (template) content = template.contentJson as unknown as DocumentContent;
   }
+  // Un modèle peut avoir été créé par n'importe quel compte : il passe par le
+  // même filtre qu'un document.
+  content = sanitizeDocumentContent(content);
 
   let created;
   try {
@@ -202,19 +206,42 @@ export type SaveDocumentInput = {
  * saveAppointmentAction (aucun compte rendu n'appartient exclusivement à
  * son créateur, voir le commentaire sur StudioDocument dans schema.prisma).
  */
+/**
+ * Forme minimale d'un contenu de document. Le détail des éléments reste
+ * libre (formes, images, schémas évoluent souvent), mais la structure qui
+ * porte le HTML doit être celle attendue : sinon l'assainissement pourrait
+ * être contourné par un contenu mal formé.
+ */
+function isDocumentContent(value: unknown): value is DocumentContent {
+  if (!value || typeof value !== "object") return false;
+  const content = value as { pages?: unknown };
+  return Array.isArray(content.pages) && content.pages.every((page) =>
+    page && typeof page === "object" && Array.isArray((page as { elements?: unknown }).elements)
+    && (page as { elements: unknown[] }).elements.every((element) => element && typeof element === "object" && typeof (element as { type?: unknown }).type === "string"),
+  );
+}
+
 export async function saveDocumentAction(id: string, input: SaveDocumentInput): Promise<DocumentActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
 
-  const existing = await prisma.studioDocument.findUnique({ where: { id }, select: { status: true } });
+  const existing = await prisma.studioDocument.findUnique({ where: { id }, select: { status: true, createdByUserId: true } });
   if (!existing) return { ok: false, error: "Ce document n'existe plus." };
   if (existing.status === "FINALIZED") return { ok: false, error: "Ce document est finalisé — dupliquez-le pour le modifier." };
+  // Un compte rendu est un dossier clinique : seul son auteur le modifie,
+  // ou un compte qui gère les documents (l'administrateur, d'office). Sans
+  // cette règle, n'importe quel compte — secrétariat compris — pouvait
+  // réécrire le document d'un autre.
+  if (existing.createdByUserId !== user.id && !hasPermission(user, "MANAGE_DOCUMENTS")) {
+    return { ok: false, error: "Seul l'auteur de ce document peut le modifier. Dupliquez-le pour en faire votre version." };
+  }
+  if (!isDocumentContent(input.content)) return { ok: false, error: "Contenu de document invalide." };
 
   await prisma.studioDocument.update({
     where: { id },
     data: {
       title: input.title?.trim() || undefined,
-      contentJson: input.content as unknown as Prisma.InputJsonValue,
+      contentJson: sanitizeDocumentContent(input.content) as unknown as Prisma.InputJsonValue,
       thumbnail: input.thumbnail,
     },
   });
@@ -270,7 +297,9 @@ export async function duplicateDocumentAction(id: string): Promise<DocumentActio
       appointmentId: null,
       templateId: source.templateId,
       createdByUserId: user.id,
-      contentJson: source.contentJson as Prisma.InputJsonValue,
+      // Un document ancien a pu être enregistré avant le filtre : la copie,
+      // elle, repart propre.
+      contentJson: sanitizeDocumentContent(source.contentJson as unknown as DocumentContent) as unknown as Prisma.InputJsonValue,
     },
   });
 

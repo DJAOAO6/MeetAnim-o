@@ -9,6 +9,7 @@ import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { labelForVariable, resolveVariable } from "@/lib/documents/variables";
 import { TextFormatToolbar, TOOLBAR_HEIGHT } from "@/components/documents/editor/text-format-toolbar";
 import { collectDocumentColors, type DocumentTextElement } from "@/lib/documents/content";
+import { sanitizeDocumentHtmlForDisplay } from "@/lib/documents/sanitize-client";
 
 type TextOverlayProps = {
   readOnly: boolean;
@@ -67,7 +68,9 @@ function blockStyle(element: DocumentTextElement): React.CSSProperties {
 function StaticTextBlock({ element, variableContext }: { element: DocumentTextElement; variableContext: ReturnType<typeof useDocumentStore.getState>["variableContext"] }) {
   const html = element.variableBinding
     ? `<p>${escapeHtml(resolveVariable(element.variableBinding, variableContext)) || `<span class="text-animeo-muted">${escapeHtml(labelForVariable(element.variableBinding))}</span>`}</p>`
-    : element.html || "<p class=\"text-animeo-muted\">Texte…</p>";
+    // Assaini même si le serveur l'a déjà fait : les documents enregistrés
+    // avant ce filtre, eux, ne l'ont pas été (voir html-policy.ts).
+    : (element.html ? sanitizeDocumentHtmlForDisplay(element.html) : "") || "<p class=\"text-animeo-muted\">Texte…</p>";
 
   return (
     // pointer-events-none : les clics traversent jusqu'au rectangle fantôme
