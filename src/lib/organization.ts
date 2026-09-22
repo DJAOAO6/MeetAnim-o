@@ -133,3 +133,16 @@ export async function readDb(): Promise<ScopedPrismaClient> {
   if (user?.organizationId) return dbFor(user.organizationId);
   return publicDb();
 }
+
+/**
+ * L'accès au cabinet désigné par un lien public (`/reserver/<slug>`).
+ *
+ * C'est ainsi qu'un chemin sans session sait de quel cabinet il parle : par
+ * le lien que le visiteur a suivi, jamais par un identifiant d'espace qu'il
+ * aurait pu fournir — celui-ci pourrait désigner le cabinet d'un autre.
+ * `null` si le lien ne correspond à aucun cabinet.
+ */
+export async function dbForSlug(slug: string): Promise<ScopedPrismaClient | null> {
+  const organization = await organizationOfSlug(slug);
+  return organization ? dbFor(organization.id) : null;
+}

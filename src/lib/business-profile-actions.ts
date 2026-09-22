@@ -84,10 +84,10 @@ export async function businessProfileOf(db: ScopedPrismaClient): Promise<Busines
   return row ?? await db.businessProfile.create({ data: DEFAULT_PROFILE });
 }
 
-export async function getBusinessProfile(): Promise<BusinessProfileData> {
+export async function getBusinessProfile(scoped?: ScopedPrismaClient): Promise<BusinessProfileData> {
   // Lu des deux côtés : par l'espace professionnel et par la page de
-  // réservation, qui n'a pas de session.
-  const db = await readDb();
+  // réservation, qui désigne son cabinet par le lien suivi.
+  const db = scoped ?? await readDb();
   const row = await db.businessProfile.findFirst();
   if (row) return row;
   const created = await db.businessProfile.create({ data: DEFAULT_PROFILE });
@@ -230,8 +230,10 @@ export async function updateManualAvailabilityAction(cabinetAvailable: boolean, 
   return { ok: true };
 }
 
-export async function getAvailability(): Promise<AvailabilitySettings> {
-  const db = await readDb();
+export async function getAvailability(scoped?: ScopedPrismaClient): Promise<AvailabilitySettings> {
+  // Un cabinet précis quand l'appelant le connaît (page publique, résolue par
+  // son lien) ; sinon l'accès partagé.
+  const db = scoped ?? await readDb();
   const row = await db.businessProfile.findFirst({ select: { availability: true } });
   if (!row?.availability) return initialSettings.availability;
   // Colonne Json : un profil enregistré avant l'ajout de

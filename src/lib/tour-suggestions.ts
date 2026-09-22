@@ -1,6 +1,6 @@
 "use server";
 
-import { readDb } from "@/lib/organization";
+import { dbForSlug } from "@/lib/organization";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
@@ -67,10 +67,10 @@ export type TourSuggestionInput = {
  * occupés. Un créneau suggéré est donc réellement réservable, et le serveur
  * le revérifie de toute façon à la soumission.
  */
-export async function getSuggestedToursForAddressAction(input: TourSuggestionInput): Promise<TourSuggestion[]> {
-  // Action appelée depuis la page publique de réservation : pas de compte
-  // connecté, donc l'accès partagé (voir src/lib/organization.ts).
-  const db = await readDb();
+export async function getSuggestedToursForAddressAction(slug: string, input: TourSuggestionInput): Promise<TourSuggestion[]> {
+  // Appelée depuis la page publique : le cabinet vient du lien suivi.
+  const db = await dbForSlug(slug);
+  if (!db) return [];
   const duration = Math.round(input.durationMinutes);
   if (!input.zoneId || !Number.isFinite(duration) || duration <= 0) return [];
 

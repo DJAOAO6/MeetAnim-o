@@ -42,7 +42,9 @@ const required = [
 const tolerated = {
   User: "false",
   StudioDocumentTemplate: `"isBuiltIn" = true`,
-  AuditLog: "false",
+  // Une action sans compte (visiteur de la page publique, tâche de fond)
+  // n'appartient à aucun cabinet.
+  AuditLog: `"userId" IS NULL`,
 };
 
 const client = new pg.Client({ connectionString: url });

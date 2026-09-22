@@ -102,7 +102,9 @@ test("une demande au cabinet est refusée par le serveur quand il n'y en a pas",
 
   const response = await request.post(`/reserver/${SLUG}`, {
     headers: { "Next-Action": actionId, "Content-Type": "text/plain;charset=UTF-8", Accept: "text/x-component" },
-    data: JSON.stringify([{
+    // Le lien du cabinet est le premier argument de l'action : c'est lui qui
+    // désigne où la demande atterrit.
+    data: JSON.stringify([SLUG, {
       serviceId, date: dateWithinBookingWindow(), start: "10:00", mode: "cabinet", location: "Cabinet", notes: "",
       clientName: "E2E-Mode Exercice", animalName: "Rex", bookingStartedAt: Date.now() - 20_000,
       ownerFirstName: "Test", ownerLastName: "E2E-Mode", ownerPhone: "0600000000",

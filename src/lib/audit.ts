@@ -54,9 +54,17 @@ export async function logAudit(entry: {
   entityId?: string;
   metadata?: Prisma.InputJsonValue;
 }): Promise<void> {
+  // Le journal appartient au cabinet dont l'action émane : c'est lui qui le
+  // consulte, et la super-administration (phase 7) devra pouvoir dire chez
+  // qui chaque action a eu lieu.
+  const organizationId = entry.userId
+    ? (await prisma.user.findUnique({ where: { id: entry.userId }, select: { organizationId: true } }))?.organizationId ?? null
+    : null;
+
   await prisma.auditLog.create({
     data: {
       userId: entry.userId ?? null,
+      organizationId,
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,

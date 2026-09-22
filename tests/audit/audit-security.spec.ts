@@ -20,6 +20,8 @@ const BASE = "http://localhost:3000";
  */
 
 const MARKER = "AUDITRACE";
+/** Lien public du cabinet : premier argument des actions de réservation. */
+const SLUG = "pauline-faucillon";
 
 function practitionerCookie(): string {
   const state = JSON.parse(readFileSync("tests/.auth/practitioner.json", "utf8")) as { cookies: { name: string; value: string }[] };
@@ -73,7 +75,7 @@ async function bookingFixture() {
   await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'public-booking:%'`;
   const ids = await actionIds("/reserver/pauline-faucillon");
   const [service] = await sql`SELECT id, duration FROM "Service" WHERE active = true AND "cabinetEnabled" = true ORDER BY "createdAt" LIMIT 1`;
-  const schedule = await callAction(ids.getPublicScheduleAction, ["cabinet", service.duration], { path: "/reserver/pauline-faucillon" });
+  const schedule = await callAction(ids.getPublicScheduleAction, [SLUG, "cabinet", service.duration], { path: "/reserver/pauline-faucillon" });
   const dates = (schedule.value as { dates: { id: string; slots: string[] }[] }).dates;
   // Loin dans la fenêtre : aucune chance de heurter un autre test.
   const date = [...dates].reverse().find((d) => d.slots.includes("14:00") && d.slots.includes("15:00"));
@@ -93,7 +95,7 @@ function bookingInput(serviceId: string, date: string, start: string, n: number)
 
 test("deux visiteurs valident le même créneau au même instant : un seul rendez-vous", async () => {
   const { ids, serviceId, date } = await bookingFixture();
-  const results = await Promise.all([1, 2].map((n) => callAction(ids.submitPublicBookingAction, [bookingInput(serviceId, date, "14:00", n)], { path: "/reserver/pauline-faucillon" })));
+  const results = await Promise.all([1, 2].map((n) => callAction(ids.submitPublicBookingAction, [SLUG, bookingInput(serviceId, date, "14:00", n)], { path: "/reserver/pauline-faucillon" })));
   const ok = results.filter((r) => (r.value as { ok?: boolean } | undefined)?.ok === true).length;
   console.log("même créneau :", results.map((r) => JSON.stringify(r.value)));
   const rows = await sql`SELECT count(*)::int AS n FROM "Appointment" WHERE date = ${date}::date AND start = '14:00' AND status <> 'CANCELLED'`;
@@ -108,8 +110,8 @@ test("deux réservations qui se chevauchent (14:00 et 14:30) envoyées au même 
   await sql`DELETE FROM "Appointment" WHERE "clientName" LIKE ${`%${MARKER}%`}`;
   await sql`DELETE FROM "Client" WHERE "lastName" LIKE ${`${MARKER}%`}`;
   const results = await Promise.all([
-    callAction(ids.submitPublicBookingAction, [bookingInput(serviceId, date, "14:00", 3)], { path: "/reserver/pauline-faucillon" }),
-    callAction(ids.submitPublicBookingAction, [bookingInput(serviceId, date, "14:30", 4)], { path: "/reserver/pauline-faucillon" }),
+    callAction(ids.submitPublicBookingAction, [SLUG, bookingInput(serviceId, date, "14:00", 3)], { path: "/reserver/pauline-faucillon" }),
+    callAction(ids.submitPublicBookingAction, [SLUG, bookingInput(serviceId, date, "14:30", 4)], { path: "/reserver/pauline-faucillon" }),
   ]);
   console.log("chevauchement :", results.map((r) => JSON.stringify(r.value)));
   const rows = await sql`SELECT start FROM "Appointment" WHERE "clientName" LIKE ${`%${MARKER}%`} AND status <> 'CANCELLED' ORDER BY start`;

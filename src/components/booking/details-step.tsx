@@ -287,7 +287,7 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
     setRevalidationError(null);
     setRevalidating(true);
     try {
-      const freshOccupied = await getOccupiedSlotsAction(dateId, dateId);
+      const freshOccupied = await getOccupiedSlotsAction(professional.slug, dateId, dateId);
       const stillFree = !(freshOccupied[dateId] ?? []).some((occupied) =>
         intervalsOverlap(timeToMinutes(time), service.duration, timeToMinutes(occupied.start), occupied.duration),
       );
@@ -576,6 +576,7 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
 
           {mode === "HOME" ? (
             <TourSuggestionPanel
+              slug={professional.slug}
               zoneId={zoneId}
               durationMinutes={service.duration}
               dateId={dateId}

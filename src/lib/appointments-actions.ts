@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { prisma, type ScopedPrismaClient } from "@/lib/db";
-import { currentDb } from "@/lib/organization";
+import { currentDb, dbForSlug } from "@/lib/organization";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
@@ -747,20 +747,17 @@ function sanitizeAnimalFields(input: PublicBookingInput) {
  */
 type FindOrCreateResult = { clientId: string | null; animalId: string | null; createdClientId: string | null; createdAnimalId: string | null };
 
-// Réservation publique : sans session, le cabinet n'est pas encore résolu
-// (phase 3). Ces lectures et écritures passent donc par le client non
-// cloisonné, comme avant le chantier.
-async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<FindOrCreateResult> {
+async function findOrCreateClientAndAnimal(db: ScopedPrismaClient, input: PublicBookingInput): Promise<FindOrCreateResult> {
   try {
     const owner = sanitizeOwnerFields(input);
     if (!owner.email || !owner.firstName || !owner.lastName) {
       return { clientId: null, animalId: null, createdClientId: null, createdAnimalId: null };
     }
 
-    let client = await prisma.client.findFirst({ where: { email: { equals: owner.email, mode: "insensitive" } } });
+    let client = await db.client.findFirst({ where: { email: { equals: owner.email, mode: "insensitive" } } });
     let createdClientId: string | null = null;
     if (!client) {
-      client = await prisma.client.create({
+      client = await db.client.create({
         data: {
           firstName: owner.firstName,
           lastName: owner.lastName,
@@ -778,7 +775,7 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<F
       return { clientId: client.id, animalId: null, createdClientId, createdAnimalId: null };
     }
 
-    let animal = await prisma.animal.findFirst({
+    let animal = await db.animal.findFirst({
       where: { clientId: client.id, name: { equals: animalName, mode: "insensitive" } },
     });
     let createdAnimalId: string | null = null;
@@ -790,7 +787,7 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<F
       const birthDateApproximate = animalFields.birthDateApproximate ?? false;
       const ageLabel = computeAgeLabel({ date: animalFields.birthDate ?? "", approximate: birthDateApproximate }) ?? "";
 
-      animal = await prisma.animal.create({
+      animal = await db.animal.create({
         data: {
           clientId: client.id,
           name: animalName,
@@ -826,10 +823,10 @@ async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<F
  * jamais empêcher de répondre à l'utilisateur : l'orphelin resterait alors,
  * mais inoffensif (déjà le statu quo avant cette correction).
  */
-async function cleanupOrphanedClientAndAnimal(result: FindOrCreateResult): Promise<void> {
+async function cleanupOrphanedClientAndAnimal(db: ScopedPrismaClient, result: FindOrCreateResult): Promise<void> {
   try {
-    if (result.createdAnimalId) await prisma.animal.delete({ where: { id: result.createdAnimalId } });
-    if (result.createdClientId) await prisma.client.delete({ where: { id: result.createdClientId } });
+    if (result.createdAnimalId) await db.animal.delete({ where: { id: result.createdAnimalId } });
+    if (result.createdClientId) await db.client.delete({ where: { id: result.createdClientId } });
   } catch {
     // Best-effort : voir la note ci-dessus.
   }
@@ -863,7 +860,7 @@ const bookingEmailWindowMs = 60 * 60 * 1000;
  * est donc revalidé ici, et le prix n'est jamais accepté tel quel depuis le
  * client — il est entièrement recalculé à partir de la prestation réelle.
  */
-export async function submitPublicBookingAction(input: PublicBookingInput): Promise<PublicBookingResult> {
+export async function submitPublicBookingAction(slug: string, input: PublicBookingInput): Promise<PublicBookingResult> {
   const genericRetryError = "Impossible de traiter cette demande pour le moment. Merci de réessayer dans quelques instants.";
 
   const ip = await requestIp();
@@ -885,6 +882,11 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     return { ok: false, error: genericRetryError };
   }
 
+  // Le cabinet est celui du lien suivi par le visiteur : la demande ne peut
+  // atterrir que là, quoi qu'elle contienne par ailleurs.
+  const db = await dbForSlug(slug);
+  if (!db) return { ok: false, error: "Ce lien de réservation n’existe plus." };
+
   const parsedCore = publicBookingCoreSchema.safeParse(input);
   if (!parsedCore.success) {
     return { ok: false, error: "Demande invalide. Merci de recommencer depuis le début du formulaire." };
@@ -904,7 +906,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     return { ok: false, error: "Cette date n’est plus disponible. Merci de choisir une date à venir." };
   }
 
-  const services = await getPublicServices();
+  const services = await getPublicServices(db);
   const service = findServiceById(services, core.serviceId);
   if (!service) {
     return { ok: false, error: "Cette prestation n’est plus disponible. Merci de recommencer depuis le début du formulaire." };
@@ -917,7 +919,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   // revérifiée ici, jamais seulement affichée côté client — c'est le point
   // que submitPublicBookingAction ignorait avant ce correctif
   // (AUDIT-PRODUIT-2026-08-30.md, finding P0 en tête).
-  const professional = await getBusinessProfile();
+  const professional = await getBusinessProfile(db);
   // Le mode doit d'abord être pratiqué. Non pratiqué n'est pas « fermé » :
   // la demande ne vient pas de la page publique, qui ne le propose pas.
   const modeIsPracticed = core.mode === "cabinet" ? hasCabinet(professional.practiceMode) : visitsHomes(professional.practiceMode);
@@ -935,20 +937,20 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
 
   const geoFields = sanitizeGeoFields(input);
   const animalFields = sanitizeAnimalFields(input);
-  const clientAndAnimal = await findOrCreateClientAndAnimal(input);
+  const clientAndAnimal = await findOrCreateClientAndAnimal(db, input);
   const { clientId, animalId } = clientAndAnimal;
 
   // Zones réellement configurées par le praticien (Tournées/Zones), et non
   // plus des données de démonstration figées — AUDIT_COMPLET.md P2-22.
-  const zones = await getPublicZones();
+  const zones = await getPublicZones(db);
   const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
 
-  const { travelBuffer } = await getAvailability();
+  const { travelBuffer } = await getAvailability(db);
   let row;
   try {
     // Réservation publique : pas de session, donc pas encore de client
     // cloisonné — le cabinet sera résolu par le slug à la phase 3.
-    row = await prisma.$transaction(async (tx) => {
+    row = await db.$transaction(async (tx) => {
       await lockDay(tx, core.date);
       // Rejouée sous verrou : une demande concurrente a pu être enregistrée
       // depuis la vérification du haut (voir withSlotLock).
@@ -979,7 +981,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
     });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
-      await cleanupOrphanedClientAndAnimal(clientAndAnimal);
+      await cleanupOrphanedClientAndAnimal(db, clientAndAnimal);
       return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
     }
     throw error;
@@ -987,7 +989,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   if (!row) {
     // Même nettoyage que pour l'index unique : la fiche créée pour cette
     // demande ne doit pas survivre à son refus.
-    await cleanupOrphanedClientAndAnimal(clientAndAnimal);
+    await cleanupOrphanedClientAndAnimal(db, clientAndAnimal);
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
 
@@ -1079,7 +1081,7 @@ const occupiedSlotsWindowMs = 5 * 60 * 1000;
  * créneaux bloqués par le praticien (BlockedSlot) sont inclus comme un seul
  * intervalle par plage, plutôt que découpés en repères de 15 min.
  */
-export async function getOccupiedSlotsAction(fromDateId: string, toDateId: string): Promise<Record<string, OccupiedInterval[]>> {
+export async function getOccupiedSlotsAction(slug: string | null, fromDateId: string, toDateId: string): Promise<Record<string, OccupiedInterval[]>> {
   const ip = await requestIp();
   const rateLimitKey = `occupied-slots:ip:${ip}`;
   if (await isRateLimited(rateLimitKey, occupiedSlotsMaxAttempts, occupiedSlotsWindowMs)) {
@@ -1087,12 +1089,17 @@ export async function getOccupiedSlotsAction(fromDateId: string, toDateId: strin
   }
   await recordAttempt(rateLimitKey);
 
+  // Deux appelants : la page publique, qui désigne son cabinet par le lien
+  // suivi, et la fenêtre de rendez-vous du praticien, qui est connecté.
+  const db = slug === null ? await currentDb() : await dbForSlug(slug);
+  if (!db) return {};
+
   const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
 
   const [appointmentRows, blockedRows, availability] = await Promise.all([
-    prisma.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true, duration: true, mode: true } }),
-    prisma.blockedSlot.findMany({ where: { date: range }, select: { date: true, startTime: true, endTime: true } }),
-    getAvailability(),
+    db.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true, duration: true, mode: true } }),
+    db.blockedSlot.findMany({ where: { date: range }, select: { date: true, startTime: true, endTime: true } }),
+    getAvailability(db),
   ]);
 
   const result: Record<string, OccupiedInterval[]> = {};

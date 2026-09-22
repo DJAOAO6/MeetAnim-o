@@ -10,6 +10,7 @@ import { getEmailProvider } from "@/lib/email/provider";
 import { passwordResetTemplate } from "@/lib/email/templates";
 import { permissionKeys, type PermissionKey } from "@/lib/auth/permissions";
 import type { UserRole } from "@/generated/prisma/client";
+import { currentOrganizationId } from "@/lib/organization";
 
 export type CreateUserState = { error?: string; resetUrl?: string } | undefined;
 
@@ -38,8 +39,10 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
   const temporaryPassword = generateResetToken();
   const passwordHash = await hashPassword(temporaryPassword);
 
+  // Le nouveau compte rejoint l'espace professionnel de celui qui l'invite :
+  // un cabinet n'ajoute des collègues que chez lui.
   const user = await prisma.user.create({
-    data: { email, firstName, lastName, role, passwordHash },
+    data: { email, firstName, lastName, role, passwordHash, organizationId: await currentOrganizationId() },
   });
 
   const token = generateResetToken();

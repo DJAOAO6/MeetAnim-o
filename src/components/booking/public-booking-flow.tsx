@@ -313,7 +313,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     const homeLocation = [address.address, address.addressExtra].filter(Boolean).join(" ")
       + (address.postalCode || address.city ? `, ${[address.postalCode, address.city].filter(Boolean).join(" ")}` : "");
 
-    const result = await submitPublicBookingAction({
+    const result = await submitPublicBookingAction(professional.slug, {
       serviceId: service.id,
       date: dateId,
       start: time,
@@ -434,6 +434,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
           ) : null}
           {screen === "schedule" && mode && service ? (
             <ScheduleStep
+              slug={professional.slug}
               mode={mode}
               service={service}
               dateId={dateId}

@@ -5,6 +5,7 @@ import { getAvailability, getBusinessProfile } from "@/lib/business-profile-acti
 import { getPublicServices } from "@/lib/services-actions";
 import { getPublicZones } from "@/lib/tours";
 import { formatPublicOpeningHours } from "@/lib/public-hours";
+import { dbForSlug } from "@/lib/organization";
 
 /**
  * Données publiques du professionnel, partagées par la page de réservation et
@@ -15,10 +16,15 @@ import { formatPublicOpeningHours } from "@/lib/public-hours";
  * travaille sur son propre profil).
  */
 export async function loadPublicProfessional(slug?: string): Promise<PublicProfessional | null> {
-  const profile = await getBusinessProfile();
+  // Avec un lien, c'est lui qui désigne le cabinet — un lien inconnu ne mène
+  // à rien. Sans lien (aperçu de l'éditeur), c'est celui du compte connecté.
+  const db = slug === undefined ? undefined : await dbForSlug(slug) ?? null;
+  if (db === null) return null;
+
+  const profile = await getBusinessProfile(db);
   if (slug !== undefined && profile.slug !== slug) return null;
 
-  const [services, zones, availability] = await Promise.all([getPublicServices(), getPublicZones(), getAvailability()]);
+  const [services, zones, availability] = await Promise.all([getPublicServices(db), getPublicZones(db), getAvailability(db)]);
   return {
     slug: profile.slug,
     firstName: profile.firstName,

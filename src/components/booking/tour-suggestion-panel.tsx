@@ -23,7 +23,9 @@ type Chosen = { tourId: string; dateId: string; time: string } | null;
  * Rien n'est imposé : la suggestion s'ignore, et le créneau déjà choisi reste
  * valable. C'est une recommandation, pas une condition.
  */
-export function TourSuggestionPanel({ zoneId, durationMinutes, dateId, time, onPick, onDismiss, onCountChange }: {
+export function TourSuggestionPanel({ slug, zoneId, durationMinutes, dateId, time, onPick, onDismiss, onCountChange }: {
+  /** Lien public du cabinet, qui désigne les tournées concernées. */
+  slug: string;
   /** Zone déduite de l'adresse ; null tant qu'aucune zone ne correspond. */
   zoneId: string | null;
   durationMinutes: number;
@@ -55,7 +57,7 @@ export function TourSuggestionPanel({ zoneId, durationMinutes, dateId, time, onP
 
     let cancelled = false;
     const timeout = setTimeout(() => {
-      getSuggestedToursForAddressAction({ zoneId, durationMinutes })
+      getSuggestedToursForAddressAction(slug, { zoneId, durationMinutes })
         .then((result) => { if (!cancelled) { setSuggestions(result); onCountChange(result.length); } })
         // Une panne réseau ne doit jamais gêner la réservation : la suggestion
         // est un bonus, son absence se traduit par un silence (§12).
@@ -63,7 +65,7 @@ export function TourSuggestionPanel({ zoneId, durationMinutes, dateId, time, onP
     }, LOOKUP_DEBOUNCE_MS);
 
     return () => { cancelled = true; clearTimeout(timeout); };
-  }, [zoneId, durationMinutes, onCountChange]);
+  }, [slug, zoneId, durationMinutes, onCountChange]);
 
   if (!zoneId || dismissed) return null;
 

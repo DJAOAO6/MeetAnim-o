@@ -3,6 +3,7 @@
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
 import type { BookingDate } from "@/data/public-booking";
+import { dbForSlug } from "@/lib/organization";
 import {
   BOOKING_WINDOW_DAYS,
   formatBookingDateLabels,
@@ -43,8 +44,13 @@ export type PublicSchedule = {
  * date n'apparaît que si au moins un horaire de départ permet à la
  * prestation entière de tenir dans une plage ouverte pour ce mode.
  */
-export async function getPublicScheduleAction(mode: "cabinet" | "home", durationMinutes: number): Promise<PublicSchedule> {
-  const availability = await getAvailability();
+export async function getPublicScheduleAction(slug: string, mode: "cabinet" | "home", durationMinutes: number): Promise<PublicSchedule> {
+  // Le cabinet est celui du lien suivi par le visiteur : jamais un
+  // identifiant qu'il aurait pu fournir, qui désignerait peut-être le cabinet
+  // d'un autre professionnel.
+  const db = await dbForSlug(slug);
+  if (!db) return { dates: [], windowStartId: "", windowEndId: "" };
+  const availability = await getAvailability(db);
   const startId = await getBookingWindowStartId();
   const cursor = parseDateIdToLocalNoon(startId);
 

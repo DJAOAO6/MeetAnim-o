@@ -9,6 +9,8 @@ import { getPublicScheduleAction } from "@/lib/public-schedule";
 import { formatBookingDateLabels, groupSlotsByPeriod, intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
 
 type ScheduleStepProps = {
+  /** Lien public du cabinet : c'est lui qui désigne de quel agenda il s'agit. */
+  slug: string;
   mode: BookingMode;
   service: PublicService;
   dateId: string | null;
@@ -29,7 +31,7 @@ type ScheduleStepProps = {
 
 const periodLabels = { morning: "Matin", afternoon: "Après-midi" } as const;
 
-export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTimeChange, tourWeekdays = [], tourZoneName, onBack, onNext }: ScheduleStepProps) {
+export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, onTimeChange, tourWeekdays = [], tourZoneName, onBack, onNext }: ScheduleStepProps) {
   // Comparaison insensible à la casse : le jour d'un motif de tournée est
   // saisi côté professionnel, le libellé d'une date est produit par Intl.
   const tourWeekdaySet = new Set(tourWeekdays.map((day) => day.toLocaleLowerCase("fr-FR")));
@@ -84,7 +86,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
     // queueMicrotask : évite d'appeler setState de façon synchrone au corps
     // de l'effet (même convention que src/components/clients/client-profile.tsx).
     queueMicrotask(() => { if (!cancelled) setLoadingDates(true); });
-    getPublicScheduleAction(mode === "CABINET" ? "cabinet" : "home", service.duration)
+    getPublicScheduleAction(slug, mode === "CABINET" ? "cabinet" : "home", service.duration)
       .then((result) => {
         if (cancelled) return;
         setBookingDates(result.dates);
@@ -94,7 +96,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
       .catch(() => { if (!cancelled) setBookingDates([]); })
       .finally(() => { if (!cancelled) setLoadingDates(false); });
     return () => { cancelled = true; };
-  }, [mode, service.duration]);
+  }, [slug, mode, service.duration]);
 
   // Recale le mois affiché dès que la fenêtre change (premier chargement, ou
   // changement de mode/prestation) : le mois de départ de la fenêtre plutôt
@@ -114,7 +116,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
     }
     let cancelled = false;
     queueMicrotask(() => { if (!cancelled) setOccupiedSlotsError(false); });
-    getOccupiedSlotsAction(bookingDates[0].id, bookingDates[bookingDates.length - 1].id)
+    getOccupiedSlotsAction(slug, bookingDates[0].id, bookingDates[bookingDates.length - 1].id)
       .then((slots) => { if (!cancelled) setOccupiedSlots(slots); })
       .catch(() => {
         // En cas d'échec réseau, aucune date n'est marquée "complet" à tort
@@ -125,7 +127,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
         if (!cancelled) setOccupiedSlotsError(true);
       });
     return () => { cancelled = true; };
-  }, [bookingDates]);
+  }, [slug, bookingDates]);
 
   const bookingDatesById = new Map(bookingDates.map((date) => [date.id, date]));
   const selectedDate = dateId ? bookingDatesById.get(dateId) : undefined;
@@ -180,7 +182,7 @@ export function ScheduleStep({ mode, service, dateId, time, onDateChange, onTime
     setRevalidationError(null);
     setRevalidating(true);
     try {
-      const freshOccupied = await getOccupiedSlotsAction(selectedDate.id, selectedDate.id);
+      const freshOccupied = await getOccupiedSlotsAction(slug, selectedDate.id, selectedDate.id);
       const stillFree = !(freshOccupied[selectedDate.id] ?? []).some((occupied) =>
         intervalsOverlap(timeToMinutes(time), service.duration, timeToMinutes(occupied.start), occupied.duration),
       );

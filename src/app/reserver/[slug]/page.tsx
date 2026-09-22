@@ -19,6 +19,6 @@ export default async function PublicBookingPage({ params }: PageProps<"/reserver
 
   // Page composée dans l'éditeur : seule la version publiée est lue ici, les
   // brouillons ne doivent jamais apparaître aux visiteurs.
-  const page = await getPublishedPublicPage();
+  const page = await getPublishedPublicPage(slug);
   return <PublicBookingFlow professional={professional} page={page} />;
 }

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
-import { currentDb, readDb } from "@/lib/organization";
+import { currentDb, dbForSlug, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { DEFAULT_PUBLIC_PAGE, normalizePublicPage, type PublicPageConfig } from "@/data/public-page";
@@ -48,9 +48,11 @@ export async function getPublicPageState(): Promise<PublicPageState> {
  * d'origine : un professionnel qui n'a jamais ouvert l'éditeur garde
  * exactement la page qu'il avait.
  */
-export async function getPublishedPublicPage(): Promise<PublicPageConfig> {
-  // Lue par la page de réservation, qui n'a pas de session.
-  const db = await readDb();
+export async function getPublishedPublicPage(slug?: string): Promise<PublicPageConfig> {
+  // Avec un lien : la page de ce cabinet. Sans lien : celle du compte
+  // connecté, pour l'aperçu de l'éditeur.
+  const db = slug === undefined ? await readDb() : await dbForSlug(slug);
+  if (!db) return DEFAULT_PUBLIC_PAGE;
   const profile = await db.businessProfile.findFirst({ select: { publicPagePublished: true } });
   return profile?.publicPagePublished ? normalizePublicPage(profile.publicPagePublished) : DEFAULT_PUBLIC_PAGE;
 }

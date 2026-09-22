@@ -1,6 +1,7 @@
 import "server-only";
 import { parisDateId } from "@/lib/paris-time";
 import { cache } from "react";
+import type { ScopedPrismaClient } from "@/lib/db";
 import { readDb } from "@/lib/organization";
 import { formatFrenchDate } from "@/lib/format";
 import { destinationPoint, projectToPercent } from "@/lib/geo";
@@ -28,8 +29,8 @@ type DbTourWithZones = DbTour & { zones: DbZone[] };
 // Zones, tournées et secteurs sont lus des deux côtés : par le praticien
 // dans son espace, et par la page de réservation, qui annonce les jours de
 // passage. D'où readDb() plutôt que currentDb() — voir src/lib/organization.ts.
-export async function getZones(): Promise<Zone[]> {
-  const db = await readDb();
+export async function getZones(scoped?: ScopedPrismaClient): Promise<Zone[]> {
+  const db = scoped ?? await readDb();
   const zones = await db.zone.findMany({ include: { cities: true }, orderBy: { name: "asc" } });
 
   return zones.map((zone): Zone => ({
@@ -150,9 +151,11 @@ async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZ
  * mêmes requêtes deux fois quand getToursPageData()/getDashboardOverviewData()
  * les appellent ensemble.
  */
-const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> => {
-  const db = await readDb();
-  const [rows, zones, businessProfile] = await Promise.all([db.tour.findMany({ include: { zones: true } }), getZones(), getBusinessProfile()]);
+const getTourOccurrences = cache(async (scoped?: ScopedPrismaClient): Promise<Map<string, TourOccurrence>> => {
+  // Le cache est propre à chaque cabinet : `dbFor` renvoie toujours le même
+  // client pour un espace donné, ce qui en fait une clé stable.
+  const db = scoped ?? await readDb();
+  const [rows, zones, businessProfile] = await Promise.all([db.tour.findMany({ include: { zones: true } }), getZones(scoped), getBusinessProfile(scoped)]);
   const publicZones = zones.map(zoneToPublicShape);
   const todayId = parisDateId();
   const cabinetCoordinates = businessProfile.latitude != null && businessProfile.longitude != null ? { lat: businessProfile.latitude, lng: businessProfile.longitude } : null;
@@ -161,11 +164,11 @@ const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> 
   return new Map(rows.map((tour, index) => [tour.id, occurrences[index]]));
 });
 
-export async function getTours(): Promise<Tour[]> {
-  const db = await readDb();
+export async function getTours(scoped?: ScopedPrismaClient): Promise<Tour[]> {
+  const db = scoped ?? await readDb();
   const [rows, occurrences] = await Promise.all([
     db.tour.findMany({ orderBy: { name: "asc" }, include: { zones: true } }),
-    getTourOccurrences(),
+    getTourOccurrences(scoped),
   ]);
 
   return rows.map((tour): Tour => {
@@ -218,8 +221,8 @@ export async function getTourStops(): Promise<Record<string, TourAppointment[]>>
  * prestation choisie (ServiceSettings.zoneFees), calculé côté
  * booking-validation.ts.
  */
-export async function getPublicZones(): Promise<PublicZone[]> {
-  const [zones, tours] = await Promise.all([getZones(), getTours()]);
+export async function getPublicZones(scoped?: ScopedPrismaClient): Promise<PublicZone[]> {
+  const [zones, tours] = await Promise.all([getZones(scoped), getTours(scoped)]);
 
   return zones.map((zone) => ({
     id: zone.id,

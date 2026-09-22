@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { ScopedPrismaClient } from "@/lib/db";
 import { currentDb, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -82,9 +83,10 @@ function toServiceData(service: Omit<ServiceSettings, "id">) {
  * getBusinessProfile() le fait pour BusinessProfile. Les ids réels sont
  * générés par Prisma (cuid) plutôt que de réutiliser les ids de démo.
  */
-export async function getServices(): Promise<ServiceSettings[]> {
-  // Lues aussi par la page de réservation, qui n'a pas de session.
-  const db = await readDb();
+export async function getServices(scoped?: ScopedPrismaClient): Promise<ServiceSettings[]> {
+  // Lues aussi par la page de réservation, qui désigne son cabinet par le
+  // lien suivi.
+  const db = scoped ?? await readDb();
   const rows = await db.service.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length > 0) return rows.map(toServiceSettings);
 
@@ -103,8 +105,8 @@ export async function getServices(): Promise<ServiceSettings[]> {
  * n'y est calculée automatiquement) : il est présenté comme "aucun frais"
  * plutôt que d'afficher un montant erroné.
  */
-export async function getPublicServices(): Promise<PublicService[]> {
-  const services = await getServices();
+export async function getPublicServices(scoped?: ScopedPrismaClient): Promise<PublicService[]> {
+  const services = await getServices(scoped);
   return services.filter((service) => service.active).map(toPublicService);
 }
 

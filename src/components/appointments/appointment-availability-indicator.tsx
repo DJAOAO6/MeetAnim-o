@@ -53,7 +53,7 @@ export function AppointmentAvailabilityIndicator({ date, start, duration, exclud
     let cancelled = false;
 
     const timeout = setTimeout(() => {
-      getOccupiedSlotsAction(date, date)
+      getOccupiedSlotsAction(null, date, date)
         .then((slots) => {
           if (cancelled) return;
           const startMinutes = timeToMinutes(start);
