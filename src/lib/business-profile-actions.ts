@@ -119,8 +119,11 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   // avec une valeur périmée. latitude/longitude sont recalculées ci-dessous,
   // jamais reprises telles quelles depuis le formulaire (qui n'a pas la main
   // dessus).
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- exclues volontairement de profileFields, voir commentaire ci-dessus
-  const { cabinetAvailable, homeAvailable, latitude: _formLatitude, longitude: _formLongitude, departureLatitude: _formDepartureLatitude, departureLongitude: _formDepartureLongitude, ...profileFields } = input;
+  // organizationId est relu avec le profil, donc présent dans l'objet du
+  // formulaire — mais un cabinet ne change jamais d'espace professionnel, et
+  // le client cloisonné refuse d'ailleurs une telle écriture.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- exclues volontairement de profileFields, voir commentaires ci-dessus
+  const { cabinetAvailable, homeAvailable, latitude: _formLatitude, longitude: _formLongitude, departureLatitude: _formDepartureLatitude, departureLongitude: _formDepartureLongitude, organizationId: _formOrganizationId, ...profileFields } = input as BusinessProfileData & { organizationId?: string };
   const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug };
 
   // Ne re-géocoder que si l'adresse a réellement changé : ni gaspiller un

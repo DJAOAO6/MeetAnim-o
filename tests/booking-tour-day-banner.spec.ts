@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 import { expect, test, type Page } from "@playwright/test";
 import { neon } from "./helpers/sql";
+import { initialSettings } from "../src/data/settings";
 
 config({ path: ".env.local" });
 
@@ -76,7 +77,9 @@ async function overrideAvailabilityForTargetDays() {
   if (!row) throw new Error("Aucun BusinessProfile en base — prérequis du test.");
   originalProfile = { id: row.id, availability: row.availability };
 
-  const availability = row.availability as {
+  // Un profil peut n'avoir aucun horaire enregistré : l'application utilise
+  // alors ses valeurs par défaut. Le test part donc des mêmes.
+  const availability = (row.availability ?? initialSettings.availability) as {
     days: Array<{ id: string; label: string; enabled: boolean; slots: Array<{ id: string; start: string; end: string; cabinet: boolean; home: boolean }> }>;
   };
   const openSlot = (id: string) => [{ id, start: "08:00", end: "20:00", cabinet: true, home: true }];

@@ -17,7 +17,23 @@ config({ path: ".env.local" });
  */
 
 const TEST_CLIENT_NAME = "E2E Touch Scroll";
-const TEST_START = "10:00";
+/**
+ * Heure de départ du rendez-vous de test, choisie à l'exécution : le
+ * déplacement d'une heure vers le bas doit tomber sur un créneau libre,
+ * sinon l'application refuse — à juste titre — et le test échouerait pour
+ * une raison qui n'a rien à voir avec le geste tactile.
+ */
+async function freeStartOfDay(dateId: string): Promise<string> {
+  const sql = neon(process.env.DATABASE_URL!);
+  const rows = await sql`SELECT start FROM "Appointment" WHERE date::date = ${dateId}::date AND status <> 'CANCELLED'`;
+  const busy = new Set(rows.map((row) => String(row.start).slice(0, 2)));
+  for (let hour = 8; hour < 18; hour += 1) {
+    const current = String(hour).padStart(2, "0");
+    const next = String(hour + 1).padStart(2, "0");
+    if (!busy.has(current) && !busy.has(next)) return `${current}:00`;
+  }
+  throw new Error("Aucune heure libre suivie d'une heure libre aujourd'hui");
+}
 
 // Le jour courant : c'est celui que l'agenda ouvre par défaut, en vue jour
 // comme en vue semaine — aucune navigation à simuler avant le geste tactile.
@@ -75,6 +91,7 @@ test.describe("Agenda tactile", () => {
   test("le défilement ne replanifie rien, l'appui long replanifie", async ({ page }) => {
     const sql = neon(process.env.DATABASE_URL!);
     await sql`DELETE FROM "Appointment" WHERE "clientName" = ${TEST_CLIENT_NAME}`;
+    const TEST_START = await freeStartOfDay(dateId);
     await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
       VALUES (${`e2e-touch-${Date.now()}`}, ${`${dateId}T00:00:00.000Z`}, ${TEST_START}, 60, ${TEST_CLIENT_NAME}, 'Touchy', 'Séance test', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now())`;
 

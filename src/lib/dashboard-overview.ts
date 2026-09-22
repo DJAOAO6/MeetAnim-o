@@ -8,6 +8,7 @@ import type { Reminder } from "@/data/reminders";
 import type { Tour, TourAppointment, Zone } from "@/data/tours";
 import type { AvailabilitySettings } from "@/data/settings";
 import type { PracticeMode } from "@/lib/practice-mode";
+import { requireUser } from "@/lib/auth/dal";
 
 export type DashboardOverviewData = {
   clients: Client[];
@@ -24,6 +25,10 @@ export type DashboardOverviewData = {
 };
 
 export async function getDashboardOverviewData(): Promise<DashboardOverviewData> {
+  // Page et mise en page se rendent en parallèle : sans ce contrôle ici, un
+  // visiteur déconnecté verrait une erreur avant que la mise en page ait eu
+  // le temps de le renvoyer vers la connexion.
+  await requireUser();
   const [clients, tours, zones, tourAppointments, reminders, businessProfile, availability] = await Promise.all([
     getClients(),
     getTours(),

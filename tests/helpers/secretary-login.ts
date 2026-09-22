@@ -25,6 +25,10 @@ export async function loginAsSecretary(page: Page): Promise<void> {
   const [user] = await sql`SELECT id FROM "User" WHERE email = ${secretaryEmail}`;
   await sql`DELETE FROM "TwoFactorCode" WHERE "userId" = ${user.id}`;
   await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
+  // Ce compte est, par définition du scénario, protégé par double
+  // authentification : on l'active ici plutôt que de dépendre du jeu de
+  // données, qui peut être recréé.
+  await sql`UPDATE "User" SET "twoFactorEnabled" = true, "twoFactorMethod" = 'EMAIL' WHERE id = ${user.id}`;
 
   await page.goto("/login");
   await page.fill('input[type="email"]', secretaryEmail);

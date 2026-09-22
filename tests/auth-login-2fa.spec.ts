@@ -50,6 +50,9 @@ async function resetTwoFactorAttempts(email: string): Promise<void> {
   const sql = neon(process.env.DATABASE_URL!);
   const [user] = await sql`SELECT id FROM "User" WHERE email = ${email}`;
   await sql`DELETE FROM "TwoFactorCode" WHERE "userId" = ${user.id}`;
+  // Le scénario suppose un compte protégé par double authentification :
+  // il l'active lui-même plutôt que de compter sur l'état de la base.
+  await sql`UPDATE "User" SET "twoFactorEnabled" = true, "twoFactorMethod" = 'EMAIL' WHERE id = ${user.id}`;
 }
 
 test.describe("Connexion, double authentification et verrouillage", () => {

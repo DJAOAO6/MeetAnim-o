@@ -52,6 +52,19 @@ async function pawState(page: Page) {
 
 test.describe.configure({ mode: "serial" });
 
+test.beforeAll(async () => {
+  // Régler le curseur demande le droit sur les paramètres publics : accordé
+  // ici pour tout le fichier, plutôt que par un seul test — les autres
+  // dépendaient sinon de l'ordre d'exécution.
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${EMAIL}`;
+});
+
+test.afterAll(async () => {
+  const sql = neon(process.env.DATABASE_URL!);
+  await sql`UPDATE "User" SET permissions = ARRAY[]::text[] WHERE email = ${EMAIL}`;
+});
+
 test("le logiciel garde le curseur du système, jusqu'à ce que le professionnel demande la patte", async ({ page }) => {
   // Par défaut : rien. Un nouvel appareil ne doit pas hériter d'un curseur
   // exotique sans que personne ne l'ait demandé.

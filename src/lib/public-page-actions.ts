@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
-import { currentDb } from "@/lib/organization";
+import { currentDb, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { DEFAULT_PUBLIC_PAGE, normalizePublicPage, type PublicPageConfig } from "@/data/public-page";
@@ -49,7 +49,8 @@ export async function getPublicPageState(): Promise<PublicPageState> {
  * exactement la page qu'il avait.
  */
 export async function getPublishedPublicPage(): Promise<PublicPageConfig> {
-  const db = await currentDb();
+  // Lue par la page de réservation, qui n'a pas de session.
+  const db = await readDb();
   const profile = await db.businessProfile.findFirst({ select: { publicPagePublished: true } });
   return profile?.publicPagePublished ? normalizePublicPage(profile.publicPagePublished) : DEFAULT_PUBLIC_PAGE;
 }

@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 import { expect, test } from "@playwright/test";
 import { neon } from "./helpers/sql";
+import { DEFAULT_MARKER_PRESETS } from "../src/lib/documents/marker-presets";
 
 config({ path: ".env.local" });
 
@@ -42,7 +43,10 @@ async function clearLoginRateLimit() {
 async function presetLabel(presetId: string): Promise<string> {
   const sql = neon(process.env.DATABASE_URL!);
   const [profile] = await sql`SELECT "markerPresets" FROM "BusinessProfile" LIMIT 1`;
-  const presets = (profile?.markerPresets ?? []) as { id: string; label: string }[];
+  // Sans préréglages enregistrés, l'application affiche les siens par
+  // défaut : le test lit les mêmes, plutôt que de retomber sur
+  // l'identifiant, qui n'est jamais ce qui est écrit à l'écran.
+  const presets = (profile?.markerPresets ?? DEFAULT_MARKER_PRESETS) as { id: string; label: string }[];
   return presets.find((preset) => preset.id === presetId)?.label ?? presetId;
 }
 
