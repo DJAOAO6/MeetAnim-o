@@ -34,7 +34,7 @@ Organization (l'espace professionnel)
 
 | Phase | Contenu | Risque | Vérifié par |
 | --- | --- | --- | --- |
-| **1. Fondations** | Modèle `Organization` ; colonne `organizationId` sur les 15 tables métier et `User` (nullable) ; rattachement de toutes les données existantes à un premier cabinet ; puis `NOT NULL`, clés étrangères et index. Unicités à re-cadrer : index de créneau `(organizationId, date, start)`, noms de zone par cabinet. | Moyen (données) | Migration rejouée sur une copie de la base, comptages avant/après |
+| **1. Fondations — FAITE le 22/09/2026** (`3612ab3`) | Modèle `Organization` ; colonne `organizationId` sur les 15 tables métier et `User` (nullable) ; rattachement de toutes les données existantes à un premier cabinet ; puis `NOT NULL`, clés étrangères et index. Unicités à re-cadrer : index de créneau `(organizationId, date, start)`, noms de zone par cabinet. | Moyen (données) | Migration rejouée sur une copie de la base, comptages avant/après |
 | **2. Accès cloisonné** | Extension Prisma `db()` ; conversion des 28 fichiers ; `getBusinessProfile()` devient le profil *du cabinet courant* ; le planificateur (rappels, tournées) boucle sur les cabinets. | **Élevé** (volume) | Typage : `prisma` brut interdit hors du module d'accès (règle lint) ; suite E2E existante |
 | **3. Page publique** | `/reserver/[slug]` résout le cabinet par son slug ; les actions publiques reçoivent le slug, jamais un identifiant de cabinet fourni par le client ; e-mails aux couleurs et coordonnées du bon cabinet. | Moyen | Tests : deux cabinets, deux pages, réservations qui ne se croisent pas |
 | **4. Invitation et onboarding** | Un lien d'invitation crée l'espace (profil vierge + administrateur) ; vérification de l'adresse e-mail ; onboarding en 5 étapes, dont la **première est le mode d'exercice** (voir ci-dessous) : profil, horaires, prestations, déplacements, lien de réservation. Plus d'identité par défaut « Pauline Faucillon ». | Moyen | Parcours E2E « un professionnel s'inscrit et prend son premier rendez-vous » |
@@ -43,6 +43,12 @@ Organization (l'espace professionnel)
 | **7. Super-administration** | Compte de plateforme, hors de tout cabinet, qui liste les cabinets et leurs comptes, et peut **se connecter en tant qu'un professionnel** pour l'aider. Garde-fous : rôle attribué uniquement en base (jamais par l'interface), double authentification obligatoire, motif saisi à chaque ouverture, session d'assistance limitée dans le temps et distincte de celle du professionnel, bandeau visible pendant toute la durée, chaque accès inscrit au journal d'audit du cabinet concerné. | **Élevé** (accès à toutes les données) | Tests : sans ce rôle, aucun accès ; avec, chaque action est journalisée et attribuée au super-administrateur |
 
 Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) au public. Les phases 5 et 7 peuvent suivre, mais avant le premier cabinet externe : la 7 s'appuie sur le cloisonnement de la phase 2, sans lequel « se connecter en tant que » n'aurait pas de sens.
+
+## Où en est le chantier
+
+- **Phase 1 faite** (22 septembre 2026) : `Organization`, `organizationId` sur 18 tables métier + comptes + journal d'audit + modèles, clés étrangères, index, données existantes rattachées à un premier espace. Contrôle : `node scripts/check-organizations.mjs`.
+- **Dette assumée de la phase 1, à solder en fin de phase 2** : la base pose l'espace par défaut (`org-1002-pattes`) sur toute écriture, ce qui laisse le code d'avant le chantier fonctionner. Tant que ce défaut existe, une écriture qui oublie son espace est silencieusement rattachée au premier cabinet. Le `DROP DEFAULT` fait donc partie de la phase 2, pas d'un nettoyage ultérieur.
+- **Unicité des noms de zone par espace** : pas posée. Aucune contrainte n'existe aujourd'hui et la base de production peut contenir des doublons ; la poser ferait échouer la migration. À décider (produit) puis à faire après déduplication.
 
 ## Mode d'exercice : avec ou sans cabinet
 
