@@ -28,11 +28,13 @@ import type { AppointmentPrefill } from "@/components/appointments/appointments-
 import type { Appointment } from "@/data/appointments";
 import type { ClientPickerAnimal, ClientPickerOption } from "@/data/clients";
 import type { ServiceSettings } from "@/data/settings";
+import type { PracticeMode } from "@/lib/practice-mode";
 
 export type AppointmentModalContext = {
   clients: ClientPickerOption[];
   services: ServiceSettings[];
   cabinetAddress: string;
+  practiceMode: PracticeMode;
   reminderSummary: string;
 };
 
@@ -61,8 +63,8 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
   /** Appelé après une création réussie, pour enchaîner (retour à la liste…). */
   onCreated?: () => void;
 }) {
-  const { clients, services, cabinetAddress, reminderSummary } = context;
-  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, services });
+  const { clients, services, cabinetAddress, practiceMode, reminderSummary } = context;
+  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, services, practiceMode });
 
   // Clients et animaux créés pendant la saisie : ils n'existent pas encore
   // dans la liste venue du serveur, qui ne sera rafraîchie qu'au prochain
@@ -236,6 +238,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
             <AppointmentLocationSection
               draft={draft}
               cabinetAddress={cabinetAddress}
+              practiceMode={practiceMode}
               onSelectPlace={(place: AppointmentPlace) => selectPlace(place, selectedService)}
               onUpdate={update}
             />

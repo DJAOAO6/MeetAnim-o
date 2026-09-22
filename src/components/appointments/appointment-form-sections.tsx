@@ -14,6 +14,7 @@ import { listTourRunsForDateAction, type TourRunOption } from "@/lib/appointment
 import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";
 import type { ServiceSettings } from "@/data/settings";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 /**
  * Section numérotée du formulaire. Le numéro dans sa pastille n'est pas un
@@ -279,9 +280,10 @@ const places: Array<{ value: AppointmentPlace; label: string; icon: typeof Build
   { value: "tour", label: "Tournée", icon: Route },
 ];
 
-export function AppointmentLocationSection({ draft, cabinetAddress, onSelectPlace, onUpdate }: {
+export function AppointmentLocationSection({ draft, cabinetAddress, practiceMode, onSelectPlace, onUpdate }: {
   draft: AppointmentDraft;
   cabinetAddress: string;
+  practiceMode: PracticeMode;
   onSelectPlace: (place: AppointmentPlace) => void;
   onUpdate: (change: Partial<AppointmentDraft>) => void;
 }) {
@@ -319,7 +321,9 @@ export function AppointmentLocationSection({ draft, cabinetAddress, onSelectPlac
   return (
     <FormSection step={3} title="Lieu">
       <div className="flex flex-wrap gap-2" role="group" aria-label="Lieu du rendez-vous">
-        {places.map((place) => {
+        {/* Sans cabinet, il n'y a pas de bouton « Cabinet » ; sans
+            déplacements, pas de domicile ni de tournée. */}
+        {places.filter((place) => (place.value === "cabinet" ? hasCabinet(practiceMode) : visitsHomes(practiceMode))).map((place) => {
           const PlaceIcon = place.icon;
           const selected = draft.place === place.value;
           return (

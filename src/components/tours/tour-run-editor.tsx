@@ -62,7 +62,7 @@ type TourRunEditorProps = {
   // mais restée invisible en interface (audit de conformité, constat n°2).
   unplacedHomeAppointments: AvailableAppointmentView[];
   stopsToRemove: StopToRemove[];
-  cabinet: { address: string | null; latitude: number | null; longitude: number | null };
+  cabinet: { label: string; address: string | null; latitude: number | null; longitude: number | null };
   mapClients: MapClient[];
   homeServices: ServiceSettings[];
   onClose: () => void;
@@ -673,14 +673,14 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             value={endpointFrom(tourRun.start)}
             onChange={(next) => runAction(() => updateTourRunEndpointsAction({ tourRunId: tourRun.id, departureTime: tourRun.departureTime, start: next, end: endpointFrom(tourRun.end) }))}
             savedPlaces={savedPlaces}
-            cabinetAvailable={cabinet.latitude != null}
+            departureKnown={cabinet.latitude != null} departureLabel={cabinet.label}
           />
           <TourRunEndpointPicker
             label="Arrivée"
             value={endpointFrom(tourRun.end)}
             onChange={(next) => runAction(() => updateTourRunEndpointsAction({ tourRunId: tourRun.id, departureTime: tourRun.departureTime, start: endpointFrom(tourRun.start), end: next }))}
             savedPlaces={savedPlaces}
-            cabinetAvailable={cabinet.latitude != null}
+            departureKnown={cabinet.latitude != null} departureLabel={cabinet.label}
             allowMirrorStart
             allowLastAppointment
           />

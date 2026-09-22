@@ -32,6 +32,8 @@ export type TourFormValue = {
 };
 
 type TourModalProps = {
+  /** Nom du point de départ habituel : le cabinet, ou le point privé. */
+  departureLabel: string;
   tour?: Tour;
   zones: Zone[];
   onClose: () => void;
@@ -54,7 +56,7 @@ function todayDateId(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelete }: TourModalProps) {
+export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZoneCreated, onDelete }: TourModalProps) {
   const [name, setName] = useState(tour?.name ?? "");
   const [isRecurring, setIsRecurring] = useState(tour ? tour.recurrence !== "Une seule fois" : true);
   const [recurrence, setRecurrence] = useState<Tour["recurrence"]>(tour && tour.recurrence !== "Une seule fois" ? tour.recurrence : "Toutes les semaines");
@@ -250,7 +252,7 @@ export function TourModal({ tour, zones, onClose, onSave, onZoneCreated, onDelet
 
             <Field label="Point de départ" wide>
               <div className="inline-flex rounded-xl bg-animeo-soft p-1">
-                <button type="button" onClick={() => setStartType("Cabinet")} aria-pressed={startType === "Cabinet"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Cabinet" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Cabinet</button>
+                <button type="button" onClick={() => setStartType("Cabinet")} aria-pressed={startType === "Cabinet"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Cabinet" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>{departureLabel}</button>
                 <button type="button" onClick={() => setStartType("Adresse personnalisée")} aria-pressed={startType === "Adresse personnalisée"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Adresse personnalisée" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Adresse personnalisée</button>
               </div>
               {startType === "Adresse personnalisée" ? (

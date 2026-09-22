@@ -25,6 +25,7 @@ import { notify } from "@/lib/notify";
 import type { Tour, Zone } from "@/data/tours";
 import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
 import type { SavedPlaceView, TourPreferencesView } from "@/lib/tour-runs";
+import { departurePoint } from "@/lib/practice-mode";
 
 /**
  * Cinq onglets au lieu de neuf. Les réglages étaient éparpillés au point
@@ -122,6 +123,9 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
     departureLatitude: businessProfile.departureLatitude,
     departureLongitude: businessProfile.departureLongitude,
   };
+  // D'où partent les tournées : le cabinet, ou le point de départ privé
+  // pour qui n'en a pas.
+  const departure = departurePoint(businessProfile);
   const [saving, setSaving] = useState(false);
 
   function updateSettings<K extends keyof SettingsState>(key: K, value: SettingsState[K], message = "Modifications enregistrées") {
@@ -238,7 +242,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
           </section>
         </div>
       ) : null}
-      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} initialZones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} cabinetAvailable={businessProfile.latitude != null} upcomingGeneratedCounts={upcomingGeneratedCounts} /> : null}
+      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} initialZones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} departureKnown={departure?.latitude != null} departureLabel={departure?.label ?? "Point de départ"} upcomingGeneratedCounts={upcomingGeneratedCounts} /> : null}
       {activeTab === "customization" ? (
         <PersonalizationView
           profile={settings.profile}

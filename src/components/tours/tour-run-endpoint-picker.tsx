@@ -20,7 +20,9 @@ type TourRunEndpointPickerProps = {
   value: EndpointValue;
   onChange: (value: EndpointValue) => void;
   savedPlaces: SavedPlaceView[];
-  cabinetAvailable: boolean;
+  /** Point de départ connu (adresse localisée) et son nom affiché. */
+  departureKnown: boolean;
+  departureLabel: string;
   allowMirrorStart?: boolean;
   allowLastAppointment?: boolean;
 };
@@ -28,7 +30,7 @@ type TourRunEndpointPickerProps = {
 const OPTION_CUSTOM = "__custom__";
 const OPTION_CURRENT_LOCATION = "__current_location__";
 
-export function TourRunEndpointPicker({ label, value, onChange, savedPlaces, cabinetAvailable, allowMirrorStart, allowLastAppointment }: TourRunEndpointPickerProps) {
+export function TourRunEndpointPicker({ label, value, onChange, savedPlaces, departureKnown, departureLabel, allowMirrorStart, allowLastAppointment }: TourRunEndpointPickerProps) {
   const selectId = useId();
   const [customQuery, setCustomQuery] = useState(value.type === "CUSTOM" ? value.address ?? "" : "");
   const [locating, setLocating] = useState(false);
@@ -102,7 +104,7 @@ export function TourRunEndpointPicker({ label, value, onChange, savedPlaces, cab
         disabled={locating}
         className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark"
       >
-        {cabinetAvailable ? <option value="CABINET">Cabinet</option> : null}
+        {departureKnown ? <option value="CABINET">{departureLabel}</option> : null}
         {homePlaces.map((place) => <option key={place.id} value={place.id}>{place.label || "Domicile"}</option>)}
         {otherPlaces.map((place) => <option key={place.id} value={place.id}>{place.label}</option>)}
         <option value={OPTION_CURRENT_LOCATION}>{locating ? "Localisation…" : "Ma position actuelle"}</option>

@@ -5,12 +5,14 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/settings/settings-fields";
 import { ServiceModal } from "@/components/settings/service-modal";
+import type { PracticeMode } from "@/lib/practice-mode";
 import type { ServiceSettings } from "@/data/settings";
 
 type ServicesSettingsTabProps = {
   services: ServiceSettings[];
   zoneNames: string[];
   kilometricFeesEnabled: boolean;
+  practiceMode: PracticeMode;
   defaultDuration: number;
   saving: boolean;
   canEdit?: boolean;
@@ -19,7 +21,7 @@ type ServicesSettingsTabProps = {
   onDelete: (service: ServiceSettings) => void;
 };
 
-export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled, defaultDuration, saving, canEdit = true, onSave, onToggle, onDelete }: ServicesSettingsTabProps) {
+export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled, practiceMode, defaultDuration, saving, canEdit = true, onSave, onToggle, onDelete }: ServicesSettingsTabProps) {
   const [modal, setModal] = useState<ServiceSettings | "new" | null>(null);
 
   async function saveService(service: ServiceSettings) {
@@ -91,7 +93,7 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
 
       <p className="mt-5 rounded-2xl border border-animeo-border bg-animeo-soft p-4 text-sm text-animeo-dark">Les changements de tarif concernent les futures réservations. Les prix des rendez-vous historiques restent inchangés.</p>
 
-      {modal ? <ServiceModal service={modal === "new" ? undefined : modal} zoneNames={zoneNames} kilometricFeesEnabled={kilometricFeesEnabled} defaultDuration={defaultDuration} saving={saving} onClose={() => setModal(null)} onSave={saveService} /> : null}
+      {modal ? <ServiceModal service={modal === "new" ? undefined : modal} practiceMode={practiceMode} zoneNames={zoneNames} kilometricFeesEnabled={kilometricFeesEnabled} defaultDuration={defaultDuration} saving={saving} onClose={() => setModal(null)} onSave={saveService} /> : null}
     </>
   );
 }

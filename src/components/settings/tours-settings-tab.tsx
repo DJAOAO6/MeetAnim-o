@@ -22,7 +22,8 @@ type ToursSettingsTabProps = {
   initialZones: Zone[];
   initialSavedPlaces: SavedPlaceView[];
   initialPreferences: TourPreferencesView;
-  cabinetAvailable: boolean;
+  departureKnown: boolean;
+  departureLabel: string;
   // Phase 4 (unification des tournées) : nombre de journées déjà posées à
   // l'avance pour chaque motif — la récurrence n'est jamais un réglage sans
   // effet visible (getUpcomingGeneratedCounts, tour-runs.ts).
@@ -39,7 +40,7 @@ function formatTourSchedule(tour: Tour): string {
   return `${dayPart} · ${tour.startTime} – ${tour.endTime}`;
 }
 
-export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlaces, initialPreferences, cabinetAvailable, upcomingGeneratedCounts }: ToursSettingsTabProps) {
+export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlaces, initialPreferences, departureKnown, departureLabel, upcomingGeneratedCounts }: ToursSettingsTabProps) {
   const router = useRouter();
   const [tours, setTours] = useState(initialTours);
   const [zones, setZones] = useState(initialZones);
@@ -171,12 +172,13 @@ export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlace
       </div>
 
       <SavedPlacesSection savedPlaces={initialSavedPlaces} />
-      <TourPreferencesSection initialPreferences={initialPreferences} savedPlaces={initialSavedPlaces} cabinetAvailable={cabinetAvailable} />
+      <TourPreferencesSection initialPreferences={initialPreferences} savedPlaces={initialSavedPlaces} departureKnown={departureKnown} departureLabel={departureLabel} />
 
       {tourModal.open ? (
         <TourModal
           tour={tourModal.tour}
           zones={zones}
+          departureLabel={departureLabel}
           onClose={() => setTourModal({ open: false })}
           onSave={handleSaveTour}
           onZoneCreated={(zone) => setZones((current) => [...current, zone])}
@@ -285,7 +287,7 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
   );
 }
 
-function TourPreferencesSection({ initialPreferences, savedPlaces, cabinetAvailable }: { initialPreferences: TourPreferencesView; savedPlaces: SavedPlaceView[]; cabinetAvailable: boolean }) {
+function TourPreferencesSection({ initialPreferences, savedPlaces, departureKnown, departureLabel }: { initialPreferences: TourPreferencesView; savedPlaces: SavedPlaceView[]; departureKnown: boolean; departureLabel: string }) {
   const [prefs, setPrefs] = useState(initialPreferences);
   const [saving, setSaving] = useState(false);
 
@@ -320,13 +322,13 @@ function TourPreferencesSection({ initialPreferences, savedPlaces, cabinetAvaila
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Départ par défaut">
             <select value={prefs.defaultStartType} disabled={saving} onChange={(event) => save({ ...prefs, defaultStartType: event.target.value })} className={inputClassName}>
-              {cabinetAvailable ? <option value="CABINET">Cabinet</option> : null}
+              {departureKnown ? <option value="CABINET">{departureLabel}</option> : null}
               {savedPlaces.filter((place) => place.type === "HOME").map((place) => <option key={place.id} value={place.id}>{place.label}</option>)}
             </select>
           </Field>
           <Field label="Arrivée par défaut">
             <select value={prefs.defaultEndType} disabled={saving} onChange={(event) => save({ ...prefs, defaultEndType: event.target.value })} className={inputClassName}>
-              {cabinetAvailable ? <option value="CABINET">Cabinet</option> : null}
+              {departureKnown ? <option value="CABINET">{departureLabel}</option> : null}
               {savedPlaces.filter((place) => place.type === "HOME").map((place) => <option key={place.id} value={place.id}>{place.label}</option>)}
               <option value="SAME_AS_START">Même que le départ</option>
             </select>

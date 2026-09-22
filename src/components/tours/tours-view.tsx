@@ -84,7 +84,8 @@ export function ToursView({ listData, editorDateId, editorData, cabinetCoordinat
         <NewTourDayModal
           defaultDateId={editorDateId}
           savedPlaces={editorData.savedPlaces}
-          cabinetAvailable={editorData.cabinet.latitude != null}
+          departureKnown={editorData.cabinet.latitude != null}
+          departureLabel={editorData.cabinet.label}
           onClose={() => {
             setNewDayModalOpen(false);
             if (needsCreation) closeEditor();

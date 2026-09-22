@@ -13,7 +13,8 @@ import type { SavedPlaceView } from "@/lib/tour-runs";
 type NewTourDayModalProps = {
   defaultDateId: string;
   savedPlaces: SavedPlaceView[];
-  cabinetAvailable: boolean;
+  departureKnown: boolean;
+  departureLabel: string;
   onClose: () => void;
   onCreated: (dateId: string) => void;
 };
@@ -37,7 +38,7 @@ function defaultNameFor(dateId: string): string {
  * correspond à un motif actif, propose de reprendre ses réglages sans
  * jamais les appliquer automatiquement.
  */
-export function NewTourDayModal({ defaultDateId, savedPlaces, cabinetAvailable, onClose, onCreated }: NewTourDayModalProps) {
+export function NewTourDayModal({ defaultDateId, savedPlaces, departureKnown, departureLabel, onClose, onCreated }: NewTourDayModalProps) {
   const [dateId, setDateId] = useState(defaultDateId);
   const [name, setName] = useState(() => defaultNameFor(defaultDateId));
   const [departureTime, setDepartureTime] = useState("09:00");
@@ -124,8 +125,8 @@ export function NewTourDayModal({ defaultDateId, savedPlaces, cabinetAvailable, 
             <label htmlFor="new-tour-day-departure" className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-animeo-muted">Heure de départ</label>
             <input id="new-tour-day-departure" type="time" value={departureTime} onChange={(event) => setDepartureTime(event.target.value)} className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm text-animeo-dark" />
           </div>
-          <TourRunEndpointPicker label="Départ" value={start} onChange={setStart} savedPlaces={savedPlaces} cabinetAvailable={cabinetAvailable} />
-          <TourRunEndpointPicker label="Arrivée" value={end} onChange={setEnd} savedPlaces={savedPlaces} cabinetAvailable={cabinetAvailable} allowMirrorStart />
+          <TourRunEndpointPicker label="Départ" value={start} onChange={setStart} savedPlaces={savedPlaces} departureKnown={departureKnown} departureLabel={departureLabel} />
+          <TourRunEndpointPicker label="Arrivée" value={end} onChange={setEnd} savedPlaces={savedPlaces} departureKnown={departureKnown} departureLabel={departureLabel} allowMirrorStart />
         </div>
 
     </Modal>

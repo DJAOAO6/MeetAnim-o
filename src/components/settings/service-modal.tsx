@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import type { AnimalType, ServiceSettings } from "@/data/settings";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { PublicAnimalType } from "@/data/public-booking";
 
@@ -13,6 +14,7 @@ type ServiceModalProps = {
   service?: ServiceSettings;
   zoneNames: string[];
   kilometricFeesEnabled: boolean;
+  practiceMode: PracticeMode;
   defaultDuration: number;
   saving: boolean;
   onClose: () => void;
@@ -41,7 +43,12 @@ const emptyServiceBase: Omit<ServiceSettings, "duration"> = {
   photoUrl: null,
 };
 
-export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaultDuration, saving, onClose, onSave }: ServiceModalProps) {
+export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, practiceMode, defaultDuration, saving, onClose, onSave }: ServiceModalProps) {
+  // Une prestation ne peut être proposée que là où le professionnel exerce :
+  // sans cabinet, pas de tarif cabinet à régler ni d'interrupteur à laisser
+  // traîner. Le mode non pratiqué est forcé à « non proposé ».
+  const offersCabinet = hasCabinet(practiceMode);
+  const offersHome = visitsHomes(practiceMode);
   const [draft, setDraft] = useState<ServiceSettings>(service ?? { ...emptyServiceBase, duration: defaultDuration });
   const [durationMode, setDurationMode] = useState(standardDurations.includes(draft.duration) ? String(draft.duration) : "custom");
   const [exampleDistance, setExampleDistance] = useState(20);
@@ -134,15 +141,19 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-animeo-border p-4">
-                  <Toggle checked={draft.cabinetEnabled} onChange={(value) => update("cabinetEnabled", value)} label={draft.cabinetEnabled ? "Cabinet activé" : "Cabinet désactivé"} />
-                  {draft.cabinetEnabled ? <div className="mt-4"><Field label="Prix au cabinet"><PriceInput value={draft.cabinetPrice} onChange={(value) => update("cabinetPrice", value)} /></Field></div> : null}
-                </div>
-                <div className="rounded-2xl border border-animeo-border p-4">
-                  <Toggle checked={draft.homeEnabled} onChange={(value) => update("homeEnabled", value)} label={draft.homeEnabled ? "Domicile activé" : "Domicile désactivé"} />
-                  {draft.homeEnabled ? <div className="mt-4"><Field label="Prix à domicile"><PriceInput value={draft.homePrice} onChange={(value) => update("homePrice", value)} /></Field></div> : null}
-                </div>
+              <div className={offersCabinet && offersHome ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}>
+                {offersCabinet ? (
+                  <div className="rounded-2xl border border-animeo-border p-4">
+                    <Toggle checked={draft.cabinetEnabled} onChange={(value) => update("cabinetEnabled", value)} label={draft.cabinetEnabled ? "Cabinet activé" : "Cabinet désactivé"} />
+                    {draft.cabinetEnabled ? <div className="mt-4"><Field label="Prix au cabinet"><PriceInput value={draft.cabinetPrice} onChange={(value) => update("cabinetPrice", value)} /></Field></div> : null}
+                  </div>
+                ) : null}
+                {offersHome ? (
+                  <div className="rounded-2xl border border-animeo-border p-4">
+                    <Toggle checked={draft.homeEnabled} onChange={(value) => update("homeEnabled", value)} label={draft.homeEnabled ? "Domicile activé" : "Domicile désactivé"} />
+                    {draft.homeEnabled ? <div className="mt-4"><Field label="Prix à domicile"><PriceInput value={draft.homePrice} onChange={(value) => update("homePrice", value)} /></Field></div> : null}
+                  </div>
+                ) : null}
               </div>
 
               {draft.homeEnabled ? (
@@ -197,8 +208,8 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, defaul
             <aside className="h-fit rounded-[18px] bg-animeo-dark p-5 text-white lg:sticky lg:top-28">
               <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-border-strong">Aperçu du prix client</p>
               <div className="mt-5 space-y-3 text-sm">
-                <PriceLine label="Au cabinet" value={draft.cabinetEnabled ? formatEuro(draft.cabinetPrice) : "Non proposé"} />
-                <PriceLine label="Consultation domicile" value={draft.homeEnabled ? formatEuro(draft.homePrice) : "Non proposé"} />
+                {offersCabinet ? <PriceLine label="Au cabinet" value={draft.cabinetEnabled ? formatEuro(draft.cabinetPrice) : "Non proposé"} /> : null}
+                {offersHome ? <PriceLine label="Consultation domicile" value={draft.homeEnabled ? formatEuro(draft.homePrice) : "Non proposé"} /> : null}
                 {draft.homeEnabled && feeSelection === "kilometric" ? <PriceLine label="Distance" value={`${exampleDistance} km`} /> : null}
                 {draft.homeEnabled && feeSelection === "kilometric" ? <PriceLine label="Tarif kilométrique" value={`${formatNumber(draft.kilometricRate, 2)} €/km`} /> : null}
                 {draft.homeEnabled ? <PriceLine label="Frais de déplacement" value={travelFee > 0 ? `+${formatEuro(travelFee)}` : "Aucun"} /> : null}

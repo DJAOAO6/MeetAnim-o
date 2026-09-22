@@ -7,6 +7,7 @@ import { findMatchingZone, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId, recurrenceMentions } from "@/lib/tour-schedule";
 import { getTourFillOpportunities, type TourFillOpportunity } from "@/lib/tour-fill";
 import type { Tour } from "@/data/tours";
+import { departurePoint, hasCabinet } from "@/lib/practice-mode";
 import type {
   Appointment as DbAppointment,
   SavedPlace as DbSavedPlace,
@@ -42,11 +43,18 @@ export async function resolveEndpoint(params: {
   const { type, savedPlaceId, address, latitude, longitude, label, savedPlaces } = params;
 
   if (type === "CABINET") {
+    // « Départ du cabinet » veut dire « de là où je pars ». Sans cabinet,
+    // c'est le point de départ privé du professionnel (domicile, local) —
+    // voir src/lib/practice-mode.ts. Rien à changer dans les tournées déjà
+    // enregistrées : le type reste le même, seule sa résolution suit le
+    // mode d'exercice.
     const profile = await getBusinessProfile();
+    const point = departurePoint(profile);
+    if (!point) return { label: hasCabinet(profile.practiceMode) ? "Cabinet" : "Point de départ", address: null, coordinates: null };
     return {
-      label: "Cabinet",
-      address: profile.address ? `${profile.address}, ${profile.postalCode} ${profile.city}` : null,
-      coordinates: profile.latitude != null && profile.longitude != null ? { lat: profile.latitude, lng: profile.longitude } : null,
+      label: point.label,
+      address: point.address,
+      coordinates: point.latitude != null && point.longitude != null ? { lat: point.latitude, lng: point.longitude } : null,
     };
   }
 
@@ -415,7 +423,7 @@ export type TourRunEditorData = {
   savedPlaces: SavedPlaceView[];
   preferences: TourPreferencesView;
   availableAppointments: AvailableAppointmentView[];
-  cabinet: { address: string | null; latitude: number | null; longitude: number | null };
+  cabinet: { label: string; address: string | null; latitude: number | null; longitude: number | null };
   // Rendez-vous à domicile de cette date pas encore un arrêt de la journée — "à placer".
   unplacedHomeAppointments: AvailableAppointmentView[];
   // Arrêts dont le rendez-vous lié a été annulé ou déplacé à une autre date — "à retirer".
@@ -467,15 +475,21 @@ export async function getTourRunEditorData(userId: string, dateId: string): Prom
 
   const fillOpportunity = tourRunRow?.templateId ? await resolveFillOpportunity(tourRunRow.templateId, dateId) : null;
 
+  const departure = departurePoint(profile);
+
   return {
     tourRun,
     savedPlaces: savedPlaceRows.map(toSavedPlaceView),
     preferences: toTourPreferencesView(preferences),
     availableAppointments: availableAppointmentRows.map(toAvailableAppointmentView),
+    // Le point de départ de l'éditeur : l'adresse du cabinet, ou, pour qui
+    // n'en a pas, son point de départ privé. Son nom suit, pour ne pas
+    // parler de « cabinet » à quelqu'un qui n'en a pas.
     cabinet: {
-      address: profile.address ? `${profile.address}, ${profile.postalCode} ${profile.city}` : null,
-      latitude: profile.latitude,
-      longitude: profile.longitude,
+      label: departure?.label ?? (hasCabinet(profile.practiceMode) ? "Cabinet" : "Point de départ"),
+      address: departure?.address ?? null,
+      latitude: departure?.latitude ?? null,
+      longitude: departure?.longitude ?? null,
     },
     unplacedHomeAppointments: unplacedHomeAppointmentRows.map(toAvailableAppointmentView),
     stopsToRemove,

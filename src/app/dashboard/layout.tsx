@@ -93,6 +93,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   clients: clientOptions,
                   services,
                   cabinetAddress,
+                  practiceMode: businessProfile.practiceMode,
                   reminderSummary: describeReminderSetting(reminderSettings),
                 }}
               />

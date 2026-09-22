@@ -7,6 +7,8 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { initialSettings, type AnimalType, type ServiceSettings, type TravelFeeMode } from "@/data/settings";
 import type { PublicAnimalType, PublicService } from "@/data/public-booking";
 import type { Prisma, TravelFeeMode as DbTravelFeeMode } from "@/generated/prisma/client";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
+import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 
 const dbTravelFeeMode: Record<TravelFeeMode, DbTravelFeeMode> = { fixed: "FIXED", zone: "ZONE", kilometric: "KILOMETRIC" };
 const travelFeeModeLabel: Record<DbTravelFeeMode, TravelFeeMode> = { FIXED: "fixed", ZONE: "zone", KILOMETRIC: "kilometric" };
@@ -140,10 +142,17 @@ export async function saveServiceAction(input: ServiceSettings): Promise<Service
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Le nom de la prestation est requis." };
-  if (!input.cabinetEnabled && !input.homeEnabled) return { ok: false, error: "Activez au moins un mode de consultation." };
+
+  // Une prestation ne peut pas être proposée dans un mode qui n'est pas
+  // pratiqué. Le formulaire ne l'offre déjà plus ; ici, c'est la garantie
+  // que rien ne reste coché en base après un changement de mode d'exercice.
+  const { practiceMode } = await getBusinessProfile();
+  const cabinetEnabled = input.cabinetEnabled && hasCabinet(practiceMode);
+  const homeEnabled = input.homeEnabled && visitsHomes(practiceMode);
+  if (!cabinetEnabled && !homeEnabled) return { ok: false, error: "Activez au moins un mode de consultation." };
   if (input.animals.length === 0) return { ok: false, error: "Sélectionnez au moins une espèce." };
 
-  const data = toServiceData({ ...input, name });
+  const data = toServiceData({ ...input, name, cabinetEnabled, homeEnabled });
   const existing = input.id ? await prisma.service.findUnique({ where: { id: input.id } }) : null;
   const row = existing
     ? await prisma.service.update({ where: { id: input.id }, data })

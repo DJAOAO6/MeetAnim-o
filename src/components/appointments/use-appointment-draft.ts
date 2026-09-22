@@ -7,6 +7,7 @@ import type { ClientPickerOption } from "@/data/clients";
 import type { ServiceSettings } from "@/data/settings";
 import type { AnimalSpecies } from "@/data/species";
 import { toLocalDateId } from "@/lib/booking-validation";
+import { hasCabinet, type PracticeMode } from "@/lib/practice-mode";
 
 /**
  * Où le rendez-vous se déroule, du point de vue de l'utilisateur.
@@ -73,7 +74,7 @@ function animalDetailOf(animal: { species?: string; breed?: string; age?: string
  * font que rendre un résultat, elles ne détiennent jamais l'état du
  * rendez-vous.
  */
-export function useAppointmentDraft({ appointment, template, defaultDate, prefill, services }: {
+export function useAppointmentDraft({ appointment, template, defaultDate, prefill, services, practiceMode }: {
   /** Rendez-vous en cours de modification. */
   appointment?: Appointment;
   /**
@@ -87,6 +88,8 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
   /** Créneau choisi dans la grille de l'agenda, appliqué par-dessus les valeurs par défaut. */
   prefill?: AppointmentPrefill;
   services: ServiceSettings[];
+  /** Mode d'exercice : décide du lieu proposé par défaut. */
+  practiceMode: PracticeMode;
 }) {
   const [draft, setDraft] = useState<AppointmentDraft>(() => {
     const seed = appointment ?? template;
@@ -129,7 +132,9 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
     const firstService = services.find((service) => service.active) ?? services[0];
     // Créneau tracé dans l'agenda : il prime sur la prestation et sur l'heure
     // par défaut, puisqu'il vient d'être choisi à la main.
-    const place: AppointmentPlace = prefill?.mode === "home" ? "home" : "cabinet";
+    // Sans cabinet, le rendez-vous est à domicile d'office : proposer un
+    // lieu qui n'existe pas obligerait à le corriger à chaque fois.
+    const place: AppointmentPlace = prefill?.mode === "home" || !hasCabinet(practiceMode) ? "home" : "cabinet";
     return {
       place,
       tourRunId: null,
