@@ -214,7 +214,15 @@ model User {
   studioDocuments         StudioDocument[]
   studioDocumentTemplates StudioDocumentTemplate[]
 
+  // Espace professionnel du compte. Vide pour un compte de plateforme
+  // (super-administration, phase 7), qui n'appartient à aucun cabinet.
+  // La valeur par défaut est temporaire, le temps de la phase 2 : voir la
+  // migration 20260922090000_organizations_phase1.
+  organizationId String?       @default("org-1002-pattes")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([email])
+  @@index([organizationId])
 }
 
 /// Une session ouverte. Le jeton signé ne suffit plus : il porte l'identifiant
@@ -244,9 +252,14 @@ model AuditLog {
   ipAddress  String?
   createdAt  DateTime    @default(now())
 
+  // Vide pour une action de plateforme, hors de tout cabinet.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
+  @@index([organizationId])
 }
 
 model PasswordResetToken {
@@ -311,7 +324,12 @@ model ClientImport {
   clients Client[]
   animals Animal[]
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([userId, createdAt])
+  @@index([organizationId])
 }
 
 model Client {
@@ -356,10 +374,15 @@ model Client {
   reminders       Reminder[]
   studioDocuments StudioDocument[]
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([lastName, firstName])
   @@index([email])
   @@index([importId])
   @@index([latitude, longitude])
+  @@index([organizationId])
 }
 
 model Animal {
@@ -400,8 +423,13 @@ model Animal {
   reminders       Reminder[]
   studioDocuments StudioDocument[]
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([clientId])
   @@index([importId])
+  @@index([organizationId])
 }
 
 model Consultation {
@@ -418,7 +446,12 @@ model Consultation {
 
   createdAt DateTime @default(now())
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([animalId])
+  @@index([organizationId])
 }
 
 model AnimalDocument {
@@ -431,7 +464,12 @@ model AnimalDocument {
 
   createdAt DateTime @default(now())
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([animalId])
+  @@index([organizationId])
 }
 
 // Studio de documents (2026-09) : comptes rendus de consultation et
@@ -478,9 +516,14 @@ model StudioDocument {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([clientId])
   @@index([animalId])
   @@index([createdByUserId])
+  @@index([organizationId])
 }
 
 model StudioDocumentTemplate {
@@ -505,6 +548,13 @@ model StudioDocumentTemplate {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Vide pour les modèles fournis par 1002 Pattes (isBuiltIn) : ils sont
+  // communs à tous les cabinets et modifiables par aucun.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
 }
 
 model Appointment {
@@ -548,9 +598,14 @@ model Appointment {
   tourStops      TourStop[]
   studioDocument StudioDocument?
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([clientId])
   @@index([animalId])
   @@index([date])
+  @@index([organizationId])
 }
 
 /**
@@ -622,8 +677,13 @@ model AppointmentCalendarEvent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@unique([appointmentId, connectionId])
   @@index([connectionId])
+  @@index([organizationId])
 }
 
 model BlockedSlot {
@@ -636,7 +696,12 @@ model BlockedSlot {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([date])
+  @@index([organizationId])
 }
 
 model Reminder {
@@ -655,8 +720,13 @@ model Reminder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([clientId])
   @@index([animalId])
+  @@index([organizationId])
 }
 
 model Zone {
@@ -681,6 +751,12 @@ model Zone {
   // pour le nouveau sélecteur multi-zone. `tours` (ci-dessus, relation
   // zoneId simple) reste inchangée pour ne rien casser côté existant.
   toursInZones    Tour[]  @relation("TourZones")
+
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
 }
 
 model City {
@@ -690,7 +766,12 @@ model City {
   zoneId     String
   zone       Zone   @relation(fields: [zoneId], references: [id], onDelete: Cascade)
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([zoneId])
+  @@index([organizationId])
 }
 
 /**
@@ -748,7 +829,12 @@ model Tour {
   // l'avance depuis ce motif — voir TourRun.templateId ci-dessous.
   tourRuns TourRun[]
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([zoneId])
+  @@index([organizationId])
 }
 
 model BusinessProfile {
@@ -821,6 +907,12 @@ model BusinessProfile {
   publicPagePublishedAt DateTime?
 
   updatedAt DateTime @updatedAt
+
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
 }
 
 model Service {
@@ -845,6 +937,12 @@ model Service {
   // image de l'app) ; à défaut, une photo générique par espèce est utilisée.
   photoUrl          String?       @db.Text
   createdAt         DateTime      @default(now())
+
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
 }
 
 /**
@@ -923,9 +1021,14 @@ model TourRun {
 
   stops TourStop[]
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@unique([templateId, date, userId])
   @@index([userId, date])
   @@index([templateId])
+  @@index([organizationId])
 }
 
 model TourStop {
@@ -974,9 +1077,14 @@ model TourStop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@unique([tourRunId, order])
   @@index([tourRunId])
   @@index([appointmentId])
+  @@index([organizationId])
 }
 
 model SavedPlace {
@@ -999,7 +1107,12 @@ model SavedPlace {
   startOfTourRuns TourRun[] @relation("TourRunStart")
   endOfTourRuns   TourRun[] @relation("TourRunEnd")
 
+  // Espace professionnel propriétaire (multi-comptes, phase 1).
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([userId])
+  @@index([organizationId])
 }
 
 /**
@@ -1059,4 +1172,43 @@ model DashboardPreferences {
   widgets Json
 
   updatedAt DateTime @updatedAt
+}
+
+/// Espace professionnel : l'activité d'un professionnel, propriétaire de
+/// toutes ses données. Ce n'est pas un lieu — beaucoup de professionnels
+/// animaliers n'ont pas de cabinet (voir PracticeMode) —, c'est l'activité
+/// elle-même. Plusieurs comptes peuvent la partager (praticiens, secrétariat).
+///
+/// Les tables techniques rattachées à un compte (Session, PasswordResetToken,
+/// TwoFactorCode, RateLimitEvent, CalendarConnection, TourPreferences,
+/// DashboardPreferences) n'ont pas de colonne : elles suivent leur
+/// utilisateur, qui appartient déjà à un espace.
+model Organization {
+  id        String   @id @default(cuid())
+  /// Nom de l'activité, tel que le professionnel la désigne.
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  businessProfiles          BusinessProfile[]
+  clients                   Client[]
+  animals                   Animal[]
+  consultations             Consultation[]
+  animalDocuments           AnimalDocument[]
+  studioDocuments           StudioDocument[]
+  appointments              Appointment[]
+  appointmentCalendarEvents AppointmentCalendarEvent[]
+  blockedSlots              BlockedSlot[]
+  reminders                 Reminder[]
+  zones                     Zone[]
+  cities                    City[]
+  tours                     Tour[]
+  services                  Service[]
+  tourRuns                  TourRun[]
+  tourStops                 TourStop[]
+  savedPlaces               SavedPlace[]
+  clientImports             ClientImport[]
+  users                     User[]
+  studioDocumentTemplates   StudioDocumentTemplate[]
+  auditLogs                 AuditLog[]
 }

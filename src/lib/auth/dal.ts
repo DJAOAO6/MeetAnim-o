@@ -11,6 +11,11 @@ export type CurrentUser = {
   lastName: string;
   role: "ADMIN" | "PRACTITIONER" | "SECRETARY";
   permissions: string[];
+  /**
+   * Espace professionnel du compte (multi-comptes, phase 1). `null` pour un
+   * compte de plateforme, qui n'appartient à aucun cabinet.
+   */
+  organizationId: string | null;
 };
 
 /**
@@ -41,6 +46,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     lastName: user.lastName,
     role: user.role,
     permissions: user.permissions,
+    organizationId: user.organizationId,
   };
 });
 

@@ -20,10 +20,22 @@ async function setMode(mode: "HOME_ONLY" | "OFFICE_ONLY" | "BOTH") {
   await sql`UPDATE "BusinessProfile" SET "practiceMode" = ${mode}::"PracticeMode"`;
 }
 
+const EMAIL = "praticien-test@pf-osteo-animale.fr";
+let permissions: string[] = [];
+
 test.describe.configure({ mode: "serial" });
+
+test.beforeAll(async () => {
+  // Modifier le mode d'exercice demande le droit sur les paramètres
+  // publics ; le compte de test ne l'a pas d'office.
+  const [account] = await sql`SELECT permissions FROM "User" WHERE email = ${EMAIL}`;
+  permissions = account.permissions as string[];
+  await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${EMAIL}`;
+});
 
 test.afterAll(async () => {
   await setMode("BOTH");
+  await sql`UPDATE "User" SET permissions = ${permissions}::text[] WHERE email = ${EMAIL}`;
 });
 
 test("le réglage propose les trois façons d'exercer, et demande un point de départ quand il n'y a pas de cabinet", async ({ page }) => {
