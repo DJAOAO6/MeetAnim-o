@@ -52,7 +52,7 @@ test.describe("Rappels clients (réel, non simulé)", () => {
   });
 
   test("programmer un rappel l'écrit réellement en base, avec une antériorité calculée", async ({ page }) => {
-    await page.goto("/dashboard/rappels");
+    await page.goto("/dashboard/rappels", { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "+ Programmer un rappel" }).click();
     const dialog = page.locator('section[role="dialog"]');
     await dialog.getByLabel("Client").selectOption({ label: `Prénom ${testClientLastName}` });
@@ -84,7 +84,7 @@ test.describe("Rappels clients (réel, non simulé)", () => {
     const today = new Date().toISOString().slice(0, 10);
     await sql`INSERT INTO "Reminder" (id, "clientId", "animalId", "lastConsultation", delay, "dueDate", status, "updatedAt") VALUES ('tmp-reminder-send', ${testClientId}, ${testAnimalId}, now(), 'SIX_MONTHS', ${today}::date, 'DUE', now())`;
 
-    await page.goto("/dashboard/rappels");
+    await page.goto("/dashboard/rappels", { waitUntil: "networkidle" });
     const visibleCheckbox = page.getByLabel("Sélectionner le rappel de RappelE2E").and(page.locator(":visible"));
     const row = visibleCheckbox.locator("xpath=ancestor::*[self::article or contains(@class,'grid-cols-[38px')][1]");
     await expect(row).toBeVisible();
@@ -107,7 +107,7 @@ test.describe("Rappels clients (réel, non simulé)", () => {
     const today = new Date().toISOString().slice(0, 10);
     await sql`INSERT INTO "Reminder" (id, "clientId", "animalId", "lastConsultation", delay, "dueDate", status, "updatedAt") VALUES ('tmp-reminder-ignore', ${testClientId}, ${testAnimalId}, now(), 'THREE_MONTHS', ${today}::date, 'DUE', now())`;
 
-    await page.goto("/dashboard/rappels");
+    await page.goto("/dashboard/rappels", { waitUntil: "networkidle" });
     const visibleCheckbox = page.getByLabel("Sélectionner le rappel de RappelE2E").and(page.locator(":visible"));
     const row = visibleCheckbox.locator("xpath=ancestor::*[self::article or contains(@class,'grid-cols-[38px')][1]");
     await expect(row).toBeVisible();
