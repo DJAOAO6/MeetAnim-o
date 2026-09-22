@@ -1,5 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/db";
+import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 /**
  * Espace professionnel : l'activité d'un professionnel, propriétaire de
@@ -54,4 +55,39 @@ export async function requireOrganizationOf(userId: string): Promise<Organizatio
   const organization = await organizationOf(userId);
   if (!organization) throw new Error("Ce compte n'appartient à aucun espace professionnel.");
   return organization;
+}
+
+/**
+ * L'accès à la base du cabinet connecté : le point d'entrée du code métier.
+ * Par convention, le résultat s'appelle `db` chez l'appelant —
+ * `const db = await currentDb();` —, de sorte que `db.client.findMany(…)` se
+ * lise comme avant, mais ne puisse plus sortir de l'espace.
+ *
+ * Tout ce qui passe par là ne peut voir, modifier ni supprimer que les
+ * données de cet espace — non par discipline, mais parce que la restriction
+ * est posée dans le client lui-même (src/lib/db-scope.ts). Le code qui a
+ * besoin de `prisma` directement (connexion, sessions, administration) le
+ * dit explicitement, et se relit comme tel.
+ */
+export async function currentDb(): Promise<ScopedPrismaClient> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Aucun compte connecté : impossible de déterminer l'espace professionnel.");
+  if (!user.organizationId) throw new Error("Ce compte n'appartient à aucun espace professionnel.");
+  return dbFor(user.organizationId);
+}
+
+/**
+ * L'espace d'un cabinet à partir de son lien public (`/reserver/<slug>`).
+ *
+ * La page de réservation n'a pas de compte connecté : c'est le slug, donné
+ * par l'URL, qui désigne le cabinet — jamais un identifiant d'espace envoyé
+ * par le visiteur, qui pourrait alors désigner le cabinet de quelqu'un
+ * d'autre.
+ */
+export async function organizationOfSlug(slug: string): Promise<Organization | null> {
+  const profile = await prisma.businessProfile.findUnique({
+    where: { slug },
+    select: { organization: { select: { id: true, name: true } } },
+  });
+  return profile?.organization ?? null;
 }

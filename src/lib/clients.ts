@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
@@ -93,7 +93,8 @@ export function mapClient(client: DbClientWithAnimals): Client {
 }
 
 export async function getClients(): Promise<Client[]> {
-  const clients = await prisma.client.findMany({
+  const db = await currentDb();
+  const clients = await db.client.findMany({
     include: clientInclude,
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
@@ -109,7 +110,8 @@ export async function getClients(): Promise<Client[]> {
  * rendu serveur. cache() déduplique ces deux lectures sur une même requête.
  */
 export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption[]> => {
-  const clients = await prisma.client.findMany({
+  const db = await currentDb();
+  const clients = await db.client.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true,
@@ -127,7 +129,8 @@ export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption
 });
 
 export async function getClientById(id: string): Promise<Client | undefined> {
-  const client = await prisma.client.findUnique({
+  const db = await currentDb();
+  const client = await db.client.findUnique({
     where: { id },
     include: clientInclude,
   });
