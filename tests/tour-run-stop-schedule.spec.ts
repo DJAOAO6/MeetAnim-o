@@ -79,7 +79,7 @@ test.describe("Écran de journée — tout est modifiable", () => {
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     // Heure de départ de la journée.
     // .fill() ne déclenche pas fiablement onChange sur un <input type="time">
@@ -146,7 +146,7 @@ test.describe("Écran de journée — tout est modifiable", () => {
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByText(/RexStopSchedule/).first().click();
     const startInput = page.locator('input[id^="stop-start-"]');

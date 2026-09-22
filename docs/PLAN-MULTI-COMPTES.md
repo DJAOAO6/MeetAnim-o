@@ -52,6 +52,10 @@ Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) a
 - **Dette assumée de la phase 1, à solder en fin de phase 3** (et non en fin de phase 2 comme prévu : la réservation publique écrit encore sans espace) : la base pose l'espace par défaut (`org-1002-pattes`) sur toute écriture, ce qui laisse le code d'avant le chantier fonctionner. Tant que ce défaut existe, une écriture qui oublie son espace est silencieusement rattachée au premier cabinet. Le `DROP DEFAULT` fait donc partie de la phase 2, pas d'un nettoyage ultérieur.
 - **Unicité des noms de zone par espace** : pas posée. Aucune contrainte n'existe aujourd'hui et la base de production peut contenir des doublons ; la poser ferait échouer la migration. À décider (produit) puis à faire après déduplication.
 
+## Observation en attente d'explication
+
+Sur un serveur de développement chargé (suite complète, ~34 min), l'écran de journée de tournée apparaît parfois **en double** dans la page : une copie masquée et une visible. Les tests concernés visent désormais la copie visible, mais la cause n'est pas élucidée — piste : une copie de la page précédente conservée pendant une navigation. À vérifier sur un vrai build de production avant d'ouvrir l'application à d'autres cabinets : un contenu dupliqué serait lu deux fois par un lecteur d'écran.
+
 ## Mode d'exercice : avec ou sans cabinet
 
 **Livré le 22 septembre 2026** (commits `4e5d583`, `f599880`, `00713c6`), avant la phase 1 comme prévu : réglage dans Paramètres › Mon cabinet, point de départ privé, page publique, prestations, rendez-vous, tournées, tableau de bord, disponibilités et statistiques. Reste ouvert : le reprendre comme **première étape de l'onboarding** (phase 4), et le passage « domicile seul → les deux » guidé (demander l'adresse du cabinet, réactiver le mode cabinet sur les prestations choisies) — aujourd'hui le professionnel le fait champ par champ.

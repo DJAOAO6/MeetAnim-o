@@ -101,7 +101,7 @@ test.describe("Carte de tournée — calque clients du secteur", () => {
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: /Afficher les clients du secteur/ }).click();
 

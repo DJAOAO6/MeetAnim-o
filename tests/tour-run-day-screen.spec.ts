@@ -79,7 +79,7 @@ test.describe("Écran de journée unifié — actions par arrêt", () => {
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     // Avant réalisation : message de progression "à venir" et actions par arrêt visibles.
     await expect(page.getByText(/arrêt.*à venir/)).toBeVisible();

@@ -91,7 +91,7 @@ test.describe("Réconciliation avec l'agenda — à placer / à retirer", () => 
     await login(page);
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
 
-    await expect(page.getByText("1 rendez-vous à placer")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("1 rendez-vous à placer").filter({ visible: true })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(new RegExp(unplacedAnimalName))).toBeVisible();
     await expect(page.getByText("1 arrêt à retirer")).toBeVisible();
     await expect(page.getByText(/rendez-vous annulé/)).toBeVisible();

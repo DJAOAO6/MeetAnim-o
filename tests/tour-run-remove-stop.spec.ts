@@ -81,7 +81,7 @@ test.describe("Écran de journée — retirer un arrêt vs annuler le rendez-vou
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: /Retirer RexRemoveStop/ }).click();
     await expect(page.getByText(/Que faire de/)).toBeVisible({ timeout: 5000 });
@@ -110,7 +110,7 @@ test.describe("Écran de journée — retirer un arrêt vs annuler le rendez-vou
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: /Retirer RexRemoveStop/ }).click();
     await expect(page.getByText(/Que faire de/)).toBeVisible({ timeout: 5000 });
@@ -136,7 +136,7 @@ test.describe("Écran de journée — retirer un arrêt vs annuler le rendez-vou
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: /Retirer.*Pause déjeuner E2E/ }).click();
     await expect(page.getByText(/Que faire de/)).toHaveCount(0);

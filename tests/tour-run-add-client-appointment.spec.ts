@@ -77,7 +77,7 @@ test.describe("Carte de tournée — ajouter un client comme rendez-vous", () =>
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: /Afficher les clients du secteur/ }).click();
     const marker = page.getByRole("button", { name: new RegExp(testAnimalName) });

@@ -67,7 +67,7 @@ test.describe("Création d'une journée — pas de doublon sur une même date", 
     await page.goto("/dashboard/tournees");
     await page.getByRole("button", { name: "Nouvelle journée" }).click();
     await page.locator("#new-tour-day-date").fill(testDateId);
-    await page.locator("#new-tour-day-name").fill(`Tournée en trop ${testOwnerLastName}`);
+    await page.locator("#new-tour-day-name").filter({ visible: true }).fill(`Tournée en trop ${testOwnerLastName}`);
     await page.getByRole("button", { name: "Créer la journée" }).click();
 
     await expect(page.getByText("Une journée existe déjà pour cette date.")).toBeVisible({ timeout: 10000 });

@@ -95,7 +95,7 @@ test.describe("Réordonnancement — confirmation avant de déplacer un rendez-v
     const { appointmentBId } = await seedTourRunWithTwoStops();
     await login(page);
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(stopBLabel)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(stopBLabel).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     // B (flexible, actuellement second) passe en premier.
     await page.getByRole("button", { name: `Monter ${stopBLabel}` }).click();
@@ -125,7 +125,7 @@ test.describe("Réordonnancement — confirmation avant de déplacer un rendez-v
 
     await login(page);
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(stopBLabel)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(stopBLabel).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: `Monter ${stopBLabel}` }).click();
     const confirmDialog = page.locator('[role="dialog"]').filter({ hasText: "va changer d" });
@@ -144,7 +144,7 @@ test.describe("Réordonnancement — confirmation avant de déplacer un rendez-v
     const { appointmentBId, stopBId } = await seedTourRunWithTwoStops();
     await login(page);
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(stopBLabel)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(stopBLabel).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: `Monter ${stopBLabel}` }).click();
     await expect(page.getByText(/rendez-vous va changer d.?heure|1 rendez-vous va changer/)).toBeVisible({ timeout: 10000 });
@@ -167,7 +167,7 @@ test.describe("Réordonnancement — confirmation avant de déplacer un rendez-v
 
     await login(page);
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await expect(page.getByText(stopBLabel)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(stopBLabel).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: `Monter ${stopBLabel}` }).click();
     await page.waitForTimeout(1500); // laisse le recalcul serveur se terminer

@@ -110,13 +110,13 @@ test.describe("Éditeur de tournées interactif", () => {
     // (NewTourDayModal) plutôt qu'un second formulaire dédié à l'éditeur.
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
 
-    const nameInput = page.locator("#new-tour-day-name");
+    const nameInput = page.locator("#new-tour-day-name").filter({ visible: true });
     await expect(nameInput).toBeVisible({ timeout: 10000 });
     await nameInput.fill(`Tournée ${testOwnerLastName}`);
     await page.getByRole("button", { name: "Créer la journée" }).click();
 
     // L'éditeur se recharge (router.refresh) avec la tournée créée.
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     // Ajout du rendez-vous du jour (le panneau "à placer", en arrière-plan,
     // affiche aussi ce nom — on scope à la modale pour lever l'ambiguïté).
@@ -160,9 +160,9 @@ test.describe("Éditeur de tournées interactif", () => {
     await login(page);
 
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
-    await page.locator("#new-tour-day-name").fill(`Tournée ${testOwnerLastName}`);
+    await page.locator("#new-tour-day-name").filter({ visible: true }).fill(`Tournée ${testOwnerLastName}`);
     await page.getByRole("button", { name: "Créer la journée" }).click();
-    await expect(page.getByText(`Tournée ${testOwnerLastName}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
     // Calque clients désactivé par défaut.
     await expect(page.getByRole("button", { name: new RegExp(nearbyAnimalName) })).toHaveCount(0);
