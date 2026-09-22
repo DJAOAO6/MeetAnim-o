@@ -46,6 +46,8 @@ Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) a
 
 ## Mode d'exercice : avec ou sans cabinet
 
+**Livré le 22 septembre 2026** (commits `4e5d583`, `f599880`, `00713c6`), avant la phase 1 comme prévu : réglage dans Paramètres › Mon cabinet, point de départ privé, page publique, prestations, rendez-vous, tournées, tableau de bord, disponibilités et statistiques. Reste ouvert : le reprendre comme **première étape de l'onboarding** (phase 4), et le passage « domicile seul → les deux » guidé (demander l'adresse du cabinet, réactiver le mode cabinet sur les prestations choisies) — aujourd'hui le professionnel le fait champ par champ.
+
 Un réglage **permanent**, choisi à l'onboarding et modifiable à tout moment : **à domicile uniquement**, **au cabinet uniquement**, ou **les deux**. Il est distinct de la fermeture *temporaire* qui existe déjà (« cabinet fermé pour le moment ») : ne pas avoir de cabinet n'est pas l'avoir fermé.
 
 | Endroit | Sans cabinet (domicile uniquement) |
