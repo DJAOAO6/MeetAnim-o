@@ -89,6 +89,46 @@ function write(key: string, value: string) {
 }
 
 /**
+ * Les préférences de la barre latérale vivent dans le navigateur, que le
+ * serveur ne connaît pas. Les lire pendant le premier rendu faisait diverger
+ * la page rendue par le serveur (barre dépliée) de celle du navigateur (barre
+ * repliée) : React jetait alors tout l'arbre du tableau de bord pour le
+ * reconstruire — clignotement à l'écran, et deux copies de la page le temps
+ * de la reconstruction.
+ *
+ * Elles sont donc lues comme ce qu'elles sont : une donnée extérieure à
+ * React, avec une valeur connue côté serveur (les préférences par défaut) et
+ * la valeur réelle côté navigateur.
+ */
+let storedPreferences: SidebarPreferences | null = null;
+const preferencesListeners = new Set<() => void>();
+
+function subscribePreferences(onChange: () => void): () => void {
+  preferencesListeners.add(onChange);
+  return () => { preferencesListeners.delete(onChange); };
+}
+
+function preferencesSnapshot(): SidebarPreferences {
+  // Même objet tant que rien ne change : useSyncExternalStore compare les
+  // instantanés par identité.
+  storedPreferences ??= readPreferences();
+  return storedPreferences;
+}
+
+function serverPreferencesSnapshot(): SidebarPreferences {
+  return defaultPreferences;
+}
+
+function savePreferences(next: SidebarPreferences): void {
+  storedPreferences = next;
+  write(PREFERENCES_KEY, JSON.stringify(next));
+  // Ancienne clé, remplacée par les préférences : elle ne doit pas ressusciter
+  // un état que l'utilisateur vient de changer.
+  try { window.localStorage.removeItem(LEGACY_COLLAPSED_KEY); } catch { /* stockage indisponible */ }
+  for (const listener of preferencesListeners) listener();
+}
+
+/**
  * Comportement de la navigation latérale.
  *
  * Trois états bien distincts, et c'est le cœur du sujet :
@@ -110,7 +150,7 @@ function write(key: string, value: string) {
  * l'écran utilisé, pas des données du cabinet.
  */
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [preferences, setPreferences] = useState<SidebarPreferences>(readPreferences);
+  const preferences = useSyncExternalStore(subscribePreferences, preferencesSnapshot, serverPreferencesSnapshot);
 
   // Un seul endroit décide de l'état de la barre. Le bouton de la barre et le
   // réglage des paramètres écrivent tous deux ici, donc ils ne peuvent pas se
@@ -139,11 +179,6 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     document.body.dataset.sidebar = collapsed ? "collapsed" : "expanded";
   }, [collapsed]);
 
-  useEffect(() => {
-    write(PREFERENCES_KEY, JSON.stringify(preferences));
-    try { window.localStorage.removeItem(LEGACY_COLLAPSED_KEY); } catch { /* stockage indisponible */ }
-  }, [preferences]);
-
   useEffect(() => () => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
     if (groupTimer.current) window.clearTimeout(groupTimer.current);
@@ -151,21 +186,20 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
   const toggleCollapsed = useCallback(() => {
     setHoverExpanded(false);
-    setPreferences((current) => {
-      const next = current.defaultState === "collapsed" ? "expanded" : "collapsed";
-      // Le bouton est dans la barre : en la repliant, le contenu change sous
-      // le curseur et le navigateur renvoie un survol. Sans ce verrou, la
-      // barre se rouvrirait aussitôt en flyout et le bouton semblerait sans
-      // effet. Le verrou tombe dès que le curseur sort vraiment de la barre —
-      // et il n'est posé qu'au repli, un déploiement n'ayant rien à craindre
-      // d'un survol.
-      hoverSuppressed.current = next === "collapsed";
-      // Vrai changement de largeur : les cartes et graphiques dimensionnés en
-      // pixels ne se redessinent que sur un redimensionnement. Jamais pendant
-      // un simple survol, qui ne change rien à la place disponible.
-      window.setTimeout(() => window.dispatchEvent(new Event("resize")), 240);
-      return { ...current, defaultState: next };
-    });
+    const current = preferencesSnapshot();
+    const next = current.defaultState === "collapsed" ? "expanded" : "collapsed";
+    // Le bouton est dans la barre : en la repliant, le contenu change sous
+    // le curseur et le navigateur renvoie un survol. Sans ce verrou, la
+    // barre se rouvrirait aussitôt en flyout et le bouton semblerait sans
+    // effet. Le verrou tombe dès que le curseur sort vraiment de la barre —
+    // et il n'est posé qu'au repli, un déploiement n'ayant rien à craindre
+    // d'un survol.
+    hoverSuppressed.current = next === "collapsed";
+    // Vrai changement de largeur : les cartes et graphiques dimensionnés en
+    // pixels ne se redessinent que sur un redimensionnement. Jamais pendant
+    // un simple survol, qui ne change rien à la place disponible.
+    window.setTimeout(() => window.dispatchEvent(new Event("resize")), 240);
+    savePreferences({ ...current, defaultState: next });
   }, []);
 
   /**
@@ -204,7 +238,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }, [pointerFine, preferences.sidebarBehavior]);
 
   const updatePreferences = useCallback((change: Partial<SidebarPreferences>) => {
-    setPreferences((current) => ({ ...current, ...change }));
+    savePreferences({ ...preferencesSnapshot(), ...change });
     // Application immédiate : passer en manuel referme un survol en cours,
     // sans quoi le réglage semblerait sans effet jusqu'au geste suivant.
     if (change.sidebarBehavior === "click") setHoverExpanded(false);
