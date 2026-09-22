@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 import type { AppointmentStatus as DbAppointmentStatus, VisitMode } from "@/generated/prisma/client";
@@ -79,7 +79,8 @@ export function defaultAppointmentRange(now: Date = new Date()): AppointmentRang
 }
 
 export async function getAppointments(range: AppointmentRange): Promise<Appointment[]> {
-  const appointments = await prisma.appointment.findMany({
+  const db = await currentDb();
+  const appointments = await db.appointment.findMany({
     where: { date: { gte: new Date(`${range.from}T00:00:00.000Z`), lte: new Date(`${range.to}T00:00:00.000Z`) } },
     orderBy: { date: "asc" },
     include: { animal: { select: { species: true } }, client: { select: { phone: true } } },

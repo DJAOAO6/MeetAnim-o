@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
@@ -112,7 +113,20 @@ async function hasConflict(dateId: string, start: string, duration: number, excl
   return googleIntervals.some((interval) => intervalsOverlap(startMinutes, duration, timeToMinutes(interval.start), interval.duration));
 }
 
-type AppointmentReader = Pick<Prisma.TransactionClient, "appointment">;
+/**
+ * Juste ce qu'il faut pour détecter un chevauchement : n'importe quel client
+ * Prisma convient, cloisonné par espace ou non, ce qui permet d'appeler cette
+ * vérification aussi bien depuis l'agenda d'un praticien que depuis la
+ * réservation publique.
+ */
+type AppointmentReader = {
+  appointment: {
+    findMany(args: {
+      where: Prisma.AppointmentWhereInput;
+      select: { start: true; duration: true; mode: true };
+    }): Promise<Array<{ start: string; duration: number; mode: VisitMode }>>;
+  };
+};
 
 /**
  * Chevauchement avec un rendez-vous déjà en base — la partie de hasConflict
@@ -141,7 +155,7 @@ async function appointmentConflictIn(db: AppointmentReader, dateId: string, star
 }
 
 /**
- * Écrit un rendez-vous sous verrou de la journée concernée.
+ * Verrou de la journée concernée, à poser en tout début de transaction.
  *
  * hasConflict() puis create() ne sont pas atomiques : deux demandes qui se
  * chevauchent (14 h 00 et 14 h 30) arrivées au même instant passaient toutes
@@ -149,19 +163,15 @@ async function appointmentConflictIn(db: AppointmentReader, dateId: string, star
  * pas puisqu'elles ne commencent pas à la même minute — constaté par
  * tests/audit/audit-security.spec.ts.
  *
- * Le verrou consultatif de transaction sérialise les écritures d'une même
- * journée, et seulement d'une même journée : deux réservations sur des jours
- * différents ne s'attendent jamais. Il est relâché automatiquement à la fin
- * de la transaction, y compris en cas d'erreur. La vérification rejouée
- * dedans est la seule rapide (la base) : la disponibilité Google, appel
- * réseau, reste vérifiée avant, pour ne jamais tenir un verrou pendant un
- * appel extérieur.
+ * Le verrou consultatif sérialise les écritures d'une même journée, et
+ * seulement d'une même journée : deux réservations sur des jours différents
+ * ne s'attendent jamais. Il est relâché automatiquement à la fin de la
+ * transaction, y compris en cas d'erreur. La vérification rejouée dedans est
+ * la seule rapide (la base) : la disponibilité Google, appel réseau, reste
+ * vérifiée avant, pour ne jamais tenir un verrou pendant un appel extérieur.
  */
-async function withSlotLock<T>(dateId: string, work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-day:${dateId}`}))`;
-    return work(tx);
-  });
+async function lockDay(tx: Pick<Prisma.TransactionClient, "$executeRaw">, dateId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-day:${dateId}`}))`;
 }
 
 export type GeoWarning = {
@@ -199,9 +209,14 @@ export type GeoWarningInput = {
  */
 export async function checkGeographicWarningAction(input: GeoWarningInput): Promise<GeoWarning[]> {
   if (input.mode !== "home" || input.latitude == null || input.longitude == null) return [];
+  // Cet avertissement lit les rendez-vous de la journée : il n'a rien à dire
+  // à qui n'est pas connecté.
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const db = await currentDb();
 
   const [sameDayAppointments, businessProfile] = await Promise.all([
-    prisma.appointment.findMany({
+    db.appointment.findMany({
       where: {
         date: toDate(input.date),
         status: { not: "CANCELLED" },
@@ -326,12 +341,13 @@ export async function getAppointmentsInRangeAction(fromId: string, toId: string)
 export async function saveAppointmentAction(input: SaveAppointmentInput): Promise<AppointmentActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
   // Chargé avant la mise à jour pour détecter un déplacement réel (date/
   // heure changée) et une transition de statut dans le même enregistrement
   // — ce formulaire modifie les deux à la fois, contrairement à
   // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
-  const existing = input.id ? await prisma.appointment.findUnique({ where: { id: input.id } }) : null;
+  const existing = input.id ? await db.appointment.findUnique({ where: { id: input.id } }) : null;
 
   if (await hasConflict(input.date, input.start, input.duration, input.id)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
@@ -369,7 +385,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   const { travelBuffer } = await getAvailability();
   let row;
   try {
-    row = await withSlotLock(input.date, async (tx) => {
+    row = await db.$transaction(async (tx) => {
+      await lockDay(tx, input.date);
       if (await appointmentConflictIn(tx, input.date, input.start, input.duration, travelBuffer, input.id)) return null;
       const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
       return input.id
@@ -417,15 +434,16 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
 export async function updateAppointmentStatusAction(id: string, status: AppointmentStatus): Promise<AppointmentActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
-  const current = await prisma.appointment.findUnique({ where: { id } });
+  const current = await db.appointment.findUnique({ where: { id } });
   if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
 
   if (status !== "cancelled" && await hasConflict(current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
     return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 
-  const row = await prisma.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
+  const row = await db.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status } });
   revalidatePath("/dashboard");
 
@@ -469,18 +487,19 @@ const reminderMonths: Record<"3 mois" | "6 mois" | "12 mois", number> = { "3 moi
 export async function completeAppointmentAction(id: string): Promise<CompleteAppointmentResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
-  const current = await prisma.appointment.findUnique({ where: { id } });
+  const current = await db.appointment.findUnique({ where: { id } });
   if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
   if (current.status === "COMPLETED" || current.status === "CANCELLED") {
     return { ok: false, error: "Ce rendez-vous ne peut plus être marqué comme réalisé." };
   }
 
-  const row = await prisma.appointment.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
+  const row = await db.appointment.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status: "completed" } });
 
   if (current.animalId) {
-    await prisma.consultation.create({
+    await db.consultation.create({
       data: { animalId: current.animalId, date: current.date, service: current.serviceName, mode: current.mode, price: current.price, summary: "" },
     });
   }
@@ -497,7 +516,7 @@ export async function completeAppointmentAction(id: string): Promise<CompleteApp
     // Correspondance best-effort par nom : serviceName reste un texte libre
     // dans le formulaire interne (item 16 de l'audit, pas encore un
     // `<select>` relié au catalogue), donc pas de FK stricte vers Service.
-    const service = await prisma.service.findFirst({ where: { name: current.serviceName }, select: { suggestedReminder: true } });
+    const service = await db.service.findFirst({ where: { name: current.serviceName }, select: { suggestedReminder: true } });
     const delay = service?.suggestedReminder;
     if (delay === "3 mois" || delay === "6 mois" || delay === "12 mois") {
       const dueDate = new Date(current.date);
@@ -523,12 +542,13 @@ export type SwapAppointmentsResult = { ok: true } | { ok: false; error: string }
 export async function swapAppointmentTimesAction(appointmentIdA: string, appointmentIdB: string): Promise<SwapAppointmentsResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
   if (appointmentIdA === appointmentIdB) return { ok: false, error: "Sélectionnez deux rendez-vous différents." };
 
   const [appointmentA, appointmentB] = await Promise.all([
-    prisma.appointment.findUnique({ where: { id: appointmentIdA } }),
-    prisma.appointment.findUnique({ where: { id: appointmentIdB } }),
+    db.appointment.findUnique({ where: { id: appointmentIdA } }),
+    db.appointment.findUnique({ where: { id: appointmentIdB } }),
   ]);
   if (!appointmentA || !appointmentB) return { ok: false, error: "Un des deux rendez-vous n'existe plus." };
   if (appointmentA.status === "CANCELLED" || appointmentA.status === "COMPLETED" || appointmentB.status === "CANCELLED" || appointmentB.status === "COMPLETED") {
@@ -541,7 +561,7 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
   const dateId = toLocalDateId(appointmentA.date);
   const [availability, sameDayOthers] = await Promise.all([
     getAvailability(),
-    prisma.appointment.findMany({
+    db.appointment.findMany({
       where: { date: appointmentA.date, status: { not: "CANCELLED" }, id: { notIn: [appointmentIdA, appointmentIdB] } },
       select: { start: true, duration: true, mode: true },
     }),
@@ -585,10 +605,10 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
   // n'ait pu se libérer — une valeur temporaire, unique par construction
   // (dérivée de l'id), sert de case vide intermédiaire.
   const temporaryStart = `swap:${appointmentIdA}`;
-  await prisma.$transaction([
-    prisma.appointment.update({ where: { id: appointmentIdA }, data: { start: temporaryStart } }),
-    prisma.appointment.update({ where: { id: appointmentIdB }, data: { start: appointmentA.start } }),
-    prisma.appointment.update({ where: { id: appointmentIdA }, data: { start: appointmentB.start } }),
+  await db.$transaction([
+    db.appointment.update({ where: { id: appointmentIdA }, data: { start: temporaryStart } }),
+    db.appointment.update({ where: { id: appointmentIdB }, data: { start: appointmentA.start } }),
+    db.appointment.update({ where: { id: appointmentIdA }, data: { start: appointmentB.start } }),
   ]);
 
   await logAudit({ userId: user.id, action: "APPOINTMENT_UPDATED", entityType: "Appointment", entityId: appointmentIdA, metadata: { swappedWith: appointmentIdB } });
@@ -727,6 +747,9 @@ function sanitizeAnimalFields(input: PublicBookingInput) {
  */
 type FindOrCreateResult = { clientId: string | null; animalId: string | null; createdClientId: string | null; createdAnimalId: string | null };
 
+// Réservation publique : sans session, le cabinet n'est pas encore résolu
+// (phase 3). Ces lectures et écritures passent donc par le client non
+// cloisonné, comme avant le chantier.
 async function findOrCreateClientAndAnimal(input: PublicBookingInput): Promise<FindOrCreateResult> {
   try {
     const owner = sanitizeOwnerFields(input);
@@ -923,7 +946,10 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   const { travelBuffer } = await getAvailability();
   let row;
   try {
-    row = await withSlotLock(core.date, async (tx) => {
+    // Réservation publique : pas de session, donc pas encore de client
+    // cloisonné — le cabinet sera résolu par le slug à la phase 3.
+    row = await prisma.$transaction(async (tx) => {
+      await lockDay(tx, core.date);
       // Rejouée sous verrou : une demande concurrente a pu être enregistrée
       // depuis la vérification du haut (voir withSlotLock).
       if (await appointmentConflictIn(tx, core.date, core.start, service.duration, travelBuffer)) return null;
