@@ -28,12 +28,12 @@ export default defineConfig({
     {
       name: "chromium",
       // Les specs à session partagée ont leur propre projet ci-dessous.
-      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|agenda-slot-touch|practice-mode-dashboard|organization-isolation)\.(spec\.)?ts/,
+      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|agenda-slot-touch|practice-mode-dashboard|organization-isolation|organization-isolation-actions)\.(spec\.)?ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "chromium-connecte",
-      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|practice-mode-dashboard|organization-isolation)\.spec\.ts/,
+      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|practice-mode-dashboard|organization-isolation|organization-isolation-actions)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/practitioner.json" },
     },
@@ -64,9 +64,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // En local, le serveur de développement : les tests suivent le code en
+    // cours. En intégration continue, un vrai build déjà compilé (voir
+    // .github/workflows/ci.yml) — sinon chaque page serait compilée à la
+    // première visite, et les délais des tests mesureraient la compilation.
+    command: process.env.E2E_WEB_SERVER ?? "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: true,
-    timeout: 60000,
+    timeout: 120000,
   },
 });

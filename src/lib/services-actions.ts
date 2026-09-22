@@ -178,6 +178,12 @@ export async function deleteServiceAction(id: string): Promise<DeleteServiceResu
     return { ok: false, error: "Vous n'avez pas la permission de supprimer une prestation." };
   }
 
+  // Introuvable : soit elle vient d'être supprimée, soit elle appartient à
+  // un autre cabinet — dans les deux cas, un message clair plutôt qu'une
+  // erreur brute.
+  const existing = await db.service.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return { ok: false, error: "Cette prestation n'existe plus." };
+
   await db.service.delete({ where: { id } });
   await revalidateServicePages();
 

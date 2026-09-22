@@ -80,6 +80,9 @@ export type DeleteBlockedSlotResult = { ok: true } | { ok: false; error: string 
 export async function deleteBlockedSlotAction(id: string): Promise<DeleteBlockedSlotResult> {
   await requireUser();
   const db = await currentDb();
+  const existing = await db.blockedSlot.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return { ok: false, error: "Ce créneau bloqué n'existe plus." };
+
   await db.blockedSlot.delete({ where: { id } });
   revalidatePath("/dashboard/agenda");
   return { ok: true };

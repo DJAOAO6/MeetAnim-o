@@ -1,10 +1,13 @@
 # Intégration continue — vérifie chaque poussée et chaque demande de fusion.
 #
-# Typage, lint et tests unitaires : tout ce qui tourne sans base de données.
-# Les tests E2E (Playwright) ont besoin d'une base et d'un serveur ; ils
-# restent lancés localement tant qu'une base de test dédiée n'est pas
-# branchée ici — le dépôt étant public, pas question d'y exposer la base de
-# développement.
+# Deux travaux :
+#
+# - typage, lint et tests unitaires : tout ce qui tourne sans base ;
+# - cloisonnement entre cabinets : la promesse « un professionnel ne voit que
+#   ses données ». Elle tourne sur un PostgreSQL éphémère, créé et détruit
+#   avec le travail — le dépôt est public, aucune base réelle n'y est donc
+#   exposée. Le reste de la suite E2E reste lancé localement : elle est
+#   longue, et sa valeur ne justifie pas encore ce temps à chaque poussée.
 name: CI
 
 on:
@@ -50,3 +53,76 @@ jobs:
 
       - name: Tests unitaires
         run: npm run test:unit
+
+  cloisonnement:
+    name: Cloisonnement entre cabinets
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: animeo_ci
+          # UTC, comme la production : des colonnes de date sans fuseau lues
+          # dans un autre fuseau décalent les comparaisons (voir
+          # scripts/test-db.mjs).
+          TZ: UTC
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/animeo_ci
+      # Secrets jetables : cette base et ce serveur n'existent que le temps
+      # du travail.
+      SESSION_SECRET: integration-continue-secret-de-test-32-caracteres
+      CRON_SECRET: integration-continue-cron
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      E2E_TEST_DATABASE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Client Prisma
+        run: npx prisma generate
+
+      - name: Types des routes Next.js
+        run: npx next typegen
+
+      - name: Migrations
+        run: npx prisma migrate deploy
+
+      - name: Données de démonstration
+        run: npx tsx prisma/seed.ts
+
+      - name: Navigateur de test
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      # Playwright démarre le serveur lui-même (voir playwright.config.ts) :
+      # ici le build ci-dessus, pas le serveur de développement.
+      - name: Cloisonnement
+        run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts --reporter=line
+        env:
+          E2E_WEB_SERVER: npm start
+
+      - name: Traces des échecs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-cloisonnement
+          path: test-results/
+          retention-days: 7
