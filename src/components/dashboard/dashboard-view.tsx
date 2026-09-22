@@ -30,6 +30,7 @@ import {
 import { notify } from "@/lib/notify";
 import { resetDashboardLayoutAction, saveDashboardLayoutAction } from "@/lib/dashboard-layout-actions";
 import type { DashboardOverviewData } from "@/lib/dashboard-overview";
+import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 
 type DashboardViewProps = DashboardOverviewData & {
   initialLayout: DashboardWidgetPreference[];
@@ -65,7 +66,7 @@ const spanClassName: Record<DashboardWidgetSpan, string> = {
   12: "md:col-span-12",
 };
 
-export function DashboardView({ clients, tours, zones, tourAppointments, reminders, cabinetAvailable, homeAvailable, availability, initialLayout, startEditing = false }: DashboardViewProps) {
+export function DashboardView({ clients, tours, zones, tourAppointments, reminders, practiceMode, cabinetAvailable, homeAvailable, availability, initialLayout, startEditing = false }: DashboardViewProps) {
   const [layout, setLayout] = useState(initialLayout);
   const [editing, setEditing] = useState(startEditing);
   // Disposition d'avant l'entrée en édition : « Annuler » doit la restituer
@@ -95,8 +96,15 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const visibleWidgets = layout.filter((widget) => widget.visible);
-  const hiddenWidgets = layout.filter((widget) => !widget.visible);
+  // Un bloc « Ouverture du cabinet » n'a rien à dire à qui n'a pas de
+  // cabinet : il ne s'affiche pas, et ne traîne pas non plus dans la liste
+  // des blocs masqués, où on pourrait le rajouter.
+  const practiced = (widget: DashboardWidgetPreference) =>
+    widget.id === "availabilityCabinet" ? hasCabinet(practiceMode)
+      : widget.id === "availabilityHome" ? visitsHomes(practiceMode)
+        : true;
+  const visibleWidgets = layout.filter((widget) => widget.visible && practiced(widget));
+  const hiddenWidgets = layout.filter((widget) => !widget.visible && practiced(widget));
 
   function updateWidget(id: DashboardWidgetId, change: Partial<DashboardWidgetPreference>) {
     setLayout((current) => current.map((widget) => (widget.id === id ? { ...widget, ...change } : widget)));
@@ -211,7 +219,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   return (
     // Les deux cartes d'ouverture partagent un même état : une fermeture
     // « Tout fermer » saisie depuis l'une doit se voir sur l'autre.
-    <AvailabilityStateProvider cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} availability={availability}>
+    <AvailabilityStateProvider cabinetAvailable={cabinetAvailable} homeAvailable={homeAvailable} practiceMode={practiceMode} availability={availability}>
       <DashboardHeader />
 
       {editing ? (

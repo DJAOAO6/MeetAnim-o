@@ -79,7 +79,7 @@ test.describe("Statistiques (réel, non simulé)", () => {
 
   test("le CA affiché correspond à un vrai rendez-vous, pour la période exacte qui le contient", async ({ page }) => {
     await page.goto("/dashboard/statistiques");
-    await page.getByLabel("Période").selectOption("custom");
+    await page.getByLabel("Période").filter({ visible: true }).selectOption("custom");
     await page.getByLabel("Du", { exact: true }).fill(appointmentDateId);
     await page.getByLabel("Au", { exact: true }).fill(appointmentDateId);
     await page.waitForTimeout(1000);
@@ -90,7 +90,7 @@ test.describe("Statistiques (réel, non simulé)", () => {
 
   test("changer la période vers une plage qui ne contient pas le rendez-vous fait retomber le CA à 0", async ({ page }) => {
     await page.goto("/dashboard/statistiques");
-    await page.getByLabel("Période").selectOption("custom");
+    await page.getByLabel("Période").filter({ visible: true }).selectOption("custom");
     await page.getByLabel("Du", { exact: true }).fill("2020-01-01");
     await page.getByLabel("Au", { exact: true }).fill("2020-01-31");
     await page.waitForTimeout(1000);

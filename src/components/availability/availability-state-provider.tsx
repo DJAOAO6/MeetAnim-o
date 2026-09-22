@@ -4,10 +4,12 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { AvailabilityManager } from "@/components/availability/availability-manager";
 import type { AvailabilityMode } from "@/lib/availability-status";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { PracticeMode } from "@/lib/practice-mode";
 
 type AvailabilityStateValue = {
   cabinetAvailable: boolean;
   homeAvailable: boolean;
+  practiceMode: PracticeMode;
   availability: AvailabilitySettings;
   /** Ouvre le gestionnaire sur l'onglet du mode demandé. */
   manage: (mode: AvailabilityMode) => void;
@@ -26,9 +28,10 @@ const AvailabilityStateContext = createContext<AvailabilityStateValue | null>(nu
  *
  * Le gestionnaire est monté ici une seule fois, pour la même raison.
  */
-export function AvailabilityStateProvider({ cabinetAvailable, homeAvailable, availability, children }: {
+export function AvailabilityStateProvider({ cabinetAvailable, homeAvailable, practiceMode, availability, children }: {
   cabinetAvailable: boolean;
   homeAvailable: boolean;
+  practiceMode: PracticeMode;
   availability: AvailabilitySettings;
   children: ReactNode;
 }) {
@@ -40,8 +43,8 @@ export function AvailabilityStateProvider({ cabinetAvailable, homeAvailable, ava
   const manage = useCallback((mode: AvailabilityMode) => setManaging(mode), []);
 
   const value = useMemo<AvailabilityStateValue>(
-    () => ({ cabinetAvailable: cabinet, homeAvailable: home, availability: settings, manage }),
-    [cabinet, home, settings, manage],
+    () => ({ cabinetAvailable: cabinet, homeAvailable: home, practiceMode, availability: settings, manage }),
+    [cabinet, home, practiceMode, settings, manage],
   );
 
   return (
@@ -51,6 +54,7 @@ export function AvailabilityStateProvider({ cabinetAvailable, homeAvailable, ava
         <AvailabilityManager
           initialMode={managing}
           cabinetAvailable={cabinet}
+          practiceMode={practiceMode}
           homeAvailable={home}
           availability={settings}
           onClose={() => setManaging(null)}

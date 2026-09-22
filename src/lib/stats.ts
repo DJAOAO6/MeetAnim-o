@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { getPublicZones } from "@/lib/tours";
+import { getBusinessProfile } from "@/lib/business-profile-actions";
+import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 import { findMatchingZone } from "@/lib/booking-validation";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import type { StatsData, StatsFilters } from "@/data/stats";
@@ -153,12 +155,19 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
     revenueSeries.push({ label: shortMonthLabels[monthStart.getUTCMonth()], value: Math.round(value) });
   }
 
-  const modeGroups = new Map<string, { consultations: number; revenue: number }>([["Domicile", { consultations: 0, revenue: 0 }], ["Cabinet", { consultations: 0, revenue: 0 }]]);
+  // Une ligne par mode réellement pratiqué : « Cabinet : 0 consultation »
+  // n'apprend rien à qui n'a pas de cabinet. L'historique, lui, reste compté
+  // — un professionnel qui a fermé son cabinet garde ses chiffres d'avant.
+  const { practiceMode } = await getBusinessProfile();
+  const modeGroups = new Map<string, { consultations: number; revenue: number }>();
+  if (visitsHomes(practiceMode)) modeGroups.set("Domicile", { consultations: 0, revenue: 0 });
+  if (hasCabinet(practiceMode)) modeGroups.set("Cabinet", { consultations: 0, revenue: 0 });
   for (const a of completedAppointments) {
     const key = a.mode === "DOMICILE" ? "Domicile" : "Cabinet";
-    const entry = modeGroups.get(key)!;
+    const entry = modeGroups.get(key) ?? { consultations: 0, revenue: 0 };
     entry.consultations += 1;
     entry.revenue += a.price;
+    modeGroups.set(key, entry);
   }
   const consultationModes = [...modeGroups.entries()].map(([label, v]) => ({
     label,

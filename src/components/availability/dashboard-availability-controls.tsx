@@ -4,9 +4,11 @@ import { useState } from "react";
 import { AvailabilityManager } from "@/components/availability/availability-manager";
 import { availabilityStatus, statusLabel, type AvailabilityMode, type AvailabilityStatus } from "@/lib/availability-status";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { PracticeMode } from "@/lib/practice-mode";
 
 type DashboardAvailabilityControlsProps = {
   cabinetAvailable: boolean;
+  practiceMode: PracticeMode;
   homeAvailable: boolean;
   availability: AvailabilitySettings;
 };
@@ -25,7 +27,7 @@ type DashboardAvailabilityControlsProps = {
  * submitPublicBookingAction : le badge ne fait jamais qu'afficher un état,
  * il ne le simule pas.
  */
-export function DashboardAvailabilityControls({ cabinetAvailable, homeAvailable, availability }: DashboardAvailabilityControlsProps) {
+export function DashboardAvailabilityControls({ cabinetAvailable, homeAvailable, practiceMode, availability }: DashboardAvailabilityControlsProps) {
   const [cabinet, setCabinet] = useState(cabinetAvailable);
   const [home, setHome] = useState(homeAvailable);
   const [settings, setSettings] = useState(availability);
@@ -42,6 +44,7 @@ export function DashboardAvailabilityControls({ cabinetAvailable, homeAvailable,
         <AvailabilityManager
           initialMode={managing}
           cabinetAvailable={cabinet}
+          practiceMode={practiceMode}
           homeAvailable={home}
           availability={settings}
           onClose={() => setManaging(null)}

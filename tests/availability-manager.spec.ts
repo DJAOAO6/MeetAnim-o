@@ -79,7 +79,19 @@ test("fermer, programmer une fermeture, afficher un message, puis rouvrir", asyn
     // CAS 13 bis — message affiché aux clients.
     await page.getByLabel("Message affiché aux clients").fill("Le cabinet est fermé la semaine prochaine.");
     await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
-    await expect(page.getByText(/disponibilités enregistrées/i)).toBeVisible({ timeout: 15000 });
+    // Des rendez-vous déjà pris peuvent tomber hors des plages ouvertes : le
+    // praticien doit pouvoir enregistrer quand même, en connaissance de
+    // cause. Sans cette issue, des horaires devenus faux resteraient faux.
+    const horsHoraires = page.getByRole("dialog").filter({ hasText: "Enregistrer malgré des rendez-vous hors horaires" });
+    const enregistre = page.getByText(/disponibilités enregistrées/i);
+    // L'un ou l'autre selon les rendez-vous en base : attendre le premier
+    // qui arrive, plutôt que de regarder trop tôt s'il y a une confirmation.
+    await expect(horsHoraires.or(enregistre).first()).toBeVisible({ timeout: 15000 });
+    if (await horsHoraires.isVisible()) {
+      await expect(horsHoraires).toContainText(/ne sont ni annulés ni déplacés/);
+      await horsHoraires.getByRole("button", { name: "Enregistrer quand même" }).click();
+    }
+    await expect(enregistre).toBeVisible({ timeout: 15000 });
 
     const saved = await profile();
     const closure = saved.availability.closures.find((item) => item.date === inDays(7));

@@ -25,6 +25,7 @@ import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
 import type { Tour, TourAppointment } from "@/data/tours";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -113,9 +114,10 @@ type AgendaViewProps = {
   tours: Tour[];
   tourAppointments: Record<string, TourAppointment[]>;
   initialBlockedSlots: BlockedSlot[];
+  practiceMode: PracticeMode;
 };
 
-export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots }: AgendaViewProps) {
+export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots, practiceMode }: AgendaViewProps) {
   const router = useRouter();
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus, ensureRange } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
@@ -481,7 +483,9 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
           </div>
         ) : null}
 
-        {view === "day" || view === "week" ? (
+        {/* Ce rappel n'a de sens qu'avec les deux modes : sans cabinet, il
+            n'y a rien à concilier. */}
+        {(view === "day" || view === "week") && hasCabinet(practiceMode) && visitsHomes(practiceMode) ? (
           <div className="mt-4 flex items-start gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
             <Icon name="calendar" className="mt-0.5 h-5 w-5 shrink-0 text-animeo" />
             <p>

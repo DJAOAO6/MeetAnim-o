@@ -10,6 +10,7 @@ import {
   getAppointmentsInPeriodAction,
   updateAvailabilityAction,
   updateManualAvailabilityAction,
+  type AvailabilityConflict,
   type PeriodAppointment,
 } from "@/lib/business-profile-actions";
 import {
@@ -23,6 +24,7 @@ import {
   type AvailabilityMode,
 } from "@/lib/availability-status";
 import type { AvailabilitySettings, ClosureScope, ExceptionalClosure, TimeSlot } from "@/data/settings";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 const MESSAGE_MAX = 300;
 
@@ -33,6 +35,7 @@ const reasons = ["Congés", "Formation", "Absence", "Fermeture exceptionnelle", 
 type AvailabilityManagerProps = {
   initialMode: AvailabilityMode;
   cabinetAvailable: boolean;
+  practiceMode: PracticeMode;
   homeAvailable: boolean;
   availability: AvailabilitySettings;
   onClose: () => void;
@@ -72,13 +75,19 @@ function slotsLabel(slots: TimeSlot[], mode: AvailabilityMode): string {
  * concernées : les rendez-vous déjà pris ne sont jamais annulés, et le
  * praticien continue d'en créer depuis son agenda.
  */
-export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailable, availability, onClose, onApplied }: AvailabilityManagerProps) {
-  const [mode, setMode] = useState<AvailabilityMode>(initialMode);
+export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailable, practiceMode, availability, onClose, onApplied }: AvailabilityManagerProps) {
+  // Un mode qu'on ne pratique pas n'a pas d'onglet : il n'y a rien à ouvrir
+  // ni à fermer.
+  const modes = (["cabinet", "home"] as AvailabilityMode[]).filter((item) => (item === "cabinet" ? hasCabinet(practiceMode) : visitsHomes(practiceMode)));
+  // Ouvrir sur un mode non pratiqué afficherait un panneau sans onglet :
+  // on retombe sur le premier mode réellement pratiqué.
+  const [mode, setMode] = useState<AvailabilityMode>(modes.includes(initialMode) ? initialMode : (modes[0] ?? initialMode));
   const [cabinet, setCabinet] = useState(cabinetAvailable);
   const [home, setHome] = useState(homeAvailable);
   const [draft, setDraft] = useState<AvailabilitySettings>(availability);
   const [saving, setSaving] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  const [conflicts, setConflicts] = useState<AvailabilityConflict[] | null>(null);
   const [closureForm, setClosureForm] = useState<ExceptionalClosure | null>(null);
 
   const manuallyOpen = mode === "cabinet" ? cabinet : home;
@@ -121,19 +130,38 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
     }));
   }
 
-  async function save() {
+  async function save(force = false) {
     setSaving(true);
-    const result = await updateAvailabilityAction(draft);
+    const result = await updateAvailabilityAction(draft, force);
     setSaving(false);
     if (!result.ok) {
-      // Le refus vient de rendez-vous qui sortiraient des plages ouvertes :
-      // on l'expose tel quel, c'est une information utile, pas une panne.
+      // Des rendez-vous déjà pris sortiraient des plages ouvertes. Ce n'est
+      // pas une panne, et ce n'est pas non plus à l'application de trancher :
+      // on montre lesquels, et le praticien décide. Sans cette issue, des
+      // horaires devenus faux ne pouvaient plus être corrigés du tout.
+      if (result.conflicts?.length) {
+        setConflicts(result.conflicts);
+        return;
+      }
       notify.error(result.error);
       return;
     }
+    setConflicts(null);
     onApplied({ cabinetAvailable: cabinet, homeAvailable: home, availability: draft });
     notify.success("Disponibilités enregistrées.");
     onClose();
+  }
+
+  /** Les rendez-vous concernés, du plus proche au plus lointain. */
+  function conflictSummary(items: AvailabilityConflict[]): string {
+    const shown = items.slice(0, 5).map((item) => `${formatDateId(item.date)} à ${item.start} — ${item.animalName} (${item.clientName})`);
+    const rest = items.length - shown.length;
+    return [
+      `${items.length} rendez-vous déjà prévu${items.length > 1 ? "s" : ""} ne tiendra${items.length > 1 ? "ont" : ""} plus dans vos horaires :`,
+      ...shown,
+      rest > 0 ? `…et ${rest} autre${rest > 1 ? "s" : ""}.` : null,
+      "Ils ne sont ni annulés ni déplacés : ils resteront à leur place dans votre agenda, en dehors des plages ouvertes à la réservation.",
+    ].filter(Boolean).join("\n");
   }
 
   return (
@@ -147,7 +175,7 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
         footer={
           <>
             <Button variant="secondary" onClick={onClose}>Annuler</Button>
-            <Button onClick={save} disabled={saving || !dirty}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
+            <Button onClick={() => void save()} disabled={saving || !dirty}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
           </>
         }
       >
@@ -155,7 +183,7 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
           {/* Onglets Cabinet / Domicile : chaque mode a son statut, ses
               fermetures et ses créneaux, sans quitter l'écran. */}
           <div className="mx-auto flex w-full max-w-md rounded-2xl bg-animeo-bg p-1.5" role="tablist" aria-label="Mode de consultation">
-            {(["cabinet", "home"] as AvailabilityMode[]).map((item) => (
+            {modes.map((item) => (
               <button
                 key={item}
                 type="button"
@@ -290,6 +318,17 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
           </div>
         </div>
       </Modal>
+
+      {conflicts ? (
+        <ConfirmModal
+          title="Enregistrer malgré des rendez-vous hors horaires ?"
+          message={conflictSummary(conflicts)}
+          confirmLabel="Enregistrer quand même"
+          destructive={false}
+          onConfirm={() => { setConflicts(null); void save(true); }}
+          onClose={() => setConflicts(null)}
+        />
+      ) : null}
 
       {confirmingClose ? (
         <ConfirmModal

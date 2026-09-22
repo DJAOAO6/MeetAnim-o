@@ -7,6 +7,7 @@ import type { Client } from "@/data/clients";
 import type { Reminder } from "@/data/reminders";
 import type { Tour, TourAppointment, Zone } from "@/data/tours";
 import type { AvailabilitySettings } from "@/data/settings";
+import type { PracticeMode } from "@/lib/practice-mode";
 
 export type DashboardOverviewData = {
   clients: Client[];
@@ -14,6 +15,7 @@ export type DashboardOverviewData = {
   zones: Zone[];
   tourAppointments: Record<string, TourAppointment[]>;
   reminders: Reminder[];
+  practiceMode: PracticeMode;
   cabinetAvailable: boolean;
   homeAvailable: boolean;
   // Horaires, fermetures programmées et message client : le badge du tableau
@@ -32,5 +34,5 @@ export async function getDashboardOverviewData(): Promise<DashboardOverviewData>
     getAvailability(),
   ]);
 
-  return { clients, tours, zones, tourAppointments, reminders, cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable, availability };
+  return { clients, tours, zones, tourAppointments, reminders, practiceMode: businessProfile.practiceMode, cabinetAvailable: businessProfile.cabinetAvailable, homeAvailable: businessProfile.homeAvailable, availability };
 }
