@@ -107,6 +107,13 @@ test("sans code postal renseigné, le calendrier ne marque rien", async ({ page 
 
 test("sans aucune tournée, le code postal n'est pas demandé du tout", async ({ page }) => {
   await cleanup();
+  // Les tournées de démonstration sont mises en sommeil le temps du test
+  // (seules les tournées actives annoncent des jours de passage), puis
+  // rendues telles quelles : les supprimer priverait les autres tests de
+  // leurs données.
+  const actives = await sql`SELECT id FROM "Tour" WHERE status = 'ACTIVE'`;
+  await sql`UPDATE "Tour" SET status = 'INACTIVE' WHERE status = 'ACTIVE'`;
+  try {
   await gotoModeChoice(page);
   await page.getByRole("button", { name: "Consultation à domicile", exact: true }).click();
   // Un champ de plus avant de choisir sa date ne se justifie que s'il sert.
@@ -115,4 +122,7 @@ test("sans aucune tournée, le code postal n'est pas demandé du tout", async ({
   await page.locator('button[type="submit"]').click();
   await expect(page.getByText("Choisissez votre créneau")).toBeVisible();
   await expect(page.locator('[role="gridcell"][aria-label*="passage prévu"]')).toHaveCount(0);
+  } finally {
+    for (const tour of actives) await sql`UPDATE "Tour" SET status = 'ACTIVE' WHERE id = ${tour.id}`;
+  }
 });

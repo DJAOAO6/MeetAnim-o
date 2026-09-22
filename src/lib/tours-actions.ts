@@ -2,7 +2,7 @@
 
 import { parisDateId } from "@/lib/paris-time";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getPublicZones, getTours } from "@/lib/tours";
@@ -25,9 +25,10 @@ const tourStartTypeLabel: Record<DbTourStartType, Tour["startType"]> = { CABINET
  * (getTours(), déjà appelé pour toute la liste) plutôt que dupliquées ici.
  */
 async function toTour(row: DbTour): Promise<Tour> {
+  const db = await currentDb();
   const [tours, zoneLinks] = await Promise.all([
     getTours(),
-    prisma.tour.findUnique({ where: { id: row.id }, select: { zones: { select: { id: true } } } }),
+    db.tour.findUnique({ where: { id: row.id }, select: { zones: { select: { id: true } } } }),
   ]);
   const computed = tours.find((tour) => tour.id === row.id);
   return {
@@ -91,6 +92,7 @@ const recurrencesRequiringAnchor: Tour["recurrence"][] = ["Toutes les deux semai
 
 export async function saveTourAction(input: SaveTourInput): Promise<TourActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les tournées." };
   }
@@ -100,7 +102,7 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
 
   const zoneIds = [...new Set(input.zoneIds)];
   if (zoneIds.length === 0) return { ok: false, error: "Sélectionnez au moins une zone." };
-  const matchingZones = await prisma.zone.findMany({ where: { id: { in: zoneIds } } });
+  const matchingZones = await db.zone.findMany({ where: { id: { in: zoneIds } } });
   if (matchingZones.length !== zoneIds.length) return { ok: false, error: "Une des zones sélectionnées n'existe plus." };
 
   const dateId = input.dateId?.trim() || null;
@@ -137,8 +139,8 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
   // une création utilise "connect" (rien à remplacer sur un enregistrement
   // qui n'existe pas encore) — même distinction que saveZoneAction pour ses villes.
   const row = input.id
-    ? await prisma.tour.update({ where: { id: input.id }, data: { ...baseData, zones: { set: zoneIds.map((id) => ({ id })) } } })
-    : await prisma.tour.create({ data: { ...baseData, dateLabel: `${input.day} · prochaine occurrence`, zones: { connect: zoneIds.map((id) => ({ id })) } } });
+    ? await db.tour.update({ where: { id: input.id }, data: { ...baseData, zones: { set: zoneIds.map((id) => ({ id })) } } })
+    : await db.tour.create({ data: { ...baseData, dateLabel: `${input.day} · prochaine occurrence`, zones: { connect: zoneIds.map((id) => ({ id })) } } });
 
   await revalidateToursPages();
   return { ok: true, tour: await toTour(row) };
@@ -146,14 +148,15 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
 
 export async function toggleTourStatusAction(id: string): Promise<TourActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les tournées." };
   }
 
-  const existing = await prisma.tour.findUnique({ where: { id } });
+  const existing = await db.tour.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Cette tournée n'existe plus." };
 
-  const row = await prisma.tour.update({
+  const row = await db.tour.update({
     where: { id },
     data: { status: existing.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" },
   });
@@ -173,11 +176,12 @@ export type DeleteTourResult = { ok: true } | { ok: false; error: string };
  */
 export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les tournées." };
   }
 
-  const existing = await prisma.tour.findUnique({ where: { id } });
+  const existing = await db.tour.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "Cette tournée n'existe plus." };
 
   // Les journées déjà générées à partir de ce motif survivraient à sa
@@ -192,11 +196,11 @@ export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
   // l'historique. Ni l'une ni l'autre n'appartient à ce motif au point de
   // disparaître avec lui.
   const todayUtc = new Date(`${parisDateId()}T00:00:00.000Z`);
-  await prisma.tourRun.deleteMany({
+  await db.tourRun.deleteMany({
     where: { templateId: id, date: { gte: todayUtc }, stops: { none: {} } },
   });
 
-  await prisma.tour.delete({ where: { id } });
+  await db.tour.delete({ where: { id } });
   await revalidateToursPages();
   return { ok: true };
 }
@@ -207,6 +211,7 @@ export type SaveZoneInput = { id?: string; name: string; cities: City[]; sector?
 
 export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les zones." };
   }
@@ -239,11 +244,11 @@ export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionRe
   // générés par le formulaire pour React) : on remplace systématiquement
   // tout le jeu de villes de la zone plutôt que de tenter un diff.
   const zone = input.id
-    ? await prisma.$transaction(async (tx) => {
+    ? await db.$transaction(async (tx) => {
         await tx.city.deleteMany({ where: { zoneId: input.id } });
         return tx.zone.update({ where: { id: input.id }, data: { name, ...sector, cities: { create: cities } }, include: { cities: true } });
       })
-    : await prisma.zone.create({ data: { name, ...sector, cities: { create: cities } }, include: { cities: true } });
+    : await db.zone.create({ data: { name, ...sector, cities: { create: cities } }, include: { cities: true } });
 
   await revalidateToursPages();
   return {
@@ -263,12 +268,13 @@ export type DeleteZoneResult = { ok: true } | { ok: false; error: string };
 
 export async function deleteZoneAction(id: string): Promise<DeleteZoneResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les zones." };
   }
 
   try {
-    await prisma.zone.delete({ where: { id } });
+    await db.zone.delete({ where: { id } });
   } catch {
     // Contrainte de clé étrangère : une Tour référence encore cette zone
     // (Tour.zone n'a pas de cascade de suppression, par conception).
@@ -290,17 +296,18 @@ export async function deleteZoneAction(id: string): Promise<DeleteZoneResult> {
  */
 export async function reassignAndDeleteZoneAction(zoneId: string, targetZoneId: string): Promise<DeleteZoneResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les zones." };
   }
   if (zoneId === targetZoneId) return { ok: false, error: "Choisissez une zone de destination différente." };
 
-  const targetZone = await prisma.zone.findUnique({ where: { id: targetZoneId } });
+  const targetZone = await db.zone.findUnique({ where: { id: targetZoneId } });
   if (!targetZone) return { ok: false, error: "La zone de destination n'existe plus." };
 
-  const affectedTours = await prisma.tour.findMany({ where: { OR: [{ zoneId }, { zones: { some: { id: zoneId } } }] }, include: { zones: { select: { id: true } } } });
+  const affectedTours = await db.tour.findMany({ where: { OR: [{ zoneId }, { zones: { some: { id: zoneId } } }] }, include: { zones: { select: { id: true } } } });
 
-  await prisma.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     for (const tour of affectedTours) {
       const remainingZoneIds = tour.zones.map((zone) => zone.id).filter((id) => id !== zoneId);
       if (!remainingZoneIds.includes(targetZoneId)) remainingZoneIds.push(targetZoneId);
@@ -340,13 +347,14 @@ export type AddTourStopResult = { ok: true } | { ok: false; error: string };
  */
 export async function addTourStopAction(input: AddTourStopInput): Promise<AddTourStopResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de gérer les tournées." };
   }
 
   const [client, animal, services, zones] = await Promise.all([
-    prisma.client.findUnique({ where: { id: input.clientId } }),
-    prisma.animal.findUnique({ where: { id: input.animalId } }),
+    db.client.findUnique({ where: { id: input.clientId } }),
+    db.animal.findUnique({ where: { id: input.animalId } }),
     getPublicServices(),
     getPublicZones(),
   ]);
@@ -409,9 +417,10 @@ export type TourPatternMatch = {
  */
 export async function findTourPatternForDateAction(dateId: string): Promise<TourPatternMatch | null> {
   await requireUser();
+  const db = await currentDb();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateId)) return null;
 
-  const tours = await prisma.tour.findMany({ where: { status: "ACTIVE" } });
+  const tours = await db.tour.findMany({ where: { status: "ACTIVE" } });
   const weekday = weekdayLabelFor(parseDateIdToLocalNoon(dateId));
   const match = tours.find((tour) =>
     tourRunsOnDate({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, dateId, weekday),
@@ -453,11 +462,12 @@ export async function searchZonesAction(rawQuery: string): Promise<ZoneSearchRes
   // searchClientsAndAnimalsAction (client-search.ts).
   const user = await getCurrentUser();
   if (!user) return [];
+  const db = await currentDb();
 
   const query = rawQuery.trim();
   if (query.length < 2) return [];
 
-  const zones = await prisma.zone.findMany({
+  const zones = await db.zone.findMany({
     where: {
       OR: [
         { name: { contains: query, mode: "insensitive" } },

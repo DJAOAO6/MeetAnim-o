@@ -1,6 +1,6 @@
 import "server-only";
 import { parisDateId } from "@/lib/paris-time";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { haversineDistanceKm } from "@/lib/geo";
 import { findMatchingZone, toLocalDateId } from "@/lib/booking-validation";
@@ -131,8 +131,9 @@ type StopAppointment = { animalSpecies: string | null; price: number; clientId: 
 export type TourRunWithStops = DbTourRun & { stops: (DbTourStop & { appointment: StopAppointment | null })[] } & { template: { zones: { name: string; cities: { name: string; postalCode: string }[] }[] } | null };
 
 export async function getTourRunForDate(userId: string, dateId: string): Promise<TourRunWithStops | null> {
+  const db = await currentDb();
   const date = new Date(`${dateId}T00:00:00.000Z`);
-  return prisma.tourRun.findFirst({
+  return db.tourRun.findFirst({
     where: { userId, date },
     include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude },
     orderBy: { createdAt: "desc" },
@@ -140,7 +141,8 @@ export async function getTourRunForDate(userId: string, dateId: string): Promise
 }
 
 export async function getTourRunById(id: string, userId: string): Promise<TourRunWithStops | null> {
-  return prisma.tourRun.findFirst({ where: { id, userId }, include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude } });
+  const db = await currentDb();
+  return db.tourRun.findFirst({ where: { id, userId }, include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude } });
 }
 
 // ---------------------------------------------------------------------------
@@ -335,13 +337,15 @@ export function toAvailableAppointmentView(appointment: DbAppointment): Availabl
 }
 
 export async function listSavedPlaces(userId: string): Promise<DbSavedPlace[]> {
-  return prisma.savedPlace.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
+  const db = await currentDb();
+  return db.savedPlace.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
 }
 
 export async function getOrCreateTourPreferences(userId: string): Promise<DbTourPreferences> {
-  const existing = await prisma.tourPreferences.findUnique({ where: { userId } });
+  const db = await currentDb();
+  const existing = await db.tourPreferences.findUnique({ where: { userId } });
   if (existing) return existing;
-  return prisma.tourPreferences.create({ data: { userId } });
+  return db.tourPreferences.create({ data: { userId } });
 }
 
 /**
@@ -351,17 +355,18 @@ export async function getOrCreateTourPreferences(userId: string): Promise<DbTour
  * déplacement légitime de la praticienne si elle reçoit ce jour-là).
  */
 export async function getAvailableAppointmentsForDate(dateId: string, excludeTourRunId: string | null): Promise<DbAppointment[]> {
+  const db = await currentDb();
   const date = new Date(`${dateId}T00:00:00.000Z`);
   const alreadyStoppedAppointmentIds = excludeTourRunId
     ? (
-        await prisma.tourStop.findMany({
+        await db.tourStop.findMany({
           where: { tourRunId: excludeTourRunId, appointmentId: { not: null } },
           select: { appointmentId: true },
         })
       ).map((row) => row.appointmentId!)
     : [];
 
-  return prisma.appointment.findMany({
+  return db.appointment.findMany({
     where: {
       date,
       status: { not: "CANCELLED" },
@@ -435,7 +440,8 @@ export type TourRunEditorData = {
 };
 
 async function resolveFillOpportunity(templateId: string, dateId: string): Promise<TourFillOpportunity | null> {
-  const tour = await prisma.tour.findUnique({ where: { id: templateId }, select: { id: true, day: true, dateId: true, recurrence: true } });
+  const db = await currentDb();
+  const tour = await db.tour.findUnique({ where: { id: templateId }, select: { id: true, day: true, dateId: true, recurrence: true } });
   if (!tour) return null;
 
   const todayId = parisDateId();
@@ -544,12 +550,13 @@ export type TourDayListData = {
  * occurrence.
  */
 export async function getTourRunsListData(userId: string, todayId: string): Promise<TourDayListData> {
+  const db = await currentDb();
   const today = new Date(`${todayId}T00:00:00.000Z`);
   const windowStart = new Date(today.getTime() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const windowEnd = new Date(today.getTime() + UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   const [rows, fillOpportunities] = await Promise.all([
-    prisma.tourRun.findMany({
+    db.tourRun.findMany({
       where: { userId, date: { gte: windowStart, lte: windowEnd } },
       include: {
         stops: { select: { id: true } },
@@ -603,8 +610,9 @@ export async function getTourRunsListData(userId: string, todayId: string): Prom
  * TourRun déjà posées par generateUpcomingTourRuns.
  */
 export async function getUpcomingGeneratedCounts(userId: string): Promise<Record<string, number>> {
+  const db = await currentDb();
   const today = new Date(`${todayDateId()}T00:00:00.000Z`);
-  const rows = await prisma.tourRun.groupBy({
+  const rows = await db.tourRun.groupBy({
     by: ["templateId"],
     where: { userId, templateId: { not: null }, date: { gte: today } },
     _count: { _all: true },

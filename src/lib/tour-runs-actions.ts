@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { resolveTourEndpoints, getOrCreateTourPreferences, listSavedPlaces } from "@/lib/tour-runs";
@@ -30,7 +30,8 @@ const ROUTE_UNAVAILABLE_ERROR = "Impossible de calculer l'itinéraire pour le mo
 // ---------------------------------------------------------------------------
 
 async function requireOwnedTourRun(tourRunId: string, userId: string) {
-  const tourRun = await prisma.tourRun.findFirst({ where: { id: tourRunId, userId } });
+  const db = await currentDb();
+  const tourRun = await db.tourRun.findFirst({ where: { id: tourRunId, userId } });
   if (!tourRun) throw new Error("NOT_FOUND");
   return tourRun;
 }
@@ -50,7 +51,8 @@ function mapPreference(pref: "TIME" | "DISTANCE" | "BALANCED"): "fastest" | "sho
 }
 
 async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolean; degraded?: boolean }> {
-  const tourRun = await prisma.tourRun.findUnique({ where: { id: tourRunId }, include: { stops: { orderBy: { order: "asc" } } } });
+  const db = await currentDb();
+  const tourRun = await db.tourRun.findUnique({ where: { id: tourRunId }, include: { stops: { orderBy: { order: "asc" } } } });
   if (!tourRun) return { ok: false };
 
   const savedPlaces = await listSavedPlaces(tourRun.userId);
@@ -64,7 +66,7 @@ async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolea
   if (end.coordinates) points.push(end.coordinates);
 
   if (points.length < 2) {
-    await prisma.tourRun.update({
+    await db.tourRun.update({
       where: { id: tourRunId },
       data: { totalDistanceMeters: null, totalDurationSeconds: null, routeGeometry: Prisma.DbNull, routeComputedAt: null },
     });
@@ -79,8 +81,8 @@ async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolea
       preference: mapPreference(tourRun.optimizationPreference),
     });
 
-    await prisma.$transaction([
-      prisma.tourRun.update({
+    await db.$transaction([
+      db.tourRun.update({
         where: { id: tourRunId },
         data: {
           totalDistanceMeters: Math.round(route.distanceMeters),
@@ -97,7 +99,7 @@ async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolea
         .map((stop, index) => {
           const legIndex = start.coordinates ? index : index - 1;
           const leg = legIndex >= 0 ? route.legs[legIndex] : undefined;
-          return prisma.tourStop.update({
+          return db.tourStop.update({
             where: { id: stop.id },
             data: { legDistanceMeters: leg ? Math.round(leg.distanceMeters) : null, legDurationSeconds: leg ? Math.round(leg.durationSeconds) : null },
           });
@@ -115,7 +117,7 @@ async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolea
     for (let i = 0; i < points.length - 1; i += 1) totalKm += haversineDistanceKm(points[i], points[i + 1]) * ROAD_DETOUR_FACTOR;
     const AVERAGE_SPEED_KMH = 60;
 
-    await prisma.tourRun.update({
+    await db.tourRun.update({
       where: { id: tourRunId },
       data: {
         totalDistanceMeters: Math.round(totalKm * 1000),
@@ -145,7 +147,8 @@ async function recomputeAndPersistRoute(tourRunId: string): Promise<{ ok: boolea
  * sur les arrêts suivants, jamais en remontant en arrière.
  */
 async function recomputeStopTimings(tourRunId: string): Promise<void> {
-  const tourRun = await prisma.tourRun.findUnique({
+  const db = await currentDb();
+  const tourRun = await db.tourRun.findUnique({
     where: { id: tourRunId },
     include: { stops: { orderBy: { order: "asc" }, include: { appointment: { select: { start: true } } } } },
   });
@@ -170,9 +173,9 @@ async function recomputeStopTimings(tourRunId: string): Promise<void> {
     })),
   );
 
-  await prisma.$transaction(
+  await db.$transaction(
     tourRun.stops.map((stop, index) =>
-      prisma.tourStop.update({
+      db.tourStop.update({
         where: { id: stop.id },
         data: { arrivalTime: timings[index].arrivalTime, departureTime: timings[index].departureTime, lateWarningMinutes: timings[index].lateWarningMinutes },
       }),
@@ -281,6 +284,7 @@ export type CreateTourRunResult = { ok: true; id: string } | { ok: false; error:
 
 export async function createTourRunAction(input: z.infer<typeof createTourRunSchema>): Promise<CreateTourRunResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = createTourRunSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -290,10 +294,10 @@ export async function createTourRunAction(input: z.infer<typeof createTourRunSch
   // considère jamais deux NULL comme en conflit — vérification explicite
   // pour garder l'invariant "un seul objet visible par date" (audit de
   // conformité, constat n°8).
-  const existing = await prisma.tourRun.findFirst({ where: { userId: user.id, date: new Date(`${data.dateId}T00:00:00.000Z`) }, select: { id: true } });
+  const existing = await db.tourRun.findFirst({ where: { userId: user.id, date: new Date(`${data.dateId}T00:00:00.000Z`) }, select: { id: true } });
   if (existing) return { ok: false, error: "Une journée existe déjà pour cette date." };
 
-  const tourRun = await prisma.tourRun.create({
+  const tourRun = await db.tourRun.create({
     data: {
       userId: user.id,
       name: data.name,
@@ -331,6 +335,7 @@ const updateEndpointsSchema = z.object({
 
 export async function updateTourRunEndpointsAction(input: z.infer<typeof updateEndpointsSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = updateEndpointsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -341,7 +346,7 @@ export async function updateTourRunEndpointsAction(input: z.infer<typeof updateE
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  await prisma.tourRun.update({
+  await db.tourRun.update({
     where: { id: data.tourRunId },
     data: {
       departureTime: data.departureTime ?? null,
@@ -379,6 +384,7 @@ const updateOptionsSchema = z.object({
 
 export async function updateTourRunOptionsAction(input: z.infer<typeof updateOptionsSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = updateOptionsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -389,7 +395,7 @@ export async function updateTourRunOptionsAction(input: z.infer<typeof updateOpt
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  await prisma.tourRun.update({
+  await db.tourRun.update({
     where: { id: data.tourRunId },
     data: {
       safetyBufferMinutes: data.safetyBufferMinutes,
@@ -410,6 +416,7 @@ export async function updateTourRunOptionsAction(input: z.infer<typeof updateOpt
 
 export async function deleteTourRunAction(tourRunId: string): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
 
@@ -419,7 +426,7 @@ export async function deleteTourRunAction(tourRunId: string): Promise<ActionResu
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  await prisma.tourRun.delete({ where: { id: parsedId.data } });
+  await db.tourRun.delete({ where: { id: parsedId.data } });
   revalidatePath(TOURS_PATH);
   return { ok: true };
 }
@@ -435,10 +442,11 @@ export async function deleteTourRunAction(tourRunId: string): Promise<ActionResu
  */
 export async function deleteTourRunsAction(tourRunIds: string[]): Promise<ActionResult & { deleted?: number }> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = z.array(z.string().cuid()).min(1).max(500).safeParse(tourRunIds);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
 
-  const result = await prisma.tourRun.deleteMany({ where: { id: { in: parsed.data }, userId: user.id } });
+  const result = await db.tourRun.deleteMany({ where: { id: { in: parsed.data }, userId: user.id } });
   revalidatePath(TOURS_PATH);
   return { ok: true, deleted: result.count };
 }
@@ -448,7 +456,8 @@ export async function deleteTourRunsAction(tourRunIds: string[]): Promise<Action
 // ---------------------------------------------------------------------------
 
 async function nextStopOrder(tourRunId: string): Promise<number> {
-  const last = await prisma.tourStop.findFirst({ where: { tourRunId }, orderBy: { order: "desc" } });
+  const db = await currentDb();
+  const last = await db.tourStop.findFirst({ where: { tourRunId }, orderBy: { order: "desc" } });
   return (last?.order ?? -1) + 1;
 }
 
@@ -459,6 +468,7 @@ const addAppointmentStopsSchema = z.object({
 
 export async function addAppointmentStopsAction(input: z.infer<typeof addAppointmentStopsSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = addAppointmentStopsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -469,11 +479,11 @@ export async function addAppointmentStopsAction(input: z.infer<typeof addAppoint
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const appointments = await prisma.appointment.findMany({ where: { id: { in: data.appointmentIds } } });
+  const appointments = await db.appointment.findMany({ where: { id: { in: data.appointmentIds } } });
   if (appointments.length === 0) return { ok: false, error: GENERIC_ERROR };
 
   let order = await nextStopOrder(data.tourRunId);
-  await prisma.tourStop.createMany({
+  await db.tourStop.createMany({
     data: appointments.map((appointment) => ({
       tourRunId: data.tourRunId,
       appointmentId: appointment.id,
@@ -513,6 +523,7 @@ const addManualStopSchema = z.object({
 
 export async function addManualStopAction(input: z.infer<typeof addManualStopSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = addManualStopSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -524,7 +535,7 @@ export async function addManualStopAction(input: z.infer<typeof addManualStopSch
   }
 
   const order = await nextStopOrder(data.tourRunId);
-  await prisma.tourStop.create({
+  await db.tourStop.create({
     data: {
       tourRunId: data.tourRunId,
       order,
@@ -564,6 +575,7 @@ const updateStopSchema = z.object({
 
 export async function updateStopAction(input: z.infer<typeof updateStopSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = updateStopSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -574,12 +586,12 @@ export async function updateStopAction(input: z.infer<typeof updateStopSchema>):
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const stop = await prisma.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
+  const stop = await db.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
   if (!stop) return { ok: false, error: GENERIC_ERROR };
 
   const isManual = stop.appointmentId === null;
 
-  await prisma.tourStop.update({
+  await db.tourStop.update({
     where: { id: data.stopId },
     data: {
       ...(isManual && data.label !== undefined ? { label: data.label } : {}),
@@ -624,6 +636,7 @@ const updateStopScheduleSchema = z
  */
 export async function updateStopScheduleAction(input: z.infer<typeof updateStopScheduleSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = updateStopScheduleSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -634,7 +647,7 @@ export async function updateStopScheduleAction(input: z.infer<typeof updateStopS
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const stop = await prisma.tourStop.findFirst({
+  const stop = await db.tourStop.findFirst({
     where: { id: data.stopId, tourRunId: data.tourRunId },
     include: { appointment: true },
   });
@@ -665,7 +678,7 @@ export async function updateStopScheduleAction(input: z.infer<typeof updateStopS
     });
     if (!result.ok) return { ok: false, error: result.error };
   } else {
-    await prisma.tourStop.update({
+    await db.tourStop.update({
       where: { id: data.stopId },
       data: {
         ...(data.start !== undefined ? { arrivalTime: data.start } : {}),
@@ -675,7 +688,7 @@ export async function updateStopScheduleAction(input: z.infer<typeof updateStopS
   }
 
   if (data.start !== undefined) {
-    await prisma.tourStop.update({ where: { id: data.stopId }, data: { locked: true, flexible: false } });
+    await db.tourStop.update({ where: { id: data.stopId }, data: { locked: true, flexible: false } });
   }
 
   const result = await recomputeAndPersistRoute(data.tourRunId);
@@ -686,7 +699,8 @@ export async function updateStopScheduleAction(input: z.infer<typeof updateStopS
 const removeStopSchema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid() });
 
 async function deleteStopAndReindex(tourRunId: string, stopId: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
+  const db = await currentDb();
+  await db.$transaction(async (tx) => {
     await tx.tourStop.delete({ where: { id: stopId } });
     const remaining = await tx.tourStop.findMany({ where: { tourRunId }, orderBy: { order: "asc" } });
     await Promise.all(remaining.map((remainingStop, index) => tx.tourStop.update({ where: { id: remainingStop.id }, data: { order: index } })));
@@ -699,6 +713,7 @@ async function deleteStopAndReindex(tourRunId: string, stopId: string): Promise<
 // deux gestes distincts, jamais fusionnés dans un même bouton.
 export async function removeStopAction(input: z.infer<typeof removeStopSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = removeStopSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -709,7 +724,7 @@ export async function removeStopAction(input: z.infer<typeof removeStopSchema>):
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const stop = await prisma.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
+  const stop = await db.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
   if (!stop) return { ok: false, error: GENERIC_ERROR };
 
   await deleteStopAndReindex(data.tourRunId, data.stopId);
@@ -730,6 +745,7 @@ const cancelStopAppointmentSchema = z.object({ tourRunId: z.string().cuid(), sto
 
 export async function cancelStopAppointmentAction(input: z.infer<typeof cancelStopAppointmentSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = cancelStopAppointmentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -740,7 +756,7 @@ export async function cancelStopAppointmentAction(input: z.infer<typeof cancelSt
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const stop = await prisma.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
+  const stop = await db.tourStop.findFirst({ where: { id: data.stopId, tourRunId: data.tourRunId } });
   if (!stop || !stop.appointmentId) return { ok: false, error: GENERIC_ERROR };
 
   const cancelResult = await updateAppointmentStatusAction(stop.appointmentId, "cancelled");
@@ -768,6 +784,7 @@ export type ReorderResult = { ok: true } | { ok: false; error: string } | { ok: 
 
 export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchema>): Promise<ReorderResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = reorderStopsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
@@ -779,7 +796,7 @@ export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchem
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const stops = await prisma.tourStop.findMany({ where: { tourRunId: data.tourRunId }, include: { appointment: true } });
+  const stops = await db.tourStop.findMany({ where: { tourRunId: data.tourRunId }, include: { appointment: true } });
   const existingIds = new Set(stops.map((row) => row.id));
   const requestedIds = new Set(data.orderedStopIds);
   if (existingIds.size !== requestedIds.size || [...existingIds].some((id) => !requestedIds.has(id))) {
@@ -815,9 +832,9 @@ export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchem
 
   // Deux passes (offset temporaire puis ordre final) pour ne jamais violer
   // la contrainte unique [tourRunId, order] pendant la transaction.
-  await prisma.$transaction([
-    ...data.orderedStopIds.map((stopId, index) => prisma.tourStop.update({ where: { id: stopId }, data: { order: 10000 + index } })),
-    ...data.orderedStopIds.map((stopId, index) => prisma.tourStop.update({ where: { id: stopId }, data: { order: index } })),
+  await db.$transaction([
+    ...data.orderedStopIds.map((stopId, index) => db.tourStop.update({ where: { id: stopId }, data: { order: 10000 + index } })),
+    ...data.orderedStopIds.map((stopId, index) => db.tourStop.update({ where: { id: stopId }, data: { order: index } })),
   ]);
 
   const result = await recomputeAndPersistRoute(data.tourRunId);
@@ -827,6 +844,7 @@ export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchem
 
 export async function moveStopAction(input: { tourRunId: string; stopId: string; direction: "up" | "down"; confirmed?: boolean }): Promise<ReorderResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const schema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid(), direction: z.enum(["up", "down"]), confirmed: z.boolean().optional() });
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
@@ -838,7 +856,7 @@ export async function moveStopAction(input: { tourRunId: string; stopId: string;
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const stops = await prisma.tourStop.findMany({ where: { tourRunId: data.tourRunId }, orderBy: { order: "asc" } });
+  const stops = await db.tourStop.findMany({ where: { tourRunId: data.tourRunId }, orderBy: { order: "asc" } });
   const index = stops.findIndex((stop) => stop.id === data.stopId);
   const swapWith = data.direction === "up" ? index - 1 : index + 1;
   if (index === -1 || swapWith < 0 || swapWith >= stops.length) return { ok: false, error: GENERIC_ERROR };
@@ -888,6 +906,7 @@ export type OptimizeResult = { ok: true; comparison: OptimizationComparison } | 
 
 export async function optimizeTourRunAction(tourRunId: string): Promise<OptimizeResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
 
@@ -903,7 +922,7 @@ export async function optimizeTourRunAction(tourRunId: string): Promise<Optimize
   }
   await recordAttempt(`tour-optimize:${user.id}`);
 
-  const stops = await prisma.tourStop.findMany({ where: { tourRunId: parsedId.data }, orderBy: { order: "asc" } });
+  const stops = await db.tourStop.findMany({ where: { tourRunId: parsedId.data }, orderBy: { order: "asc" } });
   const savedPlaces = await listSavedPlaces(user.id);
   const { start, end } = await resolveTourEndpoints(tourRun, stops, savedPlaces);
   if (!start.coordinates || !end.coordinates) {
@@ -961,7 +980,7 @@ export async function optimizeTourRunAction(tourRunId: string): Promise<Optimize
       unassigned: optimization.unassigned,
     };
 
-    await prisma.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: comparison as unknown as object } });
+    await db.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: comparison as unknown as object } });
     revalidatePath(TOURS_PATH);
     return { ok: true, comparison };
   } catch {
@@ -971,6 +990,7 @@ export async function optimizeTourRunAction(tourRunId: string): Promise<Optimize
 
 export async function applyOptimizationProposalAction(tourRunId: string, confirmed?: boolean): Promise<ReorderResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
 
@@ -984,7 +1004,7 @@ export async function applyOptimizationProposalAction(tourRunId: string, confirm
   const proposal = tourRun.lastOptimizationProposal as unknown as OptimizationComparison | null;
   if (!proposal) return { ok: false, error: "Aucune proposition à appliquer." };
 
-  const stops = await prisma.tourStop.findMany({ where: { tourRunId: parsedId.data }, orderBy: { order: "asc" } });
+  const stops = await db.tourStop.findMany({ where: { tourRunId: parsedId.data }, orderBy: { order: "asc" } });
   const proposedFirst = proposal.proposed.order;
   const rest = stops.filter((stop) => !proposedFirst.includes(stop.id)).map((stop) => stop.id);
   const finalOrder = [...proposedFirst, ...rest];
@@ -996,13 +1016,14 @@ export async function applyOptimizationProposalAction(tourRunId: string, confirm
   const result = await reorderStopsAction({ tourRunId: parsedId.data, orderedStopIds: finalOrder, confirmed });
   if (!result.ok) return result;
 
-  await prisma.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: Prisma.DbNull } });
+  await db.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: Prisma.DbNull } });
   revalidatePath(TOURS_PATH);
   return { ok: true };
 }
 
 export async function dismissOptimizationProposalAction(tourRunId: string): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
 
@@ -1012,7 +1033,7 @@ export async function dismissOptimizationProposalAction(tourRunId: string): Prom
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  await prisma.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: Prisma.DbNull } });
+  await db.tourRun.update({ where: { id: parsedId.data }, data: { lastOptimizationProposal: Prisma.DbNull } });
   revalidatePath(TOURS_PATH);
   return { ok: true };
 }
@@ -1036,17 +1057,18 @@ const upsertSavedPlaceSchema = z.object({
 
 export async function upsertSavedPlaceAction(input: z.infer<typeof upsertSavedPlaceSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = upsertSavedPlaceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
 
-  if (data.isDefaultStart) await prisma.savedPlace.updateMany({ where: { userId: user.id }, data: { isDefaultStart: false } });
-  if (data.isDefaultEnd) await prisma.savedPlace.updateMany({ where: { userId: user.id }, data: { isDefaultEnd: false } });
+  if (data.isDefaultStart) await db.savedPlace.updateMany({ where: { userId: user.id }, data: { isDefaultStart: false } });
+  if (data.isDefaultEnd) await db.savedPlace.updateMany({ where: { userId: user.id }, data: { isDefaultEnd: false } });
 
   if (data.id) {
-    const existing = await prisma.savedPlace.findFirst({ where: { id: data.id, userId: user.id } });
+    const existing = await db.savedPlace.findFirst({ where: { id: data.id, userId: user.id } });
     if (!existing) return { ok: false, error: GENERIC_ERROR };
-    await prisma.savedPlace.update({
+    await db.savedPlace.update({
       where: { id: data.id },
       data: {
         label: data.label,
@@ -1059,7 +1081,7 @@ export async function upsertSavedPlaceAction(input: z.infer<typeof upsertSavedPl
       },
     });
   } else {
-    await prisma.savedPlace.create({
+    await db.savedPlace.create({
       data: {
         userId: user.id,
         label: data.label,
@@ -1080,13 +1102,14 @@ export async function upsertSavedPlaceAction(input: z.infer<typeof upsertSavedPl
 
 export async function deleteSavedPlaceAction(id: string): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(id);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
 
-  const existing = await prisma.savedPlace.findFirst({ where: { id: parsedId.data, userId: user.id } });
+  const existing = await db.savedPlace.findFirst({ where: { id: parsedId.data, userId: user.id } });
   if (!existing) return { ok: false, error: GENERIC_ERROR };
 
-  await prisma.savedPlace.delete({ where: { id: parsedId.data } });
+  await db.savedPlace.delete({ where: { id: parsedId.data } });
   revalidatePath(TOURS_PATH);
   revalidatePath("/dashboard/parametres");
   return { ok: true };
@@ -1116,11 +1139,12 @@ const updatePreferencesSchema = z.object({
 
 export async function updateTourPreferencesAction(input: z.infer<typeof updatePreferencesSchema>): Promise<ActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   const parsed = updatePreferencesSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
   const data = parsed.data;
 
-  await prisma.tourPreferences.upsert({
+  await db.tourPreferences.upsert({
     where: { userId: user.id },
     create: { userId: user.id, ...data },
     update: data,

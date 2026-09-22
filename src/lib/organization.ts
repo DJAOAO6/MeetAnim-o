@@ -91,3 +91,35 @@ export async function organizationOfSlug(slug: string): Promise<Organization | n
   });
   return profile?.organization ?? null;
 }
+
+/**
+ * Accès depuis un chemin sans compte connecté : la page de réservation et
+ * ses actions publiques.
+ *
+ * Tant qu'il n'existe qu'un seul espace professionnel, c'est forcément le
+ * sien. **Dès qu'un deuxième cabinet existe, cette fonction échoue** — et
+ * c'est voulu : elle devra alors avoir été remplacée par une résolution du
+ * cabinet à partir du slug de l'URL (phase 3), qui doit précéder l'ouverture
+ * des inscriptions. Mieux vaut un refus franc qu'une page publique qui
+ * montrerait les disponibilités du mauvais professionnel.
+ */
+export async function publicDb(): Promise<ScopedPrismaClient> {
+  const organizations = await prisma.organization.findMany({ select: { id: true }, take: 2 });
+  if (organizations.length === 0) throw new Error("Aucun espace professionnel : la base n'est pas initialisée.");
+  if (organizations.length > 1) {
+    throw new Error("Plusieurs espaces professionnels existent : un chemin public doit désormais résoudre le cabinet par son lien (slug).");
+  }
+  return dbFor(organizations[0].id);
+}
+
+/**
+ * Lecture partagée entre l'espace professionnel et la page publique : celle
+ * du compte connecté s'il y en a un, sinon celle du seul cabinet existant
+ * (voir `publicDb`). Les écritures, elles, passent toujours par un chemin
+ * identifié.
+ */
+export async function readDb(): Promise<ScopedPrismaClient> {
+  const user = await getCurrentUser().catch(() => null);
+  if (user?.organizationId) return dbFor(user.organizationId);
+  return publicDb();
+}

@@ -1,7 +1,7 @@
 import "server-only";
 import { parisDateId } from "@/lib/paris-time";
 import { cache } from "react";
-import { prisma } from "@/lib/db";
+import { readDb } from "@/lib/organization";
 import { formatFrenchDate } from "@/lib/format";
 import { destinationPoint, projectToPercent } from "@/lib/geo";
 import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
@@ -25,8 +25,12 @@ const startTypeLabel: Record<DbTourStartType, Tour["startType"]> = {
 
 type DbTourWithZones = DbTour & { zones: DbZone[] };
 
+// Zones, tournées et secteurs sont lus des deux côtés : par le praticien
+// dans son espace, et par la page de réservation, qui annonce les jours de
+// passage. D'où readDb() plutôt que currentDb() — voir src/lib/organization.ts.
 export async function getZones(): Promise<Zone[]> {
-  const zones = await prisma.zone.findMany({ include: { cities: true }, orderBy: { name: "asc" } });
+  const db = await readDb();
+  const zones = await db.zone.findMany({ include: { cities: true }, orderBy: { name: "asc" } });
 
   return zones.map((zone): Zone => ({
     id: zone.id,
@@ -81,10 +85,11 @@ function formatNextOccurrenceLabel(dateId: string): string {
  * seul le script de seed pouvait peupler, jamais l'app réelle).
  */
 async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
+  const db = await readDb();
   const dateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
   if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }, expectedReturnTime: null, nextOccurrenceLabel: null };
 
-  const appointments = await prisma.appointment.findMany({
+  const appointments = await db.appointment.findMany({
     where: { date: new Date(`${dateId}T00:00:00.000Z`), mode: "DOMICILE", status: { not: "CANCELLED" } },
     orderBy: { start: "asc" },
     select: {
@@ -146,7 +151,8 @@ async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZ
  * les appellent ensemble.
  */
 const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> => {
-  const [rows, zones, businessProfile] = await Promise.all([prisma.tour.findMany({ include: { zones: true } }), getZones(), getBusinessProfile()]);
+  const db = await readDb();
+  const [rows, zones, businessProfile] = await Promise.all([db.tour.findMany({ include: { zones: true } }), getZones(), getBusinessProfile()]);
   const publicZones = zones.map(zoneToPublicShape);
   const todayId = parisDateId();
   const cabinetCoordinates = businessProfile.latitude != null && businessProfile.longitude != null ? { lat: businessProfile.latitude, lng: businessProfile.longitude } : null;
@@ -156,8 +162,9 @@ const getTourOccurrences = cache(async (): Promise<Map<string, TourOccurrence>> 
 });
 
 export async function getTours(): Promise<Tour[]> {
+  const db = await readDb();
   const [rows, occurrences] = await Promise.all([
-    prisma.tour.findMany({ orderBy: { name: "asc" }, include: { zones: true } }),
+    db.tour.findMany({ orderBy: { name: "asc" }, include: { zones: true } }),
     getTourOccurrences(),
   ]);
 
@@ -248,9 +255,10 @@ function boundingBoxAround(center: { lat: number; lng: number }, radiusKm: numbe
  * fait côté appelant sur ce sous-ensemble déjà réduit.
  */
 export async function getMapClients(near?: { lat: number; lng: number; radiusKm: number }): Promise<MapClient[]> {
+  const db = await readDb();
   const bbox = near ? boundingBoxAround(near, near.radiusKm) : null;
 
-  const animals = await prisma.animal.findMany({
+  const animals = await db.animal.findMany({
     where: bbox
       ? {
           OR: [
@@ -324,11 +332,12 @@ export async function getMapClients(near?: { lat: number; lng: number; radiusKm:
  * encore correcte, pourrait resservir pour un futur indicateur.
  */
 export async function getWeeklyHomeAppointmentCount(): Promise<number> {
+  const db = await readDb();
   const todayId = parisDateId();
   const today = new Date(`${todayId}T00:00:00.000Z`);
   const in7Days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  return prisma.appointment.count({
+  return db.appointment.count({
     where: { mode: "DOMICILE", status: { not: "CANCELLED" }, date: { gte: today, lt: in7Days } },
   });
 }

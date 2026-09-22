@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { readDb } from "@/lib/organization";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
@@ -68,11 +68,14 @@ export type TourSuggestionInput = {
  * le revérifie de toute façon à la soumission.
  */
 export async function getSuggestedToursForAddressAction(input: TourSuggestionInput): Promise<TourSuggestion[]> {
+  // Action appelée depuis la page publique de réservation : pas de compte
+  // connecté, donc l'accès partagé (voir src/lib/organization.ts).
+  const db = await readDb();
   const duration = Math.round(input.durationMinutes);
   if (!input.zoneId || !Number.isFinite(duration) || duration <= 0) return [];
 
   const [tours, availability, windowStartId] = await Promise.all([
-    prisma.tour.findMany({
+    db.tour.findMany({
       where: {
         status: "ACTIVE",
         // Multi-zone : la zone peut être rattachée par la relation moderne
@@ -98,7 +101,7 @@ export async function getSuggestedToursForAddressAction(input: TourSuggestionInp
   // d'arrêts une tournée compte déjà.
   const windowEnd = parseDateIdToLocalNoon(windowStartId);
   windowEnd.setDate(windowEnd.getDate() + BOOKING_WINDOW_DAYS - 1);
-  const booked = await prisma.appointment.findMany({
+  const booked = await db.appointment.findMany({
     where: {
       status: { not: "CANCELLED" },
       date: { gte: new Date(`${windowStartId}T00:00:00.000Z`), lte: new Date(`${toLocalDateId(windowEnd)}T23:59:59.999Z`) },

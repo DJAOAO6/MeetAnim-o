@@ -1,6 +1,6 @@
 import "server-only";
 import { parisDateId } from "@/lib/paris-time";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
 import {
@@ -39,6 +39,7 @@ export type TourFillOpportunity = {
  * trajet que la détection de conflit côté réservation publique).
  */
 async function countFreeSlotsInTourWindow(tour: DbTour, dateId: string): Promise<number> {
+  const db = await currentDb();
   const availability = await getAvailability();
   const { hourly } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
   const duration = availability.defaultAppointmentDuration;
@@ -52,7 +53,7 @@ async function countFreeSlotsInTourWindow(tour: DbTour, dateId: string): Promise
   });
   if (withinWindow.length === 0) return 0;
 
-  const sameDayAppointments = await prisma.appointment.findMany({
+  const sameDayAppointments = await db.appointment.findMany({
     where: { date: new Date(`${dateId}T00:00:00.000Z`), status: { not: "CANCELLED" } },
     select: { start: true, duration: true, mode: true },
   });
@@ -67,6 +68,7 @@ async function countFreeSlotsInTourWindow(tour: DbTour, dateId: string): Promise
 }
 
 async function computeTourFillOpportunity(tour: DbTour, publicZones: PublicZone[], todayId: string): Promise<TourFillOpportunity | null> {
+  const db = await currentDb();
   const zone = publicZones.find((z) => z.id === tour.zoneId);
   if (!zone) return null;
 
@@ -75,7 +77,7 @@ async function computeTourFillOpportunity(tour: DbTour, publicZones: PublicZone[
 
   const nearDueLimit = new Date();
   nearDueLimit.setDate(nearDueLimit.getDate() + NEAR_DUE_WINDOW_DAYS);
-  const reminders = await prisma.reminder.findMany({
+  const reminders = await db.reminder.findMany({
     where: { status: { in: ["DUE", "UPCOMING"] }, dueDate: { lte: nearDueLimit } },
     select: { id: true, client: { select: { city: true } } },
   });
@@ -98,7 +100,8 @@ async function computeTourFillOpportunity(tour: DbTour, publicZones: PublicZone[
  * page reste un état client, pas un rendu serveur par tournée.
  */
 export async function getTourFillOpportunities(): Promise<Record<string, TourFillOpportunity>> {
-  const [tours, zones] = await Promise.all([prisma.tour.findMany(), getZones()]);
+  const db = await currentDb();
+  const [tours, zones] = await Promise.all([db.tour.findMany(), getZones()]);
   const publicZones: PublicZone[] = zones.map((zone) => ({ id: zone.id, name: zone.name, cities: zone.cities.map((c) => c.name), postalCodes: zone.cities.map((c) => c.postalCode), tourDays: [] }));
   const todayId = parisDateId();
 
