@@ -23,6 +23,10 @@ const BASE = "http://localhost:3000";
  *
  * Chaque essai vérifie la base, pas le message : ce qui compte est que la
  * ligne de B soit toujours là, inchangée.
+ *
+ * Ces essais demandent un serveur de développement : un build ne publie pas
+ * le nom des actions, seulement leur identifiant. C'est une bonne chose en
+ * production — mais ici, sans les noms, on ne saurait pas laquelle appeler.
  */
 const OTHER = "org-e2e-actions-b";
 const MARKER = "E2E-Forcage";
