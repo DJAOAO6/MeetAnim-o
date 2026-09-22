@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getPublicZones } from "@/lib/tours";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
@@ -84,11 +84,12 @@ function toPercent(count: number, total: number): number {
  * dans reminders-actions.ts, même constat.
  */
 export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
+  const db = await currentDb();
   const now = new Date();
   const { from, to } = resolveRange(filters, now);
 
   const service = filters.serviceId !== "all"
-    ? await prisma.service.findUnique({ where: { id: filters.serviceId }, select: { name: true } })
+    ? await db.service.findUnique({ where: { id: filters.serviceId }, select: { name: true } })
     : null;
   const serviceName = service?.name;
   const species: AnimalSpecies | undefined = filters.species !== "all" ? filters.species : undefined;
@@ -110,13 +111,13 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
   const prevRange = previousEquivalentRange(from, to);
 
   const [completedAppointments, cancelledCount, totalBookedCount, prevRevenueAgg] = await Promise.all([
-    prisma.appointment.findMany({
+    db.appointment.findMany({
       where: completedWhere,
       select: { date: true, mode: true, price: true, serviceName: true, animalId: true, clientId: true, postalCode: true, city: true, latitude: true, longitude: true },
     }),
-    prisma.appointment.count({ where: { ...baseWhere, status: "CANCELLED" } }),
-    prisma.appointment.count({ where: { ...baseWhere, status: { in: ["CONFIRMED", "COMPLETED", "CANCELLED"] } } }),
-    prisma.appointment.aggregate({
+    db.appointment.count({ where: { ...baseWhere, status: "CANCELLED" } }),
+    db.appointment.count({ where: { ...baseWhere, status: { in: ["CONFIRMED", "COMPLETED", "CANCELLED"] } } }),
+    db.appointment.aggregate({
       where: { ...baseWhere, date: { gte: prevRange.from, lt: prevRange.to }, OR: realizedOr },
       _sum: { price: true },
     }),
@@ -127,7 +128,7 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
   const clientIds = [...new Set(completedAppointments.map((a) => a.clientId).filter((id): id is string => id != null))];
 
   const firstVisits = clientIds.length > 0
-    ? await prisma.appointment.groupBy({ by: ["clientId"], where: { clientId: { in: clientIds }, OR: realizedOr }, _min: { date: true } })
+    ? await db.appointment.groupBy({ by: ["clientId"], where: { clientId: { in: clientIds }, OR: realizedOr }, _min: { date: true } })
     : [];
   const newClientsCount = firstVisits.filter((f) => f._min.date && f._min.date >= from).length;
   const returningClientsCount = clientIds.length - newClientsCount;
@@ -141,7 +142,7 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
   const anchorMonthStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
   const seriesFrom = new Date(Date.UTC(anchorMonthStart.getUTCFullYear(), anchorMonthStart.getUTCMonth() - 7, 1));
   const seriesTo = new Date(Date.UTC(anchorMonthStart.getUTCFullYear(), anchorMonthStart.getUTCMonth() + 1, 1));
-  const seriesAppointments = await prisma.appointment.findMany({
+  const seriesAppointments = await db.appointment.findMany({
     where: { date: { gte: seriesFrom, lt: seriesTo }, OR: realizedOr, ...(serviceName ? { serviceName } : {}), ...(species ? { animal: { species } } : {}) },
     select: { date: true, price: true },
   });
@@ -190,7 +191,7 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
 
   const animalIds = [...new Set(completedAppointments.map((a) => a.animalId).filter((id): id is string => id != null))];
   const animals = animalIds.length > 0
-    ? await prisma.animal.findMany({ where: { id: { in: animalIds } }, select: { species: true, breed: true, sex: true, birthDate: true } })
+    ? await db.animal.findMany({ where: { id: { in: animalIds } }, select: { species: true, breed: true, sex: true, birthDate: true } })
     : [];
 
   const speciesCounts = new Map<AnimalSpecies, number>();
@@ -236,7 +237,7 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
 
   let averageDelayMonths: number | null = null;
   if (clientIds.length > 0) {
-    const allCompletedForDelay = await prisma.appointment.findMany({
+    const allCompletedForDelay = await db.appointment.findMany({
       where: { OR: realizedOr, ...(serviceName ? { serviceName } : {}), ...(species ? { animal: { species } } : {}) },
       select: { clientId: true, date: true },
       orderBy: { date: "asc" },
@@ -264,7 +265,7 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
   const cancelled = cancelledCount;
   const totalBooked = totalBookedCount;
 
-  const reminders = await prisma.reminder.findMany({ where: { updatedAt: { gte: from, lt: to }, status: { in: ["SENT", "BOOKED"] } }, select: { status: true } });
+  const reminders = await db.reminder.findMany({ where: { updatedAt: { gte: from, lt: to }, status: { in: ["SENT", "BOOKED"] } }, select: { status: true } });
   const remindersSent = reminders.length;
   const remindersBookedAgain = reminders.filter((r) => r.status === "BOOKED").length;
 
@@ -314,5 +315,6 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
 }
 
 export async function getStatsServiceOptions(): Promise<Array<{ id: string; name: string }>> {
-  return prisma.service.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+  const db = await currentDb();
+  return db.service.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
 }

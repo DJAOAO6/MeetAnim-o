@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
@@ -41,13 +41,15 @@ function mapSummary(row: SummaryRow): StudioDocumentSummary {
 
 export async function getDocuments(): Promise<StudioDocumentSummary[]> {
   await requireUser();
-  const rows = await prisma.studioDocument.findMany({ orderBy: { updatedAt: "desc" }, include: summaryInclude });
+  const db = await currentDb();
+  const rows = await db.studioDocument.findMany({ orderBy: { updatedAt: "desc" }, include: summaryInclude });
   return rows.map(mapSummary);
 }
 
 export async function getDocumentsForAnimal(animalId: string): Promise<StudioDocumentSummary[]> {
   await requireUser();
-  const rows = await prisma.studioDocument.findMany({ where: { animalId }, orderBy: { updatedAt: "desc" }, include: summaryInclude });
+  const db = await currentDb();
+  const rows = await db.studioDocument.findMany({ where: { animalId }, orderBy: { updatedAt: "desc" }, include: summaryInclude });
   return rows.map(mapSummary);
 }
 
@@ -59,13 +61,15 @@ export async function getDocumentsForAnimal(animalId: string): Promise<StudioDoc
  */
 export async function getDocumentIdForAppointment(appointmentId: string): Promise<string | null> {
   await requireUser();
-  const row = await prisma.studioDocument.findUnique({ where: { appointmentId }, select: { id: true } });
+  const db = await currentDb();
+  const row = await db.studioDocument.findUnique({ where: { appointmentId }, select: { id: true } });
   return row?.id ?? null;
 }
 
 export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSummary[]> {
   await requireUser();
-  const rows = await prisma.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
+  const db = await currentDb();
+  const rows = await db.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -85,7 +89,8 @@ export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSumm
  */
 export async function getDocumentTemplateContent(templateId: string): Promise<DocumentContent | null> {
   await requireUser();
-  const row = await prisma.studioDocumentTemplate.findUnique({ where: { id: templateId }, select: { contentJson: true } });
+  const db = await currentDb();
+  const row = await db.studioDocumentTemplate.findUnique({ where: { id: templateId }, select: { contentJson: true } });
   if (!row) return null;
   return row.contentJson as unknown as DocumentContent;
 }
@@ -115,7 +120,8 @@ async function buildVariableContext(row: Prisma.StudioDocumentGetPayload<{ inclu
 
 export async function getDocument(id: string): Promise<StudioDocumentDetail | null> {
   await requireUser();
-  const row = await prisma.studioDocument.findUnique({ where: { id }, include: { ...summaryInclude, ...detailInclude } });
+  const db = await currentDb();
+  const row = await db.studioDocument.findUnique({ where: { id }, include: { ...summaryInclude, ...detailInclude } });
   if (!row) return null;
   const [variableContext, markerPresets] = await Promise.all([buildVariableContext(row), getMarkerPresets()]);
   return {
@@ -158,10 +164,11 @@ export type DocumentActionResult = { ok: true; id: string } | { ok: false; error
 
 export async function createDocumentAction(input: CreateDocumentInput): Promise<DocumentActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
   let content: DocumentContent = createEmptyDocumentContent(input.pageSize);
   if (input.templateId) {
-    const template = await prisma.studioDocumentTemplate.findUnique({ where: { id: input.templateId }, select: { contentJson: true } });
+    const template = await db.studioDocumentTemplate.findUnique({ where: { id: input.templateId }, select: { contentJson: true } });
     if (template) content = template.contentJson as unknown as DocumentContent;
   }
   // Un modèle peut avoir été créé par n'importe quel compte : il passe par le
@@ -170,7 +177,7 @@ export async function createDocumentAction(input: CreateDocumentInput): Promise<
 
   let created;
   try {
-    created = await prisma.studioDocument.create({
+    created = await db.studioDocument.create({
       data: {
         title: input.title.trim() || "Document sans titre",
         clientId: input.clientId ?? null,
@@ -224,8 +231,9 @@ function isDocumentContent(value: unknown): value is DocumentContent {
 export async function saveDocumentAction(id: string, input: SaveDocumentInput): Promise<DocumentActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
-  const existing = await prisma.studioDocument.findUnique({ where: { id }, select: { status: true, createdByUserId: true } });
+  const existing = await db.studioDocument.findUnique({ where: { id }, select: { status: true, createdByUserId: true } });
   if (!existing) return { ok: false, error: "Ce document n'existe plus." };
   if (existing.status === "FINALIZED") return { ok: false, error: "Ce document est finalisé — dupliquez-le pour le modifier." };
   // Un compte rendu est un dossier clinique : seul son auteur le modifie,
@@ -237,7 +245,7 @@ export async function saveDocumentAction(id: string, input: SaveDocumentInput): 
   }
   if (!isDocumentContent(input.content)) return { ok: false, error: "Contenu de document invalide." };
 
-  await prisma.studioDocument.update({
+  await db.studioDocument.update({
     where: { id },
     data: {
       title: input.title?.trim() || undefined,
@@ -256,12 +264,13 @@ export type FinalizeDocumentInput = {
 
 export async function finalizeDocumentAction(id: string, input: FinalizeDocumentInput): Promise<DocumentActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
-  const existing = await prisma.studioDocument.findUnique({ where: { id }, select: { status: true } });
+  const existing = await db.studioDocument.findUnique({ where: { id }, select: { status: true } });
   if (!existing) return { ok: false, error: "Ce document n'existe plus." };
   if (existing.status === "FINALIZED") return { ok: false, error: "Ce document est déjà finalisé." };
 
-  await prisma.studioDocument.update({
+  await db.studioDocument.update({
     where: { id },
     data: {
       status: "FINALIZED",
@@ -285,11 +294,12 @@ export async function finalizeDocumentAction(id: string, input: FinalizeDocument
  */
 export async function duplicateDocumentAction(id: string): Promise<DocumentActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
-  const source = await prisma.studioDocument.findUnique({ where: { id } });
+  const source = await db.studioDocument.findUnique({ where: { id } });
   if (!source) return { ok: false, error: "Ce document n'existe plus." };
 
-  const created = await prisma.studioDocument.create({
+  const created = await db.studioDocument.create({
     data: {
       title: `${source.title} (copie)`,
       clientId: source.clientId,
@@ -313,14 +323,15 @@ export type DeleteDocumentResult = { ok: true } | { ok: false; error: string };
 
 export async function deleteDocumentAction(id: string): Promise<DeleteDocumentResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_DOCUMENTS")) {
     return { ok: false, error: "Vous n'avez pas la permission de supprimer des documents." };
   }
 
-  const existing = await prisma.studioDocument.findUnique({ where: { id }, select: { id: true } });
+  const existing = await db.studioDocument.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return { ok: false, error: "Ce document n'existe plus." };
 
-  await prisma.studioDocument.delete({ where: { id } });
+  await db.studioDocument.delete({ where: { id } });
   await logAudit({ userId: user.id, action: "DOCUMENT_DELETED", entityType: "StudioDocument", entityId: id });
   revalidatePath(DOCUMENTS_PATH);
 

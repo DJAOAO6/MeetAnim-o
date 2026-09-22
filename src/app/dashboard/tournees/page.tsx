@@ -3,6 +3,7 @@ import { ToursView } from "@/components/tours/tours-view";
 import { getMapClients } from "@/lib/tours";
 import { getTourRunEditorData, getTourRunsListData, todayDateId } from "@/lib/tour-runs";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
+import { currentDb, currentOrganizationId } from "@/lib/organization";
 import { getServices } from "@/lib/services-actions";
 import { requireUser } from "@/lib/auth/dal";
 
@@ -18,7 +19,7 @@ export default async function TourneesPage({ searchParams }: { searchParams: Pro
   // templateId+date+userId), donc sans risque à rejouer à chaque lecture de
   // la page. Avant les lectures ci-dessous : une occurrence tout juste
   // générée pour `dateId` doit apparaître dans ce même rendu.
-  await generateUpcomingTourRuns();
+  await generateUpcomingTourRuns(await currentDb(), await currentOrganizationId());
 
   const [editorData, listData, services] = await Promise.all([
     getTourRunEditorData(user.id, dateId),

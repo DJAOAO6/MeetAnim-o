@@ -70,10 +70,20 @@ export async function requireOrganizationOf(userId: string): Promise<Organizatio
  * dit explicitement, et se relit comme tel.
  */
 export async function currentDb(): Promise<ScopedPrismaClient> {
+  return dbFor(await currentOrganizationId());
+}
+
+/**
+ * L'espace du compte connecté. Utile là où l'identifiant lui-même est
+ * nécessaire — par exemple pour filtrer des comptes, qui ne sont pas
+ * cloisonnés d'office puisqu'un compte de plateforme n'appartient à aucun
+ * cabinet.
+ */
+export async function currentOrganizationId(): Promise<string> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Aucun compte connecté : impossible de déterminer l'espace professionnel.");
   if (!user.organizationId) throw new Error("Ce compte n'appartient à aucun espace professionnel.");
-  return dbFor(user.organizationId);
+  return user.organizationId;
 }
 
 /**

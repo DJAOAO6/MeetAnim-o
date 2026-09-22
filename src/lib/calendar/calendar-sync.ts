@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/db";
+import { dbFor, prisma } from "@/lib/db";
 import { getActiveConnectionsForProvider, getFreshAccessToken, providerFor } from "@/lib/calendar/calendar-connections";
 import type { CalendarEventInput } from "@/lib/calendar/types";
 import type { Appointment as DbAppointment, CalendarConnection as DbCalendarConnection, Client as DbClient } from "@/generated/prisma/client";
@@ -130,8 +130,11 @@ async function syncOneConnection(connection: DbCalendarConnection, appointment: 
  * jamais — chaque connexion échoue indépendamment (Promise.allSettled),
  * jamais de rendez-vous interne remis en cause par un échec Google.
  */
-export async function syncAppointmentToCalendars(appointmentId: string, action: SyncAction): Promise<void> {
-  const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId }, include: { client: true } });
+export async function syncAppointmentToCalendars(organizationId: string, appointmentId: string, action: SyncAction): Promise<void> {
+  // Exécutée après la réponse (after()) : la session n'est plus lisible,
+  // l'espace est donc passé par l'appelant, qui vient de l'écrire.
+  const db = dbFor(organizationId);
+  const appointment = await db.appointment.findUnique({ where: { id: appointmentId }, include: { client: true } });
   if (!appointment) return;
 
   const connections = await getActiveConnectionsForProvider("GOOGLE");

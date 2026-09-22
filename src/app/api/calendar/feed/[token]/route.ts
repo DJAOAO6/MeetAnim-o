@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { dbFor, prisma } from "@/lib/db";
 import { buildIcsCalendar, type IcsEventInput } from "@/lib/booking-validation";
 
 /**
@@ -14,14 +14,17 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   const { token: rawToken } = await context.params;
   const token = rawToken.endsWith(".ics") ? rawToken.slice(0, -4) : rawToken;
 
-  const user = await prisma.user.findUnique({ where: { icsFeedToken: token }, select: { id: true } });
-  if (!user) return new NextResponse("Not found", { status: 404 });
+  const user = await prisma.user.findUnique({ where: { icsFeedToken: token }, select: { id: true, organizationId: true } });
+  if (!user?.organizationId) return new NextResponse("Not found", { status: 404 });
+  // Le jeton désigne un compte, donc son cabinet : le flux ne peut montrer
+  // que l'agenda de celui-ci.
+  const db = dbFor(user.organizationId);
 
   // Cabinet unique dans cette version (voir docs/GOOGLE-CALENDAR-SETUP.md) :
   // le flux reflète le même agenda partagé que le tableau de bord interne,
   // pas seulement les rendez-vous "de" cet utilisateur. Jamais les rendez-
   // vous annulés (étape 18 : "ne pas montrer les RDV supprimés").
-  const appointments = await prisma.appointment.findMany({
+  const appointments = await db.appointment.findMany({
     where: { status: { not: "CANCELLED" } },
     orderBy: { date: "asc" },
     select: { id: true, date: true, start: true, duration: true, animalName: true, clientName: true, serviceName: true, location: true, mode: true, status: true },

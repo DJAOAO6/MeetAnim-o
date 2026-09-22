@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
@@ -43,6 +43,7 @@ export async function startClientImportAction(input: {
   conflictPolicy: ConflictPolicy;
 }): Promise<StartClientImportResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
   const parsed = startImportSchema.safeParse(input);
   if (!parsed.success) {
@@ -57,7 +58,7 @@ export async function startClientImportAction(input: {
   }
   await recordAttempt(`client-import:${user.id}`);
 
-  const created = await prisma.clientImport.create({
+  const created = await db.clientImport.create({
     data: {
       userId: user.id,
       fileName: parsed.data.fileName,
@@ -134,7 +135,8 @@ type ClientIndex = {
 // il n'existe pas de colonne de téléphone normalisée en base pour filtrer
 // autrement côté SQL.
 async function loadClientIndex(): Promise<ClientIndex> {
-  const clients = await prisma.client.findMany({
+  const db = await currentDb();
+  const clients = await db.client.findMany({
     select: { id: true, firstName: true, lastName: true, phone: true, email: true, address: true, city: true, postalCode: true },
   });
 
@@ -213,11 +215,12 @@ export type ImportClientsChunkResult = { ok: true; results: RowResult[] } | { ok
 
 export async function importClientsChunkAction(importId: string, rows: ImportRowPayload[]): Promise<ImportClientsChunkResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
   const parsed = importChunkSchema.safeParse({ importId, rows });
   if (!parsed.success) return { ok: false, error: "Lot de lignes invalide." };
 
-  const clientImport = await prisma.clientImport.findUnique({ where: { id: parsed.data.importId } });
+  const clientImport = await db.clientImport.findUnique({ where: { id: parsed.data.importId } });
   if (!clientImport || clientImport.userId !== user.id) return { ok: false, error: "Import introuvable." };
   if (clientImport.status !== "RUNNING") return { ok: false, error: "Cet import n'est plus en cours." };
 
@@ -262,14 +265,14 @@ export async function importClientsChunkAction(importId: string, rows: ImportRow
         if (!existing.postalCode && row.postalCode) patch.postalCode = row.postalCode;
         if (!existing.city && row.city) patch.city = row.city;
 
-        clientRecord = Object.keys(patch).length > 0 ? await prisma.client.update({ where: { id: existing.id }, data: patch }) : existing;
+        clientRecord = Object.keys(patch).length > 0 ? await db.client.update({ where: { id: existing.id }, data: patch }) : existing;
 
         if (!touchedClients.has(existing.id)) {
           touchedClients.add(existing.id);
           mergedClients += 1;
         }
       } else {
-        clientRecord = await prisma.client.create({
+        clientRecord = await db.client.create({
           data: {
             firstName: row.firstName,
             lastName: row.lastName,
@@ -289,14 +292,14 @@ export async function importClientsChunkAction(importId: string, rows: ImportRow
       }
 
       if (row.animal) {
-        const existingAnimal = await prisma.animal.findFirst({
+        const existingAnimal = await db.animal.findFirst({
           where: { clientId: clientRecord.id, name: { equals: row.animal.name, mode: "insensitive" } },
           select: { id: true },
         });
 
         if (!existingAnimal) {
           const species = row.animal.species;
-          await prisma.animal.create({
+          await db.animal.create({
             data: {
               clientId: clientRecord.id,
               name: row.animal.name,
@@ -327,7 +330,7 @@ export async function importClientsChunkAction(importId: string, rows: ImportRow
     }
   }
 
-  await prisma.clientImport.update({
+  await db.clientImport.update({
     where: { id: clientImport.id },
     data: {
       createdClients: { increment: createdClients },
@@ -356,11 +359,12 @@ export type FinishClientImportResult = { ok: true; summary: ImportSummary } | { 
 
 export async function finishClientImportAction(importId: string): Promise<FinishClientImportResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
-  const existing = await prisma.clientImport.findUnique({ where: { id: importId } });
+  const existing = await db.clientImport.findUnique({ where: { id: importId } });
   if (!existing || existing.userId !== user.id) return { ok: false, error: "Import introuvable." };
 
-  const updated = await prisma.clientImport.update({ where: { id: importId }, data: { status: "COMPLETED" } });
+  const updated = await db.clientImport.update({ where: { id: importId }, data: { status: "COMPLETED" } });
 
   await logAudit({
     userId: user.id,
@@ -401,8 +405,9 @@ export type UndoClientImportResult =
 
 export async function undoClientImportAction(importId: string): Promise<UndoClientImportResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
-  const clientImport = await prisma.clientImport.findUnique({ where: { id: importId } });
+  const clientImport = await db.clientImport.findUnique({ where: { id: importId } });
   if (!clientImport) return { ok: false, error: "Import introuvable." };
 
   const isOwner = clientImport.userId === user.id;
@@ -413,7 +418,7 @@ export async function undoClientImportAction(importId: string): Promise<UndoClie
     return { ok: false, error: "Cet import ne peut plus être annulé (délai de 24h dépassé et permission de suppression manquante)." };
   }
 
-  const importedClients = await prisma.client.findMany({
+  const importedClients = await db.client.findMany({
     where: { importId },
     select: {
       id: true,
@@ -443,7 +448,7 @@ export async function undoClientImportAction(importId: string): Promise<UndoClie
   // (fiche seulement complétée, jamais rattachée à l'import — D9) : à
   // supprimer individuellement, avec le même garde-fou.
   const importedClientIds = importedClients.map((client) => client.id);
-  const standaloneAnimals = await prisma.animal.findMany({
+  const standaloneAnimals = await db.animal.findMany({
     where: { importId, clientId: { notIn: importedClientIds } },
     select: {
       id: true,
@@ -457,12 +462,12 @@ export async function undoClientImportAction(importId: string): Promise<UndoClie
   );
   const standaloneAnimalsPreservedCount = standaloneAnimals.length - standaloneAnimalsToDelete.length;
 
-  await prisma.$transaction([
-    prisma.animal.deleteMany({ where: { id: { in: standaloneAnimalsToDelete.map((animal) => animal.id) } } }),
-    prisma.client.deleteMany({ where: { id: { in: clientsToDelete.map((client) => client.id) } } }),
+  await db.$transaction([
+    db.animal.deleteMany({ where: { id: { in: standaloneAnimalsToDelete.map((animal) => animal.id) } } }),
+    db.client.deleteMany({ where: { id: { in: clientsToDelete.map((client) => client.id) } } }),
   ]);
 
-  await prisma.clientImport.update({ where: { id: importId }, data: { status: "UNDONE" } });
+  await db.clientImport.update({ where: { id: importId }, data: { status: "UNDONE" } });
 
   const deletedClientsCount = clientsToDelete.length;
   const deletedAnimalsCount = cascadedAnimalsCount + standaloneAnimalsToDelete.length;

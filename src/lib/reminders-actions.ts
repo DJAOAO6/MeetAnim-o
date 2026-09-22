@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
 import { getEmailProvider, professionalReplyTo } from "@/lib/email/provider";
@@ -43,9 +43,10 @@ function computeStatus(dueDateId: string): DbReminderStatus {
  * base — jamais une valeur inventée type "24 août 2026".
  */
 async function computeLastConsultation(animalId: string): Promise<Date> {
+  const db = await currentDb();
   const [lastConsultation, lastAppointment] = await Promise.all([
-    prisma.consultation.findFirst({ where: { animalId }, orderBy: { date: "desc" }, select: { date: true } }),
-    prisma.appointment.findFirst({ where: { animalId, status: "COMPLETED" }, orderBy: { date: "desc" }, select: { date: true } }),
+    db.consultation.findFirst({ where: { animalId }, orderBy: { date: "desc" }, select: { date: true } }),
+    db.appointment.findFirst({ where: { animalId, status: "COMPLETED" }, orderBy: { date: "desc" }, select: { date: true } }),
   ]);
   const candidates = [lastConsultation?.date, lastAppointment?.date].filter((date): date is Date => date != null);
   if (candidates.length === 0) return new Date();
@@ -71,8 +72,9 @@ export type ReminderActionResult = { ok: true } | { ok: false; error: string };
 export async function saveReminderAction(input: SaveReminderInput): Promise<ReminderActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
-  const animal = await prisma.animal.findUnique({ where: { id: input.animalId }, select: { id: true, clientId: true } });
+  const animal = await db.animal.findUnique({ where: { id: input.animalId }, select: { id: true, clientId: true } });
   if (!animal || animal.clientId !== input.clientId) {
     return { ok: false, error: "Cet animal n'appartient pas au client sélectionné." };
   }
@@ -81,17 +83,17 @@ export async function saveReminderAction(input: SaveReminderInput): Promise<Remi
   const dueDate = parseDateIdToLocalNoon(input.dueDate);
 
   if (input.id) {
-    const existing = await prisma.reminder.findUnique({ where: { id: input.id }, select: { id: true } });
+    const existing = await db.reminder.findUnique({ where: { id: input.id }, select: { id: true } });
     if (!existing) return { ok: false, error: "Ce rappel n'existe plus." };
 
-    await prisma.reminder.update({
+    await db.reminder.update({
       where: { id: input.id },
       data: { clientId: input.clientId, animalId: input.animalId, dueDate, delay: dbDelay[input.delay], note: input.note || null, status },
     });
     await logAudit({ userId: user.id, action: "REMINDER_UPDATED", entityType: "Reminder", entityId: input.id });
   } else {
     const lastConsultation = await computeLastConsultation(input.animalId);
-    const created = await prisma.reminder.create({
+    const created = await db.reminder.create({
       data: { clientId: input.clientId, animalId: input.animalId, lastConsultation, dueDate, delay: dbDelay[input.delay], note: input.note || null, status },
     });
     await logAudit({ userId: user.id, action: "REMINDER_CREATED", entityType: "Reminder", entityId: created.id });
@@ -105,11 +107,12 @@ export async function saveReminderAction(input: SaveReminderInput): Promise<Remi
 export async function ignoreReminderAction(id: string): Promise<ReminderActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
 
-  const existing = await prisma.reminder.findUnique({ where: { id }, select: { id: true } });
+  const existing = await db.reminder.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return { ok: false, error: "Ce rappel n'existe plus." };
 
-  await prisma.reminder.update({ where: { id }, data: { status: "IGNORED" } });
+  await db.reminder.update({ where: { id }, data: { status: "IGNORED" } });
   await logAudit({ userId: user.id, action: "REMINDER_IGNORED", entityType: "Reminder", entityId: id });
   revalidatePath("/dashboard/rappels");
   revalidatePath("/dashboard");
@@ -124,9 +127,10 @@ export async function ignoreReminderAction(id: string): Promise<ReminderActionRe
 export async function sendReminderAction(id: string, message: string): Promise<ReminderActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
   if (!message.trim()) return { ok: false, error: "Le message ne peut pas être vide." };
 
-  const reminder = await prisma.reminder.findUnique({ where: { id }, include: { client: true } });
+  const reminder = await db.reminder.findUnique({ where: { id }, include: { client: true } });
   if (!reminder) return { ok: false, error: "Ce rappel n'existe plus." };
   if (!reminder.client.email) {
     return { ok: false, error: `${reminder.client.firstName} ${reminder.client.lastName} n'a pas d'adresse email enregistrée.` };
@@ -140,7 +144,7 @@ export async function sendReminderAction(id: string, message: string): Promise<R
     return { ok: false, error: "L'email n'a pas pu être envoyé. Réessayez plus tard." };
   }
 
-  await prisma.reminder.update({ where: { id }, data: { status: "SENT" } });
+  await db.reminder.update({ where: { id }, data: { status: "SENT" } });
   await logAudit({ userId: user.id, action: "REMINDER_SENT", entityType: "Reminder", entityId: id });
   revalidatePath("/dashboard/rappels");
   revalidatePath("/dashboard");
@@ -158,13 +162,14 @@ type ReminderForBulkSend = Prisma.ReminderGetPayload<{ include: { client: true; 
  * que dupliquée, un seul système d'envoi (spec phase 3.1 refonte tournées).
  */
 async function dispatchReminderEmails(userId: string, reminders: ReminderForBulkSend[], buildMessage: (reminder: ReminderForBulkSend, professional: Awaited<ReturnType<typeof getBusinessProfile>>) => string, source: string): Promise<BulkSendResult> {
+  const db = await currentDb();
   const professional = await getBusinessProfile();
 
   const results = await Promise.allSettled(reminders.map(async (reminder) => {
     if (!reminder.client.email) throw new Error("Adresse email manquante");
     const message = buildMessage(reminder, professional);
     await getEmailProvider().send({ to: reminder.client.email, ...reminderEmailTemplate({ professionalCompany: professional.company, message }), replyTo: professionalReplyTo(professional) });
-    await prisma.reminder.update({ where: { id: reminder.id }, data: { status: "SENT" } });
+    await db.reminder.update({ where: { id: reminder.id }, data: { status: "SENT" } });
     await logAudit({ userId, action: "REMINDER_SENT", entityType: "Reminder", entityId: reminder.id, metadata: { source } });
     return reminder.id;
   }));
@@ -190,8 +195,9 @@ async function dispatchReminderEmails(userId: string, reminders: ReminderForBulk
 export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendResult> {
   const user = await getCurrentUser();
   if (!user) return { sentIds: [], failedNames: [] };
+  const db = await currentDb();
 
-  const reminders = await prisma.reminder.findMany({
+  const reminders = await db.reminder.findMany({
     where: { id: { in: ids }, status: "DUE" },
     include: { client: true, animal: true },
   });
@@ -219,9 +225,10 @@ export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendRe
 export async function sendZoneReminderCampaignAction(reminderIds: string[], zoneName: string, dateLabel: string): Promise<BulkSendResult> {
   const user = await getCurrentUser();
   if (!user) return { sentIds: [], failedNames: [] };
+  const db = await currentDb();
   if (reminderIds.length === 0) return { sentIds: [], failedNames: [] };
 
-  const reminders = await prisma.reminder.findMany({
+  const reminders = await db.reminder.findMany({
     where: { id: { in: reminderIds }, status: { in: ["DUE", "UPCOMING"] } },
     include: { client: true, animal: true },
   });

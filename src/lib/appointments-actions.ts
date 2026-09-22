@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
+import { prisma, type ScopedPrismaClient } from "@/lib/db";
 import { currentDb } from "@/lib/organization";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
@@ -71,15 +71,15 @@ function toDate(dateId: string): Date {
  * dédié pour ce cas, et "Consultation réalisée" n'est pas un événement dont
  * le client a besoin d'être notifié par email.
  */
-async function notifyAppointmentChange(clientId: string | null, previousStatus: AppointmentStatus, nextStatus: AppointmentStatus, dateOrTimeChanged: boolean, snapshot: AppointmentEmailSnapshot): Promise<void> {
+async function notifyAppointmentChange(db: ScopedPrismaClient, clientId: string | null, previousStatus: AppointmentStatus, nextStatus: AppointmentStatus, dateOrTimeChanged: boolean, snapshot: AppointmentEmailSnapshot): Promise<void> {
   if (previousStatus === "pending" && nextStatus === "confirmed") {
-    await notifyAppointmentConfirmed(clientId, snapshot);
+    await notifyAppointmentConfirmed(db, clientId, snapshot);
   } else if (previousStatus === "pending" && nextStatus === "cancelled") {
-    await notifyAppointmentDeclined(clientId, snapshot);
+    await notifyAppointmentDeclined(db, clientId, snapshot);
   } else if (previousStatus === "confirmed" && nextStatus === "cancelled") {
-    await notifyAppointmentCancelled(clientId, snapshot);
+    await notifyAppointmentCancelled(db, clientId, snapshot);
   } else if (previousStatus === nextStatus && nextStatus !== "cancelled" && dateOrTimeChanged) {
-    await notifyAppointmentRescheduled(clientId, snapshot);
+    await notifyAppointmentRescheduled(db, clientId, snapshot);
   }
 }
 
@@ -419,14 +419,14 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     const previousStatus = statusLabel[existing.status];
     const dateOrTimeChanged = existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start;
     const snapshot: AppointmentEmailSnapshot = { id: row.id, date: toAppointment(row).date, start: row.start, duration: row.duration, mode: modeLabel[row.mode], location: row.location, animalName: row.animalName, serviceName: row.serviceName };
-    await notifyAppointmentChange(existing.clientId, previousStatus, input.status, dateOrTimeChanged, snapshot);
+    await notifyAppointmentChange(db, existing.clientId, previousStatus, input.status, dateOrTimeChanged, snapshot);
   }
 
   // Diffusion vers les calendriers externes connectés, après coup (jamais
   // dans le chemin critique de cette réponse) : le rendez-vous interne est
   // déjà définitivement enregistré ci-dessus, un échec Google ne le remet
   // jamais en cause — voir calendar-sync.ts.
-  after(() => syncAppointmentToCalendars(row.id, input.status === "cancelled" ? "cancel" : "upsert").catch(() => {}));
+  after(() => syncAppointmentToCalendars(row.organizationId, row.id, input.status === "cancelled" ? "cancel" : "upsert").catch(() => {}));
 
   return { ok: true, appointment: toAppointment(row) };
 }
@@ -450,9 +450,9 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   // Email de suivi au client, best-effort. AUDIT-PRODUIT-2026-08-30.md,
   // finding P0 §3.
   const snapshot: AppointmentEmailSnapshot = { id: row.id, date: toAppointment(row).date, start: row.start, duration: row.duration, mode: modeLabel[row.mode], location: row.location, animalName: row.animalName, serviceName: row.serviceName };
-  await notifyAppointmentChange(current.clientId, statusLabel[current.status], status, false, snapshot);
+  await notifyAppointmentChange(db, current.clientId, statusLabel[current.status], status, false, snapshot);
 
-  after(() => syncAppointmentToCalendars(row.id, status === "cancelled" ? "cancel" : "upsert").catch(() => {}));
+  after(() => syncAppointmentToCalendars(row.organizationId, row.id, status === "cancelled" ? "cancel" : "upsert").catch(() => {}));
 
   return { ok: true, appointment: toAppointment(row) };
 }
@@ -619,8 +619,8 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
   revalidatePath("/dashboard");
 
   after(() => {
-    syncAppointmentToCalendars(appointmentIdA, "upsert").catch(() => {});
-    syncAppointmentToCalendars(appointmentIdB, "upsert").catch(() => {});
+    syncAppointmentToCalendars(appointmentA.organizationId, appointmentIdA, "upsert").catch(() => {});
+    syncAppointmentToCalendars(appointmentB.organizationId, appointmentIdB, "upsert").catch(() => {});
   });
 
   return { ok: true };
@@ -1053,7 +1053,7 @@ export async function submitPublicBookingAction(input: PublicBookingInput): Prom
   // dès la demande, même encore en attente de confirmation — elle occupe déjà
   // le créneau (hasConflict la traite comme telle), Google doit refléter la
   // même réalité.
-  after(() => syncAppointmentToCalendars(row.id, "upsert").catch(() => {}));
+  after(() => syncAppointmentToCalendars(row.organizationId, row.id, "upsert").catch(() => {}));
 
   return { ok: true, id: row.id };
 }

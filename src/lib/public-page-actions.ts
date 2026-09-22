@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { DEFAULT_PUBLIC_PAGE, normalizePublicPage, type PublicPageConfig } from "@/data/public-page";
@@ -25,7 +25,8 @@ function sameConfig(a: PublicPageConfig, b: PublicPageConfig | null): boolean {
  * afficher autre chose que la page réellement en ligne.
  */
 export async function getPublicPageState(): Promise<PublicPageState> {
-  const profile = await prisma.businessProfile.findFirst({
+  const db = await currentDb();
+  const profile = await db.businessProfile.findFirst({
     select: { publicPageDraft: true, publicPagePublished: true, publicPagePublishedAt: true },
   });
 
@@ -48,7 +49,8 @@ export async function getPublicPageState(): Promise<PublicPageState> {
  * exactement la page qu'il avait.
  */
 export async function getPublishedPublicPage(): Promise<PublicPageConfig> {
-  const profile = await prisma.businessProfile.findFirst({ select: { publicPagePublished: true } });
+  const db = await currentDb();
+  const profile = await db.businessProfile.findFirst({ select: { publicPagePublished: true } });
   return profile?.publicPagePublished ? normalizePublicPage(profile.publicPagePublished) : DEFAULT_PUBLIC_PAGE;
 }
 
@@ -56,21 +58,23 @@ export type PublicPageActionResult = { ok: true; state: PublicPageState } | { ok
 
 async function requireEditor(): Promise<{ ok: true; profileId: string } | { ok: false; error: string }> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier la page publique." };
   }
-  const profile = await prisma.businessProfile.findFirst({ select: { id: true } });
+  const profile = await db.businessProfile.findFirst({ select: { id: true } });
   if (!profile) return { ok: false, error: "Aucun profil professionnel n'est encore configuré." };
   return { ok: true, profileId: profile.id };
 }
 
 /** Enregistre le brouillon. Sans effet sur ce que voient les visiteurs. */
 export async function savePublicPageDraftAction(config: PublicPageConfig): Promise<PublicPageActionResult> {
+  const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
 
   try {
-    await prisma.businessProfile.update({
+    await db.businessProfile.update({
       where: { id: access.profileId },
       data: { publicPageDraft: normalizePublicPage(config) },
     });
@@ -87,12 +91,13 @@ export async function savePublicPageDraftAction(config: PublicPageConfig): Promi
  * change ; la page publique est revalidée dans la foulée.
  */
 export async function publishPublicPageAction(config: PublicPageConfig): Promise<PublicPageActionResult> {
+  const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
 
   const normalized = normalizePublicPage(config);
   try {
-    await prisma.businessProfile.update({
+    await db.businessProfile.update({
       where: { id: access.profileId },
       data: { publicPageDraft: normalized, publicPagePublished: normalized, publicPagePublishedAt: new Date() },
     });
@@ -107,13 +112,14 @@ export async function publishPublicPageAction(config: PublicPageConfig): Promise
 
 /** Ramène le brouillon à la version publiée, ou à la page d'origine. */
 export async function discardPublicPageDraftAction(): Promise<PublicPageActionResult> {
+  const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
 
   try {
     // Prisma.DbNull, pas null : on efface la valeur en base plutôt que de
     // demander à ne rien changer.
-    await prisma.businessProfile.update({
+    await db.businessProfile.update({
       where: { id: access.profileId },
       data: { publicPageDraft: Prisma.DbNull },
     });
@@ -135,11 +141,12 @@ export async function discardPublicPageDraftAction(): Promise<PublicPageActionRe
  * les clients : la page publique est donc revalidée.
  */
 export async function resetPublicPageAction(): Promise<PublicPageActionResult> {
+  const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
 
   try {
-    await prisma.businessProfile.update({
+    await db.businessProfile.update({
       where: { id: access.profileId },
       data: { publicPageDraft: Prisma.DbNull, publicPagePublished: Prisma.DbNull, publicPagePublishedAt: null },
     });

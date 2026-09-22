@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 
 export type BlockedSlot = {
@@ -27,7 +27,8 @@ function toBlockedSlot(row: { id: string; date: Date; startTime: string; endTime
 }
 
 export async function getBlockedSlots(): Promise<BlockedSlot[]> {
-  const rows = await prisma.blockedSlot.findMany({ orderBy: { date: "asc" } });
+  const db = await currentDb();
+  const rows = await db.blockedSlot.findMany({ orderBy: { date: "asc" } });
   return rows.map(toBlockedSlot);
 }
 
@@ -42,12 +43,13 @@ export type BlockedSlotActionResult = { ok: true; slot: BlockedSlot } | { ok: fa
 
 export async function createBlockedSlotAction(input: CreateBlockedSlotInput): Promise<BlockedSlotActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
 
   if (input.startTime >= input.endTime) {
     return { ok: false, error: "L’heure de fin doit être après l’heure de début." };
   }
 
-  const conflict = await prisma.appointment.findFirst({
+  const conflict = await db.appointment.findFirst({
     where: {
       date: toDate(input.date),
       status: { not: "CANCELLED" },
@@ -58,7 +60,7 @@ export async function createBlockedSlotAction(input: CreateBlockedSlotInput): Pr
     return { ok: false, error: "Un rendez-vous existe déjà sur cette plage horaire." };
   }
 
-  const row = await prisma.blockedSlot.create({
+  const row = await db.blockedSlot.create({
     data: {
       date: toDate(input.date),
       startTime: input.startTime,
@@ -77,7 +79,8 @@ export type DeleteBlockedSlotResult = { ok: true } | { ok: false; error: string 
 
 export async function deleteBlockedSlotAction(id: string): Promise<DeleteBlockedSlotResult> {
   await requireUser();
-  await prisma.blockedSlot.delete({ where: { id } });
+  const db = await currentDb();
+  await db.blockedSlot.delete({ where: { id } });
   revalidatePath("/dashboard/agenda");
   return { ok: true };
 }

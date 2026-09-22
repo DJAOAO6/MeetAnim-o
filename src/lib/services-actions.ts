@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { initialSettings, type AnimalType, type ServiceSettings, type TravelFeeMode } from "@/data/settings";
@@ -83,14 +83,16 @@ function toServiceData(service: Omit<ServiceSettings, "id">) {
  * générés par Prisma (cuid) plutôt que de réutiliser les ids de démo.
  */
 export async function getServices(): Promise<ServiceSettings[]> {
-  const rows = await prisma.service.findMany({ orderBy: { createdAt: "asc" } });
+  // Lues aussi par la page de réservation, qui n'a pas de session.
+  const db = await readDb();
+  const rows = await db.service.findMany({ orderBy: { createdAt: "asc" } });
   if (rows.length > 0) return rows.map(toServiceSettings);
 
   for (const service of initialSettings.services) {
-    await prisma.service.create({ data: toServiceData(service) });
+    await db.service.create({ data: toServiceData(service) });
   }
 
-  const seeded = await prisma.service.findMany({ orderBy: { createdAt: "asc" } });
+  const seeded = await db.service.findMany({ orderBy: { createdAt: "asc" } });
   return seeded.map(toServiceSettings);
 }
 
@@ -126,9 +128,10 @@ function toPublicService(service: ServiceSettings): PublicService {
 }
 
 async function revalidateServicePages() {
+  const db = await currentDb();
   revalidatePath("/dashboard/prestations");
   revalidatePath("/dashboard/parametres");
-  const profile = await prisma.businessProfile.findFirst({ select: { slug: true } });
+  const profile = await db.businessProfile.findFirst({ select: { slug: true } });
   if (profile) revalidatePath(`/reserver/${profile.slug}`);
 }
 
@@ -136,6 +139,7 @@ export type ServiceActionResult = { ok: true; service: ServiceSettings } | { ok:
 
 export async function saveServiceAction(input: ServiceSettings): Promise<ServiceActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les prestations." };
   }
@@ -153,10 +157,10 @@ export async function saveServiceAction(input: ServiceSettings): Promise<Service
   if (input.animals.length === 0) return { ok: false, error: "Sélectionnez au moins une espèce." };
 
   const data = toServiceData({ ...input, name, cabinetEnabled, homeEnabled });
-  const existing = input.id ? await prisma.service.findUnique({ where: { id: input.id } }) : null;
+  const existing = input.id ? await db.service.findUnique({ where: { id: input.id } }) : null;
   const row = existing
-    ? await prisma.service.update({ where: { id: input.id }, data })
-    : await prisma.service.create({ data });
+    ? await db.service.update({ where: { id: input.id }, data })
+    : await db.service.create({ data });
 
   await revalidateServicePages();
 
@@ -167,11 +171,12 @@ export type DeleteServiceResult = { ok: true } | { ok: false; error: string };
 
 export async function deleteServiceAction(id: string): Promise<DeleteServiceResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de supprimer une prestation." };
   }
 
-  await prisma.service.delete({ where: { id } });
+  await db.service.delete({ where: { id } });
   await revalidateServicePages();
 
   return { ok: true };

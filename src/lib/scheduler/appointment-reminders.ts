@@ -1,6 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/db";
-import { getReminderSettings } from "@/lib/business-profile-actions";
+import type { ScopedPrismaClient } from "@/lib/db";
+import { reminderSettingsOf } from "@/lib/business-profile-actions";
 import { sendAppointmentReminder, type AppointmentEmailSnapshot } from "@/lib/email/appointment-status-notifications";
 import { parisDateId, parisWallTimeToDate } from "@/lib/paris-time";
 
@@ -18,20 +18,23 @@ export type AppointmentRemindersResult = { enabled: boolean; sent: number; faile
  * rendez-vous confirmés sont rappelés — une demande pas encore acceptée ne
  * doit pas être présentée au client comme un rendez-vous acquis.
  *
+ * Sans session : le cabinet est passé en argument par le planificateur, qui
+ * les parcourt tous — chacun a ses propres réglages.
+ *
  * Jamais deux fois : chaque rendez-vous est « réservé » en base
  * (reminderSentAt) avant l'envoi, par une écriture conditionnelle. Si l'envoi
  * échoue, la réservation est levée et le passage suivant réessaie ; s'il n'y
  * a pas d'adresse, elle est gardée, inutile de réessayer chaque heure.
  */
-export async function sendDueAppointmentReminders(now: Date = new Date()): Promise<AppointmentRemindersResult> {
-  const settings = await getReminderSettings();
+export async function sendDueAppointmentReminders(db: ScopedPrismaClient, now: Date = new Date()): Promise<AppointmentRemindersResult> {
+  const settings = await reminderSettingsOf(db);
   const result: AppointmentRemindersResult = { enabled: settings.appointmentReminderEnabled, sent: 0, failed: 0, withoutEmail: 0 };
   if (!settings.appointmentReminderEnabled) return result;
 
   const windowMs = (settings.appointmentReminderDelay === "48 heures avant" ? 48 : 24) * 60 * 60 * 1000;
 
   // Aujourd'hui + 3 jours couvre largement 48 h, quelle que soit l'heure.
-  const candidates = await prisma.appointment.findMany({
+  const candidates = await db.appointment.findMany({
     where: {
       status: "CONFIRMED",
       reminderSentAt: null,
@@ -46,7 +49,7 @@ export async function sendDueAppointmentReminders(now: Date = new Date()): Promi
     const startsIn = parisWallTimeToDate(dateId, appointment.start).getTime() - now.getTime();
     if (startsIn <= 0 || startsIn > windowMs) continue;
 
-    const claimed = await prisma.appointment.updateMany({ where: { id: appointment.id, reminderSentAt: null }, data: { reminderSentAt: now } });
+    const claimed = await db.appointment.updateMany({ where: { id: appointment.id, reminderSentAt: null }, data: { reminderSentAt: now } });
     if (claimed.count === 0) continue;
 
     const snapshot: AppointmentEmailSnapshot = {
@@ -59,12 +62,12 @@ export async function sendDueAppointmentReminders(now: Date = new Date()): Promi
       animalName: appointment.animalName,
       serviceName: appointment.serviceName,
     };
-    const outcome = await sendAppointmentReminder(appointment.clientId, snapshot);
+    const outcome = await sendAppointmentReminder(db, appointment.clientId, snapshot);
     if (outcome === "sent") result.sent += 1;
     else if (outcome === "no-recipient") result.withoutEmail += 1;
     else {
       result.failed += 1;
-      await prisma.appointment.update({ where: { id: appointment.id }, data: { reminderSentAt: null } });
+      await db.appointment.update({ where: { id: appointment.id }, data: { reminderSentAt: null } });
     }
   }
 

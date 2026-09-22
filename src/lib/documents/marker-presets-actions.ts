@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import type { Prisma } from "@/generated/prisma/client";
@@ -9,7 +9,8 @@ import { DEFAULT_MARKER_PRESETS, type MarkerPreset } from "@/lib/documents/marke
 
 export async function getMarkerPresets(): Promise<MarkerPreset[]> {
   await requireUser();
-  const row = await prisma.businessProfile.findFirst({ select: { markerPresets: true } });
+  const db = await currentDb();
+  const row = await db.businessProfile.findFirst({ select: { markerPresets: true } });
   if (!row?.markerPresets) return DEFAULT_MARKER_PRESETS;
   return row.markerPresets as unknown as MarkerPreset[];
 }
@@ -25,11 +26,12 @@ export type UpdateMarkerPresetsResult = { ok: true } | { ok: false; error: strin
  */
 export async function updateMarkerPresetsAction(presets: MarkerPreset[]): Promise<UpdateMarkerPresetsResult> {
   await requireUser();
+  const db = await currentDb();
   const profile = await getBusinessProfile();
-  const existing = await prisma.businessProfile.findFirst({ where: { slug: profile.slug }, select: { id: true } });
+  const existing = await db.businessProfile.findFirst({ where: { slug: profile.slug }, select: { id: true } });
   if (!existing) return { ok: false, error: "Profil professionnel introuvable." };
 
-  await prisma.businessProfile.update({
+  await db.businessProfile.update({
     where: { id: existing.id },
     data: { markerPresets: presets as unknown as Prisma.InputJsonValue },
   });

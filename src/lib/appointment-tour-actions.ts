@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 
 export type TourRunOption = {
@@ -25,9 +25,10 @@ export type TourRunOption = {
  */
 export async function listTourRunsForDateAction(dateId: string): Promise<TourRunOption[]> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateId)) return [];
 
-  const runs = await prisma.tourRun.findMany({
+  const runs = await db.tourRun.findMany({
     where: { userId: user.id, date: new Date(`${dateId}T00:00:00.000Z`) },
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, _count: { select: { stops: true } } },

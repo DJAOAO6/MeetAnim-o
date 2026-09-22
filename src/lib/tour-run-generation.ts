@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/db";
+import type { ScopedPrismaClient } from "@/lib/db";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import { parseDateIdToLocalNoon } from "@/lib/booking-validation";
 import { parisDateId } from "@/lib/paris-time";
@@ -37,10 +37,12 @@ export type GenerateTourRunsResult = { created: number };
  * générée que l'utilisatrice a pu retoucher depuis. Un seul aller-retour
  * base de données (createMany), pas une écriture par occurrence.
  */
-export async function generateUpcomingTourRuns(): Promise<GenerateTourRunsResult> {
+export async function generateUpcomingTourRuns(db: ScopedPrismaClient, organizationId: string): Promise<GenerateTourRunsResult> {
   const [tours, adminUsers] = await Promise.all([
-    prisma.tour.findMany({ where: { status: "ACTIVE" } }),
-    prisma.user.findMany({ where: { role: "ADMIN", active: true }, select: { id: true } }),
+    db.tour.findMany({ where: { status: "ACTIVE" } }),
+    // Les comptes ne sont pas cloisonnés d'office (un compte de plateforme
+    // n'appartient à aucun cabinet) : le filtre est donc explicite ici.
+    db.user.findMany({ where: { role: "ADMIN", active: true, organizationId }, select: { id: true } }),
   ]);
   if (tours.length === 0 || adminUsers.length === 0) return { created: 0 };
 
@@ -75,6 +77,6 @@ export async function generateUpcomingTourRuns(): Promise<GenerateTourRunsResult
   }
 
   if (rows.length === 0) return { created: 0 };
-  const result = await prisma.tourRun.createMany({ data: rows, skipDuplicates: true });
+  const result = await db.tourRun.createMany({ data: rows, skipDuplicates: true });
   return { created: result.count };
 }

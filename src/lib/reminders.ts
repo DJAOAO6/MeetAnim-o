@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { prisma } from "@/lib/db";
+import { currentDb } from "@/lib/organization";
 import { formatFrenchDate } from "@/lib/format";
 import type { Reminder, ReminderClientOption, ReminderStatus } from "@/data/reminders";
 import type { ReminderDelay as DbReminderDelay, ReminderStatus as DbReminderStatus } from "@/generated/prisma/client";
@@ -30,7 +30,8 @@ function toIsoDate(date: Date): string {
  * cache() déduplique ces deux lectures sur une même requête.
  */
 export const getReminders = cache(async (): Promise<Reminder[]> => {
-  const reminders = await prisma.reminder.findMany({
+  const db = await currentDb();
+  const reminders = await db.reminder.findMany({
     include: { client: true, animal: true },
     orderBy: { dueDate: "asc" },
   });
@@ -53,18 +54,20 @@ export const getReminders = cache(async (): Promise<Reminder[]> => {
 });
 
 export async function getReminderStats() {
+  const db = await currentDb();
   const [due, sent, booked, upcoming] = await Promise.all([
-    prisma.reminder.count({ where: { status: "DUE" } }),
-    prisma.reminder.count({ where: { status: "SENT" } }),
-    prisma.reminder.count({ where: { status: "BOOKED" } }),
-    prisma.reminder.count({ where: { status: "UPCOMING" } }),
+    db.reminder.count({ where: { status: "DUE" } }),
+    db.reminder.count({ where: { status: "SENT" } }),
+    db.reminder.count({ where: { status: "BOOKED" } }),
+    db.reminder.count({ where: { status: "UPCOMING" } }),
   ]);
 
   return { due, sent, booked, upcoming };
 }
 
 export async function getReminderClientOptions(): Promise<ReminderClientOption[]> {
-  const clients = await prisma.client.findMany({
+  const db = await currentDb();
+  const clients = await db.client.findMany({
     include: { animals: true },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });

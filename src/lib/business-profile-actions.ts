@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/db";
+import type { ScopedPrismaClient } from "@/lib/db";
+import { currentDb, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDayAvailability } from "@/lib/availability";
@@ -73,10 +74,23 @@ function fullAddress(profile: Pick<ProfileSettings, "address" | "postalCode" | "
   return `${profile.address} ${profile.postalCode} ${profile.city}`;
 }
 
+/**
+ * Le profil d'un cabinet donné. Les chemins sans session — tâches de fond,
+ * envoi d'e-mails après la réponse — passent ici celui qu'ils traitent,
+ * pour ne jamais signer un message du nom d'un autre professionnel.
+ */
+export async function businessProfileOf(db: ScopedPrismaClient): Promise<BusinessProfileData> {
+  const row = await db.businessProfile.findFirst();
+  return row ?? await db.businessProfile.create({ data: DEFAULT_PROFILE });
+}
+
 export async function getBusinessProfile(): Promise<BusinessProfileData> {
-  const row = await prisma.businessProfile.findFirst();
+  // Lu des deux côtés : par l'espace professionnel et par la page de
+  // réservation, qui n'a pas de session.
+  const db = await readDb();
+  const row = await db.businessProfile.findFirst();
   if (row) return row;
-  const created = await prisma.businessProfile.create({ data: DEFAULT_PROFILE });
+  const created = await db.businessProfile.create({ data: DEFAULT_PROFILE });
   return created;
 }
 
@@ -88,6 +102,7 @@ const GEOCODING_FAILED_WARNING = "L’adresse du cabinet n’a pas pu être loca
 
 export async function updateBusinessProfileAction(input: BusinessProfileData): Promise<BusinessProfileActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les paramètres publics." };
   }
@@ -95,7 +110,7 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   const slug = input.slug.trim();
   if (!slug) return { ok: false, error: "Le lien public ne peut pas être vide." };
 
-  const existing = await prisma.businessProfile.findFirst();
+  const existing = await db.businessProfile.findFirst();
   // cabinetAvailable/homeAvailable sont volontairement omis de `data` et
   // gérés exclusivement par updateManualAvailabilityAction (badges du
   // tableau de bord) : ce formulaire ne capture leur valeur qu'une fois au
@@ -143,9 +158,9 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
 
   try {
     if (existing) {
-      await prisma.businessProfile.update({ where: { id: existing.id }, data });
+      await db.businessProfile.update({ where: { id: existing.id }, data });
     } else {
-      await prisma.businessProfile.create({ data: { ...data, cabinetAvailable, homeAvailable } as Prisma.BusinessProfileCreateInput });
+      await db.businessProfile.create({ data: { ...data, cabinetAvailable, homeAvailable } as Prisma.BusinessProfileCreateInput });
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {
@@ -168,17 +183,18 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
  */
 export async function geocodeBusinessProfileAction(): Promise<BusinessProfileActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les paramètres publics." };
   }
 
-  const existing = await prisma.businessProfile.findFirst();
+  const existing = await db.businessProfile.findFirst();
   if (!existing) return { ok: false, error: "Aucun profil à géocoder." };
 
   const geocoded = await geocodeAddress(fullAddress(existing));
   if (!geocoded) return { ok: false, error: GEOCODING_FAILED_WARNING };
 
-  await prisma.businessProfile.update({ where: { id: existing.id }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude } });
+  await db.businessProfile.update({ where: { id: existing.id }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude } });
   revalidatePath("/dashboard/parametres");
   return { ok: true };
 }
@@ -193,16 +209,17 @@ export async function geocodeBusinessProfileAction(): Promise<BusinessProfileAct
  */
 export async function updateManualAvailabilityAction(cabinetAvailable: boolean, homeAvailable: boolean): Promise<BusinessProfileActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les disponibilités." };
   }
 
-  const existing = await prisma.businessProfile.findFirst({ select: { id: true, slug: true } });
+  const existing = await db.businessProfile.findFirst({ select: { id: true, slug: true } });
   if (existing) {
-    await prisma.businessProfile.update({ where: { id: existing.id }, data: { cabinetAvailable, homeAvailable } });
+    await db.businessProfile.update({ where: { id: existing.id }, data: { cabinetAvailable, homeAvailable } });
     revalidatePath(`/reserver/${existing.slug}`);
   } else {
-    const created = await prisma.businessProfile.create({ data: { ...DEFAULT_PROFILE, cabinetAvailable, homeAvailable } });
+    const created = await db.businessProfile.create({ data: { ...DEFAULT_PROFILE, cabinetAvailable, homeAvailable } });
     revalidatePath(`/reserver/${created.slug}`);
   }
 
@@ -211,7 +228,8 @@ export async function updateManualAvailabilityAction(cabinetAvailable: boolean, 
 }
 
 export async function getAvailability(): Promise<AvailabilitySettings> {
-  const row = await prisma.businessProfile.findFirst({ select: { availability: true } });
+  const db = await readDb();
+  const row = await db.businessProfile.findFirst({ select: { availability: true } });
   if (!row?.availability) return initialSettings.availability;
   // Colonne Json : un profil enregistré avant l'ajout de
   // defaultAppointmentDuration/slotInterval ne les a pas encore en base —
@@ -234,10 +252,11 @@ export type UpdateAvailabilityResult = { ok: true } | { ok: false; error: string
  * le cas d'un rendez-vous qui chevauche plusieurs heures.
  */
 async function findAvailabilityConflicts(newAvailability: AvailabilitySettings): Promise<AvailabilityConflict[]> {
+  const db = await currentDb();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcoming = await prisma.appointment.findMany({
+  const upcoming = await db.appointment.findMany({
     where: { status: { in: ["CONFIRMED", "PENDING"] }, date: { gte: today } },
     select: { id: true, date: true, start: true, duration: true, mode: true, clientName: true, animalName: true },
   });
@@ -268,6 +287,7 @@ async function findAvailabilityConflicts(newAvailability: AvailabilitySettings):
 
 export async function updateAvailabilityAction(input: AvailabilitySettings, force = false): Promise<UpdateAvailabilityResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les disponibilités." };
   }
@@ -283,11 +303,11 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
     }
   }
 
-  const existing = await prisma.businessProfile.findFirst({ select: { id: true } });
+  const existing = await db.businessProfile.findFirst({ select: { id: true } });
   if (existing) {
-    await prisma.businessProfile.update({ where: { id: existing.id }, data: { availability: input as unknown as Prisma.InputJsonValue } });
+    await db.businessProfile.update({ where: { id: existing.id }, data: { availability: input as unknown as Prisma.InputJsonValue } });
   } else {
-    await prisma.businessProfile.create({ data: { ...DEFAULT_PROFILE, availability: input as unknown as Prisma.InputJsonValue } });
+    await db.businessProfile.create({ data: { ...DEFAULT_PROFILE, availability: input as unknown as Prisma.InputJsonValue } });
   }
 
   revalidatePath("/dashboard/agenda");
@@ -305,22 +325,32 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
  * getAvailability/updateAvailabilityAction ci-dessus.
  */
 export async function getReminderSettings(): Promise<ReminderSettings> {
-  const row = await prisma.businessProfile.findFirst({ select: { reminderSettings: true } });
+  return reminderSettingsOf(await readDb());
+}
+
+/**
+ * Les réglages de rappel d'un cabinet donné. Les tâches de fond n'ont pas de
+ * session : elles parcourent les cabinets et passent ici celui qu'elles
+ * traitent.
+ */
+export async function reminderSettingsOf(db: ScopedPrismaClient): Promise<ReminderSettings> {
+  const row = await db.businessProfile.findFirst({ select: { reminderSettings: true } });
   if (!row?.reminderSettings) return initialSettings.reminders;
   return row.reminderSettings as unknown as ReminderSettings;
 }
 
 export async function updateReminderSettingsAction(input: ReminderSettings): Promise<BusinessProfileActionResult> {
   const user = await requireUser();
+  const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les réglages de rappels." };
   }
 
-  const existing = await prisma.businessProfile.findFirst({ select: { id: true } });
+  const existing = await db.businessProfile.findFirst({ select: { id: true } });
   if (existing) {
-    await prisma.businessProfile.update({ where: { id: existing.id }, data: { reminderSettings: input as unknown as Prisma.InputJsonValue } });
+    await db.businessProfile.update({ where: { id: existing.id }, data: { reminderSettings: input as unknown as Prisma.InputJsonValue } });
   } else {
-    await prisma.businessProfile.create({ data: { ...DEFAULT_PROFILE, reminderSettings: input as unknown as Prisma.InputJsonValue } });
+    await db.businessProfile.create({ data: { ...DEFAULT_PROFILE, reminderSettings: input as unknown as Prisma.InputJsonValue } });
   }
 
   revalidatePath("/dashboard/rappels");
@@ -340,9 +370,10 @@ export type PeriodAppointment = { id: string; date: string; start: string; clien
  */
 export async function getAppointmentsInPeriodAction(startDateId: string, endDateId: string, scope: "cabinet" | "home" | "both"): Promise<PeriodAppointment[]> {
   await requireUser();
+  const db = await currentDb();
   if (!startDateId || !endDateId || endDateId < startDateId) return [];
 
-  const rows = await prisma.appointment.findMany({
+  const rows = await db.appointment.findMany({
     where: {
       status: { in: ["CONFIRMED", "PENDING"] },
       date: { gte: new Date(`${startDateId}T00:00:00.000Z`), lte: new Date(`${endDateId}T23:59:59.999Z`) },
