@@ -115,7 +115,7 @@ jobs:
       # et un build ne publie pas ces noms — ce qui est tant mieux pour la
       # production, mais rendrait la suite aveugle ici.
       - name: Cloisonnement
-        run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts --reporter=line
+        run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts tests/organization-rls.spec.ts --reporter=line
 
       - name: Traces des échecs
         if: failure()

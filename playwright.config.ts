@@ -28,12 +28,12 @@ export default defineConfig({
     {
       name: "chromium",
       // Les specs à session partagée ont leur propre projet ci-dessous.
-      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|agenda-slot-touch|practice-mode-dashboard|organization-isolation|organization-isolation-actions)\.(spec\.)?ts/,
+      testIgnore: /(auth\.setup|dashboard-layout|accessibility-dashboard|responsive-mobile|agenda-touch-drag|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|agenda-slot-touch|practice-mode-dashboard|organization-isolation|organization-isolation-actions|organization-rls)\.(spec\.)?ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       name: "chromium-connecte",
-      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|practice-mode-dashboard|organization-isolation|organization-isolation-actions)\.spec\.ts/,
+      testMatch: /(dashboard-layout|accessibility-dashboard|public-page-editor|responsive-widths|notifications-toasts|business-profile-geocoding|availability-manager|sidebar-layout|sidebar-behaviour|dashboard-overview|appointment-modal|agenda-slot-selection|paw-cursor|notifications-bell|public-profile-settings|practice-mode-dashboard|organization-isolation|organization-isolation-actions|organization-rls)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/practitioner.json" },
     },

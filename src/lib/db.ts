@@ -1,20 +1,28 @@
 import "server-only";
+import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { scopeArgs } from "@/lib/db-scope";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+function connectionString(): string {
+  // DB_URL est injectée par Iridflow (attach_db_to_site) pour une base
+  // hébergée sur la plateforme ; DATABASE_URL reste la variable utilisée en
+  // développement.
+  return process.env.DATABASE_URL ?? process.env.DB_URL ?? "";
+}
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; scopedClients?: Map<string, ScopedPrismaClient> };
 
 // Un client cloisonné par espace, construit à la demande : l'extension est
-// posée une fois, pas à chaque requête.
-const scopedClients = new Map<string, ScopedPrismaClient>();
+// posée une fois, pas à chaque requête. Conservé sur l'objet global en
+// développement, où le rechargement à chaud réévalue ce module : sans cela,
+// chaque rechargement ouvrirait une nouvelle réserve de connexions et
+// laisserait la précédente derrière lui.
+const scopedClients: Map<string, ScopedPrismaClient> = globalForPrisma.scopedClients ?? new Map();
+if (process.env.NODE_ENV !== "production") globalForPrisma.scopedClients = scopedClients;
 
-// DB_URL est injectée par Iridflow (attach_db_to_site) pour une base hébergée
-// sur la plateforme ; DATABASE_URL reste la variable utilisée en dev/Neon.
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL ?? process.env.DB_URL;
-  const adapter = new PrismaPg({ connectionString });
-  return new PrismaClient({ adapter });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString: connectionString() }) });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
@@ -41,7 +49,25 @@ export function dbFor(organizationId: string): ScopedPrismaClient {
 }
 
 function buildScopedClient(organizationId: string) {
-  return prisma.$extends({
+  // Chaque connexion de ce client annonce à PostgreSQL le cabinet qu'elle
+  // sert. La base s'en sert pour refuser d'elle-même les lignes des autres
+  // (migration 20260922170000_row_level_security) : si une requête échappait
+  // au filtre applicatif, elle ne ramènerait toujours rien d'étranger.
+  //
+  // Une réserve de connexions par cabinet, donc — volontairement petite. Le
+  // jour où les cabinets se compteront par dizaines, il faudra soit une
+  // réserve partagée qui repose le réglage à chaque emprunt, soit un
+  // intermédiaire (PgBouncer) : c'est noté dans docs/PLAN-MULTI-COMPTES.md.
+  const pool = new Pool({ connectionString: connectionString(), max: 3, allowExitOnIdle: true });
+  pool.on("connect", (client) => {
+    // `false` : le réglage vaut pour toute la connexion, pas seulement pour
+    // la transaction en cours. La requête est mise en file sur cette
+    // connexion avant toute autre, donc aucune requête ne part sans lui.
+    void client.query("SELECT set_config('app.organization_id', $1, false)", [organizationId]);
+  });
+
+  const client = new PrismaClient({ adapter: new PrismaPg(pool) });
+  return client.$extends({
     query: {
       $allModels: {
         $allOperations({ model, operation, args, query }) {
