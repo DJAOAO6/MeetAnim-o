@@ -2,13 +2,19 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
+import { dbForSlug } from "@/lib/organization";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Le profil de l'espace désigné par le lien — comme la page de réservation
+ * dont cette page dépend —, jamais « le seul espace » : il y en a plusieurs.
+ */
 async function loadProfile(slug: string) {
-  const profile = await getBusinessProfile();
-  if (profile.slug !== slug) return null;
-  return profile;
+  const db = await dbForSlug(slug);
+  if (!db) return null;
+  const profile = await getBusinessProfile(db);
+  return profile.slug === slug ? profile : null;
 }
 
 export async function generateMetadata({ params }: PageProps<"/politique-de-confidentialite/[slug]">): Promise<Metadata> {

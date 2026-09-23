@@ -286,7 +286,7 @@ test("un nouvel espace n'a que le socle ; la plateforme lui ouvre un module", as
     // Et l'adresse tapée à la main n'ouvre rien.
     await page.goto("/dashboard/tournees");
     await expect(page.getByRole("heading", { name: "Tournées et carte" })).toBeVisible();
-    await expect(page.getByText("n’est pas activé pour votre espace")).toBeVisible();
+    await expect(page.getByText("n’est pas activé pour votre espace").first()).toBeVisible();
 
     // La plateforme ouvre le module.
     const admin = await platform.newPage();
@@ -307,4 +307,15 @@ test("un nouvel espace n'a que le socle ; la plateforme lui ouvre un module", as
     await invitee.close();
     await platform.close();
   }
+});
+
+test("chaque page de politique de confidentialité montre son propre professionnel", async ({ page }) => {
+  // Deux espaces existent désormais : la page doit suivre son lien, pas
+  // « le seul espace ».
+  await page.goto(`/politique-de-confidentialite/${SLUG}`);
+  await expect(page.getByText("Élodie Invitée").first()).toBeVisible();
+  await expect(page.getByText("Pauline")).toHaveCount(0);
+
+  await page.goto("/politique-de-confidentialite/pauline-faucillon");
+  await expect(page.getByText("Pauline Faucillon").first()).toBeVisible();
 });
