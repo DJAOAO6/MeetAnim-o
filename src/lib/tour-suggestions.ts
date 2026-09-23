@@ -1,6 +1,6 @@
 "use server";
 
-import { dbForSlug } from "@/lib/organization";
+import { dbForSlug, moduleOpenFor } from "@/lib/organization";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { getDayAvailability } from "@/lib/availability";
 import { getBookingWindowStartId } from "@/lib/public-schedule";
@@ -71,6 +71,8 @@ export async function getSuggestedToursForAddressAction(slug: string, input: Tou
   // Appelée depuis la page publique : le cabinet vient du lien suivi.
   const db = await dbForSlug(slug);
   if (!db) return [];
+  // Sans le module Tournées, aucune proposition de tournée aux visiteurs.
+  if (!(await moduleOpenFor(db, "TOURS"))) return [];
   const duration = Math.round(input.durationMinutes);
   if (!input.zoneId || !Number.isFinite(duration) || duration <= 0) return [];
 

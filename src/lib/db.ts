@@ -45,7 +45,6 @@ export function dbFor(organizationId: string): ScopedPrismaClient {
 
   const scoped = buildScopedClient(organizationId);
   scopedClients.set(organizationId, scoped);
-  scopedOrganizations.set(scoped, organizationId);
   return scoped;
 }
 
@@ -56,12 +55,14 @@ export function dbFor(organizationId: string): ScopedPrismaClient {
  * de transporter l'identifiant à côté du client.
  */
 export function organizationIdOf(db: ScopedPrismaClient): string {
-  const organizationId = scopedOrganizations.get(db);
-  if (!organizationId) throw new Error("Client non cloisonné : cabinet inconnu.");
-  return organizationId;
+  // Relu dans la table des clients elle-même — partagée entre les copies du
+  // module que le serveur de développement charge (pages, routes d'API) —,
+  // plutôt que dans une seconde table qui, elle, ne l'était pas.
+  for (const [organizationId, client] of scopedClients) {
+    if (client === db) return organizationId;
+  }
+  throw new Error("Client non cloisonné : cabinet inconnu.");
 }
-
-const scopedOrganizations = new WeakMap<object, string>();
 
 function buildScopedClient(organizationId: string) {
   // Chaque connexion de ce client annonce à PostgreSQL le cabinet qu'elle

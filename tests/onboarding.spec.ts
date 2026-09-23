@@ -261,3 +261,50 @@ test("un lien d'invitation ne sert qu'une fois", async ({ browser }) => {
     await context.close();
   }
 });
+
+test("un nouvel espace n'a que le socle ; la plateforme lui ouvre un module", async ({ browser }) => {
+  const [owner] = await sql`SELECT u."organizationId", o.modules FROM "User" u JOIN "Organization" o ON o.id = u."organizationId" WHERE u.email = ${INVITEE_EMAIL}`;
+  expect(owner.modules, "socle seul à l'ouverture").toEqual([]);
+
+  const invitee = await browser.newContext();
+  const platform = await browser.newContext();
+  try {
+    const page = await invitee.newPage();
+    await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
+    await page.goto("/login", { waitUntil: "networkidle" });
+    await page.fill('input[type="email"]', INVITEE_EMAIL);
+    await page.fill('input[type="password"]', INVITEE_PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL("**/dashboard", { timeout: 15000 });
+
+    // Sur l'agenda, la catégorie « Planning » du menu est dépliée : Agenda y
+    // est, Tournées — de la même catégorie — n'y est pas.
+    await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+    const nav = page.getByRole("navigation", { name: "Navigation principale" }).first();
+    await expect(nav.getByRole("link", { name: "Agenda" }).first(), "le socle est là").toBeVisible();
+    await expect(nav.getByRole("link", { name: "Tournées" }), "pas de Tournées sans le module").toHaveCount(0);
+    // Et l'adresse tapée à la main n'ouvre rien.
+    await page.goto("/dashboard/tournees");
+    await expect(page.getByRole("heading", { name: "Tournées et carte" })).toBeVisible();
+    await expect(page.getByText("n’est pas activé pour votre espace")).toBeVisible();
+
+    // La plateforme ouvre le module.
+    const admin = await platform.newPage();
+    await loginAsPlatform(admin, sql, platformId, PLATFORM_EMAIL);
+    const modules = admin.getByRole("group", { name: "Modules de Élodie Comportement" });
+    await modules.getByLabel(/Tournées et carte/).check();
+    await modules.getByRole("button", { name: "Enregistrer les modules" }).click();
+    await expect(modules.getByRole("status")).toContainText("Modules enregistrés");
+
+    await page.goto("/dashboard/tournees", { waitUntil: "networkidle" });
+    await expect(page.getByText("n’est pas activé pour votre espace"), "le module s'ouvre à la page suivante").toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Navigation principale" }).first().getByRole("link", { name: "Tournées" }).first()).toBeVisible();
+
+    const [logged] = await sql`SELECT metadata FROM "AuditLog" WHERE action = 'MODULES_CHANGED' AND "organizationId" = ${owner.organizationId} ORDER BY "createdAt" DESC LIMIT 1`;
+    expect(logged, "inscrit au journal de l'espace").toBeTruthy();
+    expect((logged.metadata as { opened: string[] }).opened).toEqual(["Tournées et carte"]);
+  } finally {
+    await invitee.close();
+    await platform.close();
+  }
+});

@@ -1,5 +1,6 @@
 "use server";
 
+import { requireModule } from "@/lib/module-access";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
@@ -42,6 +43,7 @@ export async function startClientImportAction(input: {
   totalRows: number;
   conflictPolicy: ConflictPolicy;
 }): Promise<StartClientImportResult> {
+  await requireModule("CLIENT_IMPORT");
   const user = await requireUser();
   const db = await currentDb();
 
@@ -197,6 +199,7 @@ export type ClientMatch = { lineNumber: number; existing: boolean };
 export type CheckClientMatchesResult = { ok: true; matches: ClientMatch[] } | { ok: false; error: string };
 
 export async function checkClientMatchesAction(candidates: MatchCandidate[]): Promise<CheckClientMatchesResult> {
+  await requireModule("CLIENT_IMPORT");
   await requireUser();
 
   const parsed = checkMatchesSchema.safeParse({ candidates });
@@ -214,6 +217,7 @@ export async function checkClientMatchesAction(candidates: MatchCandidate[]): Pr
 export type ImportClientsChunkResult = { ok: true; results: RowResult[] } | { ok: false; error: string };
 
 export async function importClientsChunkAction(importId: string, rows: ImportRowPayload[]): Promise<ImportClientsChunkResult> {
+  await requireModule("CLIENT_IMPORT");
   const user = await requireUser();
   const db = await currentDb();
 
@@ -358,6 +362,7 @@ export type ImportSummary = {
 export type FinishClientImportResult = { ok: true; summary: ImportSummary } | { ok: false; error: string };
 
 export async function finishClientImportAction(importId: string): Promise<FinishClientImportResult> {
+  await requireModule("CLIENT_IMPORT");
   const user = await requireUser();
   const db = await currentDb();
 
@@ -404,6 +409,7 @@ export type UndoClientImportResult =
   | { ok: false; error: string };
 
 export async function undoClientImportAction(importId: string): Promise<UndoClientImportResult> {
+  await requireModule("CLIENT_IMPORT");
   const user = await requireUser();
   const db = await currentDb();
 

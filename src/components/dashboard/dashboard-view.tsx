@@ -31,6 +31,8 @@ import { notify } from "@/lib/notify";
 import { resetDashboardLayoutAction, saveDashboardLayoutAction } from "@/lib/dashboard-layout-actions";
 import type { DashboardOverviewData } from "@/lib/dashboard-overview";
 import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule } from "@/lib/modules";
 
 type DashboardViewProps = DashboardOverviewData & {
   initialLayout: DashboardWidgetPreference[];
@@ -99,10 +101,14 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
   // Un bloc « Ouverture du cabinet » n'a rien à dire à qui n'a pas de
   // cabinet : il ne s'affiche pas, et ne traîne pas non plus dans la liste
   // des blocs masqués, où on pourrait le rajouter.
+  // Même règle pour les blocs d'un module que l'espace n'a pas.
+  const modules = useCurrentUser()?.modules ?? [];
   const practiced = (widget: DashboardWidgetPreference) =>
     widget.id === "availabilityCabinet" ? hasCabinet(practiceMode)
       : widget.id === "availabilityHome" ? visitsHomes(practiceMode)
-        : true;
+        : widget.id === "nextTour" ? hasModule(modules, "TOURS")
+          : widget.id === "reminders" ? hasModule(modules, "REMINDERS")
+            : true;
   const visibleWidgets = layout.filter((widget) => widget.visible && practiced(widget));
   const hiddenWidgets = layout.filter((widget) => !widget.visible && practiced(widget));
 

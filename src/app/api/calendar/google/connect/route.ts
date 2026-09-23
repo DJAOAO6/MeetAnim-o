@@ -1,3 +1,4 @@
+import { hasModule } from "@/lib/modules";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/dal";
 import { googleCalendarProvider } from "@/lib/calendar/google-calendar-provider";
@@ -11,6 +12,7 @@ import { createOAuthState } from "@/lib/calendar/google-oauth-state";
  */
 export async function GET() {
   const user = await requireUser();
+  if (!hasModule(user.modules, "CALENDAR_SYNC")) return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/dashboard/parametres`);
   const nonce = await createOAuthState(user.id);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const authorizationUrl = googleCalendarProvider.getAuthorizationUrl(nonce, `${appUrl}/api/calendar/google/callback`);

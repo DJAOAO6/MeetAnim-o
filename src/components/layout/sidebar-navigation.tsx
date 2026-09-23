@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { useSidebar } from "@/components/layout/sidebar-provider";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule } from "@/lib/modules";
 import {
   dashboardEntry,
   isEntryActive,
@@ -72,8 +74,9 @@ export function SidebarNavigation({ pathname, showStatistics, onNavigate, forceL
   const { showLabels: contextLabels, openGroup, groupChosen, setOpenGroup, handleGroupHover } = useSidebar();
   const showLabels = contextLabels || forceLabels;
 
+  const modules = useCurrentUser()?.modules ?? [];
   const groups = navigationGroups
-    .map((group) => ({ ...group, items: group.items.filter((item) => !item.requiresFinances || showStatistics) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => (!item.requiresFinances || showStatistics) && (!item.module || hasModule(modules, item.module))) }))
     .filter((group) => group.items.length > 0);
 
   if (!showLabels) {

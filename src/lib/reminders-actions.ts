@@ -1,5 +1,6 @@
 "use server";
 
+import { requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
 import { getCurrentUser } from "@/lib/auth/dal";
@@ -70,6 +71,7 @@ export type SaveReminderInput = {
 export type ReminderActionResult = { ok: true } | { ok: false; error: string };
 
 export async function saveReminderAction(input: SaveReminderInput): Promise<ReminderActionResult> {
+  await requireModule("REMINDERS");
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
   const db = await currentDb();
@@ -105,6 +107,7 @@ export async function saveReminderAction(input: SaveReminderInput): Promise<Remi
 }
 
 export async function ignoreReminderAction(id: string): Promise<ReminderActionResult> {
+  await requireModule("REMINDERS");
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
   const db = await currentDb();
@@ -125,6 +128,7 @@ export async function ignoreReminderAction(id: string): Promise<ReminderActionRe
  * l'envoi, juste être signalé à l'utilisateur.
  */
 export async function sendReminderAction(id: string, message: string): Promise<ReminderActionResult> {
+  await requireModule("REMINDERS");
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
   const db = await currentDb();
@@ -193,6 +197,7 @@ async function dispatchReminderEmails(userId: string, reminders: ReminderForBulk
  * proposé dans ReminderModal.
  */
 export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendResult> {
+  await requireModule("REMINDERS");
   const user = await getCurrentUser();
   if (!user) return { sentIds: [], failedNames: [] };
   const db = await currentDb();
@@ -223,6 +228,7 @@ export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendRe
  * chemin).
  */
 export async function sendZoneReminderCampaignAction(reminderIds: string[], zoneName: string, dateLabel: string): Promise<BulkSendResult> {
+  await requireModule("REMINDERS");
   const user = await getCurrentUser();
   if (!user) return { sentIds: [], failedNames: [] };
   const db = await currentDb();

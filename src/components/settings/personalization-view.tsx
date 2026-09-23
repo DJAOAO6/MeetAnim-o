@@ -13,6 +13,8 @@ import type { DashboardThemeSettings } from "@/data/dashboard-theme";
 import type { ProfileSettings, ServiceSettings } from "@/data/settings";
 import type { PublicProfessional } from "@/data/public-booking";
 import type { PublicPageState } from "@/lib/public-page-actions";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule } from "@/lib/modules";
 
 /**
  * Tout ce qui touche à l'apparence est réuni ici : le thème du logiciel, la
@@ -55,6 +57,8 @@ function draftFromTheme(theme: DashboardThemeSettings): ThemeDraft {
 }
 
 export function PersonalizationView({ profile, services, saving = false, canEdit = true, onSaveTheme, publicPage, publicProfessional }: PersonalizationViewProps) {
+  // L'éditeur de la page de réservation est un module (src/lib/modules.ts).
+  const modules = useCurrentUser()?.modules ?? [];
   const { theme } = useDashboardTheme();
   const [activeSection, setActiveSection] = useState<PersonalizationSection>("theme");
   const [draft, setDraft] = useState<ThemeDraft>(() => draftFromTheme(theme));
@@ -80,7 +84,7 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
   return (
     <div className={`grid gap-6 ${showThemePreview ? "xl:grid-cols-[260px_minmax(0,1fr)_360px]" : "xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
       <nav aria-label="Sections de personnalisation" className="space-y-2 xl:sticky xl:top-6 xl:self-start">
-        {sections.map((section) => {
+        {sections.filter((section) => section.id !== "booking" || hasModule(modules, "PUBLIC_PAGE")).map((section) => {
           const active = section.id === activeSection;
           return (
             <button
@@ -111,7 +115,7 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
 
         {activeSection === "dashboard" ? <DashboardLayoutPanel /> : null}
 
-        {activeSection === "booking" ? (
+        {activeSection === "booking" && hasModule(modules, "PUBLIC_PAGE") ? (
           canEdit && publicProfessional
             ? <PublicPageEditor initialState={publicPage} professional={publicProfessional} />
             : <Card className="p-5 text-sm font-bold text-animeo-dark">Vous n’avez pas la permission de modifier la page publique.</Card>

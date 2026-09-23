@@ -1,5 +1,6 @@
 "use server";
 
+import { moduleOpen, requireModule } from "@/lib/module-access";
 import { parisDateId } from "@/lib/paris-time";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
@@ -91,6 +92,7 @@ export type SaveTourInput = {
 const recurrencesRequiringAnchor: Tour["recurrence"][] = ["Toutes les deux semaines", "Tous les mois", "Une seule fois"];
 
 export async function saveTourAction(input: SaveTourInput): Promise<TourActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -147,6 +149,7 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
 }
 
 export async function toggleTourStatusAction(id: string): Promise<TourActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -175,6 +178,7 @@ export type DeleteTourResult = { ok: true } | { ok: false; error: string };
  * (active, inactive, passée ou à venir).
  */
 export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -210,6 +214,7 @@ export type ZoneActionResult = { ok: true; zone: Zone } | { ok: false; error: st
 export type SaveZoneInput = { id?: string; name: string; cities: City[]; sector?: ZoneSector | null };
 
 export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -267,6 +272,7 @@ export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionRe
 export type DeleteZoneResult = { ok: true } | { ok: false; error: string };
 
 export async function deleteZoneAction(id: string): Promise<DeleteZoneResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -295,6 +301,7 @@ export async function deleteZoneAction(id: string): Promise<DeleteZoneResult> {
  * refonte).
  */
 export async function reassignAndDeleteZoneAction(zoneId: string, targetZoneId: string): Promise<DeleteZoneResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -346,6 +353,7 @@ export type AddTourStopResult = { ok: true } | { ok: false; error: string };
  * dupliquer une variante ici.
  */
 export async function addTourStopAction(input: AddTourStopInput): Promise<AddTourStopResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
@@ -416,6 +424,7 @@ export type TourPatternMatch = {
  * pas de permission dédiée.
  */
 export async function findTourPatternForDateAction(dateId: string): Promise<TourPatternMatch | null> {
+  await requireModule("TOURS");
   await requireUser();
   const db = await currentDb();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateId)) return null;
@@ -457,6 +466,7 @@ export type ZoneSearchResult = {
 };
 
 export async function searchZonesAction(rawQuery: string): Promise<ZoneSearchResult[]> {
+  if (!(await moduleOpen("TOURS"))) return [];
   // getCurrentUser (jamais requireUser) : une recherche en direct ne doit
   // jamais déclencher une redirection de session — même convention que
   // searchClientsAndAnimalsAction (client-search.ts).

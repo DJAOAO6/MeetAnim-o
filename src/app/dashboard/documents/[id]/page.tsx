@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { DocumentEditorView } from "@/components/documents/document-editor-view";
 import { getDocument } from "@/lib/documents-actions";
 import { requireUser } from "@/lib/auth/dal";
+import { ModuleClosed } from "@/components/modules/module-closed";
+import { hasModule } from "@/lib/modules";
 
 type DocumentPageProps = {
   params: Promise<{ id: string }>;
@@ -15,7 +17,8 @@ export async function generateMetadata({ params }: DocumentPageProps): Promise<M
 }
 
 export default async function DocumentPage({ params }: DocumentPageProps) {
-  await requireUser();
+  const moduleUser = await requireUser();
+  if (!hasModule(moduleUser.modules, "DOCUMENTS")) return <ModuleClosed moduleKey="DOCUMENTS" />;
   const { id } = await params;
   const document = await getDocument(id);
 

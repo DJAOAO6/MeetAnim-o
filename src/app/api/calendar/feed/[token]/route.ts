@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbFor, prisma } from "@/lib/db";
+import { moduleOpenFor } from "@/lib/organization";
 import { buildIcsCalendar, type IcsEventInput } from "@/lib/booking-validation";
 
 /**
@@ -19,6 +20,9 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   // Le jeton désigne un compte, donc son cabinet : le flux ne peut montrer
   // que l'agenda de celui-ci.
   const db = dbFor(user.organizationId);
+  // Module « Agendas externes » retiré : le flux se tait, comme un jeton
+  // inconnu. Le jeton reste valable si le module revient.
+  if (!(await moduleOpenFor(db, "CALENDAR_SYNC"))) return new NextResponse("Not found", { status: 404 });
 
   // Cabinet unique dans cette version (voir docs/GOOGLE-CALENDAR-SETUP.md) :
   // le flux reflète le même agenda partagé que le tableau de bord interne,

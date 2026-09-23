@@ -1,4 +1,6 @@
 import "server-only";
+import { dbFor } from "@/lib/db";
+import { moduleOpenFor } from "@/lib/organization";
 import { getActiveConnectionsForProvider, getFreshAccessToken, providerFor } from "@/lib/calendar/calendar-connections";
 import type { BusyPeriod } from "@/lib/calendar/types";
 import { timeToMinutes } from "@/lib/booking-validation";
@@ -30,6 +32,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 async function fetchGoogleBusyPeriods(organizationId: string, fromIso: string, toIso: string): Promise<BusyPeriod[]> {
+  if (!(await moduleOpenFor(dbFor(organizationId), "CALENDAR_SYNC"))) return [];
   const connections = (await getActiveConnectionsForProvider("GOOGLE", organizationId)).filter((connection) => connection.blockExternalBusySlots);
   if (connections.length === 0) return [];
 

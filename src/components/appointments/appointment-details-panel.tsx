@@ -31,7 +31,7 @@ export function AppointmentDetailsPanel({ appointment, onEdit, actions }: {
   const tone = statusTone(appointment.status);
   const end = minutesToTime(timeToMinutes(appointment.start) + appointment.duration);
   const PlaceIcon = appointment.mode === "cabinet" ? Building2 : Car;
-  const { complete, completing, createDocument, creatingDocument } = actions;
+  const { complete, completing, createDocument, creatingDocument, canCreateDocument } = actions;
 
   return (
     <article className="flex h-full flex-col rounded-2xl border border-animeo-border bg-animeo-bg p-5">
@@ -89,7 +89,7 @@ export function AppointmentDetailsPanel({ appointment, onEdit, actions }: {
           </Button>
         ) : null}
 
-        {appointment.status === "completed" ? (
+        {appointment.status === "completed" && canCreateDocument ? (
           <Button type="button" variant="secondary" onClick={() => createDocument(appointment)} disabled={creatingDocument}>
             <FileText aria-hidden="true" className="h-4 w-4" />
             {creatingDocument ? "Ouverture…" : "Créer le compte rendu"}

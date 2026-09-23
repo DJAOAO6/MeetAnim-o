@@ -44,7 +44,8 @@ type AuditAction =
   | "INVITATION_SENT"
   | "INVITATION_REVOKED"
   | "ORGANIZATION_CREATED"
-  | "ONBOARDING_COMPLETED";
+  | "ONBOARDING_COMPLETED"
+  | "MODULES_CHANGED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
@@ -67,6 +68,12 @@ export async function logAudit(entry: {
    * pendant une assistance ne puisse échapper à cette attribution.
    */
   impersonatorId?: string | null;
+  /**
+   * L'espace au journal duquel inscrire l'action, quand ce n'est pas celui
+   * de `userId` : un compte de plateforme, sans espace, qui agit sur celui
+   * d'un professionnel.
+   */
+  organizationId?: string;
 }): Promise<void> {
   const impersonatorId = entry.impersonatorId !== undefined
     ? entry.impersonatorId
@@ -75,9 +82,10 @@ export async function logAudit(entry: {
   // Le journal appartient au cabinet dont l'action émane : c'est lui qui le
   // consulte, et la super-administration (phase 7) devra pouvoir dire chez
   // qui chaque action a eu lieu.
-  const organizationId = entry.userId
-    ? (await prisma.user.findUnique({ where: { id: entry.userId }, select: { organizationId: true } }))?.organizationId ?? null
-    : null;
+  const organizationId = entry.organizationId
+    ?? (entry.userId
+      ? (await prisma.user.findUnique({ where: { id: entry.userId }, select: { organizationId: true } }))?.organizationId ?? null
+      : null);
 
   await prisma.auditLog.create({
     data: {

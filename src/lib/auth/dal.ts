@@ -3,6 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionPayload } from "@/lib/auth/session";
+import { normalizeModules, type ModuleKey } from "@/lib/modules";
 
 export type CurrentUser = {
   id: string;
@@ -16,6 +17,11 @@ export type CurrentUser = {
    * compte de plateforme, qui n'appartient à aucun cabinet.
    */
   organizationId: string | null;
+  /**
+   * Modules ouverts à son espace, en plus du socle (src/lib/modules.ts).
+   * Vide pour un compte sans espace.
+   */
+  modules: ModuleKey[];
   /** Compte de super-administration (phase 7). */
   platformAdmin: boolean;
   twoFactorEnabled: boolean;
@@ -44,7 +50,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   // La session doit exister, appartenir à ce compte, ne pas être révoquée
   // (déconnexion) ni expirée : une seule lecture, utilisateur compris.
-  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: true, impersonator: true } });
+  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: { include: { organization: { select: { modules: true } } } }, impersonator: true } });
   if (!session || session.userId !== payload.userId || session.revokedAt || session.expiresAt.getTime() <= Date.now()) return null;
 
   // Une assistance ne vaut que tant que celui qui assiste est toujours un
@@ -69,6 +75,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     role: user.role,
     permissions: user.permissions,
     organizationId: user.organizationId,
+    modules: normalizeModules(user.organization?.modules ?? []),
     platformAdmin: user.platformAdmin,
     twoFactorEnabled: user.twoFactorEnabled,
     assistance: session.impersonator

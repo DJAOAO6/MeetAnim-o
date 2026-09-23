@@ -20,6 +20,7 @@ import { toTelHref } from "@/lib/phone";
 import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
+import { hasModule } from "@/lib/modules";
 
 type ClientProfileProps = {
   client: Client;
@@ -36,6 +37,7 @@ function animalPhotoKey(clientId: string, animalId: string) {
 }
 
 export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
+  const currentModules = useCurrentUser()?.modules ?? [];
   const { openNewAppointment } = useAppointments();
   const router = useRouter();
   const currentUser = useCurrentUser();
@@ -246,7 +248,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}
           />
-          <AnimalSideCards animal={selectedAnimal} onAction={showStubFeedback} onScheduleReminder={() => setSchedulingReminder(true)} />
+          <AnimalSideCards animal={selectedAnimal} onAction={showStubFeedback} onScheduleReminder={() => setSchedulingReminder(true)} showReminder={hasModule(currentModules, "REMINDERS")} />
         </div>
       ) : (
         <Card className="p-10 text-center">

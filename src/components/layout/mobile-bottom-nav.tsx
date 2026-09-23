@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/ui/icon";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule, type ModuleKey } from "@/lib/modules";
 
 /**
  * Événement écouté par DashboardSidebar pour ouvrir son tiroir. La barre du
@@ -12,7 +14,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
  */
 export const OPEN_MENU_EVENT = "dashboard:open-menu";
 
-type BottomNavItem = { label: string; href: string; icon: IconName };
+type BottomNavItem = { label: string; href: string; icon: IconName; module?: ModuleKey };
 
 /**
  * Les quatre destinations les plus utilisées au quotidien — le reste (carte,
@@ -25,7 +27,7 @@ const items: BottomNavItem[] = [
   { label: "Accueil", href: "/dashboard", icon: "dashboard" },
   { label: "Agenda", href: "/dashboard/agenda", icon: "agenda" },
   { label: "Clients", href: "/dashboard/clients", icon: "clients" },
-  { label: "Tournées", href: "/dashboard/tournees", icon: "tournees" },
+  { label: "Tournées", href: "/dashboard/tournees", icon: "tournees", module: "TOURS" },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -35,6 +37,8 @@ function isActive(pathname: string, href: string) {
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const modules = useCurrentUser()?.modules ?? [];
+  const visibleItems = items.filter((item) => !item.module || hasModule(modules, item.module));
 
   return (
     <nav
@@ -45,7 +49,7 @@ export function MobileBottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex items-stretch">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <li key={item.href} className="flex-1">

@@ -11,6 +11,7 @@ import { passwordResetTemplate } from "@/lib/email/templates";
 import { permissionKeys, type PermissionKey } from "@/lib/auth/permissions";
 import type { UserRole } from "@/generated/prisma/client";
 import { currentOrganizationId } from "@/lib/organization";
+import { hasModule, moduleClosedMessage } from "@/lib/modules";
 
 export type CreateUserState = { error?: string; resetUrl?: string } | undefined;
 
@@ -57,6 +58,9 @@ async function requireTeamMember(admin: { id: string; organizationId: string | n
 export async function createUser(_prevState: CreateUserState, formData: FormData): Promise<CreateUserState> {
   const admin = await requireAdmin();
   if (admin.assistance) return { error: ASSISTANCE_REFUSAL };
+  // Ajouter des collègues est un module : sans lui, l'espace reste à un
+  // compte. Ceux déjà créés gardent leur accès.
+  if (!hasModule(admin.modules, "TEAM")) return { error: moduleClosedMessage("TEAM") };
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const firstName = String(formData.get("firstName") ?? "").trim();

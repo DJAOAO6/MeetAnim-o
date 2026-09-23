@@ -182,7 +182,7 @@ export function OnboardingDone({ slug }: { slug: string }) {
         <Link href="/dashboard" className="inline-flex min-h-11 items-center rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white hover:bg-animeo-hover">Aller au tableau de bord</Link>
       </div>
       <p className="mt-6 text-sm text-animeo-muted">
-        Tout se modifie ensuite dans <Link href="/dashboard/parametres" className="font-bold text-animeo-dark underline">Paramètres</Link> : présentation détaillée de la page, pauses, fermetures, zones et frais de déplacement, rappels, comptes de l’équipe.
+        Tout se modifie ensuite dans <Link href="/dashboard/parametres" className="font-bold text-animeo-dark underline">Paramètres</Link> : profil, horaires, pauses et fermetures, rappels de rendez-vous.
       </p>
     </Card>
   );
@@ -582,7 +582,7 @@ function TravelStep({ profile, availability, onSubmit, onBack, onDone }: {
           {TRAVEL_BUFFERS.map((minutes) => <option key={minutes} value={minutes}>{minutes === 0 ? "Aucun" : `${minutes} minutes`}</option>)}
         </select>
       </div>
-      <p className="text-sm text-animeo-muted">Zones, tournées et frais de déplacement se règlent ensuite dans Tournées et Paramètres.</p>
+      <p className="text-sm text-animeo-muted">Les frais de déplacement se règlent ensuite sur chaque prestation, dans Prestations.</p>
     </StepForm>
   );
 }

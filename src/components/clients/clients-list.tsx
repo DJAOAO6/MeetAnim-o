@@ -15,6 +15,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { createClientAction, deleteClientsAction, type ClientContactInput } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
+import { hasModule } from "@/lib/modules";
 
 type ClientsListProps = {
   clients: Client[];
@@ -161,6 +162,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
         description="Retrouvez vos propriétaires, leurs coordonnées et tous leurs animaux."
         action={
           <>
+            {hasModule(currentUser?.modules, "CLIENT_IMPORT") ? (
             <button
               type="button"
               onClick={() => setImportingClients(true)}
@@ -168,6 +170,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
             >
               Importer des clients
             </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setCreatingClient(true)}

@@ -6,10 +6,14 @@ import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { currentDb, currentOrganizationId } from "@/lib/organization";
 import { getServices } from "@/lib/services-actions";
 import { requireUser } from "@/lib/auth/dal";
+import { ModuleClosed } from "@/components/modules/module-closed";
+import { hasModule } from "@/lib/modules";
 
 export const metadata: Metadata = { title: "Tournées" };
 
 export default async function TourneesPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+  const moduleUser = await requireUser();
+  if (!hasModule(moduleUser.modules, "TOURS")) return <ModuleClosed moduleKey="TOURS" />;
   const { date } = await searchParams;
   const dateId = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayDateId();
 

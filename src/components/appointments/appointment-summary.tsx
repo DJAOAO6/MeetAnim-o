@@ -34,7 +34,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
   // crée la consultation au dossier et propose un rappel, et le compte rendu
   // rouvre celui qui existe déjà. Deux implémentations d'un même geste
   // auraient fini par diverger.
-  const { complete, completing, createDocument, creatingDocument, reminderDialog } = useAppointmentActions(onBack);
+  const { complete, completing, createDocument, creatingDocument, canCreateDocument, reminderDialog } = useAppointmentActions(onBack);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -94,7 +94,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
             {completing ? "…" : "Consultation réalisée"}
           </button>
         ) : null}
-        {appointment.status === "completed" ? (
+        {appointment.status === "completed" && canCreateDocument ? (
           <button type="button" onClick={() => createDocument(appointment)} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
             <Icon name="document" className="h-4 w-4" />
             {creatingDocument ? "…" : "Créer le compte rendu"}

@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
+import { dbFor, organizationIdOf, prisma, type ScopedPrismaClient } from "@/lib/db";
+import { hasModule, normalizeModules, type ModuleKey } from "@/lib/modules";
 import { getCurrentUser } from "@/lib/auth/dal";
 
 /**
@@ -176,4 +177,14 @@ export async function currentOrganization(): Promise<Organization & { onboardedA
 export async function markCurrentOrganizationOnboarded(): Promise<void> {
   const id = await currentOrganizationId();
   await prisma.organization.updateMany({ where: { id, onboardedAt: null }, data: { onboardedAt: new Date() } });
+}
+
+/**
+ * Un module est-il ouvert à cet espace ? Pour les chemins sans compte
+ * connecté — page de réservation, tâches de fond, agendas externes —, qui
+ * connaissent l'espace par son client cloisonné.
+ */
+export async function moduleOpenFor(db: ScopedPrismaClient, key: ModuleKey): Promise<boolean> {
+  const organization = await prisma.organization.findUnique({ where: { id: organizationIdOf(db) }, select: { modules: true } });
+  return hasModule(normalizeModules(organization?.modules ?? []), key);
 }

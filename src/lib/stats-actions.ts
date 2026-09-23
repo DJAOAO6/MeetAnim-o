@@ -1,5 +1,6 @@
 "use server";
 
+import { requireModule } from "@/lib/module-access";
 import { getStatsData } from "@/lib/stats";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -12,6 +13,7 @@ import type { StatsData, StatsFilters } from "@/data/stats";
  * page qui l'appelle.
  */
 export async function getStatsAction(filters: StatsFilters): Promise<StatsData | null> {
+  await requireModule("STATISTICS");
   const user = await requireUser();
   if (!hasPermission(user, "VIEW_FINANCES")) return null;
   return getStatsData(filters);

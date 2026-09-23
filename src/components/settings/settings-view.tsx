@@ -19,6 +19,7 @@ import type { ThemeDraft } from "@/components/settings/theme-colors-panel";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings, type ServiceSettings, type SettingsState } from "@/data/settings";
 import { updateAvailabilityAction, updateBusinessProfileAction, updateReminderSettingsAction, type BusinessProfileData } from "@/lib/business-profile-actions";
 import { hasPermission } from "@/lib/auth/permissions";
+import { hasModule, type ModuleKey } from "@/lib/modules";
 import type { PublicPageState } from "@/lib/public-page-actions";
 import type { PublicProfessional } from "@/data/public-booking";
 import { notify } from "@/lib/notify";
@@ -54,12 +55,12 @@ type SettingsViewProps = {
   publicProfessional: PublicProfessional | null;
 };
 
-const tabs: Array<{ id: SettingsTab; label: string; icon: IconName }> = [
+const tabs: Array<{ id: SettingsTab; label: string; icon: IconName; module?: ModuleKey }> = [
   { id: "cabinet", label: "Mon cabinet", icon: "clients" },
   { id: "customization", label: "Personnalisation", icon: "settings" },
   { id: "schedule", label: "Disponibilités et rappels", icon: "calendar" },
-  { id: "tours", label: "Tournées", icon: "tournees" },
-  { id: "integrations", label: "Intégrations", icon: "calendarPlus" },
+  { id: "tours", label: "Tournées", icon: "tournees", module: "TOURS" },
+  { id: "integrations", label: "Intégrations", icon: "calendarPlus", module: "CALENDAR_SYNC" },
 ];
 
 const googleOAuthErrorMessages: Record<string, string> = {
@@ -74,6 +75,8 @@ let sessionSettings = initialSettings;
 
 export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaces, tourPreferences, upcomingGeneratedCounts, publicPage, publicProfessional }: SettingsViewProps) {
   const currentUser = useCurrentUser();
+  // Onglets de modules : seulement ceux ouverts à l'espace (src/lib/modules.ts).
+  const visibleTabs = tabs.filter((tab) => !tab.module || hasModule(currentUser?.modules, tab.module));
   const { updateTheme } = useDashboardTheme();
   const canManagePublicSettings = hasPermission(currentUser, "MANAGE_PUBLIC_SETTINGS");
   const router = useRouter();
@@ -82,7 +85,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
   // les liens qui mènent droit à un réglage précis.
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     const requested = searchParams.get("tab");
-    return tabs.some((tab) => tab.id === requested) ? (requested as SettingsTab) : "cabinet";
+    return visibleTabs.some((tab) => tab.id === requested) ? (requested as SettingsTab) : "cabinet";
   });
 
   // Retour du callback OAuth Google (?tab=integrations&connected=google ou
@@ -203,7 +206,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
 
       <Card className="mb-6 overflow-x-auto p-1.5">
         <nav aria-label="Onglets des paramètres" className="flex min-w-max gap-1">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -242,7 +245,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
           </section>
         </div>
       ) : null}
-      {activeTab === "tours" ? <ToursSettingsTab initialTours={tours} initialZones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} departureKnown={departure?.latitude != null} departureLabel={departure?.label ?? "Point de départ"} upcomingGeneratedCounts={upcomingGeneratedCounts} /> : null}
+      {activeTab === "tours" && hasModule(currentUser?.modules, "TOURS") ? <ToursSettingsTab initialTours={tours} initialZones={zones} initialSavedPlaces={savedPlaces} initialPreferences={tourPreferences} departureKnown={departure?.latitude != null} departureLabel={departure?.label ?? "Point de départ"} upcomingGeneratedCounts={upcomingGeneratedCounts} /> : null}
       {activeTab === "customization" ? (
         <PersonalizationView
           profile={settings.profile}
@@ -254,7 +257,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
           publicProfessional={publicProfessional}
         />
       ) : null}
-      {activeTab === "integrations" ? <IntegrationsSettingsTab google={google} icsFeed={icsFeed} /> : null}
+      {activeTab === "integrations" && hasModule(currentUser?.modules, "CALENDAR_SYNC") ? <IntegrationsSettingsTab google={google} icsFeed={icsFeed} /> : null}
     </>
   );
 }

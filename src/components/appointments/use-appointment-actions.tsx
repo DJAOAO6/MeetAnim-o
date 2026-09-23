@@ -9,6 +9,8 @@ import { pickDefaultTemplate } from "@/lib/documents/templates";
 import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import type { Appointment } from "@/data/appointments";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule } from "@/lib/modules";
 
 /**
  * Les deux actions de fin de consultation, partagées par la fiche de
@@ -28,6 +30,10 @@ export function useAppointmentActions(onDone: () => void) {
   // Le rendez-vous est retenu avec la proposition : le rappel porte son nom
   // de client, et la fenêtre peut avoir changé de sélection entre-temps.
   const [reminderPrompt, setReminderPrompt] = useState<{ suggestion: SuggestedReminder; appointment: Appointment } | null>(null);
+  // Comptes rendus et rappels sont des modules : sans eux, ni bouton ni
+  // proposition de rappel en fin de rendez-vous.
+  const modules = useCurrentUser()?.modules ?? [];
+  const canCreateDocument = hasModule(modules, "DOCUMENTS");
 
   async function complete(appointment: Appointment) {
     if (completing) return;
@@ -40,7 +46,7 @@ export function useAppointmentActions(onDone: () => void) {
     // Le rappel se propose avant de refermer : c'est le seul moment où l'on
     // sait quelle prestation vient d'être faite, donc à quelle échéance
     // reproposer un rendez-vous.
-    if (result.suggestedReminder) { setReminderPrompt({ suggestion: result.suggestedReminder, appointment }); return; }
+    if (result.suggestedReminder && hasModule(modules, "REMINDERS")) { setReminderPrompt({ suggestion: result.suggestedReminder, appointment }); return; }
     router.refresh();
     onDone();
   }
@@ -100,5 +106,5 @@ export function useAppointmentActions(onDone: () => void) {
     />
   ) : null;
 
-  return { complete, completing, createDocument, creatingDocument, reminderDialog };
+  return { complete, completing, createDocument, creatingDocument, canCreateDocument, reminderDialog };
 }

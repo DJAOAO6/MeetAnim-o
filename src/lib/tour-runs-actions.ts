@@ -1,5 +1,6 @@
 "use server";
 
+import { requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { currentDb } from "@/lib/organization";
@@ -283,6 +284,7 @@ const createTourRunSchema = z.object({
 export type CreateTourRunResult = { ok: true; id: string } | { ok: false; error: string };
 
 export async function createTourRunAction(input: z.infer<typeof createTourRunSchema>): Promise<CreateTourRunResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = createTourRunSchema.safeParse(input);
@@ -334,6 +336,7 @@ const updateEndpointsSchema = z.object({
 });
 
 export async function updateTourRunEndpointsAction(input: z.infer<typeof updateEndpointsSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = updateEndpointsSchema.safeParse(input);
@@ -383,6 +386,7 @@ const updateOptionsSchema = z.object({
 });
 
 export async function updateTourRunOptionsAction(input: z.infer<typeof updateOptionsSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = updateOptionsSchema.safeParse(input);
@@ -415,6 +419,7 @@ export async function updateTourRunOptionsAction(input: z.infer<typeof updateOpt
 }
 
 export async function deleteTourRunAction(tourRunId: string): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
@@ -441,6 +446,7 @@ export async function deleteTourRunAction(tourRunId: string): Promise<ActionResu
  * qu'il soit besoin de le dire — ni de révéler qu'elles existent.
  */
 export async function deleteTourRunsAction(tourRunIds: string[]): Promise<ActionResult & { deleted?: number }> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = z.array(z.string().cuid()).min(1).max(500).safeParse(tourRunIds);
@@ -467,6 +473,7 @@ const addAppointmentStopsSchema = z.object({
 });
 
 export async function addAppointmentStopsAction(input: z.infer<typeof addAppointmentStopsSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = addAppointmentStopsSchema.safeParse(input);
@@ -522,6 +529,7 @@ const addManualStopSchema = z.object({
 });
 
 export async function addManualStopAction(input: z.infer<typeof addManualStopSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = addManualStopSchema.safeParse(input);
@@ -574,6 +582,7 @@ const updateStopSchema = z.object({
 });
 
 export async function updateStopAction(input: z.infer<typeof updateStopSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = updateStopSchema.safeParse(input);
@@ -635,6 +644,7 @@ const updateStopScheduleSchema = z
  * champ silencieusement sans effet.
  */
 export async function updateStopScheduleAction(input: z.infer<typeof updateStopScheduleSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = updateStopScheduleSchema.safeParse(input);
@@ -712,6 +722,7 @@ async function deleteStopAndReindex(tourRunId: string, stopId: string): Promise<
 // vrai rendez-vous, voir cancelAppointmentAndRemoveStopAction ci-dessous :
 // deux gestes distincts, jamais fusionnés dans un même bouton.
 export async function removeStopAction(input: z.infer<typeof removeStopSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = removeStopSchema.safeParse(input);
@@ -744,6 +755,7 @@ export async function removeStopAction(input: z.infer<typeof removeStopSchema>):
 const cancelStopAppointmentSchema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid() });
 
 export async function cancelStopAppointmentAction(input: z.infer<typeof cancelStopAppointmentSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = cancelStopAppointmentSchema.safeParse(input);
@@ -783,6 +795,7 @@ export type ReorderTimeChange = { stopId: string; label: string; currentTime: st
 export type ReorderResult = { ok: true } | { ok: false; error: string } | { ok: false; needsConfirmation: true; changes: ReorderTimeChange[]; orderedStopIds: string[] };
 
 export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchema>): Promise<ReorderResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = reorderStopsSchema.safeParse(input);
@@ -843,6 +856,7 @@ export async function reorderStopsAction(input: z.infer<typeof reorderStopsSchem
 }
 
 export async function moveStopAction(input: { tourRunId: string; stopId: string; direction: "up" | "down"; confirmed?: boolean }): Promise<ReorderResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const schema = z.object({ tourRunId: z.string().cuid(), stopId: z.string().cuid(), direction: z.enum(["up", "down"]), confirmed: z.boolean().optional() });
@@ -872,6 +886,7 @@ export async function moveStopAction(input: { tourRunId: string; stopId: string;
 // ---------------------------------------------------------------------------
 
 export async function recomputeRouteAction(tourRunId: string): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const parsedId = z.string().cuid().safeParse(tourRunId);
   if (!parsedId.success) return { ok: false, error: GENERIC_ERROR };
@@ -905,6 +920,7 @@ export type OptimizationComparison = {
 export type OptimizeResult = { ok: true; comparison: OptimizationComparison } | { ok: false; error: string };
 
 export async function optimizeTourRunAction(tourRunId: string): Promise<OptimizeResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
@@ -989,6 +1005,7 @@ export async function optimizeTourRunAction(tourRunId: string): Promise<Optimize
 }
 
 export async function applyOptimizationProposalAction(tourRunId: string, confirmed?: boolean): Promise<ReorderResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
@@ -1022,6 +1039,7 @@ export async function applyOptimizationProposalAction(tourRunId: string, confirm
 }
 
 export async function dismissOptimizationProposalAction(tourRunId: string): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(tourRunId);
@@ -1056,6 +1074,7 @@ const upsertSavedPlaceSchema = z.object({
 });
 
 export async function upsertSavedPlaceAction(input: z.infer<typeof upsertSavedPlaceSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = upsertSavedPlaceSchema.safeParse(input);
@@ -1101,6 +1120,7 @@ export async function upsertSavedPlaceAction(input: z.infer<typeof upsertSavedPl
 }
 
 export async function deleteSavedPlaceAction(id: string): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsedId = z.string().cuid().safeParse(id);
@@ -1138,6 +1158,7 @@ const updatePreferencesSchema = z.object({
 });
 
 export async function updateTourPreferencesAction(input: z.infer<typeof updatePreferencesSchema>): Promise<ActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const db = await currentDb();
   const parsed = updatePreferencesSchema.safeParse(input);
@@ -1164,6 +1185,7 @@ const reverseGeocodeSchema = z.object({ latitude: z.number().min(-90).max(90), l
 export type ReverseGeocodeActionResult = { ok: true; label: string; postcode: string | null; city: string | null } | { ok: false; error: string };
 
 export async function reverseGeocodeAction(input: z.infer<typeof reverseGeocodeSchema>): Promise<ReverseGeocodeActionResult> {
+  await requireModule("TOURS");
   const user = await requireUser();
   const parsed = reverseGeocodeSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };

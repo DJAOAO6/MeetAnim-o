@@ -104,6 +104,23 @@ Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) a
 
 **Avant d'inviter un premier cabinet extérieur**, reste la condition posée à la phase 5 : un compte de base ordinaire pour l'application en production (voir « Ce qui reste à faire sur cette barrière »), pour que le cloisonnement ne repose plus sur l'application seule.
 
+### Modules par espace : comment ça marche
+
+**Décision du 23 septembre 2026** : un nouvel espace n'a que le **socle** — tableau de bord, agenda, réservation en ligne, clients et animaux, prestations, réglages de base, rappel automatique de rendez-vous. La super-administration ouvre le reste, espace par espace, depuis `/plateforme` (bloc « Modules » de chaque espace). Un espace ne s'ouvre jamais un module lui-même. Les espaces existants ont reçu tous les modules (migration `20260924110000_organization_modules`).
+
+| Module | Ce qu'il ouvre |
+| --- | --- |
+| Tournées et carte (`TOURS`) | Tournées, Carte clients, réglages des tournées et zones, lieu « Tournée » d'un rendez-vous, propositions de tournée sur la page de réservation, génération des journées de tournée |
+| Rappels clients (`REMINDERS`) | Page Rappels, relances après consultation (et leur passage en « dues »), widget et cloche |
+| Comptes rendus (`DOCUMENTS`) | Documents et Studio, comptes rendus depuis un rendez-vous ou une fiche animal |
+| Statistiques (`STATISTICS`) | Page Statistiques |
+| Agendas externes (`CALENDAR_SYNC`) | Google Agenda (connexion, diffusion, créneaux occupés), flux Apple/Outlook |
+| Import de clients (`CLIENT_IMPORT`) | Import depuis un fichier |
+| Équipe (`TEAM`) | Création d'autres comptes. Les comptes déjà créés gardent leur accès si le module est retiré. |
+| Page publique personnalisée (`PUBLIC_PAGE`) | Éditeur de la page de réservation ; sans lui, la page d'origine est servie (la version composée reste en base) |
+
+**Fermé côté serveur**, pas seulement dans le menu : pages (écran « module non activé »), actions (`requireModule`, `src/lib/module-access.ts`), adresses d'API, tâches de fond et page publique (`moduleOpenFor`). Les lectures appelées depuis le socle renvoient une liste vide plutôt que d'échouer. Retirer un module ne supprime aucune donnée ; le rouvrir rend tout. Chaque changement est inscrit au journal de l'espace (« Modules de l'espace modifiés »). Vérifié par `tests/onboarding.spec.ts` (socle seul, ouverture depuis la plateforme) et `tests/organization-isolation-actions.spec.ts` (action forgée refusée, avec témoin).
+
 ## Observation en attente d'explication
 
 **Probablement expliqué le 22 septembre** : la barre latérale lisait ses préférences (repliée/dépliée) dans le navigateur pendant le premier rendu, ce qui faisait diverger la page du serveur de celle du navigateur ; React reconstruisait alors tout l'arbre du tableau de bord, et deux copies coexistaient le temps de la reconstruction (commit `d59cf8e`). À reconfirmer sur une suite complète : si des doublons réapparaissent, la piste reste une copie de la page précédente conservée pendant une navigation.

@@ -12,6 +12,8 @@ import { notify } from "@/lib/notify";
 import type { Animal } from "@/data/clients";
 import type { StudioDocumentSummary } from "@/data/documents";
 import { fileToCompressedDataUrl } from "@/lib/images/compress-image";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule } from "@/lib/modules";
 
 type AnimalRecordProps = {
   animal: Animal;
@@ -22,6 +24,8 @@ type AnimalRecordProps = {
 };
 
 export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalUpdated }: AnimalRecordProps) {
+  // Comptes rendus : un module (src/lib/modules.ts).
+  const showDocuments = hasModule(useCurrentUser()?.modules, "DOCUMENTS");
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -95,7 +99,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
 
       <ConsultationHistory animal={animal} />
 
-      <DocumentsHistory animal={animal} clientId={clientId} />
+      {showDocuments ? <DocumentsHistory animal={animal} clientId={clientId} /> : null}
 
       {editing ? (
         <AnimalEditModal

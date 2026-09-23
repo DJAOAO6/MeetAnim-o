@@ -6,13 +6,15 @@ type AnimalSideCardsProps = {
   animal: Animal;
   onAction: (message: string) => void;
   onScheduleReminder: () => void;
+  /** Faux sans le module Rappels clients (src/lib/modules.ts). */
+  showReminder?: boolean;
 };
 
-export function AnimalSideCards({ animal, onAction, onScheduleReminder }: AnimalSideCardsProps) {
+export function AnimalSideCards({ animal, onAction, onScheduleReminder, showReminder = true }: AnimalSideCardsProps) {
   return (
     <aside className="grid gap-6 sm:grid-cols-2 2xl:sticky 2xl:top-6 2xl:grid-cols-1" aria-label={`Documents et rappel de ${animal.name}`}>
       <DocumentsCard animal={animal} onAction={onAction} />
-      <ReminderCard animal={animal} onScheduleReminder={onScheduleReminder} />
+      {showReminder ? <ReminderCard animal={animal} onScheduleReminder={onScheduleReminder} /> : null}
     </aside>
   );
 }

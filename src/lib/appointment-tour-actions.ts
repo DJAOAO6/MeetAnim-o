@@ -1,5 +1,6 @@
 "use server";
 
+import { moduleOpen } from "@/lib/module-access";
 import { currentDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 
@@ -24,6 +25,7 @@ export type TourRunOption = {
  * formulaire le dit alors franchement plutôt que de proposer un choix vide.
  */
 export async function listTourRunsForDateAction(dateId: string): Promise<TourRunOption[]> {
+  if (!(await moduleOpen("TOURS"))) return [];
   const user = await requireUser();
   const db = await currentDb();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateId)) return [];

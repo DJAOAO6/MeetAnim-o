@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { startAssistanceAction } from "@/lib/platform/assistance-actions";
 import { roleLabels } from "@/data/admin";
+import { ModulesEditor } from "@/components/platform/modules-editor";
 
 export type PlatformAccountView = {
   id: string;
@@ -21,6 +22,7 @@ export type PlatformOrganizationView = {
   name: string;
   createdAt: string;
   onboarded: boolean;
+  modules: string[];
   slug: string | null;
   counts: { clients: number; appointments: number };
   accounts: PlatformAccountView[];
@@ -62,10 +64,12 @@ export function PlatformView({ organizations, assistances }: { organizations: Pl
             </div>
           </div>
 
+          <ModulesEditor organizationId={organization.id} organizationName={organization.name} initialModules={organization.modules} />
+
           {organization.accounts.length === 0 ? (
-            <p className="text-sm text-animeo-muted">Aucun compte dans cet espace.</p>
+            <p className="mt-4 text-sm text-animeo-muted">Aucun compte dans cet espace.</p>
           ) : (
-            <ul className="divide-y divide-animeo-border-soft">
+            <ul aria-label={`Comptes de ${organization.name}`} className="mt-4 divide-y divide-animeo-border-soft">
               {organization.accounts.map((account) => <AccountRow key={account.id} account={account} />)}
             </ul>
           )}

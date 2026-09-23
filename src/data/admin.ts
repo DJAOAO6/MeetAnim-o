@@ -54,4 +54,5 @@ export const auditActionLabels: Record<string, string> = {
   INVITATION_REVOKED: "Invitation annulée",
   ORGANIZATION_CREATED: "Espace professionnel ouvert",
   ONBOARDING_COMPLETED: "Configuration initiale terminée",
+  MODULES_CHANGED: "Modules de l’espace modifiés",
 };

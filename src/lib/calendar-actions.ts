@@ -1,5 +1,6 @@
 "use server";
 
+import { requireModule } from "@/lib/module-access";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
@@ -11,6 +12,7 @@ export type CalendarActionResult = { ok: true } | { ok: false; error: string };
 const SETTINGS_PATH = "/dashboard/parametres";
 
 export async function disconnectGoogleCalendarAction(): Promise<CalendarActionResult> {
+  await requireModule("CALENDAR_SYNC");
   const user = await requireUser();
 
   const connection = await prisma.calendarConnection.findUnique({ where: { userId_provider: { userId: user.id, provider: "GOOGLE" } } });
@@ -35,6 +37,7 @@ export type UpdateGoogleCalendarSettingsInput = {
 };
 
 export async function updateGoogleCalendarSettingsAction(input: UpdateGoogleCalendarSettingsInput): Promise<CalendarActionResult> {
+  await requireModule("CALENDAR_SYNC");
   const user = await requireUser();
 
   const connection = await prisma.calendarConnection.findUnique({ where: { userId_provider: { userId: user.id, provider: "GOOGLE" } } });
@@ -59,6 +62,7 @@ export async function updateGoogleCalendarSettingsAction(input: UpdateGoogleCale
 export type IcsFeedActionResult = { ok: true; url: string } | { ok: false; error: string };
 
 export async function regenerateIcsFeedTokenAction(): Promise<IcsFeedActionResult> {
+  await requireModule("CALENDAR_SYNC");
   const user = await requireUser();
 
   // Jamais l'id utilisateur directement dans l'URL du flux (étape 17) : un
@@ -74,6 +78,7 @@ export async function regenerateIcsFeedTokenAction(): Promise<IcsFeedActionResul
 }
 
 export async function disableIcsFeedAction(): Promise<CalendarActionResult> {
+  await requireModule("CALENDAR_SYNC");
   const user = await requireUser();
   await prisma.user.update({ where: { id: user.id }, data: { icsFeedToken: null } });
   revalidatePath(SETTINGS_PATH);

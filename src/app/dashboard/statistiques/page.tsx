@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getStatsData, getStatsServiceOptions } from "@/lib/stats";
 import type { StatsFilters } from "@/data/stats";
+import { ModuleClosed } from "@/components/modules/module-closed";
+import { hasModule } from "@/lib/modules";
 
 export const metadata: Metadata = { title: "Statistiques" };
 
@@ -13,6 +15,7 @@ const defaultFilters: StatsFilters = { period: "current", serviceId: "all", spec
 export default async function StatisticsPage() {
   const user = await requireUser();
   if (!hasPermission(user, "VIEW_FINANCES")) redirect("/dashboard");
+  if (!hasModule(user.modules, "STATISTICS")) return <ModuleClosed moduleKey="STATISTICS" />;
 
   const [initialStats, serviceOptions] = await Promise.all([
     getStatsData(defaultFilters),

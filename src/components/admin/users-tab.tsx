@@ -14,12 +14,16 @@ import {
 } from "@/lib/admin/actions";
 import { permissionKeys, permissionLabels, type PermissionKey } from "@/lib/auth/permissions";
 import { roleLabels, type AdminUser } from "@/data/admin";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule, moduleClosedMessage } from "@/lib/modules";
 
 const inputClassName = "h-11 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-3 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
 export function UsersTab({ users, currentUserId }: { users: AdminUser[]; currentUserId: string }) {
   const [state, action, pending] = useActionState<CreateUserState, FormData>(createUser, undefined);
   const [showForm, setShowForm] = useState(false);
+  // Ajouter des collègues est un module (src/lib/modules.ts).
+  const canAddAccounts = hasModule(useCurrentUser()?.modules, "TEAM");
 
   return (
     <div className="space-y-6">
@@ -29,12 +33,18 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
             <h2 className="text-lg font-extrabold text-animeo-dark">Comptes de l’équipe</h2>
             <p className="mt-1 text-sm text-animeo-muted">{users.length} compte{users.length > 1 ? "s" : ""}</p>
           </div>
-          <button type="button" onClick={() => setShowForm((current) => !current)} className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
-            {showForm ? "Annuler" : "+ Nouveau compte"}
-          </button>
+          {canAddAccounts ? (
+            <button type="button" onClick={() => setShowForm((current) => !current)} className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
+              {showForm ? "Annuler" : "+ Nouveau compte"}
+            </button>
+          ) : null}
         </div>
 
-        {showForm ? (
+        {!canAddAccounts ? (
+          <p className="mb-4 rounded-xl bg-animeo-bg px-4 py-3 text-sm text-animeo-muted">{moduleClosedMessage("TEAM")}</p>
+        ) : null}
+
+        {showForm && canAddAccounts ? (
           <form action={action} className="mb-6 grid gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4 sm:grid-cols-2 xl:grid-cols-5">
             <label className="block">
               <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Prénom</span>

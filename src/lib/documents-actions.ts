@@ -1,5 +1,6 @@
 "use server";
 
+import { moduleOpen, requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
@@ -40,6 +41,7 @@ function mapSummary(row: SummaryRow): StudioDocumentSummary {
 }
 
 export async function getDocuments(): Promise<StudioDocumentSummary[]> {
+  await requireModule("DOCUMENTS");
   await requireUser();
   const db = await currentDb();
   const rows = await db.studioDocument.findMany({ orderBy: { updatedAt: "desc" }, include: summaryInclude });
@@ -47,6 +49,7 @@ export async function getDocuments(): Promise<StudioDocumentSummary[]> {
 }
 
 export async function getDocumentsForAnimal(animalId: string): Promise<StudioDocumentSummary[]> {
+  if (!(await moduleOpen("DOCUMENTS"))) return [];
   await requireUser();
   const db = await currentDb();
   const rows = await db.studioDocument.findMany({ where: { animalId }, orderBy: { updatedAt: "desc" }, include: summaryInclude });
@@ -60,6 +63,7 @@ export async function getDocumentsForAnimal(animalId: string): Promise<StudioDoc
  * seconde création.
  */
 export async function getDocumentIdForAppointment(appointmentId: string): Promise<string | null> {
+  if (!(await moduleOpen("DOCUMENTS"))) return null;
   await requireUser();
   const db = await currentDb();
   const row = await db.studioDocument.findUnique({ where: { appointmentId }, select: { id: true } });
@@ -67,6 +71,7 @@ export async function getDocumentIdForAppointment(appointmentId: string): Promis
 }
 
 export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSummary[]> {
+  if (!(await moduleOpen("DOCUMENTS"))) return [];
   await requireUser();
   const db = await currentDb();
   const rows = await db.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
@@ -88,6 +93,7 @@ export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSumm
  * étape 10), jamais dans une liste.
  */
 export async function getDocumentTemplateContent(templateId: string): Promise<DocumentContent | null> {
+  await requireModule("DOCUMENTS");
   await requireUser();
   const db = await currentDb();
   const row = await db.studioDocumentTemplate.findUnique({ where: { id: templateId }, select: { contentJson: true } });
@@ -119,6 +125,7 @@ async function buildVariableContext(row: Prisma.StudioDocumentGetPayload<{ inclu
 }
 
 export async function getDocument(id: string): Promise<StudioDocumentDetail | null> {
+  await requireModule("DOCUMENTS");
   await requireUser();
   const db = await currentDb();
   const row = await db.studioDocument.findUnique({ where: { id }, include: { ...summaryInclude, ...detailInclude } });
@@ -163,6 +170,7 @@ export type CreateDocumentInput = {
 export type DocumentActionResult = { ok: true; id: string } | { ok: false; error: string };
 
 export async function createDocumentAction(input: CreateDocumentInput): Promise<DocumentActionResult> {
+  await requireModule("DOCUMENTS");
   const user = await requireUser();
   const db = await currentDb();
 
@@ -229,6 +237,7 @@ function isDocumentContent(value: unknown): value is DocumentContent {
 }
 
 export async function saveDocumentAction(id: string, input: SaveDocumentInput): Promise<DocumentActionResult> {
+  await requireModule("DOCUMENTS");
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
   const db = await currentDb();
@@ -263,6 +272,7 @@ export type FinalizeDocumentInput = {
 };
 
 export async function finalizeDocumentAction(id: string, input: FinalizeDocumentInput): Promise<DocumentActionResult> {
+  await requireModule("DOCUMENTS");
   const user = await requireUser();
   const db = await currentDb();
 
@@ -293,6 +303,7 @@ export async function finalizeDocumentAction(id: string, input: FinalizeDocument
  * finalisé (repart de DRAFT, sans PDF/miniature à régénérer).
  */
 export async function duplicateDocumentAction(id: string): Promise<DocumentActionResult> {
+  await requireModule("DOCUMENTS");
   const user = await requireUser();
   const db = await currentDb();
 
@@ -322,6 +333,7 @@ export async function duplicateDocumentAction(id: string): Promise<DocumentActio
 export type DeleteDocumentResult = { ok: true } | { ok: false; error: string };
 
 export async function deleteDocumentAction(id: string): Promise<DeleteDocumentResult> {
+  await requireModule("DOCUMENTS");
   const user = await requireUser();
   const db = await currentDb();
   if (!hasPermission(user, "MANAGE_DOCUMENTS")) {

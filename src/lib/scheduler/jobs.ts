@@ -1,5 +1,6 @@
 import "server-only";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
+import { hasModule } from "@/lib/modules";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { sendDueAppointmentReminders } from "@/lib/scheduler/appointment-reminders";
 
@@ -26,7 +27,7 @@ async function markDueFollowUps(db: ScopedPrismaClient, now: Date): Promise<numb
  * chez l'un priverait tous les autres de leurs rappels.
  */
 export async function runScheduledJobs(now: Date = new Date()) {
-  const organizations = await prisma.organization.findMany({ select: { id: true, name: true } });
+  const organizations = await prisma.organization.findMany({ select: { id: true, name: true, modules: true } });
   const errors: string[] = [];
   let followUpsDue = 0;
   let tourRunsGenerated = 0;
@@ -34,9 +35,11 @@ export async function runScheduledJobs(now: Date = new Date()) {
 
   for (const organization of organizations) {
     const db = dbFor(organization.id);
+    // Les relances et les journées de tournée n'ont lieu que si l'espace a
+    // le module ; le rappel de rendez-vous fait partie du socle.
     const [followUps, tourRuns, reminders] = await Promise.allSettled([
-      markDueFollowUps(db, now),
-      generateUpcomingTourRuns(db, organization.id),
+      hasModule(organization.modules, "REMINDERS") ? markDueFollowUps(db, now) : Promise.resolve(0),
+      hasModule(organization.modules, "TOURS") ? generateUpcomingTourRuns(db, organization.id) : Promise.resolve({ created: 0 }),
       sendDueAppointmentReminders(db, now),
     ]);
 

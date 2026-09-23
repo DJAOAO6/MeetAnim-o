@@ -1,5 +1,6 @@
 import "server-only";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
+import { moduleOpenFor } from "@/lib/organization";
 import { getActiveConnectionsForProvider, getFreshAccessToken, providerFor } from "@/lib/calendar/calendar-connections";
 import type { CalendarEventInput } from "@/lib/calendar/types";
 import type { Appointment as DbAppointment, CalendarConnection as DbCalendarConnection, Client as DbClient } from "@/generated/prisma/client";
@@ -137,6 +138,7 @@ export async function syncAppointmentToCalendars(organizationId: string, appoint
   // Exécutée après la réponse (after()) : la session n'est plus lisible,
   // l'espace est donc passé par l'appelant, qui vient de l'écrire.
   const db = dbFor(organizationId);
+  if (!(await moduleOpenFor(db, "CALENDAR_SYNC"))) return;
   const appointment = await db.appointment.findUnique({ where: { id: appointmentId }, include: { client: true } });
   if (!appointment) return;
 

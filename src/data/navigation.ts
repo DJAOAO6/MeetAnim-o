@@ -1,4 +1,5 @@
 import type { NavigationAssetKey } from "@/data/dashboard-theme";
+import type { ModuleKey } from "@/lib/modules";
 
 /**
  * Plan de navigation du tableau de bord, regroupé par métier plutôt qu'en une
@@ -17,6 +18,8 @@ export type NavigationEntry = {
   assetKey: NavigationAssetKey;
   /** Réservé aux comptes qui voient les chiffres (permission VIEW_FINANCES). */
   requiresFinances?: boolean;
+  /** Module dont la page dépend (src/lib/modules.ts) ; absent : socle. */
+  module?: ModuleKey;
 };
 
 export type NavigationIconName =
@@ -54,8 +57,8 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Planning",
     items: [
       { label: "Agenda", href: "/dashboard/agenda", icon: "calendarDays", assetKey: "agenda" },
-      { label: "Tournées", href: "/dashboard/tournees", icon: "route", assetKey: "tournees" },
-      { label: "Rappels clients", href: "/dashboard/rappels", icon: "bellRing", assetKey: "reminders" },
+      { label: "Tournées", href: "/dashboard/tournees", icon: "route", assetKey: "tournees", module: "TOURS" },
+      { label: "Rappels clients", href: "/dashboard/rappels", icon: "bellRing", assetKey: "reminders", module: "REMINDERS" },
     ],
   },
   {
@@ -64,7 +67,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Clientèle",
     items: [
       { label: "Clients & animaux", href: "/dashboard/clients", icon: "users", assetKey: "clients" },
-      { label: "Carte clients", href: "/dashboard/carte", icon: "mapPinned", assetKey: "map" },
+      { label: "Carte clients", href: "/dashboard/carte", icon: "mapPinned", assetKey: "map", module: "TOURS" },
     ],
   },
   {
@@ -73,7 +76,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Gestion",
     items: [
       { label: "Prestations", href: "/dashboard/prestations", icon: "briefcase", assetKey: "services" },
-      { label: "Documents", href: "/dashboard/documents", icon: "fileText", assetKey: "documents" },
+      { label: "Documents", href: "/dashboard/documents", icon: "fileText", assetKey: "documents", module: "DOCUMENTS" },
     ],
   },
   {
@@ -81,7 +84,7 @@ export const navigationGroups: NavigationGroup[] = [
     icon: "chartTrend",
     label: "Pilotage",
     items: [
-      { label: "Statistiques", href: "/dashboard/statistiques", icon: "chartColumn", assetKey: "stats", requiresFinances: true },
+      { label: "Statistiques", href: "/dashboard/statistiques", icon: "chartColumn", assetKey: "stats", requiresFinances: true, module: "STATISTICS" },
     ],
   },
 ];

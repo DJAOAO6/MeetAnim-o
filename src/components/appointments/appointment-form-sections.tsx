@@ -15,6 +15,8 @@ import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";
 import type { ServiceSettings } from "@/data/settings";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasModule } from "@/lib/modules";
 
 /**
  * Section numérotée du formulaire. Le numéro dans sa pastille n'est pas un
@@ -288,6 +290,7 @@ export function AppointmentLocationSection({ draft, cabinetAddress, practiceMode
   onUpdate: (change: Partial<AppointmentDraft>) => void;
 }) {
   const [tourRuns, setTourRuns] = useState<TourRunOption[] | null>(null);
+  const modules = useCurrentUser()?.modules ?? [];
 
   // La date interrogée, comparée pendant le rendu : changer de jour doit
   // effacer aussitôt la liste précédente, qui ne décrit plus ce jour-là.
@@ -323,7 +326,8 @@ export function AppointmentLocationSection({ draft, cabinetAddress, practiceMode
       <div className="flex flex-wrap gap-2" role="group" aria-label="Lieu du rendez-vous">
         {/* Sans cabinet, il n'y a pas de bouton « Cabinet » ; sans
             déplacements, pas de domicile ni de tournée. */}
-        {places.filter((place) => (place.value === "cabinet" ? hasCabinet(practiceMode) : visitsHomes(practiceMode))).map((place) => {
+        {/* « Tournée » n'existe qu'avec le module Tournées. */}
+        {places.filter((place) => (place.value === "cabinet" ? hasCabinet(practiceMode) : visitsHomes(practiceMode)) && (place.value !== "tour" || hasModule(modules, "TOURS"))).map((place) => {
           const PlaceIcon = place.icon;
           const selected = draft.place === place.value;
           return (

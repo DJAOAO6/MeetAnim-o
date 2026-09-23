@@ -13,6 +13,7 @@ import { DashboardThemeProvider } from "@/components/theme/dashboard-theme-provi
 import { defaultAppointmentRange, getAppointments } from "@/lib/appointments";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
+import { hasModule } from "@/lib/modules";
 import { getClientPickerOptions } from "@/lib/clients";
 import { getReminders } from "@/lib/reminders";
 import { getServices } from "@/lib/services-actions";
@@ -60,7 +61,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const [appointments, clientOptions, reminders, services, businessProfile, reminderSettings, organization] = await Promise.all([
     getAppointments(appointmentRange),
     getClientPickerOptions(),
-    getReminders(),
+    // Rappels clients : un module. Sans lui, ni widget ni cloche n'en parlent.
+    hasModule(user.modules, "REMINDERS") ? getReminders() : Promise.resolve([]),
     getServices(),
     getBusinessProfile(),
     getReminderSettings(),

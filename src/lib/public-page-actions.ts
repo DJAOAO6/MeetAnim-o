@@ -1,8 +1,9 @@
 "use server";
 
+import { requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
-import { currentDb, dbForSlug, readDb } from "@/lib/organization";
+import { currentDb, dbForSlug, moduleOpenFor, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { DEFAULT_PUBLIC_PAGE, normalizePublicPage, type PublicPageConfig } from "@/data/public-page";
@@ -53,6 +54,9 @@ export async function getPublishedPublicPage(slug?: string): Promise<PublicPageC
   // connecté, pour l'aperçu de l'éditeur.
   const db = slug === undefined ? await readDb() : await dbForSlug(slug);
   if (!db) return DEFAULT_PUBLIC_PAGE;
+  // Sans le module, la page d'origine : la version composée reste en base,
+  // prête à revenir si le module est rouvert.
+  if (!(await moduleOpenFor(db, "PUBLIC_PAGE"))) return DEFAULT_PUBLIC_PAGE;
   const profile = await db.businessProfile.findFirst({ select: { publicPagePublished: true } });
   return profile?.publicPagePublished ? normalizePublicPage(profile.publicPagePublished) : DEFAULT_PUBLIC_PAGE;
 }
@@ -72,6 +76,7 @@ async function requireEditor(): Promise<{ ok: true; profileId: string } | { ok: 
 
 /** Enregistre le brouillon. Sans effet sur ce que voient les visiteurs. */
 export async function savePublicPageDraftAction(config: PublicPageConfig): Promise<PublicPageActionResult> {
+  await requireModule("PUBLIC_PAGE");
   const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
@@ -94,6 +99,7 @@ export async function savePublicPageDraftAction(config: PublicPageConfig): Promi
  * change ; la page publique est revalidée dans la foulée.
  */
 export async function publishPublicPageAction(config: PublicPageConfig): Promise<PublicPageActionResult> {
+  await requireModule("PUBLIC_PAGE");
   const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
@@ -115,6 +121,7 @@ export async function publishPublicPageAction(config: PublicPageConfig): Promise
 
 /** Ramène le brouillon à la version publiée, ou à la page d'origine. */
 export async function discardPublicPageDraftAction(): Promise<PublicPageActionResult> {
+  await requireModule("PUBLIC_PAGE");
   const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;
@@ -144,6 +151,7 @@ export async function discardPublicPageDraftAction(): Promise<PublicPageActionRe
  * les clients : la page publique est donc revalidée.
  */
 export async function resetPublicPageAction(): Promise<PublicPageActionResult> {
+  await requireModule("PUBLIC_PAGE");
   const db = await currentDb();
   const access = await requireEditor();
   if (!access.ok) return access;

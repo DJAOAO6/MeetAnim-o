@@ -1,3 +1,4 @@
+import { hasModule } from "@/lib/modules";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/dal";
 import { prisma } from "@/lib/db";
@@ -13,6 +14,7 @@ import { verifyAndConsumeOAuthState } from "@/lib/calendar/google-oauth-state";
  */
 export async function GET(request: Request) {
   const user = await requireUser();
+  if (!hasModule(user.modules, "CALENDAR_SYNC")) return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/dashboard/parametres`);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const settingsPath = "/dashboard/parametres?tab=integrations";
 

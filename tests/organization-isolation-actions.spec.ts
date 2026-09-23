@@ -313,3 +313,38 @@ test.describe("comptes de l'équipe", () => {
     expect([row.email, row.twoFactorEnabled], "ni son adresse ni sa double authentification n'ont bougé").toEqual([PLATFORM_IN_OWN, false]);
   });
 });
+
+/**
+ * Un module fermé l'est côté serveur, pas seulement dans le menu : l'action
+ * forgée est refusée, même sur les données de son propre espace. Témoin :
+ * la même action passe une fois le module rouvert.
+ */
+test.describe("modules fermés", () => {
+  const OWN_ZONE = "e2e-module-zone";
+  let originalModules: string[] = [];
+
+  test.beforeAll(async () => {
+    const [organization] = await sql`SELECT o.id, o.modules FROM "Organization" o JOIN "User" u ON u."organizationId" = o.id WHERE u.email = ${EMAIL}`;
+    originalModules = organization.modules as string[];
+    await sql`DELETE FROM "Zone" WHERE id = ${OWN_ZONE}`;
+    await sql`INSERT INTO "Zone" (id, "organizationId", name) VALUES (${OWN_ZONE}, ${organization.id}, ${`${MARKER} Zone à soi`})`;
+  });
+
+  test.afterAll(async () => {
+    await sql`UPDATE "Organization" SET modules = ${originalModules}::text[] WHERE id = (SELECT "organizationId" FROM "User" WHERE email = ${EMAIL})`;
+    await sql`DELETE FROM "Zone" WHERE id = ${OWN_ZONE}`;
+  });
+
+  test("sans le module Tournées, supprimer sa propre zone est refusé ; avec, ça passe", async () => {
+    expect(actions.deleteZoneAction, "action de suppression de zone trouvée").toBeTruthy();
+    await sql`UPDATE "Organization" SET modules = array_remove(modules, 'TOURS') WHERE id = (SELECT "organizationId" FROM "User" WHERE email = ${EMAIL})`;
+    const refused = await callAction(actions.deleteZoneAction, [OWN_ZONE], "/dashboard/parametres");
+    const [still] = await sql`SELECT count(*)::int AS n FROM "Zone" WHERE id = ${OWN_ZONE}`;
+    expect(still.n, `module fermé : la zone reste (${refused.slice(0, 120)})`).toBe(1);
+
+    await sql`UPDATE "Organization" SET modules = ${originalModules}::text[] WHERE id = (SELECT "organizationId" FROM "User" WHERE email = ${EMAIL})`;
+    await callAction(actions.deleteZoneAction, [OWN_ZONE], "/dashboard/parametres");
+    const [gone] = await sql`SELECT count(*)::int AS n FROM "Zone" WHERE id = ${OWN_ZONE}`;
+    expect(gone.n, "module ouvert : la même action passe").toBe(0);
+  });
+});
