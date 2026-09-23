@@ -30,6 +30,30 @@ function refuseDuringAssistance(admin: { assistance: unknown }): void {
   if (admin.assistance) throw new Error(ASSISTANCE_REFUSAL);
 }
 
+/**
+ * Le compte visé, s'il fait bien partie de l'équipe de l'administrateur.
+ *
+ * Un administrateur ne gère que les comptes de son propre espace : un
+ * identifiant venu d'ailleurs — requête forgée, lien recopié — est refusé
+ * comme s'il n'existait pas. Un compte de super-administration n'est modifié
+ * par personne d'autre que lui-même : sinon changer son adresse puis
+ * demander un nouveau mot de passe suffirait à s'emparer de l'accès à tous
+ * les espaces.
+ */
+async function teamMember(admin: { id: string; organizationId: string | null }, userId: string): Promise<{ ok: true; target: { id: string; email: string; role: UserRole; organizationId: string } } | { ok: false; error: string }> {
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, email: true, role: true, organizationId: true, platformAdmin: true } });
+  if (!target || !admin.organizationId || target.organizationId !== admin.organizationId) return { ok: false, error: "Compte introuvable." };
+  if (target.platformAdmin && target.id !== admin.id) return { ok: false, error: "Ce compte ne peut être modifié que par son titulaire." };
+  return { ok: true, target: { id: target.id, email: target.email, role: target.role, organizationId: target.organizationId } };
+}
+
+/** Pour les actions sans valeur de retour : un refus devient une erreur. */
+async function requireTeamMember(admin: { id: string; organizationId: string | null }, userId: string) {
+  const member = await teamMember(admin, userId);
+  if (!member.ok) throw new Error(member.error);
+  return member.target;
+}
+
 export async function createUser(_prevState: CreateUserState, formData: FormData): Promise<CreateUserState> {
   const admin = await requireAdmin();
   if (admin.assistance) return { error: ASSISTANCE_REFUSAL };
@@ -83,6 +107,7 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
 export async function setUserRole(userId: string, role: UserRole) {
   const admin = await requireAdmin();
   refuseDuringAssistance(admin);
+  await requireTeamMember(admin, userId);
   await prisma.user.update({ where: { id: userId }, data: { role } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { role } });
   revalidatePath("/dashboard/admin");
@@ -91,6 +116,7 @@ export async function setUserRole(userId: string, role: UserRole) {
 export async function setUserActive(userId: string, active: boolean) {
   const admin = await requireAdmin();
   refuseDuringAssistance(admin);
+  await requireTeamMember(admin, userId);
   await prisma.user.update({ where: { id: userId }, data: { active } });
   await logAudit({ userId: admin.id, action: active ? "USER_UPDATED" : "USER_DEACTIVATED", entityType: "User", entityId: userId, metadata: { active } });
   revalidatePath("/dashboard/admin");
@@ -99,6 +125,7 @@ export async function setUserActive(userId: string, active: boolean) {
 export async function setUserTwoFactor(userId: string, enabled: boolean) {
   const admin = await requireAdmin();
   refuseDuringAssistance(admin);
+  await requireTeamMember(admin, userId);
   await prisma.user.update({ where: { id: userId }, data: { twoFactorEnabled: enabled } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { twoFactorEnabled: enabled } });
   revalidatePath("/dashboard/admin");
@@ -109,6 +136,9 @@ export type UpdateUserProfileResult = { ok: true } | { ok: false; error: string 
 export async function updateUserProfileAction(userId: string, input: { firstName: string; lastName: string; email: string }): Promise<UpdateUserProfileResult> {
   const admin = await requireAdmin();
   if (admin.assistance) return { ok: false, error: ASSISTANCE_REFUSAL };
+
+  const member = await teamMember(admin, userId);
+  if (!member.ok) return member;
 
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
@@ -140,13 +170,13 @@ export async function deleteUserAction(userId: string): Promise<DeleteUserResult
     return { ok: false, error: "Vous ne pouvez pas supprimer votre propre compte." };
   }
 
-  const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target) {
-    return { ok: false, error: "Compte introuvable." };
-  }
+  const member = await teamMember(admin, userId);
+  if (!member.ok) return member;
+  const { target } = member;
 
   if (target.role === "ADMIN") {
-    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", id: { not: userId } } });
+    // Le dernier administrateur de l'espace, pas de toute la plateforme.
+    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", id: { not: userId }, organizationId: target.organizationId } });
     if (otherAdmins === 0) {
       return { ok: false, error: "Impossible de supprimer le dernier compte administrateur." };
     }
@@ -175,6 +205,7 @@ export async function deleteUserAction(userId: string): Promise<DeleteUserResult
 export async function setUserPermissions(userId: string, permissions: PermissionKey[]) {
   const admin = await requireAdmin();
   refuseDuringAssistance(admin);
+  await requireTeamMember(admin, userId);
   const validPermissions = permissions.filter((permission) => permissionKeys.includes(permission));
   await prisma.user.update({ where: { id: userId }, data: { permissions: validPermissions } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { permissions: validPermissions } });

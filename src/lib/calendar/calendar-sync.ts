@@ -1,5 +1,5 @@
 import "server-only";
-import { dbFor, prisma } from "@/lib/db";
+import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { getActiveConnectionsForProvider, getFreshAccessToken, providerFor } from "@/lib/calendar/calendar-connections";
 import type { CalendarEventInput } from "@/lib/calendar/types";
 import type { Appointment as DbAppointment, CalendarConnection as DbCalendarConnection, Client as DbClient } from "@/generated/prisma/client";
@@ -73,9 +73,12 @@ function buildEventContent(appointment: AppointmentWithClient): CalendarEventInp
 
 type SyncAction = "upsert" | "cancel";
 
-async function syncOneConnection(connection: DbCalendarConnection, appointment: AppointmentWithClient, action: SyncAction): Promise<void> {
+// Les liens rendez-vous ↔ événement Google appartiennent à l'espace du
+// rendez-vous : écrits par son client cloisonné, jamais rangés par défaut
+// dans un autre.
+async function syncOneConnection(db: ScopedPrismaClient, connection: DbCalendarConnection, appointment: AppointmentWithClient, action: SyncAction): Promise<void> {
   const provider = providerFor(connection.provider);
-  const existingLink = await prisma.appointmentCalendarEvent.findUnique({
+  const existingLink = await db.appointmentCalendarEvent.findUnique({
     where: { appointmentId_connectionId: { appointmentId: appointment.id, connectionId: connection.id } },
   });
 
@@ -86,11 +89,11 @@ async function syncOneConnection(connection: DbCalendarConnection, appointment: 
       if (!existingLink) return;
       if (connection.deleteCancelledEvents) {
         await provider.deleteEvent(accessToken, connection.calendarId, existingLink.externalEventId);
-        await prisma.appointmentCalendarEvent.delete({ where: { id: existingLink.id } });
+        await db.appointmentCalendarEvent.delete({ where: { id: existingLink.id } });
       } else {
         const content = buildEventContent(appointment);
         await provider.updateEvent(accessToken, connection.calendarId, existingLink.externalEventId, { ...content, summary: `ANNULÉ — ${content.summary}` });
-        await prisma.appointmentCalendarEvent.update({ where: { id: existingLink.id }, data: { status: "SYNCED", lastError: null, lastSyncAt: new Date() } });
+        await db.appointmentCalendarEvent.update({ where: { id: existingLink.id }, data: { status: "SYNCED", lastError: null, lastSyncAt: new Date() } });
       }
       await prisma.calendarConnection.update({ where: { id: connection.id }, data: { lastSyncAt: new Date(), lastError: null } });
       return;
@@ -99,7 +102,7 @@ async function syncOneConnection(connection: DbCalendarConnection, appointment: 
     const content = buildEventContent(appointment);
     if (!existingLink) {
       const externalEventId = await provider.createEvent(accessToken, connection.calendarId, content);
-      await prisma.appointmentCalendarEvent.create({
+      await db.appointmentCalendarEvent.create({
         data: { appointmentId: appointment.id, connectionId: connection.id, externalEventId, status: "SYNCED", lastSyncAt: new Date() },
       });
     } else {
@@ -109,7 +112,7 @@ async function syncOneConnection(connection: DbCalendarConnection, appointment: 
       // ultérieures d'un événement déjà créé.
       if (existingLink.status === "SYNCED" && !connection.syncUpdates) return;
       await provider.updateEvent(accessToken, connection.calendarId, existingLink.externalEventId, content);
-      await prisma.appointmentCalendarEvent.update({ where: { id: existingLink.id }, data: { status: "SYNCED", lastError: null, lastSyncAt: new Date() } });
+      await db.appointmentCalendarEvent.update({ where: { id: existingLink.id }, data: { status: "SYNCED", lastError: null, lastSyncAt: new Date() } });
     }
     await prisma.calendarConnection.update({ where: { id: connection.id }, data: { lastSyncAt: new Date(), lastError: null } });
   } catch (error) {
@@ -119,7 +122,7 @@ async function syncOneConnection(connection: DbCalendarConnection, appointment: 
     console.error(`[calendar-sync] échec (connexion ${connection.id}, rendez-vous ${appointment.id}) : ${message}`);
     await prisma.calendarConnection.update({ where: { id: connection.id }, data: { lastError: message } }).catch(() => {});
     if (existingLink) {
-      await prisma.appointmentCalendarEvent.update({ where: { id: existingLink.id }, data: { status: "ERROR", lastError: message } }).catch(() => {});
+      await db.appointmentCalendarEvent.update({ where: { id: existingLink.id }, data: { status: "ERROR", lastError: message } }).catch(() => {});
     }
   }
 }
@@ -140,5 +143,5 @@ export async function syncAppointmentToCalendars(organizationId: string, appoint
   const connections = await getActiveConnectionsForProvider("GOOGLE", organizationId);
   if (connections.length === 0) return;
 
-  await Promise.allSettled(connections.map((connection) => syncOneConnection(connection, appointment, action)));
+  await Promise.allSettled(connections.map((connection) => syncOneConnection(db, connection, appointment, action)));
 }

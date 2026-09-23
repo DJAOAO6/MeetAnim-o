@@ -75,6 +75,7 @@ async function cleanup() {
   await sql`DELETE FROM "Tour" WHERE "organizationId" = ${OTHER}`;
   await sql`DELETE FROM "Zone" WHERE "organizationId" = ${OTHER}`;
   await sql`DELETE FROM "Service" WHERE "organizationId" = ${OTHER}`;
+  await sql`DELETE FROM "User" WHERE "organizationId" = ${OTHER}`;
   await sql`DELETE FROM "Organization" WHERE id = ${OTHER}`;
 }
 
@@ -238,4 +239,77 @@ test("au bout du compte, le cabinet B a toujours toutes ses données", async () 
   for (const [table, count] of Object.entries(remaining)) {
     expect(count, `le cabinet B a toujours ses ${table}`).toBe(1);
   }
+});
+
+/**
+ * Les comptes de l'équipe : l'administrateur d'un espace ne gère que les
+ * siens. Sans cette règle, changer l'adresse d'un compte d'un autre espace
+ * puis demander un nouveau mot de passe suffirait à s'en emparer.
+ *
+ * Ces actions demandent le rôle administrateur : le compte de test le reçoit
+ * le temps de l'essai — sinon le refus viendrait du rôle, et ne prouverait
+ * rien. Un témoin vérifie que l'action, sur son propre compte, passe bien.
+ */
+test.describe("comptes de l'équipe", () => {
+  const OTHER_ADMIN = `${OTHER}-admin`;
+  const OTHER_ADMIN_EMAIL = "forcage-admin-b@example.fr";
+  const PLATFORM_IN_OWN = "forcage-plateforme-a@example.fr";
+  let originalRole = "PRACTITIONER";
+  let selfId = "";
+  let teamActions: Record<string, string> = {};
+
+  test.beforeAll(async () => {
+    const [self] = await sql`SELECT id, role FROM "User" WHERE email = ${EMAIL}`;
+    selfId = self.id as string;
+    originalRole = self.role as string;
+    await sql`UPDATE "User" SET role = 'ADMIN' WHERE id = ${selfId}`;
+    await sql`DELETE FROM "User" WHERE email IN (${OTHER_ADMIN_EMAIL}, ${PLATFORM_IN_OWN})`;
+    await sql`
+      INSERT INTO "User" (id, email, "passwordHash", "firstName", "lastName", role, permissions, "organizationId", "updatedAt")
+      VALUES (${OTHER_ADMIN}, ${OTHER_ADMIN_EMAIL}, 'x', 'Admin', ${MARKER}, 'ADMIN', ARRAY[]::text[], ${OTHER}, now())`;
+    // Un compte de super-administration dans le même espace : même un
+    // administrateur de cet espace ne le modifie pas.
+    await sql`
+      INSERT INTO "User" (id, email, "passwordHash", "firstName", "lastName", role, permissions, "platformAdmin", "updatedAt")
+      VALUES (${`${OTHER}-plateforme`}, ${PLATFORM_IN_OWN}, 'x', 'Plateforme', ${MARKER}, 'ADMIN', ARRAY[]::text[], true, now())`;
+    teamActions = await collectActionIds(["/dashboard/admin"]);
+  });
+
+  test.afterAll(async () => {
+    await sql`UPDATE "User" SET role = ${originalRole}::"UserRole" WHERE id = ${selfId}`;
+    await sql`DELETE FROM "AuditLog" WHERE "entityId" IN (${OTHER_ADMIN}, ${`${OTHER}-plateforme`})`;
+    await sql`DELETE FROM "User" WHERE email IN (${OTHER_ADMIN_EMAIL}, ${PLATFORM_IN_OWN})`;
+  });
+
+  test("le témoin : sur son propre compte, l'action passe", async () => {
+    expect(teamActions.setUserPermissions, "action de droits trouvée").toBeTruthy();
+    // Un décompte avant/après plutôt qu'une date : la colonne est sans fuseau.
+    const countLogs = async () => (await sql`SELECT count(*)::int AS n FROM "AuditLog" WHERE action = 'USER_UPDATED' AND "entityId" = ${selfId}`)[0].n as number;
+    const before = await countLogs();
+    await callAction(teamActions.setUserPermissions, [selfId, ["DELETE_CLIENTS", "VIEW_FINANCES", "MANAGE_PUBLIC_SETTINGS", "MANAGE_DOCUMENTS"]], "/dashboard/admin");
+    expect(await countLogs(), "sinon, les refus ci-dessous ne prouveraient rien").toBe(before + 1);
+  });
+
+  test("un compte d'un autre espace ne se modifie ni ne se supprime", async () => {
+    for (const name of ["setUserRole", "setUserActive", "setUserTwoFactor", "setUserPermissions", "updateUserProfileAction", "deleteUserAction"]) {
+      expect(teamActions[name], `action ${name} trouvée`).toBeTruthy();
+    }
+    await callAction(teamActions.setUserRole, [OTHER_ADMIN, "SECRETARY"], "/dashboard/admin");
+    await callAction(teamActions.setUserActive, [OTHER_ADMIN, false], "/dashboard/admin");
+    await callAction(teamActions.setUserTwoFactor, [OTHER_ADMIN, true], "/dashboard/admin");
+    await callAction(teamActions.setUserPermissions, [OTHER_ADMIN, ["DELETE_CLIENTS"]], "/dashboard/admin");
+    await callAction(teamActions.updateUserProfileAction, [OTHER_ADMIN, { firstName: "Pirate", lastName: "Pirate", email: "pirate-admin@example.fr" }], "/dashboard/admin");
+    await callAction(teamActions.deleteUserAction, [OTHER_ADMIN], "/dashboard/admin");
+
+    const [row] = await sql`SELECT role, active, "twoFactorEnabled", permissions, email, "firstName" FROM "User" WHERE id = ${OTHER_ADMIN}`;
+    expect(row, "le compte de l'autre espace existe toujours").toBeTruthy();
+    expect([row.role, row.active, row.twoFactorEnabled, row.permissions, row.email, row.firstName]).toEqual(["ADMIN", true, false, [], OTHER_ADMIN_EMAIL, "Admin"]);
+  });
+
+  test("un compte de super-administration n'est modifié que par son titulaire", async () => {
+    await callAction(teamActions.updateUserProfileAction, [`${OTHER}-plateforme`, { firstName: "Pirate", lastName: "Pirate", email: "pirate-plateforme@example.fr" }], "/dashboard/admin");
+    await callAction(teamActions.setUserTwoFactor, [`${OTHER}-plateforme`, true], "/dashboard/admin");
+    const [row] = await sql`SELECT email, "twoFactorEnabled" FROM "User" WHERE id = ${`${OTHER}-plateforme`}`;
+    expect([row.email, row.twoFactorEnabled], "ni son adresse ni sa double authentification n'ont bougé").toEqual([PLATFORM_IN_OWN, false]);
+  });
 });
