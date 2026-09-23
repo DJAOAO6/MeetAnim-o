@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { neon } from "./helpers/sql";
 import { config } from "dotenv";
+import { BASE_URL } from "./helpers/base-url";
 
 config({ path: ".env.local" });
 const sql = neon(process.env.DATABASE_URL!);
@@ -40,7 +41,7 @@ async function cleanup() {
 }
 
 async function runJobs() {
-  const response = await fetch("http://localhost:3000/api/cron/daily", { headers: { Authorization: `Bearer ${secret}` } });
+  const response = await fetch(`${BASE_URL}/api/cron/daily`, { headers: { Authorization: `Bearer ${secret}` } });
   expect(response.status, "la tâche doit accepter le secret du serveur").toBe(200);
   return response.json() as Promise<{ appointmentReminders: { enabled: boolean; sent: number; failed: number } | null }>;
 }

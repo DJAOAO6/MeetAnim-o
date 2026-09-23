@@ -1,6 +1,7 @@
 import { config } from "dotenv";
 import { expect, test, type Page } from "@playwright/test";
 import { neon } from "./helpers/sql";
+import { BASE_URL } from "./helpers/base-url";
 
 config({ path: ".env.local" });
 
@@ -145,7 +146,7 @@ test("sur la page de réservation, c'est le professionnel qui décide — pas le
   // et aucun réglage à sa portée pour en changer.
   const visiteur = await browser.newContext();
   const vue = await visiteur.newPage();
-  await vue.goto(`http://localhost:3000/reserver/${slug}`, { waitUntil: "networkidle" });
+  await vue.goto(`${BASE_URL}/reserver/${slug}`, { waitUntil: "networkidle" });
   await expect(vue.locator(".paw-cursor-pointer")).toHaveCount(0);
   await expect(vue.getByText(/effet patte|traînée de pattes/i), "le réglage n'est pas exposé au public").toHaveCount(0);
 
@@ -203,7 +204,7 @@ test("sur la page de réservation, c'est le professionnel qui décide — pas le
   // remplacer, et masquer celui-ci ne donnerait rien en échange.
   const tactile = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const surMobile = await tactile.newPage();
-  await surMobile.goto(`http://localhost:3000/reserver/${slug}`, { waitUntil: "networkidle" });
+  await surMobile.goto(`${BASE_URL}/reserver/${slug}`, { waitUntil: "networkidle" });
   await expect(surMobile.locator("body.paw-cursor-active")).toHaveCount(0);
   await tactile.close();
 });

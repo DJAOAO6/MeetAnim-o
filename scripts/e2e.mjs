@@ -4,9 +4,12 @@
  * développement.
  *
  * Le serveur de test est démarré par Playwright (webServer) avec l'adresse
- * de la base de test dans son environnement. Si un serveur de développement
- * tourne déjà sur le port 3000, Playwright le réutiliserait — branché sur la
- * base de développement. D'où le refus tant que le port est occupé.
+ * de la base de test dans son environnement, sur son propre port (3100 par
+ * défaut, voir tests/helpers/base-url.ts) : le serveur de développement
+ * peut donc continuer de tourner sur le 3000 pendant les tests.
+ *
+ * Si quelque chose occupe déjà le port de test, Playwright le réutiliserait
+ * sans savoir sur quelle base il est branché. D'où le refus dans ce cas.
  *
  * Usage, depuis le dossier du projet et depuis PowerShell :
  *   npm run test:e2e                         toute la suite
@@ -23,8 +26,9 @@ if (!existsSync(".env.test.local")) {
 }
 const testEnv = parse(readFileSync(".env.test.local"));
 
+const port = Number(process.env.E2E_PORT ?? 3100);
 const portBusy = await new Promise((resolve) => {
-  const socket = net.connect({ port: 3000, host: "127.0.0.1" });
+  const socket = net.connect({ port, host: "127.0.0.1" });
   socket.once("connect", () => { socket.destroy(); resolve(true); });
   socket.once("error", () => resolve(false));
 });

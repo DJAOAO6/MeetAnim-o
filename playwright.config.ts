@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { BASE_URL, E2E_PORT } from "./tests/helpers/base-url";
 
 export default defineConfig({
   testDir: "./tests",
@@ -17,7 +18,7 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: BASE_URL,
     trace: "retain-on-failure",
   },
   projects: [
@@ -68,9 +69,11 @@ export default defineConfig({
     // cours. En intégration continue, un vrai build déjà compilé (voir
     // .github/workflows/ci.yml) — sinon chaque page serait compilée à la
     // première visite, et les délais des tests mesureraient la compilation.
-    command: process.env.E2E_WEB_SERVER ?? "npm run dev",
-    url: "http://localhost:3000",
+    command: process.env.E2E_WEB_SERVER ?? `npm run dev -- --port ${E2E_PORT}`,
+    url: BASE_URL,
     reuseExistingServer: true,
+    // Dossier de compilation à part : voir next.config.ts.
+    env: { NEXT_DIST_DIR: ".next-e2e" },
     timeout: 120000,
   },
 });

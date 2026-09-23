@@ -18,6 +18,7 @@ import nextTs from "eslint-config-next/typescript";
 const rawPrismaAllowed = [
   "src/lib/db.ts",
   "src/lib/organization.ts",
+  "src/lib/db-barrier.ts",
   "src/lib/audit.ts",
   "src/lib/rate-limit.ts",
   "src/lib/auth/**",

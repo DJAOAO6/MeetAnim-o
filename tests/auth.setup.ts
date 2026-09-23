@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { config } from "dotenv";
 import { test as setup, expect } from "@playwright/test";
+import { BASE_URL } from "./helpers/base-url";
 
 config({ path: ".env.local" });
 
@@ -38,7 +39,7 @@ async function storedSessionStillWorks(): Promise<boolean> {
   try {
     const state = JSON.parse(readFileSync(PRACTITIONER_STATE, "utf8")) as { cookies: { name: string; value: string }[] };
     const cookie = state.cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-    const response = await fetch("http://localhost:3000/dashboard", { headers: { Cookie: cookie }, redirect: "manual" });
+    const response = await fetch(`${BASE_URL}/dashboard`, { headers: { Cookie: cookie }, redirect: "manual" });
     return response.status === 200;
   } catch {
     return false;

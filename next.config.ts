@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Le serveur de test (Playwright) compile dans son propre dossier : Next
+  // refuse deux serveurs de développement sur le même dossier de compilation,
+  // et les tests doivent pouvoir tourner pendant que le serveur de
+  // développement sert l'application sur la base de développement.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   experimental: {
     serverActions: {
       // Les images (photo de profil, couverture, images de compte rendu)

@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { neon } from "./helpers/sql";
 import { config } from "dotenv";
+import { BASE_URL } from "./helpers/base-url";
 
 config({ path: ".env.local" });
 const sql = neon(process.env.DATABASE_URL!);
-const BASE = "http://localhost:3000";
+const BASE = BASE_URL;
 
 /**
  * Cloisonnement, épreuve de force : identifiants d'un autre cabinet en main.

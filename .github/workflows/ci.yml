@@ -62,9 +62,12 @@ jobs:
       postgres:
         image: postgres:17
         env:
+          # Compte d'administration de l'image : un superutilisateur, qui
+          # contourne toute règle de cloisonnement. Il ne sert qu'à créer le
+          # compte de l'application, plus bas.
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
-          POSTGRES_DB: animeo_ci
+          POSTGRES_DB: postgres
           # UTC, comme la production : des colonnes de date sans fuseau lues
           # dans un autre fuseau décalent les comparaisons (voir
           # scripts/test-db.mjs).
@@ -76,7 +79,11 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/animeo_ci
+      # Compte ordinaire, propriétaire de la base — comme en local et comme en
+      # production : c'est la seule façon que les règles de cloisonnement de
+      # la base s'appliquent. Sous un superutilisateur, elles seraient
+      # ignorées, et la suite « seconde barrière » échouerait à juste titre.
+      DATABASE_URL: postgresql://animeo:animeo@localhost:5432/animeo_ci
       # Secrets jetables : cette base et ce serveur n'existent que le temps
       # du travail.
       SESSION_SECRET: integration-continue-secret-de-test-32-caracteres
@@ -93,6 +100,12 @@ jobs:
 
       - name: Dépendances
         run: npm ci
+
+      - name: Compte de l'application
+        env:
+          PGPASSWORD: ci
+        run: |
+          psql -h localhost -U ci -d postgres -v ON_ERROR_STOP=1             -c "CREATE ROLE animeo LOGIN PASSWORD 'animeo' NOSUPERUSER NOBYPASSRLS"             -c "CREATE DATABASE animeo_ci OWNER animeo"             -c "ALTER DATABASE animeo_ci SET timezone TO 'UTC'"
 
       - name: Client Prisma
         run: npx prisma generate
