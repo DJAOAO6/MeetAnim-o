@@ -24,7 +24,7 @@ const inviteTokenDurationMs = 24 * 60 * 60 * 1000;
  * l'adresse d'un compte puis demander un nouveau mot de passe suffirait à en
  * prendre le contrôle.
  */
-const ASSISTANCE_REFUSAL = "Pendant une assistance, les comptes de l'équipe ne se modifient pas : c'est au cabinet d'en décider.";
+const ASSISTANCE_REFUSAL = "Pendant une assistance, les comptes de l'équipe ne se modifient pas : c'est à ses administrateurs d'en décider.";
 
 function refuseDuringAssistance(admin: { assistance: unknown }): void {
   if (admin.assistance) throw new Error(ASSISTANCE_REFUSAL);

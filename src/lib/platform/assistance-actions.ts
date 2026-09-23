@@ -35,7 +35,7 @@ export async function startAssistanceAction(targetUserId: string, rawReason: str
 
   const reason = rawReason.trim();
   if (reason.length < REASON_MIN_LENGTH) {
-    return { ok: false, error: `Indiquez le motif de l'assistance (${REASON_MIN_LENGTH} caractères au moins) : il sera inscrit au journal du cabinet.` };
+    return { ok: false, error: `Indiquez le motif de l'assistance (${REASON_MIN_LENGTH} caractères au moins) : il sera inscrit au journal de l'espace.` };
   }
   if (reason.length > REASON_MAX_LENGTH) return { ok: false, error: "Motif trop long." };
 
@@ -45,7 +45,7 @@ export async function startAssistanceAction(targetUserId: string, rawReason: str
   // Un compte de plateforme n'en assiste pas un autre : ce serait un moyen
   // de cumuler des accès sans laisser de trace claire.
   if (target.platformAdmin) return { ok: false, error: "Ce compte est lui-même un compte de plateforme." };
-  if (!target.organizationId) return { ok: false, error: "Ce compte n'appartient à aucun cabinet." };
+  if (!target.organizationId) return { ok: false, error: "Ce compte n'appartient à aucun espace professionnel." };
 
   const payload = await getSessionPayload();
   const userAgent = (await headers()).get("user-agent")?.slice(0, 300) ?? null;

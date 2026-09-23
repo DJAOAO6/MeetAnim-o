@@ -32,7 +32,7 @@ export async function completeOnboardingAction(rawSlug: string): Promise<Complet
   if (problem) return { ok: false, error: problem };
 
   const profile = await db.businessProfile.findFirst();
-  if (!profile) return { ok: false, error: "Le profil du cabinet est introuvable." };
+  if (!profile) return { ok: false, error: "Le profil de l’espace est introuvable." };
 
   if (hasCabinet(profile.practiceMode) && !profile.address.trim()) {
     return { ok: false, error: "Indiquez l’adresse du cabinet (étape « Votre façon d’exercer »)." };

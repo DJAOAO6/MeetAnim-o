@@ -28,7 +28,7 @@ export function AssistanceBanner({ assistedName, impersonatorName, reason, expir
           Mode assistance — vous agissez dans l’espace de {assistedName}
         </p>
         <p className="text-animeo-dark">
-          {impersonatorName} · motif : « {reason} » · fin automatique à {timeFormatter.format(new Date(expiresAt))}. Chaque action est inscrite à votre nom au journal de ce cabinet.
+          {impersonatorName} · motif : « {reason} » · fin automatique à {timeFormatter.format(new Date(expiresAt))}. Chaque action est inscrite à votre nom au journal de cet espace.
         </p>
       </div>
       <button

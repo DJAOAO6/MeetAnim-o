@@ -63,7 +63,7 @@ export function PlatformView({ organizations, assistances }: { organizations: Pl
           </div>
 
           {organization.accounts.length === 0 ? (
-            <p className="text-sm text-animeo-muted">Aucun compte dans ce cabinet.</p>
+            <p className="text-sm text-animeo-muted">Aucun compte dans cet espace.</p>
           ) : (
             <ul className="divide-y divide-animeo-border-soft">
               {organization.accounts.map((account) => <AccountRow key={account.id} account={account} />)}
@@ -74,7 +74,7 @@ export function PlatformView({ organizations, assistances }: { organizations: Pl
 
       <Card className="p-5 sm:p-6">
         <h2 className="text-lg font-extrabold text-animeo-dark">Dernières assistances</h2>
-        <p className="mt-1 text-sm text-animeo-muted">Chaque ouverture et chaque fin est aussi inscrite au journal du cabinet concerné.</p>
+        <p className="mt-1 text-sm text-animeo-muted">Chaque ouverture et chaque fin est aussi inscrite au journal de l’espace concerné.</p>
         {assistances.length === 0 ? (
           <p className="mt-4 text-sm text-animeo-muted">Aucune assistance pour l’instant.</p>
         ) : (
@@ -154,7 +154,7 @@ function AccountRow({ account }: { account: PlatformAccountView }) {
             className="w-full rounded-[12px] border border-animeo-border bg-white px-3 py-2 text-sm text-animeo-dark outline-none focus:border-animeo"
           />
           <p className="mt-2 text-xs text-animeo-muted">
-            Vous agirez dans l’espace de {account.firstName} pendant 30 minutes au plus. Le motif et chacune de vos actions seront inscrits au journal de son cabinet.
+            Vous agirez dans l’espace de {account.firstName} pendant 30 minutes au plus. Le motif et chacune de vos actions seront inscrits au journal de son espace.
           </p>
           {error ? <p role="alert" className="mt-2 text-sm font-bold text-animeo-danger">{error}</p> : null}
           <button

@@ -124,7 +124,7 @@ function platformFooter(replyReachesSupport = true): string {
 
 function professionalFooter(professionalCompany: string, professionalPhone: string): string {
   const phone = professionalPhone.trim() ? ` · ${escapeHtml(professionalPhone)}` : "";
-  return `${escapeHtml(professionalCompany)}${phone}<br>Envoyé via 1002 Pattes — répondez à cet email pour écrire au cabinet.`;
+  return `${escapeHtml(professionalCompany)}${phone}<br>Envoyé via 1002 Pattes — répondez à cet email pour écrire directement au professionnel.`;
 }
 
 function contactLine(professionalFirstName: string, professionalPhone: string): { text: string; html: string } {

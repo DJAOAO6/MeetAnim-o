@@ -35,9 +35,9 @@ export default async function PlatformPage() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo-muted">Super-administration</p>
-          <h1 className="text-2xl font-black text-animeo-dark">Cabinets de la plateforme</h1>
+          <h1 className="text-2xl font-black text-animeo-dark">Espaces professionnels</h1>
           <p className="mt-1 text-sm text-animeo-muted">
-            {organizations.length} cabinet{organizations.length > 1 ? "s" : ""}. Pour voir le contenu d’un cabinet, assistez l’un de ses comptes.
+            {organizations.length} espace{organizations.length > 1 ? "s" : ""} professionnel{organizations.length > 1 ? "s" : ""}. Pour voir le contenu d’un espace, assistez l’un de ses comptes.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ function AccessRefused({ reason }: { reason: "in-assistance" | "two-factor-requi
         <h1 className="text-xl font-black">Super-administration indisponible</h1>
         {reason === "two-factor-required" ? (
           <p className="mt-2 text-sm">
-            Ce compte ouvre les données de tous les cabinets : la double authentification est obligatoire pour s’en servir. Activez-la sur votre compte, puis reconnectez-vous.
+            Ce compte ouvre les données de tous les espaces professionnels : la double authentification est obligatoire pour s’en servir. Activez-la sur votre compte, puis reconnectez-vous.
           </p>
         ) : (
           <p className="mt-2 text-sm">

@@ -62,7 +62,7 @@ test("sans le rôle de plateforme, la page n'existe pas", async ({ browser }) =>
     const page = await context.newPage();
     const response = await page.goto("/plateforme", { waitUntil: "networkidle" });
     expect(response?.status(), "introuvable, pas « accès refusé » : rien ne confirme que la page existe").toBe(404);
-    await expect(page.getByText("Cabinets de la plateforme")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Espaces professionnels" })).toHaveCount(0);
   } finally {
     await context.close();
   }
@@ -80,7 +80,7 @@ test("le rôle sans double authentification ne suffit pas", async ({ page }) => 
     // Le message de refus, pas l'annonceur de navigation de Next, qui porte
     // lui aussi le rôle « alert ».
     await expect(page.getByRole("alert").filter({ hasText: "double authentification est obligatoire" })).toBeVisible();
-    await expect(page.getByText("Cabinets de la plateforme")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Espaces professionnels" })).toHaveCount(0);
   } finally {
     await sql`UPDATE "User" SET "twoFactorEnabled" = true WHERE id = ${platformId}`;
   }
@@ -88,7 +88,7 @@ test("le rôle sans double authentification ne suffit pas", async ({ page }) => 
 
 test("une assistance exige un motif, s'affiche en permanence, et chaque action est attribuée à celui qui assiste", async ({ page }) => {
   await loginAsPlatform(page);
-  await expect(page.getByRole("heading", { name: "Cabinets de la plateforme" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Espaces professionnels" })).toBeVisible();
 
   // Sans motif : refusé, et rien n'est ouvert.
   const row = page.getByRole("listitem").filter({ hasText: PRACTITIONER_EMAIL });
@@ -129,7 +129,7 @@ test("une assistance exige un motif, s'affiche en permanence, et chaque action e
   // Fin : retour à la plateforme, session d'assistance révoquée.
   await banner.getByRole("button", { name: "Terminer l’assistance" }).click();
   await page.waitForURL("**/plateforme**", { timeout: 15000 });
-  await expect(page.getByRole("heading", { name: "Cabinets de la plateforme" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Espaces professionnels" })).toBeVisible();
   const [open] = await sql`SELECT count(*)::int AS n FROM "Session" WHERE "impersonatorId" = ${platformId} AND "revokedAt" IS NULL`;
   expect(open.n, "plus aucune assistance ouverte").toBe(0);
   const [ended] = await sql`SELECT count(*)::int AS n FROM "AuditLog" WHERE action = 'ASSISTANCE_ENDED' AND "impersonatorId" = ${platformId}`;
