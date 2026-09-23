@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -15,6 +15,10 @@ import type { PublicProfessional } from "@/data/public-booking";
 import type { PublicPageState } from "@/lib/public-page-actions";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { hasModule } from "@/lib/modules";
+import { Toggle } from "@/components/settings/settings-fields";
+import { DOG_PREVIEW_EVENT } from "@/components/notifications/running-dog-notification";
+import { setNewRequestAnimationAction } from "@/lib/dashboard-layout-actions";
+import { notify } from "@/lib/notify";
 
 /**
  * Tout ce qui touche à l'apparence est réuni ici : le thème du logiciel, la
@@ -31,7 +35,7 @@ type PersonalizationSection = "theme" | "navigation" | "dashboard" | "booking";
 const sections: Array<{ id: PersonalizationSection; label: string; description: string; icon: IconName }> = [
   { id: "theme", label: "Thème et couleurs", description: "L’apparence de votre logiciel", icon: "sun" },
   { id: "navigation", label: "Navigation", description: "Le comportement du menu latéral", icon: "settings" },
-  { id: "dashboard", label: "Tableau de bord", description: "Les blocs affichés et leur disposition", icon: "dashboard" },
+  { id: "dashboard", label: "Tableau de bord", description: "Les blocs affichés, les annonces de demandes", icon: "dashboard" },
   { id: "booking", label: "Page de réservation", description: "La page que voient vos clients", icon: "calendar" },
 ];
 
@@ -113,7 +117,12 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
 
         {activeSection === "navigation" ? <NavigationBehaviourPanel /> : null}
 
-        {activeSection === "dashboard" ? <DashboardLayoutPanel /> : null}
+        {activeSection === "dashboard" ? (
+          <div className="space-y-6">
+            <NewRequestAnimationPanel />
+            <DashboardLayoutPanel />
+          </div>
+        ) : null}
 
         {activeSection === "booking" && hasModule(modules, "PUBLIC_PAGE") ? (
           canEdit && publicProfessional
@@ -162,6 +171,49 @@ function DashboardLayoutPanel() {
       >
         Personnaliser mon tableau de bord
       </Link>
+    </Card>
+  );
+}
+
+/**
+ * Le teckel qui traverse l'écran à chaque nouvelle demande de rendez-vous :
+ * chacun choisit pour lui-même. Éteint, la demande arrive quand même — dans
+ * la cloche et sur le tableau de bord —, sans animation.
+ */
+function NewRequestAnimationPanel() {
+  const currentUser = useCurrentUser();
+  const [enabled, setEnabled] = useState(currentUser?.newRequestAnimation ?? true);
+  const [pending, startTransition] = useTransition();
+
+  function change(next: boolean) {
+    setEnabled(next);
+    startTransition(async () => {
+      const result = await setNewRequestAnimationAction(next);
+      if (!result.ok) {
+        setEnabled(!next);
+        notify.error(result.error);
+        return;
+      }
+      notify.success(next ? "Le teckel annoncera vos nouvelles demandes." : "Nouvelles demandes annoncées sans animation.");
+    });
+  }
+
+  return (
+    <Card className="p-6">
+      <h2 id="new-request-animation-title" className="text-lg font-black text-animeo-dark">Annonce des nouvelles demandes</h2>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-animeo-muted">
+        Quand un client demande un rendez-vous depuis votre page de réservation, le teckel 1002 Pattes traverse le haut de l’écran avec la demande. Un clic sur sa banderole l’ouvre. Éteint, la demande arrive toujours dans la cloche, sans animation. Réglage propre à votre compte.
+      </p>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Toggle checked={enabled} onChange={change} disabled={pending} label={enabled ? "Animation activée" : "Animation désactivée"} labelledBy="new-request-animation-title" />
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(DOG_PREVIEW_EVENT))}
+          className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
+        >
+          Voir l’animation
+        </button>
+      </div>
     </Card>
   );
 }

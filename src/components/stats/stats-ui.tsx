@@ -161,7 +161,9 @@ export function RevenueChart({ data, title = "Évolution mensuelle du chiffre d�
             </g>
           );
         })}
-        <path d={area} fill="color-mix(in srgb, var(--theme-primary) 12%, transparent)" />
+        {/* Sans aucun point (données encore en chargement, période vide),
+            pas de surface : son tracé serait invalide. */}
+        {points.length > 0 ? <path d={area} fill="color-mix(in srgb, var(--theme-primary) 12%, transparent)" /> : null}
         <polyline points={line} fill="none" stroke="var(--theme-primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((point) => (
           <g key={point.label}>

@@ -24,6 +24,8 @@ export type CurrentUser = {
   modules: ModuleKey[];
   /** Compte de super-administration (phase 7). */
   platformAdmin: boolean;
+  /** Annoncer les nouvelles demandes de rendez-vous par le teckel animé. */
+  newRequestAnimation: boolean;
   twoFactorEnabled: boolean;
   /**
    * Présent quand cette session est une assistance : un compte de plateforme
@@ -77,6 +79,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     organizationId: user.organizationId,
     modules: normalizeModules(user.organization?.modules ?? []),
     platformAdmin: user.platformAdmin,
+    newRequestAnimation: user.newRequestAnimation,
     twoFactorEnabled: user.twoFactorEnabled,
     assistance: session.impersonator
       ? {

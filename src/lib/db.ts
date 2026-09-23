@@ -11,7 +11,19 @@ function connectionString(): string {
   return process.env.DATABASE_URL ?? process.env.DB_URL ?? "";
 }
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; scopedClients?: Map<string, ScopedPrismaClient> };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; prismaClass?: unknown; scopedClients?: Map<string, ScopedPrismaClient> };
+
+// En développement, après une migration et `prisma generate`, le module
+// rechargé apporte une nouvelle classe PrismaClient. Les clients gardés sur
+// l'objet global viennent de l'ancienne : ils ignorent les nouvelles
+// colonnes (« Unknown field ») jusqu'au redémarrage du serveur. On les
+// abandonne donc dès que la classe a changé.
+if (globalForPrisma.prismaClass !== undefined && globalForPrisma.prismaClass !== PrismaClient) {
+  void globalForPrisma.prisma?.$disconnect().catch(() => {});
+  globalForPrisma.prisma = undefined;
+  globalForPrisma.scopedClients = undefined;
+}
+if (process.env.NODE_ENV !== "production") globalForPrisma.prismaClass = PrismaClient;
 
 // Un client cloisonné par espace, construit à la demande : l'extension est
 // posée une fois, pas à chaque requête. Conservé sur l'objet global en

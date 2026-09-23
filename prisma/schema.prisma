@@ -201,6 +201,9 @@ model User {
   // un écran** : il est synchronisé au démarrage depuis la variable
   // d'environnement PLATFORM_ADMIN_EMAILS (voir src/lib/platform/grants.ts).
   platformAdmin     Boolean         @default(false)
+  // Annonce des nouvelles demandes de rendez-vous par le teckel animé.
+  // Préférence personnelle, réglée dans Paramètres › Personnalisation.
+  newRequestAnimation Boolean       @default(true)
   passwordChangedAt DateTime        @default(now())
   lastLoginAt       DateTime?
   createdAt         DateTime        @default(now())

@@ -21,6 +21,7 @@ import { getBusinessProfile, getReminderSettings } from "@/lib/business-profile-
 import { describeReminderSetting } from "@/lib/appointment-reminders";
 import { AssistanceBanner } from "@/components/platform/assistance-banner";
 import { OnboardingBanner } from "@/components/onboarding/onboarding-banner";
+import { RunningDogNotifications } from "@/components/notifications/running-dog-notification";
 import { currentOrganization } from "@/lib/organization";
 import { redirect } from "next/navigation";
 
@@ -119,6 +120,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               <DashboardFloatingActions />
               <MobileBottomNav />
               <DashboardRealtimeRefresh />
+              {/* Nouvelle demande de rendez-vous : le teckel traverse le haut
+                  de l'écran. Mêmes données que la cloche, relues par
+                  DashboardRealtimeRefresh. */}
+              <RunningDogNotifications
+                enabled={user.newRequestAnimation}
+                requests={appointments
+                  .filter((appointment) => appointment.status === "pending")
+                  .map((appointment) => ({ kind: "appointment_request" as const, id: appointment.id, clientName: appointment.clientName, animalName: appointment.animalName, date: appointment.date, start: appointment.start }))}
+              />
               {/* Un seul montage pour tout le dashboard (PROMPT-NOTIFICATIONS.md §A3) —
                   voir src/lib/notify.ts, jamais importé directement ailleurs. Habillé
                   avec les tokens du projet plutôt que le richColors intégré de Sonner

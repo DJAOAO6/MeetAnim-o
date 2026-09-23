@@ -1,0 +1,130 @@
+/*
+ * Notification « teckel » : une nouvelle demande de rendez-vous traverse le
+ * haut de l'écran, tirée par la mascotte (running-dog-notification.tsx).
+ *
+ * Quatre niveaux, chacun sa propre animation, toutes en transform/opacity :
+ *   1. .rdn-runner  — le trajet de gauche à droite (banderole + cordes + chien) ;
+ *   2. .rdn-dog     — le rebond de course du chien ;
+ *   3. pattes, oreille, queue — dans le SVG lui-même (dog-running.svg) ;
+ *   4. .rdn-banner  — une oscillation à peine visible de la banderole.
+ *
+ * Réglages : --rdn-duration (vitesse), --rdn-dog-width (taille du chien),
+ * .rdn-layer top (position verticale). Voir les media queries plus bas.
+ */
+
+.rdn-layer {
+  --rdn-duration: 5s;
+  --rdn-dog-width: 80px;
+  position: fixed;
+  z-index: 35; /* au-dessus du contenu (30 au plus), sous la barre latérale et l'en-tête (40) et les fenêtres (50+) */
+  top: 4.5rem; /* sous l'en-tête fixe du téléphone (4 rem) */
+  left: 0;
+  right: 0;
+  height: 7rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .rdn-layer {
+    --rdn-duration: 5.6s;
+    --rdn-dog-width: 110px;
+    top: 0.5rem;
+    /* Figée au départ de chaque course (style en ligne) : réduire la barre
+       pendant une course ne fait pas sauter le chien. */
+    left: var(--rdn-left, var(--sidebar-width, 260px));
+  }
+}
+
+@media (min-width: 1280px) {
+  .rdn-layer {
+    --rdn-duration: 6.2s;
+    --rdn-dog-width: 140px;
+  }
+}
+
+/* 1. Le trajet. Départ entièrement hors de la zone, à gauche (masqué par
+   la couche) ; arrivée entièrement sortie à droite. --rdn-travel = largeur de
+   la zone + largeur de l'ensemble, mesurée au départ. Entrée vive, traversée
+   ralentie au milieu — le temps de lire la banderole —, sortie à pleine
+   allure. */
+.rdn-runner {
+  position: absolute;
+  top: 0.75rem;
+  left: 0;
+  display: flex;
+  align-items: center;
+  transform: translate3d(-100%, 0, 0);
+  animation: rdn-run var(--rdn-duration) linear forwards;
+  will-change: transform;
+}
+
+@keyframes rdn-run {
+  0% { transform: translate3d(-100%, 0, 0); }
+  12% { transform: translate3d(calc(var(--rdn-travel) * 0.24 - 100%), 0, 0); }
+  74% { transform: translate3d(calc(var(--rdn-travel) * 0.62 - 100%), 0, 0); }
+  100% { transform: translate3d(calc(var(--rdn-travel) - 100%), 0, 0); }
+}
+
+/* 2. Le rebond de course. */
+.rdn-dog {
+  display: block;
+  width: var(--rdn-dog-width);
+  height: auto;
+  flex-shrink: 0;
+  animation: rdn-bounce 0.36s ease-in-out infinite alternate;
+  transform-origin: 50% 80%;
+}
+
+@keyframes rdn-bounce {
+  from { transform: translate3d(0, 0, 0) rotate(-1deg); }
+  to { transform: translate3d(0, -4px, 0) rotate(1deg); }
+}
+
+/* Les cordes, entre la banderole et le chien. */
+.rdn-ropes {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  margin-right: -0.25rem;
+}
+
+/* 4. La banderole : tirée par la droite, elle oscille autour de ce point. */
+.rdn-banner {
+  pointer-events: auto;
+  animation: rdn-sway 1.2s ease-in-out infinite alternate;
+  transform-origin: 100% 50%;
+}
+
+@keyframes rdn-sway {
+  from { transform: rotate(-0.6deg); }
+  to { transform: rotate(0.6deg); }
+}
+
+/* Tissu : une queue d'aronde à gauche, découpée sur le fond et sur son liseré. */
+.rdn-fabric,
+.rdn-fabric-inner {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0.75rem 50%);
+}
+
+/* Mouvement réduit : pas de course. La banderole et le chien, immobiles,
+   s'affichent quelques secondes au départ de la zone, puis s'effacent. */
+@media (prefers-reduced-motion: reduce) {
+  .rdn-runner {
+    transform: translate3d(1rem, 0, 0);
+    animation: rdn-fade 6s ease both;
+    will-change: opacity;
+  }
+
+  .rdn-dog,
+  .rdn-banner {
+    animation: none;
+  }
+}
+
+@keyframes rdn-fade {
+  0% { opacity: 0; }
+  8% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/dal";
 import {
@@ -60,4 +61,20 @@ export async function resetDashboardLayoutAction(): Promise<SaveDashboardLayoutR
     return { ok: false, error: "La disposition n'a pas pu être réinitialisée. Réessayez dans un instant." };
   }
   return { ok: true, layout: DEFAULT_DASHBOARD_LAYOUT };
+}
+
+/**
+ * Annonce des nouvelles demandes par le teckel : une préférence du compte,
+ * pas de la disposition — « Tout remettre d'origine » ne la touche pas.
+ */
+export async function setNewRequestAnimationAction(enabled: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser();
+  try {
+    await prisma.user.update({ where: { id: user.id }, data: { newRequestAnimation: enabled } });
+  } catch (error) {
+    console.error("[dashboard] Échec de l'enregistrement de l'animation des demandes", error);
+    return { ok: false, error: "Le réglage n'a pas pu être enregistré. Réessayez dans un instant." };
+  }
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
 }
