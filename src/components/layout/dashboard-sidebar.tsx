@@ -28,7 +28,7 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DashboardSidebar({ showAdmin = false, showStatistics = true }: { showAdmin?: boolean; showStatistics?: boolean }) {
+export function DashboardSidebar({ showAdmin = false, showStatistics = true, showPlatform = false }: { showAdmin?: boolean; showStatistics?: boolean; showPlatform?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -185,6 +185,16 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true }: {
                   >
                     <Shield aria-hidden="true" className="h-4 w-4" />
                     Administration
+                  </Link>
+                ) : null}
+                {showPlatform ? (
+                  <Link
+                    href="/plateforme"
+                    onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
+                  >
+                    <Shield aria-hidden="true" className="h-4 w-4" />
+                    Super-administration
                   </Link>
                 ) : null}
                 <button

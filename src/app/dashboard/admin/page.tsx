@@ -27,7 +27,9 @@ export default async function AdminPage() {
     action: entry.action,
     entityType: entry.entityType,
     entityId: entry.entityId,
-    userLabel: entry.user ? `${entry.user.firstName} ${entry.user.lastName}` : "Système",
+    // Une action faite pendant une assistance est au nom du professionnel,
+    // mais c'est la plateforme qui l'a faite : le journal du cabinet le dit.
+    userLabel: `${entry.user ? `${entry.user.firstName} ${entry.user.lastName}` : "Système"}${entry.impersonator ? ` — par ${entry.impersonator.firstName} ${entry.impersonator.lastName} (assistance)` : ""}`,
     createdAt: entry.createdAt.toISOString(),
   }));
 

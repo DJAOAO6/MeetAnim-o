@@ -40,7 +40,7 @@ Organization (l'espace professionnel)
 | **4. Invitation et onboarding** | Un lien d'invitation crée l'espace (profil vierge + administrateur) ; vérification de l'adresse e-mail ; onboarding en 5 étapes, dont la **première est le mode d'exercice** (voir ci-dessous) : profil, horaires, prestations, déplacements, lien de réservation. Plus d'identité par défaut « Pauline Faucillon ». | Moyen | Parcours E2E « un professionnel s'inscrit et prend son premier rendez-vous » |
 | **5. Seconde barrière — FAITE le 22/09/2026** | Row-Level Security sur les 15 tables ; rôle de base sans droit de la contourner. | Moyen | Tests d'isolation rejoués avec un filtre applicatif volontairement retiré |
 | **6. Isolation prouvée — FAITE le 22/09/2026** | Suite « cabinet A contre cabinet B » : chaque entité, chaque route, chaque action, identifiants forcés. Obligatoire en CI. | — | Elle-même |
-| **7. Super-administration** | Compte de plateforme, hors de tout cabinet, qui liste les cabinets et leurs comptes, et peut **se connecter en tant qu'un professionnel** pour l'aider. Garde-fous : rôle attribué uniquement en base (jamais par l'interface), double authentification obligatoire, motif saisi à chaque ouverture, session d'assistance limitée dans le temps et distincte de celle du professionnel, bandeau visible pendant toute la durée, chaque accès inscrit au journal d'audit du cabinet concerné. | **Élevé** (accès à toutes les données) | Tests : sans ce rôle, aucun accès ; avec, chaque action est journalisée et attribuée au super-administrateur |
+| **7. Super-administration — FAITE le 23/09/2026** | Compte de plateforme, hors de tout cabinet, qui liste les cabinets et leurs comptes, et peut **se connecter en tant qu'un professionnel** pour l'aider. Garde-fous : rôle attribué uniquement en base (jamais par l'interface), double authentification obligatoire, motif saisi à chaque ouverture, session d'assistance limitée dans le temps et distincte de celle du professionnel, bandeau visible pendant toute la durée, chaque accès inscrit au journal d'audit du cabinet concerné. | **Élevé** (accès à toutes les données) | Tests : sans ce rôle, aucun accès ; avec, chaque action est journalisée et attribuée au super-administrateur |
 
 Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) au public. Les phases 5 et 7 peuvent suivre, mais avant le premier cabinet externe : la 7 s'appuie sur le cloisonnement de la phase 2, sans lequel « se connecter en tant que » n'aurait pas de sens.
 
@@ -64,6 +64,25 @@ Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) a
 3. **L'étape suivante, avant le premier cabinet extérieur** : faire tourner l'application sous un rôle dédié (sans droit de contourner ces règles), et resserrer les règles pour qu'une connexion sans cabinet déclaré ne voie plus rien. Cela demande de créer le rôle côté hébergeur et de changer l'adresse de connexion du site — une opération à faire par l'utilisateur sur Iridflow, pas depuis le dépôt.
    Iridflow ne propose pas d'outil pour créer un compte *interne* ordinaire : `create_db_user` sert aux accès nommés depuis l'extérieur et ouvre la base à Internet. La voie propre est de demander au support Iridflow un compte non superutilisateur pour l'application, propriétaire des tables, comme cela avait été fait pour le rattachement de la base. Aucune modification de code n'est nécessaire ensuite : l'application le signalera d'elle-même au démarrage (« seconde barrière active »).
 4. **Une réserve de connexions par cabinet** (trois au plus). Confortable tant que les cabinets se comptent en unités ; au-delà de quelques dizaines, il faudra une réserve partagée qui repose le réglage à chaque emprunt, ou un intermédiaire type PgBouncer.
+
+- **Phase 7 faite** (23 septembre 2026) : espace `/plateforme` (cabinets, comptes, volumes — jamais le contenu), et assistance d'un professionnel. Vérifiée par `tests/platform-assistance.spec.ts`.
+
+### Super-administration : comment ça marche
+
+**Attribuer le rôle.** Jamais par un écran. Il est décidé par la variable d'environnement du site `PLATFORM_ADMIN_EMAILS` (adresses séparées par des virgules) et appliqué à chaque démarrage : les comptes listés le reçoivent, tous les autres le perdent. Vide : plus personne. **Absente : rien ne change** — une variable oubliée lors d'une reconfiguration ne prive pas la plateforme de son administrateur. Sur Iridflow : `set_site_env`, puis redémarrage.
+
+**Conditions d'accès**, vérifiées à chaque requête : le rôle, la double authentification activée, et ne pas être soi-même en train d'assister. Sans le rôle, `/plateforme` répond « introuvable » : rien ne confirme que la page existe.
+
+**Une assistance** :
+- exige un motif (10 caractères au moins), inscrit au journal du cabinet assisté ;
+- ouvre une session **à part**, au nom du professionnel : ses propres sessions restent intactes ;
+- dure 30 minutes au plus, puis s'arrête d'elle-même ;
+- s'arrête aussi dès que le rôle est retiré, à la requête suivante ;
+- affiche un bandeau permanent, impossible à masquer, avec le motif et l'heure de fin ;
+- attribue chaque action journalisée à celui qui assiste (`AuditLog.impersonatorId`) ; le journal du cabinet l'affiche (« — par X (assistance) ») ;
+- interdit de toucher aux comptes de l'équipe (création, suppression, rôle, droits, adresse, double authentification). Aider un cabinet dans son travail, oui ; décider qui peut y accéder, non — sans cette règle, changer l'adresse d'un compte puis demander un nouveau mot de passe suffirait à en prendre le contrôle.
+
+**Compte dédié ou compte existant ?** Le rôle est indépendant du cabinet : un administrateur de cabinet peut le recevoir et garder son espace (un lien « Super-administration » apparaît dans son menu). Le plan recommandait un compte de plateforme hors de tout cabinet ; c'est préférable dès qu'il y aura plusieurs cabinets, pour que « agir chez soi » et « agir partout » ne passent pas par la même porte.
 
 ## Observation en attente d'explication
 

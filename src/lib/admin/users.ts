@@ -16,7 +16,10 @@ export async function getAuditLog(limit = 100) {
   const organizationId = await currentOrganizationId();
   return prisma.auditLog.findMany({
     where: { organizationId },
-    include: { user: { select: { firstName: true, lastName: true, email: true } } },
+    include: {
+      user: { select: { firstName: true, lastName: true, email: true } },
+      impersonator: { select: { firstName: true, lastName: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: limit,
   });

@@ -27,6 +27,18 @@ export async function register() {
     console.warn("[cloisonnement] impossible de vérifier la seconde barrière :", error instanceof Error ? error.message : error);
   }
 
+  // Super-administration : le rôle est décidé hors de l'application, par
+  // PLATFORM_ADMIN_EMAILS, et appliqué ici. Jamais par un écran.
+  try {
+    const { syncPlatformAdmins } = await import("@/lib/platform/grants");
+    const result = await syncPlatformAdmins();
+    if (result) {
+      console.info(`[plateforme] ${result.granted.length} compte(s) de super-administration${result.revoked ? `, ${result.revoked} retiré(s)` : ""}.`);
+    }
+  } catch (error) {
+    console.warn("[plateforme] synchronisation du rôle impossible :", error instanceof Error ? error.message : error);
+  }
+
   const override = process.env.SCHEDULER_ENABLED;
   const enabled = override === undefined ? process.env.NODE_ENV === "production" : override === "1";
   if (!enabled) return;

@@ -16,6 +16,20 @@ export type CurrentUser = {
    * compte de plateforme, qui n'appartient à aucun cabinet.
    */
   organizationId: string | null;
+  /** Compte de super-administration (phase 7). */
+  platformAdmin: boolean;
+  twoFactorEnabled: boolean;
+  /**
+   * Présent quand cette session est une assistance : un compte de plateforme
+   * agit au nom de ce professionnel. L'interface l'affiche en permanence, et
+   * le journal d'audit attribue chaque action à celui qui assiste.
+   */
+  assistance: {
+    impersonatorId: string;
+    impersonatorName: string;
+    reason: string;
+    expiresAt: Date;
+  } | null;
 };
 
 /**
@@ -30,8 +44,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   // La session doit exister, appartenir à ce compte, ne pas être révoquée
   // (déconnexion) ni expirée : une seule lecture, utilisateur compris.
-  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: true } });
+  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: true, impersonator: true } });
   if (!session || session.userId !== payload.userId || session.revokedAt || session.expiresAt.getTime() <= Date.now()) return null;
+
+  // Une assistance ne vaut que tant que celui qui assiste est toujours un
+  // compte de plateforme actif : lui retirer ce rôle en cours de route coupe
+  // l'assistance à la requête suivante.
+  if (session.impersonatorId && (!session.impersonator?.platformAdmin || !session.impersonator.active)) return null;
 
   const user = session.user;
   if (!user.active) return null;
@@ -47,6 +66,16 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     role: user.role,
     permissions: user.permissions,
     organizationId: user.organizationId,
+    platformAdmin: user.platformAdmin,
+    twoFactorEnabled: user.twoFactorEnabled,
+    assistance: session.impersonator
+      ? {
+          impersonatorId: session.impersonator.id,
+          impersonatorName: `${session.impersonator.firstName} ${session.impersonator.lastName}`.trim(),
+          reason: session.assistanceReason ?? "",
+          expiresAt: session.expiresAt,
+        }
+      : null,
   };
 });
 

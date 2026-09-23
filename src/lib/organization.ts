@@ -1,4 +1,5 @@
 import "server-only";
+import { redirect } from "next/navigation";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/dal";
 
@@ -82,7 +83,14 @@ export async function currentDb(): Promise<ScopedPrismaClient> {
 export async function currentOrganizationId(): Promise<string> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Aucun compte connecté : impossible de déterminer l'espace professionnel.");
-  if (!user.organizationId) throw new Error("Ce compte n'appartient à aucun espace professionnel.");
+  if (!user.organizationId) {
+    // Un compte de plateforme sans cabinet n'a pas d'espace professionnel :
+    // sa place est la super-administration. Les pages de l'espace se
+    // rendent en parallèle de leur mise en page ; on redirige donc ici aussi,
+    // plutôt que de laisser une page échouer avant la redirection.
+    if (user.platformAdmin) redirect("/plateforme");
+    throw new Error("Ce compte n'appartient à aucun espace professionnel.");
+  }
   return user.organizationId;
 }
 

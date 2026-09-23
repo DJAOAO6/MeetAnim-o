@@ -77,8 +77,11 @@ export default defineConfig({
     command: process.env.E2E_WEB_SERVER ?? `npm run dev -- --port ${E2E_PORT}`,
     url: BASE_URL,
     reuseExistingServer: true,
-    // Dossier de compilation à part : voir next.config.ts.
-    env: { NEXT_DIST_DIR: ".next-e2e" },
+    // Dossier de compilation à part : voir next.config.ts. Adresse publique
+    // alignée sur le port de test : les liens que l'application fabrique
+    // (flux d'agenda, lien de réservation) doivent pointer vers ce serveur,
+    // pas vers le serveur de développement du port 3000.
+    env: { NEXT_DIST_DIR: ".next-e2e", NEXT_PUBLIC_APP_URL: BASE_URL },
     timeout: 120000,
   },
 });

@@ -18,6 +18,8 @@ import { getReminders } from "@/lib/reminders";
 import { getServices } from "@/lib/services-actions";
 import { getBusinessProfile, getReminderSettings } from "@/lib/business-profile-actions";
 import { describeReminderSetting } from "@/lib/appointment-reminders";
+import { AssistanceBanner } from "@/components/platform/assistance-banner";
+import { redirect } from "next/navigation";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
@@ -44,6 +46,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // l'utilisateur en base et invalide la session si le mot de passe a
   // changé ou si le compte a été désactivé depuis l'émission du cookie.
   const user = await requireUser();
+  // Un compte de plateforme sans cabinet n'a pas d'espace professionnel : sa
+  // page est la super-administration.
+  if (!user.organizationId && user.platformAdmin) redirect("/plateforme");
   // Une seule lecture pour tout l'espace professionnel : les deux fenêtres
   // de rendez-vous (création, gestion) sont montées ici, et un formulaire de
   // rendez-vous a besoin des prestations réglées, de l'adresse du cabinet et
@@ -82,10 +87,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 `md:` seulement : sous ce seuil la navigation est un tiroir
                 posé par-dessus le contenu. */}
             <div className="min-h-screen overflow-x-clip bg-animeo-bg pt-16 text-animeo-text transition-[padding] duration-200 ease-out md:pl-[var(--sidebar-width,260px)] md:pt-0">
-              <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} />
+              <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} showPlatform={user.platformAdmin && !user.assistance} />
               {/* pb-24 sous md : dégagement pour la barre de navigation
                   fixe du bas, sinon elle recouvre la fin du contenu. */}
               <main className="mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10">
+                {user.assistance ? (
+                  <AssistanceBanner
+                    assistedName={`${user.firstName} ${user.lastName}`.trim()}
+                    impersonatorName={user.assistance.impersonatorName}
+                    reason={user.assistance.reason}
+                    expiresAt={user.assistance.expiresAt.toISOString()}
+                  />
+                ) : null}
                 {children}
               </main>
               <GlobalAppointmentsManager

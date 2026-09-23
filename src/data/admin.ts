@@ -48,4 +48,6 @@ export const auditActionLabels: Record<string, string> = {
   APPOINTMENT_STATUS_CHANGED: "Statut du rendez-vous modifié",
   ANIMAL_DELETED: "Fiche animal supprimée",
   ANIMAL_UPDATED: "Fiche animal modifiée",
+  ASSISTANCE_STARTED: "Assistance ouverte par la plateforme",
+  ASSISTANCE_ENDED: "Assistance terminée",
 };

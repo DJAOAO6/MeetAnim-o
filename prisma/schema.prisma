@@ -176,6 +176,8 @@ enum AuditAction {
   DOCUMENT_CREATED
   DOCUMENT_FINALIZED
   DOCUMENT_DELETED
+  ASSISTANCE_STARTED
+  ASSISTANCE_ENDED
 }
 
 model User {
@@ -189,6 +191,11 @@ model User {
   active            Boolean         @default(true)
   twoFactorEnabled  Boolean         @default(false)
   twoFactorMethod   TwoFactorMethod @default(EMAIL)
+  // Super-administration : peut voir tous les cabinets et assister un
+  // professionnel. Indépendant du rôle dans un cabinet. **Jamais modifié par
+  // un écran** : il est synchronisé au démarrage depuis la variable
+  // d'environnement PLATFORM_ADMIN_EMAILS (voir src/lib/platform/grants.ts).
+  platformAdmin     Boolean         @default(false)
   passwordChangedAt DateTime        @default(now())
   lastLoginAt       DateTime?
   createdAt         DateTime        @default(now())
@@ -201,6 +208,9 @@ model User {
   icsFeedToken String? @unique
 
   auditLogs               AuditLog[]
+  // Ce que ce compte a fait ou ouvert en assistant un autre professionnel.
+  assistanceSessions      Session[]                @relation("SessionImpersonator")
+  assistedAuditLogs       AuditLog[]               @relation("AuditImpersonator")
   passwordResetTokens     PasswordResetToken[]
   twoFactorCodes          TwoFactorCode[]
   sessions                Session[]
@@ -238,7 +248,18 @@ model Session {
   revokedAt DateTime?
   userAgent String?
 
+  // Session d'assistance (super-administration) : ouverte par un compte de
+  // plateforme au nom d'un professionnel, pour l'aider. Distincte de toute
+  // session du professionnel, courte, et toujours motivée. `userId` est le
+  // professionnel assisté ; `impersonatorId`, celui qui assiste.
+  impersonatorId   String?
+  impersonator     User?   @relation("SessionImpersonator", fields: [impersonatorId], references: [id], onDelete: Cascade)
+  assistanceReason String?
+  // La session de plateforme à rouvrir en fin d'assistance.
+  returnSessionId  String?
+
   @@index([userId])
+  @@index([impersonatorId])
 }
 
 model AuditLog {
@@ -256,10 +277,17 @@ model AuditLog {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
+  // Pendant une assistance, l'action est faite au nom du professionnel
+  // (`userId`) mais par un compte de plateforme : c'est lui, ici, qui en
+  // répond.
+  impersonatorId String?
+  impersonator   User?   @relation("AuditImpersonator", fields: [impersonatorId], references: [id], onDelete: SetNull)
+
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
   @@index([organizationId])
+  @@index([impersonatorId])
 }
 
 model PasswordResetToken {

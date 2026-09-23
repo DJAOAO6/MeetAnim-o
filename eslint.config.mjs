@@ -19,6 +19,9 @@ const rawPrismaAllowed = [
   "src/lib/db.ts",
   "src/lib/organization.ts",
   "src/lib/db-barrier.ts",
+  // Super-administration : la seule partie qui voit plusieurs cabinets,
+  // derrière platformAccess() (double authentification obligatoire).
+  "src/lib/platform/**",
   "src/lib/audit.ts",
   "src/lib/rate-limit.ts",
   "src/lib/auth/**",
@@ -57,6 +60,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Compilation du serveur de test (NEXT_DIST_DIR, voir next.config.ts).
+    ".next-e2e/**",
   ]),
 ]);
 

@@ -16,8 +16,23 @@ export type CreateUserState = { error?: string; resetUrl?: string } | undefined;
 
 const inviteTokenDurationMs = 24 * 60 * 60 * 1000;
 
+/**
+ * Pendant une assistance, la plateforme aide le cabinet dans son travail ;
+ * elle ne décide pas de qui peut y accéder. Créer, supprimer ou modifier un
+ * compte de l'équipe — rôle, droits, adresse, double authentification —
+ * reste donc la décision du cabinet lui-même. Sans cette règle, changer
+ * l'adresse d'un compte puis demander un nouveau mot de passe suffirait à en
+ * prendre le contrôle.
+ */
+const ASSISTANCE_REFUSAL = "Pendant une assistance, les comptes de l'équipe ne se modifient pas : c'est au cabinet d'en décider.";
+
+function refuseDuringAssistance(admin: { assistance: unknown }): void {
+  if (admin.assistance) throw new Error(ASSISTANCE_REFUSAL);
+}
+
 export async function createUser(_prevState: CreateUserState, formData: FormData): Promise<CreateUserState> {
   const admin = await requireAdmin();
+  if (admin.assistance) return { error: ASSISTANCE_REFUSAL };
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const firstName = String(formData.get("firstName") ?? "").trim();
@@ -67,6 +82,7 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
 
 export async function setUserRole(userId: string, role: UserRole) {
   const admin = await requireAdmin();
+  refuseDuringAssistance(admin);
   await prisma.user.update({ where: { id: userId }, data: { role } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { role } });
   revalidatePath("/dashboard/admin");
@@ -74,6 +90,7 @@ export async function setUserRole(userId: string, role: UserRole) {
 
 export async function setUserActive(userId: string, active: boolean) {
   const admin = await requireAdmin();
+  refuseDuringAssistance(admin);
   await prisma.user.update({ where: { id: userId }, data: { active } });
   await logAudit({ userId: admin.id, action: active ? "USER_UPDATED" : "USER_DEACTIVATED", entityType: "User", entityId: userId, metadata: { active } });
   revalidatePath("/dashboard/admin");
@@ -81,6 +98,7 @@ export async function setUserActive(userId: string, active: boolean) {
 
 export async function setUserTwoFactor(userId: string, enabled: boolean) {
   const admin = await requireAdmin();
+  refuseDuringAssistance(admin);
   await prisma.user.update({ where: { id: userId }, data: { twoFactorEnabled: enabled } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { twoFactorEnabled: enabled } });
   revalidatePath("/dashboard/admin");
@@ -90,6 +108,7 @@ export type UpdateUserProfileResult = { ok: true } | { ok: false; error: string 
 
 export async function updateUserProfileAction(userId: string, input: { firstName: string; lastName: string; email: string }): Promise<UpdateUserProfileResult> {
   const admin = await requireAdmin();
+  if (admin.assistance) return { ok: false, error: ASSISTANCE_REFUSAL };
 
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
@@ -115,6 +134,7 @@ export type DeleteUserResult = { ok: true } | { ok: false; error: string };
 
 export async function deleteUserAction(userId: string): Promise<DeleteUserResult> {
   const admin = await requireAdmin();
+  if (admin.assistance) return { ok: false, error: ASSISTANCE_REFUSAL };
 
   if (userId === admin.id) {
     return { ok: false, error: "Vous ne pouvez pas supprimer votre propre compte." };
@@ -154,6 +174,7 @@ export async function deleteUserAction(userId: string): Promise<DeleteUserResult
 
 export async function setUserPermissions(userId: string, permissions: PermissionKey[]) {
   const admin = await requireAdmin();
+  refuseDuringAssistance(admin);
   const validPermissions = permissions.filter((permission) => permissionKeys.includes(permission));
   await prisma.user.update({ where: { id: userId }, data: { permissions: validPermissions } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { permissions: validPermissions } });

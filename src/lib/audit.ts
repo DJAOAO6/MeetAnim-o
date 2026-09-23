@@ -2,6 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 type AuditAction =
   | "LOGIN_SUCCEEDED"
@@ -37,7 +38,9 @@ type AuditAction =
   | "CLIENT_IMPORT_UNDONE"
   | "DOCUMENT_CREATED"
   | "DOCUMENT_FINALIZED"
-  | "DOCUMENT_DELETED";
+  | "DOCUMENT_DELETED"
+  | "ASSISTANCE_STARTED"
+  | "ASSISTANCE_ENDED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
@@ -53,7 +56,18 @@ export async function logAudit(entry: {
   entityType?: string;
   entityId?: string;
   metadata?: Prisma.InputJsonValue;
+  /**
+   * Qui agit réellement, quand ce n'est pas `userId` : le compte de
+   * plateforme qui assiste un professionnel. Déduit de la session en cours
+   * si l'appelant ne le précise pas — de sorte qu'aucune action faite
+   * pendant une assistance ne puisse échapper à cette attribution.
+   */
+  impersonatorId?: string | null;
 }): Promise<void> {
+  const impersonatorId = entry.impersonatorId !== undefined
+    ? entry.impersonatorId
+    : (await getCurrentUser().catch(() => null))?.assistance?.impersonatorId ?? null;
+
   // Le journal appartient au cabinet dont l'action émane : c'est lui qui le
   // consulte, et la super-administration (phase 7) devra pouvoir dire chez
   // qui chaque action a eu lieu.
@@ -65,6 +79,7 @@ export async function logAudit(entry: {
     data: {
       userId: entry.userId ?? null,
       organizationId,
+      impersonatorId,
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,

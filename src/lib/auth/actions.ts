@@ -11,6 +11,7 @@ import { logAudit } from "@/lib/audit";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { getEmailProvider } from "@/lib/email/provider";
 import { twoFactorCodeTemplate } from "@/lib/email/templates";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 export type LoginState = { error?: string } | undefined;
 
@@ -74,7 +75,17 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 }
 
 export async function logout() {
+  // Pendant une assistance, « se déconnecter » la termine : elle doit donc
+  // être journalisée comme telle, et la session de plateforme d'origine
+  // reste intacte (elle n'est simplement pas rouverte).
+  const assisting = (await getCurrentUser())?.assistance;
   const payload = await closeCurrentSession();
-  if (payload) await logAudit({ userId: payload.userId, action: "LOGOUT" });
+  if (payload) {
+    await logAudit({
+      userId: payload.userId,
+      action: assisting ? "ASSISTANCE_ENDED" : "LOGOUT",
+      ...(assisting ? { impersonatorId: assisting.impersonatorId, metadata: { reason: assisting.reason, endedBy: "déconnexion" } } : {}),
+    });
+  }
   redirect("/login");
 }

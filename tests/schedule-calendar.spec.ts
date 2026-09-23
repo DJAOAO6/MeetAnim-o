@@ -64,6 +64,23 @@ function futureOpenWeekday(from: Date, offsetDays: number): Date {
 }
 
 /**
+ * Premier jour réservable à partir de `from`, lu dans la grille : les jours
+ * de fermeture hebdomadaires (pas seulement le dimanche) dépendent des
+ * disponibilités réelles du profil, et une date calculée d'avance peut
+ * tomber sur l'un d'eux. Laisse la grille sur le mois du jour retenu.
+ */
+async function firstSelectableDay(page: Page, from: Date): Promise<Date> {
+  const date = new Date(from);
+  for (let attempt = 0; attempt < 21; attempt += 1) {
+    await navigateToMonth(page, date);
+    const cell = page.getByRole("gridcell", { name: dateLabelPattern(date) });
+    if ((await cell.getAttribute("aria-disabled")) !== "true") return date;
+    date.setDate(date.getDate() + 1);
+  }
+  throw new Error(`Aucun jour réservable dans les trois semaines suivant le ${toDateId(from)}`);
+}
+
+/**
  * Mois actuellement affiché, lu depuis l'en-tête du calendrier plutôt que
  * supposé égal au mois réel d'aujourd'hui : quand le dernier jour du mois
  * courant n'est plus réservable (délai minimum avant rendez-vous), le
@@ -158,16 +175,14 @@ test.describe("Calendrier de réservation (PROMPT-CALENDRIER.md, Partie A)", () 
     // (contrainte unique (date, start)) ou un nettoyage prématuré pendant
     // que l'autre projet lisait encore l'état de la cellule.
     test.skip(testInfo.project.name !== "chromium", "évite une course d'écriture en base avec l'autre projet — logique de calcul du statut déjà couverte côté serveur, indépendante du moteur de rendu");
-    const target = futureOpenWeekday(new Date(), 10);
-    const DATE = `${toDateId(target)}T00:00:00.000Z`;
-
     // La liste exacte des créneaux d'une journée dépend des réglages de
     // disponibilités réels (durée par défaut, intervalle) — lue depuis la
     // page elle-même plutôt que supposée, pour ne pas se désynchroniser si
     // ces réglages changent (le jour ciblé n'a encore aucun rendez-vous à ce
     // stade, donc tous ses créneaux sont proposés).
     await gotoScheduleStep(page);
-    await navigateToMonth(page, target);
+    const target = await firstSelectableDay(page, futureOpenWeekday(new Date(), 10));
+    const DATE = `${toDateId(target)}T00:00:00.000Z`;
     const cell = page.getByRole("gridcell", { name: dateLabelPattern(target) });
     await cell.click();
     await expect(page.getByText("Choisissez une heure")).toBeVisible();
