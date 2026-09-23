@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
-import { BASE_URL, E2E_PORT } from "./tests/helpers/base-url";
+
+// Même règle que tests/helpers/base-url.ts, recopiée plutôt qu'importée : ce
+// fichier est vérifié par le build de production, dont l'image ne contient
+// pas le dossier tests/ (voir .dockerignore).
+const E2E_PORT = process.env.E2E_PORT ?? "3100";
+const BASE_URL = `http://localhost:${E2E_PORT}`;
 
 export default defineConfig({
   testDir: "./tests",

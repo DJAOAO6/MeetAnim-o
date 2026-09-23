@@ -54,6 +54,15 @@ jobs:
       - name: Tests unitaires
         run: npm run test:unit
 
+      # Le build de production vérifie les types sans les dossiers de tests,
+      # que l'image Docker exclut (.dockerignore). Un fichier compilé qui en
+      # importerait un passerait la vérification ci-dessus et casserait le
+      # déploiement — c'est arrivé le 23 septembre avec playwright.config.ts.
+      - name: Typage tel que le voit le build de production
+        run: |
+          rm -rf tests tests-unit
+          npx tsc --noEmit
+
   cloisonnement:
     name: Cloisonnement entre cabinets
     runs-on: ubuntu-latest
