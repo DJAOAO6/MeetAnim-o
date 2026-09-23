@@ -32,4 +32,10 @@ EXPOSE 3000
 # DB_URL (injectée par Iridflow quand une base de la plateforme est rattachée
 # au site) prend le pas sur DATABASE_URL : exportée avant toute commande pour
 # que l'application, les migrations et les scripts visent la même base.
-CMD ["sh", "-c", "export DATABASE_URL=\"${DB_URL:-$DATABASE_URL}\" && npx prisma migrate deploy && npx tsx prisma/seed-document-templates.ts && npx tsx prisma/bootstrap-admin.ts && npm start"]
+#
+# Enfin, le site lui-même tourne sous un compte restreint, sans droit de
+# contourner le cloisonnement de la base (scripts/runtime-role.mjs) — quand
+# l'hébergeur ne fournit qu'un superutilisateur. Le script rend l'adresse à
+# utiliser ; s'il échoue, même complètement, le site démarre avec l'adresse
+# d'origine : jamais pas du tout.
+CMD ["sh", "-c", "export DATABASE_URL=\"${DB_URL:-$DATABASE_URL}\" && npx prisma migrate deploy && npx tsx prisma/seed-document-templates.ts && npx tsx prisma/bootstrap-admin.ts && RUNTIME_DATABASE_URL=\"$(node scripts/runtime-role.mjs || true)\" && export DATABASE_URL=\"${RUNTIME_DATABASE_URL:-$DATABASE_URL}\" && npm start"]

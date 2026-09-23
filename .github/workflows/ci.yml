@@ -72,8 +72,8 @@ jobs:
         image: postgres:17
         env:
           # Compte d'administration de l'image : un superutilisateur, qui
-          # contourne toute règle de cloisonnement. Il ne sert qu'à créer le
-          # compte de l'application, plus bas.
+          # contourne toute règle de cloisonnement — comme celui que fournit
+          # Iridflow en production.
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
           POSTGRES_DB: postgres
@@ -88,11 +88,13 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      # Compte ordinaire, propriétaire de la base — comme en local et comme en
-      # production : c'est la seule façon que les règles de cloisonnement de
-      # la base s'appliquent. Sous un superutilisateur, elles seraient
-      # ignorées, et la suite « seconde barrière » échouerait à juste titre.
-      DATABASE_URL: postgresql://animeo:animeo@localhost:5432/animeo_ci
+      # Comme en production chez Iridflow : la base appartient à un
+      # superutilisateur, qui passe les migrations. Le site, lui, tourne sous
+      # le compte restreint que prépare scripts/runtime-role.mjs (étape
+      # « Compte restreint » plus bas) — sans quoi les règles de cloisonnement
+      # seraient ignorées, et la suite « seconde barrière » échouerait à juste
+      # titre.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/animeo_ci
       # Secrets jetables : cette base et ce serveur n'existent que le temps
       # du travail.
       SESSION_SECRET: integration-continue-secret-de-test-32-caracteres
@@ -110,11 +112,10 @@ jobs:
       - name: Dépendances
         run: npm ci
 
-      - name: Compte de l'application
+      - name: Base de test
         env:
           PGPASSWORD: ci
-        run: |
-          psql -h localhost -U ci -d postgres -v ON_ERROR_STOP=1             -c "CREATE ROLE animeo LOGIN PASSWORD 'animeo' NOSUPERUSER NOBYPASSRLS"             -c "CREATE DATABASE animeo_ci OWNER animeo"             -c "ALTER DATABASE animeo_ci SET timezone TO 'UTC'"
+        run: psql -h localhost -U ci -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE animeo_ci" -c "ALTER DATABASE animeo_ci SET timezone TO 'UTC'"
 
       - name: Client Prisma
         run: npx prisma generate
@@ -131,12 +132,26 @@ jobs:
       - name: Navigateur de test
         run: npx playwright install --with-deps chromium
 
+      # Ce que fait le démarrage du conteneur en production : le script doit
+      # rendre une autre adresse que celle du superutilisateur, et ce compte
+      # ne doit rien pouvoir contourner. Sinon, échec : la production
+      # tournerait sans seconde barrière sans que rien ne le signale.
+      - name: Compte restreint (comme en production)
+        run: |
+          RUNTIME_URL="$(node scripts/runtime-role.mjs)"
+          if [ "$RUNTIME_URL" = "$DATABASE_URL" ]; then echo "::error::le compte restreint n'a pas été préparé"; exit 1; fi
+          PRIVILEGED="$(psql "$RUNTIME_URL" -tAc "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user")"
+          if [ "$PRIVILEGED" != "f" ]; then echo "::error::le compte restreint peut contourner les règles"; exit 1; fi
+          echo "RUNTIME_DATABASE_URL=$RUNTIME_URL" >> "$GITHUB_ENV"
+
       # Playwright démarre le serveur lui-même (voir playwright.config.ts).
       # Serveur de développement, et non un build : la suite « identifiants
       # en main » retrouve les actions par leur nom dans le JavaScript servi,
       # et un build ne publie pas ces noms — ce qui est tant mieux pour la
       # production, mais rendrait la suite aveugle ici.
       - name: Cloisonnement
+        env:
+          DATABASE_URL: ${{ env.RUNTIME_DATABASE_URL }}
         # onboarding.spec.ts : un second cabinet ouvert pour de bon, jusqu'à
         # une réservation au même horaire qu'un rendez-vous du premier.
         run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts tests/organization-rls.spec.ts tests/onboarding.spec.ts --reporter=line
