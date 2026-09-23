@@ -26,6 +26,8 @@ import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
 import type { Tour, TourAppointment } from "@/data/tours";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
+import { AgendaDisplayMenu } from "@/components/agenda/agenda-display-menu";
+import { isWeekdayShown, type AgendaDisplay } from "@/lib/agenda-display";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -115,9 +117,14 @@ type AgendaViewProps = {
   tourAppointments: Record<string, TourAppointment[]>;
   initialBlockedSlots: BlockedSlot[];
   practiceMode: PracticeMode;
+  /** Affichage enregistré par le compte (ou celui par défaut). */
+  initialDisplay: AgendaDisplay;
 };
 
-export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots, practiceMode }: AgendaViewProps) {
+export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots, practiceMode, initialDisplay }: AgendaViewProps) {
+  // Réglages d'affichage : appliqués aussitôt, enregistrés seulement sur
+  // demande (« Définir comme affichage par défaut »).
+  const [display, setDisplay] = useState<AgendaDisplay>(initialDisplay);
   const router = useRouter();
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus, ensureRange } = useAppointments();
   const [view, setView] = useState<AgendaViewMode>("week");
@@ -167,7 +174,8 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   // formulaire, jamais par une boîte de dialogue du navigateur.
   const [confirmingClosedSlot, setConfirmingClosedSlot] = useState<{ date: string; start: string; duration: number } | null>(null);
   const weekDates = getWeekDates(weekOffset);
-  const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates;
+  // Samedi et dimanche masqués : les colonnes restantes se partagent la largeur.
+  const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates.filter((date) => isWeekdayShown(date.getDay(), display));
   const monthDate = getMonthDate(monthOffset);
   const yearValue = getYearValue(yearOffset);
 
@@ -457,6 +465,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               inatteignable, alors que la page ne défilait pas latéralement. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <AgendaViewSwitcher value={view} onChange={handleViewChange} />
+            {view === "day" || view === "week" ? <AgendaDisplayMenu value={display} onChange={setDisplay} /> : null}
 
             <button
               type="button"
@@ -513,6 +522,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
             <WeekPlanner
+              display={display}
               dates={activeDates}
               clients={clients}
               availability={availability}

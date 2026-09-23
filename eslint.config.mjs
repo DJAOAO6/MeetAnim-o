@@ -30,6 +30,8 @@ const rawPrismaAllowed = [
   "src/lib/calendar-actions.ts",
   "src/lib/calendar/**",
   "src/lib/dashboard-layout-actions.ts",
+  // Préférences d'affichage de l'agenda : une donnée du compte, pas de l'espace.
+  "src/lib/agenda-preferences-actions.ts",
   "src/lib/scheduler/jobs.ts",
   "src/app/api/calendar/**",
 ];

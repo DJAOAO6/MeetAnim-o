@@ -14,6 +14,7 @@ import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
+import { DEFAULT_AGENDA_DISPLAY, ROW_HEIGHT, eventGeometry, pixelsPerMinute, visibleHourRange, type AgendaDisplay } from "@/lib/agenda-display";
 
 type EventKind = "cabinet" | "domicile" | "pending" | "unavailable" | "tournee";
 
@@ -52,16 +53,10 @@ type WeekPlannerProps = {
   appointmentEvents?: CalendarEvent[];
   tourEvents?: CalendarEvent[];
   blockedEvents?: CalendarEvent[];
+  /** Affichage choisi par le compte : intervalle, densité, heures visibles, zones fermées. */
+  display?: AgendaDisplay;
 };
 
-const DEFAULT_START_HOUR = 7;
-const DEFAULT_END_HOUR = 19;
-const MIN_START_HOUR = 6;
-const MAX_END_HOUR = 23;
-const HOUR_MARGIN = 1;
-const HOUR_HEIGHT = 72;
-const MIN_EVENT_HEIGHT = 64;
-const MIN_PENDING_HEIGHT = 100;
 const TIME_COLUMN_WIDTH = 56;
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD_PX = 4;
@@ -74,33 +69,24 @@ const TOUCH_HOLD_MS = 500;
 // Tolérance de tremblement pendant l'appui : au-delà, c'est un défilement.
 const TOUCH_HOLD_TOLERANCE_PX = 10;
 
+/** Plancher de lisibilité d'une carte, en pixels : en deçà, on ne voit plus rien. */
+const MIN_VISIBLE_HEIGHT = 12;
+/** Hauteur à partir de laquelle une demande en attente montre ses boutons. */
+const PENDING_ACTIONS_MIN_HEIGHT = 72;
+
 /**
- * Plage horaire affichée dérivée des vraies disponibilités plutôt que
- * 07h-19h fixe : un rendez-vous après 19h sortait auparavant de la zone
- * visible du planning. Bornée à [MIN_START_HOUR, MAX_END_HOUR] pour éviter
- * un planning démesurément long avec une seule plage exotique configurée.
+ * Lignes de la grille, dessinées en fond plutôt qu'avec un élément par
+ * créneau (même à 15 min) : une ligne claire par intervalle, une plus
+ * marquée à chaque heure quand l'intervalle est plus court qu'une heure.
  */
-function computeHourRange(availability: AvailabilitySettings): { startHour: number; endHour: number } {
-  let earliest = Infinity;
-  let latest = -Infinity;
-
-  for (const day of availability.days) {
-    if (!day.enabled) continue;
-    for (const slot of day.slots) {
-      const [startH] = slot.start.split(":").map(Number);
-      const [endH, endM] = slot.end.split(":").map(Number);
-      earliest = Math.min(earliest, startH);
-      latest = Math.max(latest, endH + (endM > 0 ? 1 : 0));
-    }
-  }
-
-  if (!Number.isFinite(earliest) || !Number.isFinite(latest)) {
-    return { startHour: DEFAULT_START_HOUR, endHour: DEFAULT_END_HOUR };
-  }
-
-  const startHour = Math.max(MIN_START_HOUR, Math.floor(earliest) - HOUR_MARGIN);
-  const endHour = Math.min(MAX_END_HOUR, Math.ceil(latest) + HOUR_MARGIN);
-  return { startHour, endHour: Math.max(endHour, startHour + 1) };
+function gridLines(rowHeight: number, slotMinutes: number, pxPerMinute: number): React.CSSProperties {
+  const row = `linear-gradient(to bottom, transparent ${rowHeight - 1}px, #edf2f0 ${rowHeight - 1}px)`;
+  if (slotMinutes >= 60) return { backgroundImage: row, backgroundSize: `100% ${rowHeight}px` };
+  const hour = pxPerMinute * 60;
+  return {
+    backgroundImage: `linear-gradient(to bottom, transparent ${hour - 1}px, #dfe9e6 ${hour - 1}px), ${row}`,
+    backgroundSize: `100% ${hour}px, 100% ${rowHeight}px`,
+  };
 }
 
 const eventStyles: Record<EventKind, string> = {
@@ -121,16 +107,6 @@ const legend = [
 
 const dayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
 const dragDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-
-function getEventPosition(start: string, duration: number, minHeight: number, startHour: number) {
-  const [hours, minutes] = start.split(":").map(Number);
-  const minutesAfterStart = (hours - startHour) * 60 + minutes;
-
-  return {
-    top: (minutesAfterStart / 60) * HOUR_HEIGHT,
-    height: Math.max((duration / 60) * HOUR_HEIGHT, minHeight),
-  };
-}
 
 function toMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
@@ -165,15 +141,22 @@ type DragState =
   | { kind: "move"; event: CalendarEvent; originDay: number; originStartMinutes: number; grabOffsetMinutes: number; currentDay: number; currentStartMinutes: number }
   | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
 
-export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [] }: WeekPlannerProps) {
+export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [], display = DEFAULT_AGENDA_DISPLAY }: WeekPlannerProps) {
   const { appointments, saveAppointment } = useAppointments();
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const isDayView = dates.length === 1;
   const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px repeat(${dates.length}, minmax(0,1fr))`;
-  const { startHour, endHour } = useMemo(() => computeHourRange(availability), [availability]);
-  const plannerHeight = (endHour - startHour) * HOUR_HEIGHT;
   const allEvents = useMemo(() => [...appointmentEvents, ...tourEvents, ...blockedEvents], [appointmentEvents, tourEvents, blockedEvents]);
+  // Géométrie de la grille : la hauteur d'une ligne vient de la densité, sa
+  // durée de l'intervalle. Les rendez-vous, eux, gardent leur vraie durée.
+  const pxPerMinute = pixelsPerMinute(display);
+  const hourHeight = pxPerMinute * 60;
+  const { startHour, endHour } = useMemo(
+    () => visibleHourRange(display, allEvents.map((event) => ({ start: toMinutes(event.start), end: toMinutes(event.start) + event.duration }))),
+    [display, allEvents],
+  );
+  const plannerHeight = (endHour - startHour) * hourHeight;
   const now = useCurrentTime();
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -282,7 +265,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     const startClientX = pointerEvent.clientX;
     const startClientY = pointerEvent.clientY;
     const gridTop = gridRef.current.getBoundingClientRect().top;
-    const pointerAbsoluteMinutesAtStart = startHour * 60 + ((startClientY - gridTop) / HOUR_HEIGHT) * 60;
+    const pointerAbsoluteMinutesAtStart = startHour * 60 + ((startClientY - gridTop) / hourHeight) * 60;
     const grabOffsetMinutes = pointerAbsoluteMinutesAtStart - toMinutes(event.start);
     let started = false;
 
@@ -297,7 +280,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       const columnWidth = (gridRect.width - TIME_COLUMN_WIDTH) / dates.length;
       const relativeX = moveEvent.clientX - gridRect.left - TIME_COLUMN_WIDTH;
       const day = Math.min(dates.length - 1, Math.max(0, Math.floor(relativeX / columnWidth)));
-      const pointerAbsoluteMinutes = startHour * 60 + ((moveEvent.clientY - gridRect.top) / HOUR_HEIGHT) * 60;
+      const pointerAbsoluteMinutes = startHour * 60 + ((moveEvent.clientY - gridRect.top) / hourHeight) * 60;
       const rawMinutes = pointerAbsoluteMinutes - grabOffsetMinutes;
       const snapped = Math.round(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES;
       const clamped = Math.min(endHour * 60 - event.duration, Math.max(startHour * 60, snapped));
@@ -335,7 +318,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
         started = true;
         justDraggedRef.current = true;
       }
-      const deltaMinutes = Math.round(((moveEvent.clientY - startClientY) / HOUR_HEIGHT) * 60 / SNAP_MINUTES) * SNAP_MINUTES;
+      const deltaMinutes = Math.round(((moveEvent.clientY - startClientY) / hourHeight) * 60 / SNAP_MINUTES) * SNAP_MINUTES;
       const startMinutes = toMinutes(event.start);
       const maxDuration = endHour * 60 - startMinutes;
       const nextDuration = Math.min(maxDuration, Math.max(SNAP_MINUTES, originDuration + deltaMinutes));
@@ -482,7 +465,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
             </div>
 
             <div ref={gridRef} className="relative grid" style={{ gridTemplateColumns }}>
-              <TimeColumn startHour={startHour} endHour={endHour} plannerHeight={plannerHeight} />
+              <TimeColumn startHour={startHour} endHour={endHour} plannerHeight={plannerHeight} pxPerMinute={pxPerMinute} slotMinutes={display.slotMinutes} />
               {dates.map((date, dayIndex) => (
                 <DayColumn
                   key={date.toISOString()}
@@ -492,6 +475,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   startHour={startHour}
                   endHour={endHour}
                   plannerHeight={plannerHeight}
+                  pxPerMinute={pxPerMinute}
+                  slotMinutes={display.slotMinutes}
+                  rowHeight={ROW_HEIGHT[display.density]}
+                  showClosedZones={display.showClosedZones}
                   events={allEvents.filter((event) => event.day === dayIndex)}
                   draggedEventId={drag?.event.id ?? null}
                   armedEventId={armedEventId}
@@ -514,8 +501,8 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   aria-hidden="true"
                   className="pointer-events-none absolute z-40"
                   style={{
-                    top: (((drag.kind === "move" ? drag.currentStartMinutes : toMinutes(drag.event.start)) - startHour * 60) / 60) * HOUR_HEIGHT,
-                    height: ((drag.kind === "resize" ? drag.currentDuration : drag.event.duration) / 60) * HOUR_HEIGHT,
+                    top: ((drag.kind === "move" ? drag.currentStartMinutes : toMinutes(drag.event.start)) - startHour * 60) * pxPerMinute,
+                    height: (drag.kind === "resize" ? drag.currentDuration : drag.event.duration) * pxPerMinute,
                     left: `calc(${TIME_COLUMN_WIDTH}px + ${drag.kind === "move" ? drag.currentDay : drag.event.day} * (100% - ${TIME_COLUMN_WIDTH}px) / ${dates.length})`,
                     width: `calc((100% - ${TIME_COLUMN_WIDTH}px) / ${dates.length})`,
                   }}
@@ -549,7 +536,18 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   );
 }
 
-function TimeColumn({ startHour, endHour, plannerHeight }: { startHour: number; endHour: number; plannerHeight: number }) {
+/**
+ * Heures de la grille. Intervalle d'une heure ou moins : une étiquette par
+ * heure. Au-delà (1 h 30) : une par ligne, pour que chaque ligne se lise.
+ */
+function timeLabels(startHour: number, endHour: number, slotMinutes: number): number[] {
+  const step = slotMinutes > 60 ? slotMinutes : 60;
+  const labels: number[] = [];
+  for (let minutes = startHour * 60; minutes <= endHour * 60; minutes += step) labels.push(minutes);
+  return labels;
+}
+
+function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinutes }: { startHour: number; endHour: number; plannerHeight: number; pxPerMinute: number; slotMinutes: number }) {
   // sticky : sur les petites largeurs, le planning peut défiler
   // horizontalement — l'axe horaire doit rester lisible en permanence
   // plutôt que sortir de l'écran avec les premières colonnes. z-index
@@ -560,26 +558,30 @@ function TimeColumn({ startHour, endHour, plannerHeight }: { startHour: number; 
       style={{ height: plannerHeight }}
       data-testid="agenda-time-column"
     >
-      {Array.from({ length: endHour - startHour + 1 }, (_, index) => (
+      {timeLabels(startHour, endHour, slotMinutes).map((minutes) => (
         <span
-          key={index}
+          key={minutes}
           className="absolute right-3 -translate-y-1/2 text-[11px] font-bold text-animeo-muted"
-          style={{ top: index * HOUR_HEIGHT }}
+          style={{ top: (minutes - startHour * 60) * pxPerMinute }}
         >
-          {String(startHour + index).padStart(2, "0")}:00
+          {minutesToTime(minutes)}
         </span>
       ))}
     </div>
   );
 }
 
-function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
+function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, rowHeight, showClosedZones, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
   date: Date;
   now: Date;
   availability: AvailabilitySettings;
   startHour: number;
   endHour: number;
   plannerHeight: number;
+  pxPerMinute: number;
+  slotMinutes: number;
+  rowHeight: number;
+  showClosedZones: boolean;
   events: CalendarEvent[];
   draggedEventId: string | null;
   onPendingAction: WeekPlannerProps["onPendingAction"];
@@ -630,17 +632,13 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   return (
     <div
       className="relative border-r border-animeo-border last:border-r-0"
-      style={{
-        height: plannerHeight,
-        backgroundImage: "linear-gradient(to bottom, transparent 35px, #edf2f0 36px, transparent 37px, transparent 71px, #dfe9e6 72px)",
-        backgroundSize: `100% ${HOUR_HEIGHT}px`,
-      }}
+      style={{ height: plannerHeight, ...gridLines(rowHeight, slotMinutes, pxPerMinute) }}
     >
       {showTimeLine ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 z-30 flex items-center"
-          style={{ top: ((nowMinutes - startHour * 60) / 60) * HOUR_HEIGHT }}
+          style={{ top: (nowMinutes - startHour * 60) * pxPerMinute }}
         >
           <span className="-ml-[3px] h-2 w-2 shrink-0 rounded-full bg-animeo-error" />
           <div className="h-[2px] flex-1 bg-animeo-error" />
@@ -651,10 +649,13 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
         <div
           key={`${range.start}-${range.end}`}
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 z-[1] bg-[repeating-linear-gradient(135deg,#F1F3F3,#F1F3F3_8px,#E7EBEA_8px,#E7EBEA_16px)]"
-          style={{ top: (range.start - startHour) * HOUR_HEIGHT, height: (range.end - range.start) * HOUR_HEIGHT }}
+          // Zones fermées masquées dans l'affichage : un simple voile, sans
+          // hachures. Les horaires, eux, ne changent pas.
+          className={`pointer-events-none absolute inset-x-0 z-[1] ${showClosedZones ? "bg-[repeating-linear-gradient(135deg,#F1F3F3,#F1F3F3_8px,#E7EBEA_8px,#E7EBEA_16px)]" : "bg-animeo-surface-alt/45"}`}
+          data-closed-zone={showClosedZones ? "hatched" : "muted"}
+          style={{ top: (range.start - startHour) * 60 * pxPerMinute, height: (range.end - range.start) * 60 * pxPerMinute }}
         >
-          {!dayAvailability.open && range.start === startHour && range.end === endHour ? (
+          {showClosedZones && !dayAvailability.open && range.start === startHour && range.end === endHour ? (
             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-animeo-muted">
               Fermé
             </span>
@@ -666,7 +667,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
         <SlotSelectionLayer
           dayIndex={dayIndex}
           bounds={selectionBounds}
-          hourHeight={HOUR_HEIGHT}
+          hourHeight={pxPerMinute * 60}
           selection={activeSlot}
           closedAt={closedAt}
           onSelect={(slot, rect, closed, pointerType) => onSelectSlot(slot, rect, closed, pointerType, selectionBounds)}
@@ -679,6 +680,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           key={event.id}
           event={event}
           startHour={startHour}
+          pxPerMinute={pxPerMinute}
           columnLayout={layout.get(event.id) ?? { column: 0, columns: 1 }}
           isDragging={event.id === draggedEventId}
           onPendingAction={onPendingAction}
@@ -693,9 +695,10 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   );
 }
 
-function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
+function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDragging, isArmed, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
   event: CalendarEvent;
   startHour: number;
+  pxPerMinute: number;
   columnLayout: { column: number; columns: number };
   isDragging: boolean;
   onPendingAction: WeekPlannerProps["onPendingAction"];
@@ -711,7 +714,15 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
   const isPending = event.kind === "pending";
   const isSelectable = Boolean(event.appointmentId || event.tourId || event.blockedSlotId);
   const isDraggable = Boolean(event.appointmentId);
-  const position = getEventPosition(event.start, event.duration, isPending ? MIN_PENDING_HEIGHT : MIN_EVENT_HEIGHT, startHour);
+  // Vraie durée, toujours : aucune hauteur minimale qui ferait croire qu'un
+  // rendez-vous de 15 min en dure 45. Seul un plancher de lisibilité reste.
+  const position = eventGeometry(toMinutes(event.start), event.duration, startHour, pxPerMinute);
+  const height = Math.max(position.height, MIN_VISIBLE_HEIGHT);
+  const inset = Math.min(3, height * 0.08);
+  // Les boutons d'une demande en attente demandent de la place ; sur une
+  // carte plus courte, la demande se traite depuis le panneau au-dessus de
+  // la grille, la cloche ou sa fiche.
+  const showPendingActions = isPending && height >= PENDING_ACTIONS_MIN_HEIGHT;
   const selectableLabel = isUnavailable
     ? `Ouvrir le créneau bloqué : ${event.title ?? "Indisponible"} à ${event.start}`
     : isTournee
@@ -753,10 +764,10 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
       // refuser) : un bouton dans un bouton, les lecteurs d'écran ne
       // l'annoncent pas. La carte devient alors un simple groupe nommé, et
       // « Décaler » ouvre la fiche au clavier. Le clic sur la carte reste.
-      role={isSelectable ? (isPending ? "group" : "button") : undefined}
-      tabIndex={isSelectable && !isPending ? 0 : undefined}
+      role={isSelectable ? (showPendingActions ? "group" : "button") : undefined}
+      tabIndex={isSelectable && !showPendingActions ? 0 : undefined}
       onClick={isSelectable ? handleSelect : undefined}
-      onKeyDown={isSelectable && !isPending ? handleKeyDown : undefined}
+      onKeyDown={isSelectable && !showPendingActions ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
       aria-label={isSelectable ? selectableLabel : undefined}
       className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
@@ -765,8 +776,8 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
       data-drag-armed={isArmed ? "true" : undefined}
       data-testid="agenda-event"
       style={{
-        top: position.top + 3,
-        height: position.height - 6,
+        top: position.top + inset,
+        height: height - inset * 2,
         left: `calc(${column * columnWidthPercent}% + 3px)`,
         width: `calc(${columnWidthPercent}% - 6px)`,
         // Cible tactile WCAG (24px) : sur des créneaux très chargés, la largeur
@@ -804,7 +815,7 @@ function CalendarEventCard({ event, startHour, columnLayout, isDragging, isArmed
         </p>
       ) : null}
 
-      {isPending ? (
+      {showPendingActions ? (
         <div className="mt-1.5 grid grid-cols-3 gap-1">
           <button
             type="button"

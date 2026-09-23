@@ -228,6 +228,7 @@ model User {
   savedPlaces             SavedPlace[]
   tourPreferences         TourPreferences?
   dashboardPreferences    DashboardPreferences?
+  agendaPreferences       AgendaPreferences?
   clientImports           ClientImport[]
   studioDocuments         StudioDocument[]
   studioDocumentTemplates StudioDocumentTemplate[]
@@ -1158,6 +1159,26 @@ model SavedPlace {
  * TourRun peut toujours surcharger localement sans jamais modifier cette
  * ligne (voir doc "surcharge par tournée").
  */
+/// Affichage de l'agenda choisi par un compte (src/lib/agenda-display.ts) :
+/// intervalle de grille, densité, heures visibles, week-end, zones fermées.
+/// Propre au compte, jamais partagé ; aucun effet sur les horaires ni les
+/// rendez-vous.
+model AgendaPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  slotMinutes     Int     @default(30)
+  density         String  @default("comfortable")
+  dayStart        Int     @default(8)
+  dayEnd          Int     @default(21)
+  showSaturday    Boolean @default(true)
+  showSunday      Boolean @default(true)
+  showClosedZones Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}
+
 model TourPreferences {
   id     String @id @default(cuid())
   userId String @unique
