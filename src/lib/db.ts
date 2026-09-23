@@ -58,12 +58,23 @@ function buildScopedClient(organizationId: string) {
   // jour où les cabinets se compteront par dizaines, il faudra soit une
   // réserve partagée qui repose le réglage à chaque emprunt, soit un
   // intermédiaire (PgBouncer) : c'est noté dans docs/PLAN-MULTI-COMPTES.md.
-  const pool = new Pool({ connectionString: connectionString(), max: 3, allowExitOnIdle: true });
-  pool.on("connect", (client) => {
-    // `false` : le réglage vaut pour toute la connexion, pas seulement pour
-    // la transaction en cours. La requête est mise en file sur cette
-    // connexion avant toute autre, donc aucune requête ne part sans lui.
-    void client.query("SELECT set_config('app.organization_id', $1, false)", [organizationId]);
+  //
+  // Le cabinet est déclaré dans les paramètres d'ouverture de la connexion,
+  // et non par une requête lancée juste après : il est ainsi en place avant
+  // toute requête, sans course possible — et le pilote refusera bientôt deux
+  // requêtes simultanées sur une même connexion.
+  //
+  // L'identifiant est inséré dans ces paramètres : on s'assure qu'il ne
+  // contient que des caractères d'identifiant, pour qu'il ne puisse jamais
+  // y glisser un autre réglage.
+  if (!/^[A-Za-z0-9_-]+$/.test(organizationId)) {
+    throw new Error("Identifiant d'espace professionnel invalide.");
+  }
+  const pool = new Pool({
+    connectionString: connectionString(),
+    max: 3,
+    allowExitOnIdle: true,
+    options: `-c app.organization_id=${organizationId}`,
   });
 
   const client = new PrismaClient({ adapter: new PrismaPg(pool) });
