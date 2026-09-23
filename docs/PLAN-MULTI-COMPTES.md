@@ -37,7 +37,7 @@ Organization (l'espace professionnel)
 | **1. Fondations — FAITE le 22/09/2026** (`3612ab3`) | Modèle `Organization` ; colonne `organizationId` sur les 15 tables métier et `User` (nullable) ; rattachement de toutes les données existantes à un premier cabinet ; puis `NOT NULL`, clés étrangères et index. Unicités à re-cadrer : index de créneau `(organizationId, date, start)`, noms de zone par cabinet. | Moyen (données) | Migration rejouée sur une copie de la base, comptages avant/après |
 | **2. Accès cloisonné — FAITE le 22/09/2026** | Extension Prisma `db()` ; conversion des 28 fichiers ; `getBusinessProfile()` devient le profil *du cabinet courant* ; le planificateur (rappels, tournées) boucle sur les cabinets. | **Élevé** (volume) | Typage : `prisma` brut interdit hors du module d'accès (règle lint) ; suite E2E existante |
 | **3. Page publique — FAITE le 22/09/2026** | `/reserver/[slug]` résout le cabinet par son slug ; les actions publiques reçoivent le slug, jamais un identifiant de cabinet fourni par le client ; e-mails aux couleurs et coordonnées du bon cabinet. | Moyen | Tests : deux cabinets, deux pages, réservations qui ne se croisent pas |
-| **4. Invitation et onboarding** | Un lien d'invitation crée l'espace (profil vierge + administrateur) ; vérification de l'adresse e-mail ; onboarding en 5 étapes, dont la **première est le mode d'exercice** (voir ci-dessous) : profil, horaires, prestations, déplacements, lien de réservation. Plus d'identité par défaut « Pauline Faucillon ». | Moyen | Parcours E2E « un professionnel s'inscrit et prend son premier rendez-vous » |
+| **4. Invitation et onboarding — FAITE le 23/09/2026** | Un lien d'invitation crée l'espace (profil vierge + administrateur) ; vérification de l'adresse e-mail ; onboarding en 5 étapes, dont la **première est le mode d'exercice** (voir ci-dessous) : profil, horaires, prestations, déplacements, lien de réservation. Plus d'identité par défaut « Pauline Faucillon ». | Moyen | Parcours E2E « un professionnel s'inscrit et prend son premier rendez-vous » |
 | **5. Seconde barrière — FAITE le 22/09/2026** | Row-Level Security sur les 15 tables ; rôle de base sans droit de la contourner. | Moyen | Tests d'isolation rejoués avec un filtre applicatif volontairement retiré |
 | **6. Isolation prouvée — FAITE le 22/09/2026** | Suite « cabinet A contre cabinet B » : chaque entité, chaque route, chaque action, identifiants forcés. Obligatoire en CI. | — | Elle-même |
 | **7. Super-administration — FAITE le 23/09/2026** | Compte de plateforme, hors de tout cabinet, qui liste les cabinets et leurs comptes, et peut **se connecter en tant qu'un professionnel** pour l'aider. Garde-fous : rôle attribué uniquement en base (jamais par l'interface), double authentification obligatoire, motif saisi à chaque ouverture, session d'assistance limitée dans le temps et distincte de celle du professionnel, bandeau visible pendant toute la durée, chaque accès inscrit au journal d'audit du cabinet concerné. | **Élevé** (accès à toutes les données) | Tests : sans ce rôle, aucun accès ; avec, chaque action est journalisée et attribuée au super-administrateur |
@@ -65,6 +65,8 @@ Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) a
    Iridflow ne propose pas d'outil pour créer un compte *interne* ordinaire : `create_db_user` sert aux accès nommés depuis l'extérieur et ouvre la base à Internet. La voie propre est de demander au support Iridflow un compte non superutilisateur pour l'application, propriétaire des tables, comme cela avait été fait pour le rattachement de la base. Aucune modification de code n'est nécessaire ensuite : l'application le signalera d'elle-même au démarrage (« seconde barrière active »).
 4. **Une réserve de connexions par cabinet** (trois au plus). Confortable tant que les cabinets se comptent en unités ; au-delà de quelques dizaines, il faudra une réserve partagée qui repose le réglage à chaque emprunt, ou un intermédiaire type PgBouncer.
 
+- **Phase 4 faite** (23 septembre 2026) : invitation depuis `/plateforme`, inscription, onboarding, page de réservation fermée tant que la configuration n'est pas terminée. Voir plus bas.
+
 - **Phase 7 faite** (23 septembre 2026) : espace `/plateforme` (cabinets, comptes, volumes — jamais le contenu), et assistance d'un professionnel. Vérifiée par `tests/platform-assistance.spec.ts`.
 
 ### Super-administration : comment ça marche
@@ -83,6 +85,24 @@ Ordre imposé : 1 → 2 → 3 → 6 avant toute ouverture de l'inscription (4) a
 - interdit de toucher aux comptes de l'équipe (création, suppression, rôle, droits, adresse, double authentification). Aider un cabinet dans son travail, oui ; décider qui peut y accéder, non — sans cette règle, changer l'adresse d'un compte puis demander un nouveau mot de passe suffirait à en prendre le contrôle.
 
 **Compte dédié ou compte existant ?** Le rôle est indépendant du cabinet : un administrateur de cabinet peut le recevoir et garder son espace (un lien « Super-administration » apparaît dans son menu). Le plan recommandait un compte de plateforme hors de tout cabinet ; c'est préférable dès qu'il y aura plusieurs cabinets, pour que « agir chez soi » et « agir partout » ne passent pas par la même porte.
+
+### Invitation et onboarding (phase 4) : comment ça marche
+
+**Inviter.** Depuis `/plateforme`, encart « Inviter un professionnel » : une adresse et un nom d'activité (modifiable par l'invité). Un e-mail part avec un lien valable **7 jours**, à usage unique ; le lien est aussi affiché **une fois** à l'écran, pour le transmettre autrement si l'e-mail n'arrive pas. Seule son empreinte est gardée en base. Inviter à nouveau la même adresse annule le lien précédent ; une adresse qui a déjà un compte est refusée. Chaque invitation (envoi, annulation) est journalisée.
+
+**S'inscrire.** `/inscription/<lien>` : prénom, nom, nom de l'activité, mot de passe. L'adresse est celle de l'invitation, affichée mais non modifiable — c'est en recevant le lien que l'invité a prouvé qu'il la détient (c'est la vérification de l'adresse prévue au plan). Le cabinet, son profil **vierge** à son nom, des horaires de départ (lundi-vendredi, 9 h-12 h et 14 h-18 h) et son compte administrateur sont créés ensemble, ou pas du tout ; deux envois simultanés du formulaire n'ouvrent jamais deux cabinets.
+
+**Configurer.** `/dashboard/bienvenue`, six écrans au plus : façon d'exercer (et adresse du cabinet, ou point de départ privé), profil, horaires, prestations (au moins une), déplacements (seulement si l'on se déplace), lien de réservation. Chaque écran est enregistré en passant au suivant, par les mêmes actions que les Paramètres. Tant que ce n'est pas fini, un bandeau le rappelle sur tout l'espace, et **la page de réservation n'existe pas** : son lien répond « introuvable », comme un lien inconnu (`dbForSlug`). Les cabinets existants ont été marqués configurés par la migration.
+
+**Plus d'identité par défaut.** Un cabinet sans profil en reçoit un vierge (`src/lib/blank-profile.ts`) ; un cabinet sans prestation n'en reçoit plus d'office. « Pauline Faucillon » n'existe plus que dans le jeu de données de démonstration (`prisma/seed.ts`).
+
+**Ce que le premier vrai second cabinet a révélé** (corrigé avec la phase 4, vérifié par `tests/onboarding.spec.ts`, joué en intégration continue) :
+- l'index unique des créneaux portait sur toute la base : deux cabinets ne pouvaient pas avoir un rendez-vous à la même heure. Il est désormais par cabinet (migration `20260924100000_appointment_slot_per_cabinet`) ;
+- la vérification de conflit d'une réservation lisait la base sans cloisonnement — les rendez-vous de tous les cabinets, et les horaires « du seul cabinet », ce qui échouait dès qu'il y en avait deux ;
+- les agendas Google : un rendez-vous était diffusé à **toutes** les connexions Google de la plateforme (nom du client compris), et les créneaux occupés de tous les agendas bloquaient tous les cabinets. Les connexions sont maintenant celles des comptes du cabinet, et le cache des créneaux occupés est par cabinet ;
+- le calcul des tournées, l'aperçu des rappels et l'encart « Infos pratiques » de la page publique supposaient encore un seul cabinet ou ignoraient le mode d'exercice.
+
+**Avant d'inviter un premier cabinet extérieur**, reste la condition posée à la phase 5 : un compte de base ordinaire pour l'application en production (voir « Ce qui reste à faire sur cette barrière »), pour que le cloisonnement ne repose plus sur l'application seule.
 
 ## Observation en attente d'explication
 

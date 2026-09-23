@@ -31,9 +31,6 @@ const rawPrismaAllowed = [
   "src/lib/calendar/**",
   "src/lib/dashboard-layout-actions.ts",
   "src/lib/scheduler/jobs.ts",
-  // Réservation publique : sans session, le cabinet sera résolu par le slug
-  // à la phase 3 du chantier multi-comptes.
-  "src/lib/appointments-actions.ts",
   "src/app/api/calendar/**",
 ];
 

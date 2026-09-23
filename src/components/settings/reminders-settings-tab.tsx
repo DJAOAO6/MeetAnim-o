@@ -10,13 +10,13 @@ import type { ReminderSettings } from "@/data/settings";
 // le vrai lien substitué à l'envoi (reminder-modal.tsx).
 const previewAppOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/^https?:\/\//, "");
 
-export function RemindersSettingsTab({ value, onSave }: { value: ReminderSettings; onSave: (value: ReminderSettings) => void }) {
+export function RemindersSettingsTab({ value, slug, onSave }: { value: ReminderSettings; slug: string; onSave: (value: ReminderSettings) => void }) {
   const [draft, setDraft] = useState(value);
   const preview = draft.messageTemplate
     .replaceAll("[Prénom]", "Marie")
     .replaceAll("[Durée]", draft.defaultDelay === "Aucun" ? "quelques mois" : draft.defaultDelay)
     .replaceAll("[Animal]", "Luna")
-    .replaceAll("[Lien de réservation]", `${previewAppOrigin}/reserver/pauline-faucillon`);
+    .replaceAll("[Lien de réservation]", `${previewAppOrigin}/reserver/${slug}`);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

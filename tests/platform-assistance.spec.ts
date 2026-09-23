@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { neon } from "./helpers/sql";
+import { createPlatformAccount as createAccount, loginAsPlatform as login, PLATFORM_PASSWORD, removePlatformAccount as removeAccount } from "./helpers/platform";
 import { config } from "dotenv";
 
 config({ path: ".env.local" });
@@ -24,53 +24,22 @@ const sql = neon(process.env.DATABASE_URL!);
  * puis supprimé.
  */
 const PLATFORM_EMAIL = "plateforme-e2e@example.fr";
-const PLATFORM_PASSWORD = "Plateforme-E2E-2026!";
 const PRACTITIONER_EMAIL = "praticien-test@pf-osteo-animale.fr";
 const ADMIN_EMAIL = "pauline@pf-osteo-animale.fr";
-const KNOWN_CODE = "481516";
 const REASON = "Test automatique : rendez-vous qui ne s'affichent plus";
 
 let platformId = "";
 
-function hashToken(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
 async function createPlatformAccount() {
-  await removePlatformAccount();
-  const bcrypt = (await import("bcryptjs")).default;
-  const [row] = await sql`
-    INSERT INTO "User" (id, email, "passwordHash", "firstName", "lastName", role, permissions, "platformAdmin", "twoFactorEnabled", "organizationId", "updatedAt")
-    VALUES (${`plateforme-e2e-${Date.now()}`}, ${PLATFORM_EMAIL}, ${await bcrypt.hash(PLATFORM_PASSWORD, 10)}, 'Plateforme', 'Test', 'PRACTITIONER', ARRAY[]::text[], true, true, NULL, now())
-    RETURNING id`;
-  platformId = row.id as string;
+  platformId = await createAccount(sql, PLATFORM_EMAIL);
 }
 
 async function removePlatformAccount() {
-  const rows = await sql`SELECT id FROM "User" WHERE email = ${PLATFORM_EMAIL}`;
-  for (const row of rows) {
-    await sql`DELETE FROM "AuditLog" WHERE "impersonatorId" = ${row.id} OR "userId" = ${row.id}`;
-    await sql`DELETE FROM "Session" WHERE "impersonatorId" = ${row.id} OR "userId" = ${row.id}`;
-    await sql`DELETE FROM "User" WHERE id = ${row.id}`;
-  }
+  await removeAccount(sql, PLATFORM_EMAIL);
 }
 
-/** Connexion du compte de plateforme, double authentification comprise. */
 async function loginAsPlatform(page: Page) {
-  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
-  await sql`DELETE FROM "TwoFactorCode" WHERE "userId" = ${platformId}`;
-  await page.goto("/login", { waitUntil: "networkidle" });
-  await page.fill('input[type="email"]', PLATFORM_EMAIL);
-  await page.fill('input[type="password"]', PLATFORM_PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/login/verification**", { timeout: 15000 });
-  await sql`
-    UPDATE "TwoFactorCode" SET "codeHash" = ${hashToken(KNOWN_CODE)}
-    WHERE id = (SELECT id FROM "TwoFactorCode" WHERE "userId" = ${platformId} AND "usedAt" IS NULL ORDER BY "createdAt" DESC LIMIT 1)`;
-  await page.fill('input[name="code"]', KNOWN_CODE);
-  await page.getByRole("button", { name: "Valider" }).click();
-  // Sans cabinet, l'espace professionnel renvoie vers la super-administration.
-  await page.waitForURL("**/plateforme**", { timeout: 15000 });
+  await login(page, sql, platformId, PLATFORM_EMAIL);
 }
 
 /** Ouvre l'assistance d'un compte depuis la liste de la plateforme. */

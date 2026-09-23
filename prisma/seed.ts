@@ -175,6 +175,37 @@ async function seedUsers() {
   console.log("Comptes de test — secrétariat : secretariat-test@pf-osteo-animale.fr / Secretariat-Test-2026!");
 }
 
+/**
+ * Profil du cabinet de démonstration. L'application n'invente plus aucune
+ * identité : un cabinet sans profil en reçoit un vierge. C'est donc ici,
+ * et seulement ici, que « Pauline Faucillon » existe. Jamais écrasé : les
+ * réglages faits dans l'application survivent à un nouveau peuplement.
+ */
+async function seedBusinessProfile() {
+  const existing = await prisma.businessProfile.findFirst({ where: { organizationId: "org-1002-pattes" }, select: { id: true } });
+  if (existing) return;
+  await prisma.businessProfile.create({
+    data: {
+      organizationId: "org-1002-pattes",
+      firstName: "Pauline",
+      lastName: "Faucillon",
+      profession: "Ostéopathe animalier",
+      company: "PF Ostéo Animale",
+      phone: "06 12 34 56 78",
+      email: "pauline@pf-osteo-animale.fr",
+      address: "24 rue des Carmes",
+      postalCode: "76000",
+      city: "Rouen",
+      location: "Rouen et Normandie",
+      bio: "J’accompagne chiens, chats et chevaux avec une approche douce et personnalisée.",
+      slug: "pauline-faucillon",
+      photo: "PF",
+      logo: "PF",
+      publicColor: "#2F7A6E",
+    },
+  });
+}
+
 async function resetDatabase() {
   await prisma.$transaction([
     prisma.tour.deleteMany(),
@@ -442,6 +473,7 @@ async function seedAgendaAppointments() {
 async function main() {
   console.log("Comptes utilisateurs…");
   await seedUsers();
+  await seedBusinessProfile();
 
   console.log("Réinitialisation de la base…");
   await resetDatabase();

@@ -137,7 +137,7 @@ export async function syncAppointmentToCalendars(organizationId: string, appoint
   const appointment = await db.appointment.findUnique({ where: { id: appointmentId }, include: { client: true } });
   if (!appointment) return;
 
-  const connections = await getActiveConnectionsForProvider("GOOGLE");
+  const connections = await getActiveConnectionsForProvider("GOOGLE", organizationId);
   if (connections.length === 0) return;
 
   await Promise.allSettled(connections.map((connection) => syncOneConnection(connection, appointment, action)));

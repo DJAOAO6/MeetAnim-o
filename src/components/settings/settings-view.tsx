@@ -238,7 +238,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
             <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} />
           </section>
           <section data-testid="settings-reminders">
-            <RemindersSettingsTab value={settings.reminders} onSave={saveReminders} />
+            <RemindersSettingsTab value={settings.reminders} slug={settings.profile.slug} onSave={saveReminders} />
           </section>
         </div>
       ) : null}

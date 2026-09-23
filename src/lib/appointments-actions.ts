@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import { prisma, type ScopedPrismaClient } from "@/lib/db";
+import { organizationIdOf, type ScopedPrismaClient } from "@/lib/db";
 import { currentDb, dbForSlug } from "@/lib/organization";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
@@ -97,16 +97,18 @@ async function notifyAppointmentChange(db: ScopedPrismaClient, clientId: string 
  * horaire de départ — voir handlePotentialSlotConflict ci-dessous pour le
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
-async function hasConflict(dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
+async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
+  // Les rendez-vous, horaires et agendas Google du cabinet concerné, et de
+  // lui seul : le 9 h d'un professionnel n'occupe pas celui d'un autre.
   const [availability, googleBusyPeriods] = await Promise.all([
-    getAvailability(),
+    getAvailability(db),
     // Best-effort (jamais levée, jamais bloquante — voir calendar-freebusy.ts) :
     // revalidation serveur de la disponibilité Google (étape 11 du chantier
     // calendrier), jamais seulement affichée côté client.
-    getGoogleBusyPeriods(`${dateId}T00:00:00.000Z`, `${dateId}T23:59:59.999Z`),
+    getGoogleBusyPeriods(organizationIdOf(db), `${dateId}T00:00:00.000Z`, `${dateId}T23:59:59.999Z`),
   ]);
 
-  if (await appointmentConflictIn(prisma, dateId, start, duration, availability.travelBuffer, excludeId)) return true;
+  if (await appointmentConflictIn(db, dateId, start, duration, availability.travelBuffer, excludeId)) return true;
 
   const startMinutes = timeToMinutes(start);
   const googleIntervals = mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods)[dateId] ?? [];
@@ -349,7 +351,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
   const existing = input.id ? await db.appointment.findUnique({ where: { id: input.id } }) : null;
 
-  if (await hasConflict(input.date, input.start, input.duration, input.id)) {
+  if (await hasConflict(db, input.date, input.start, input.duration, input.id)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
 
@@ -382,7 +384,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null } : {}),
   };
 
-  const { travelBuffer } = await getAvailability();
+  const { travelBuffer } = await getAvailability(db);
   let row;
   try {
     row = await db.$transaction(async (tx) => {
@@ -439,7 +441,7 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   const current = await db.appointment.findUnique({ where: { id } });
   if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
 
-  if (status !== "cancelled" && await hasConflict(current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
+  if (status !== "cancelled" && await hasConflict(db, current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
     return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 
@@ -931,7 +933,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
     return { ok: false, error: "Ce mode de consultation est temporairement fermé aux réservations. Merci de choisir l’autre mode ou de réessayer plus tard." };
   }
 
-  if (await hasConflict(core.date, core.start, service.duration)) {
+  if (await hasConflict(db, core.date, core.start, service.duration)) {
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
 
@@ -1121,7 +1123,7 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
   // public) les traite exactement comme un rendez-vous ou un blocage — sans
   // rien changer côté appelant (schedule-step.tsx). Best-effort : une panne
   // Google ne doit jamais faire échouer cette lecture.
-  const googleBusyPeriods = await getGoogleBusyPeriods(`${fromDateId}T00:00:00.000Z`, `${toDateId}T23:59:59.999Z`);
+  const googleBusyPeriods = await getGoogleBusyPeriods(organizationIdOf(db), `${fromDateId}T00:00:00.000Z`, `${toDateId}T23:59:59.999Z`);
   for (const [id, intervals] of Object.entries(mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods))) {
     (result[id] ??= []).push(...intervals);
   }

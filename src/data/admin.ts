@@ -50,4 +50,8 @@ export const auditActionLabels: Record<string, string> = {
   ANIMAL_UPDATED: "Fiche animal modifiée",
   ASSISTANCE_STARTED: "Assistance ouverte par la plateforme",
   ASSISTANCE_ENDED: "Assistance terminée",
+  INVITATION_SENT: "Invitation envoyée",
+  INVITATION_REVOKED: "Invitation annulée",
+  ORGANIZATION_CREATED: "Espace professionnel ouvert",
+  ONBOARDING_COMPLETED: "Configuration initiale terminée",
 };

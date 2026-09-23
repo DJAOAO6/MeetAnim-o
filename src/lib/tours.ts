@@ -85,8 +85,7 @@ function formatNextOccurrenceLabel(dateId: string): string {
  * tournée (AUDIT_COMPLET.md P2-25 — remplace TourAppointment, une table que
  * seul le script de seed pouvait peupler, jamais l'app réelle).
  */
-async function computeTourOccurrence(tour: DbTourWithZones, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
-  const db = await readDb();
+async function computeTourOccurrence(db: ScopedPrismaClient, tour: DbTourWithZones, publicZones: PublicZone[], todayId: string, cabinetCoordinates: Coordinates | null): Promise<TourOccurrence> {
   const dateId = nextOccurrenceDateId({ day: tour.day, dateId: tour.dateId ?? undefined, recurrence: tour.recurrence as Tour["recurrence"] }, todayId);
   if (!dateId) return { appointmentCount: 0, consultationHours: "0h", stops: [], estimate: { distanceKm: null, durationMinutes: null, unlocatedStopCount: 0 }, expectedReturnTime: null, nextOccurrenceLabel: null };
 
@@ -160,7 +159,7 @@ const getTourOccurrences = cache(async (scoped?: ScopedPrismaClient): Promise<Ma
   const todayId = parisDateId();
   const cabinetCoordinates = businessProfile.latitude != null && businessProfile.longitude != null ? { lat: businessProfile.latitude, lng: businessProfile.longitude } : null;
 
-  const occurrences = await Promise.all(rows.map((tour) => computeTourOccurrence(tour, publicZones, todayId, cabinetCoordinates)));
+  const occurrences = await Promise.all(rows.map((tour) => computeTourOccurrence(db, tour, publicZones, todayId, cabinetCoordinates)));
   return new Map(rows.map((tour, index) => [tour.id, occurrences[index]]));
 });
 

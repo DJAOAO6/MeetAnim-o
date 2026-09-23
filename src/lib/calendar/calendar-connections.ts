@@ -60,7 +60,13 @@ export function getUserCalendarConnection(userId: string, provider: CalendarProv
   return prisma.calendarConnection.findUnique({ where: { userId_provider: { userId, provider } } });
 }
 
-/** Toutes les connexions actives pour un provider donné, tous utilisateurs confondus — utilisé par calendar-sync.ts pour diffuser un rendez-vous à qui l'a activé. */
-export function getActiveConnectionsForProvider(provider: CalendarProviderKind) {
-  return prisma.calendarConnection.findMany({ where: { provider, syncAppointments: true } });
+/**
+ * Les connexions actives d'un cabinet pour un provider donné — celles de ses
+ * comptes, et d'eux seuls. Un rendez-vous n'est diffusé qu'aux agendas de
+ * son propre cabinet, et seuls ces agendas-là rendent ses créneaux
+ * indisponibles : ni le nom d'un client ni l'emploi du temps d'un
+ * professionnel ne passent chez un autre.
+ */
+export function getActiveConnectionsForProvider(provider: CalendarProviderKind, organizationId: string) {
+  return prisma.calendarConnection.findMany({ where: { provider, syncAppointments: true, user: { organizationId } } });
 }

@@ -151,6 +151,29 @@ export async function readDb(): Promise<ScopedPrismaClient> {
  * `null` si le lien ne correspond à aucun cabinet.
  */
 export async function dbForSlug(slug: string): Promise<ScopedPrismaClient | null> {
-  const organization = await organizationOfSlug(slug);
-  return organization ? dbFor(organization.id) : null;
+  const profile = await prisma.businessProfile.findUnique({
+    where: { slug },
+    select: { organization: { select: { id: true, onboardedAt: true } } },
+  });
+  // Un cabinet qui n'a pas fini sa configuration n'a pas encore de page
+  // publique : pas d'horaires, pas de prestations, parfois pas même de nom.
+  // Son lien ne mène à rien, comme un lien inconnu.
+  if (!profile?.organization.onboardedAt) return null;
+  return dbFor(profile.organization.id);
+}
+
+/**
+ * Où en est la configuration initiale du cabinet connecté. `onboardedAt`
+ * vide : l'onboarding n'est pas terminé, et la page de réservation reste
+ * fermée.
+ */
+export async function currentOrganization(): Promise<Organization & { onboardedAt: Date | null }> {
+  const id = await currentOrganizationId();
+  return prisma.organization.findUniqueOrThrow({ where: { id }, select: { id: true, name: true, onboardedAt: true } });
+}
+
+/** Fin de l'onboarding : la page de réservation s'ouvre. Ne se fait qu'une fois. */
+export async function markCurrentOrganizationOnboarded(): Promise<void> {
+  const id = await currentOrganizationId();
+  await prisma.organization.updateMany({ where: { id, onboardedAt: null }, data: { onboardedAt: new Date() } });
 }

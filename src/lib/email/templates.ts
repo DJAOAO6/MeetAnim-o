@@ -161,6 +161,39 @@ export function passwordResetTemplate(resetUrl: string): EmailContent {
   };
 }
 
+/**
+ * Invitation à ouvrir un cabinet. Le lien est à usage unique et nominatif :
+ * le suivre prouve que l'on détient cette adresse, qui devient celle du
+ * compte administrateur du cabinet.
+ */
+export function invitationTemplate(params: { url: string; organizationName: string; validityDays: number }): EmailContent {
+  const { url, organizationName, validityDays } = params;
+  return {
+    subject: "Votre invitation à ouvrir votre espace 1002 Pattes",
+    text: `Bonjour,
+
+Vous êtes invité(e) à ouvrir l'espace professionnel « ${organizationName} » sur 1002 Pattes : agenda, clients, tournées et page de réservation en ligne.
+
+Créez votre compte avec ce lien (valable ${validityDays} jours, utilisable une seule fois) :
+${url}
+
+Si vous n'attendiez pas cette invitation, ignorez cet email : aucun compte ne sera créé.`,
+    html: layout({
+      preheader: `Ouvrez votre espace 1002 Pattes — lien valable ${validityDays} jours.`,
+      title: "Votre espace vous attend",
+      body: [
+        paragraph("Bonjour,"),
+        paragraph(`Vous êtes invité(e) à ouvrir l’espace professionnel <strong>${escapeHtml(organizationName)}</strong> sur 1002 Pattes : agenda, clients, tournées et page de réservation en ligne.`),
+        button(url, "Créer mon compte"),
+        paragraph(`Ce lien est valable <strong>${validityDays} jours</strong> et ne sert qu’une fois.`),
+        mutedParagraph("Si vous n'attendiez pas cette invitation, ignorez cet email : aucun compte ne sera créé."),
+        mutedParagraph(`Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :<br><a href="${escapeHtml(url)}" style="color:${brand.primary};word-break:break-all;">${escapeHtml(url)}</a>`),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}
+
 export function twoFactorCodeTemplate(code: string): EmailContent {
   return {
     subject: `${code} — votre code de connexion 1002 Pattes`,

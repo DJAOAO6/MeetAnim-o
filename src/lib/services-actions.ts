@@ -5,7 +5,7 @@ import type { ScopedPrismaClient } from "@/lib/db";
 import { currentDb, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
-import { initialSettings, type AnimalType, type ServiceSettings, type TravelFeeMode } from "@/data/settings";
+import type { AnimalType, ServiceSettings, TravelFeeMode } from "@/data/settings";
 import type { PublicAnimalType, PublicService } from "@/data/public-booking";
 import type { Prisma, TravelFeeMode as DbTravelFeeMode } from "@/generated/prisma/client";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
@@ -78,24 +78,17 @@ function toServiceData(service: Omit<ServiceSettings, "id">) {
 }
 
 /**
- * Les prestations démo (initialSettings.services) servent d'amorçage : la
- * toute première lecture peuple la table si elle est vide, exactement comme
- * getBusinessProfile() le fait pour BusinessProfile. Les ids réels sont
- * générés par Prisma (cuid) plutôt que de réutiliser les ids de démo.
+ * Les prestations du cabinet, dans l'ordre de leur création. Un cabinet qui
+ * n'en a encore aucune n'en reçoit pas d'office : les prestations de
+ * démonstration d'un autre professionnel n'ont rien à faire dans son espace
+ * — ni sur sa page de réservation.
  */
 export async function getServices(scoped?: ScopedPrismaClient): Promise<ServiceSettings[]> {
   // Lues aussi par la page de réservation, qui désigne son cabinet par le
   // lien suivi.
   const db = scoped ?? await readDb();
   const rows = await db.service.findMany({ orderBy: { createdAt: "asc" } });
-  if (rows.length > 0) return rows.map(toServiceSettings);
-
-  for (const service of initialSettings.services) {
-    await db.service.create({ data: toServiceData(service) });
-  }
-
-  const seeded = await db.service.findMany({ orderBy: { createdAt: "asc" } });
-  return seeded.map(toServiceSettings);
+  return rows.map(toServiceSettings);
 }
 
 /**

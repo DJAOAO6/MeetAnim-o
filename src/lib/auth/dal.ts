@@ -55,8 +55,11 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const user = session.user;
   if (!user.active) return null;
 
-  const issuedAtMs = payload.iat * 1000;
-  if (issuedAtMs < user.passwordChangedAt.getTime()) return null;
+  // Un jeton émis avant le dernier changement de mot de passe ne vaut plus.
+  // `iat` est en secondes : la comparaison se fait à la seconde, sinon une
+  // session ouverte dans la seconde même où le compte est créé (inscription
+  // sur invitation) serait jugée antérieure à son propre mot de passe.
+  if (payload.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)) return null;
 
   return {
     id: user.id,

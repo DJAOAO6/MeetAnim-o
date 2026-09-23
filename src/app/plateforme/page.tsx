@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PlatformView } from "@/components/platform/platform-view";
+import { InvitationsPanel } from "@/components/platform/invitations-panel";
+import { getRecentInvitations } from "@/lib/platform/invitations";
 import { platformAccess } from "@/lib/platform/access";
 import { getPlatformOverview, getRecentAssistances } from "@/lib/platform/overview";
 import { logout } from "@/lib/auth/actions";
@@ -26,7 +28,7 @@ export default async function PlatformPage() {
     return <AccessRefused reason={access.reason} />;
   }
 
-  const [organizations, assistances] = await Promise.all([getPlatformOverview(), getRecentAssistances()]);
+  const [organizations, assistances, invitations] = await Promise.all([getPlatformOverview(), getRecentAssistances(), getRecentInvitations()]);
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl bg-animeo-bg p-4 sm:p-8">
@@ -49,6 +51,12 @@ export default async function PlatformPage() {
           </form>
         </div>
       </header>
+
+      <div className="mb-6">
+        <InvitationsPanel
+          invitations={invitations.map((invitation) => ({ ...invitation, createdAt: invitation.createdAt.toISOString(), expiresAt: invitation.expiresAt.toISOString() }))}
+        />
+      </div>
 
       <PlatformView
         organizations={organizations.map((organization) => ({

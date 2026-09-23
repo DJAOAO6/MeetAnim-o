@@ -178,6 +178,10 @@ enum AuditAction {
   DOCUMENT_DELETED
   ASSISTANCE_STARTED
   ASSISTANCE_ENDED
+  INVITATION_SENT
+  INVITATION_REVOKED
+  ORGANIZATION_CREATED
+  ONBOARDING_COMPLETED
 }
 
 model User {
@@ -223,6 +227,8 @@ model User {
   clientImports           ClientImport[]
   studioDocuments         StudioDocument[]
   studioDocumentTemplates StudioDocumentTemplate[]
+  // Invitations envoyées depuis la super-administration.
+  sentInvitations         Invitation[]             @relation("InvitationSender")
 
   // Espace professionnel du compte. Vide pour un compte de plateforme
   // (super-administration, phase 7), qui n'appartient à aucun cabinet.
@@ -1239,4 +1245,36 @@ model Organization {
   users                     User[]
   studioDocumentTemplates   StudioDocumentTemplate[]
   auditLogs                 AuditLog[]
+  invitations               Invitation[]
+
+  /// Fin de la configuration initiale (onboarding). Tant qu'elle est vide,
+  /// la page de réservation du cabinet n'est pas ouverte au public.
+  onboardedAt DateTime?
+}
+
+/// Invitation à ouvrir un cabinet sur 1002 Pattes (multi-comptes, phase 4).
+///
+/// L'inscription n'est pas publique : seul un compte de plateforme invite.
+/// Le lien envoyé par e-mail porte un jeton dont seule l'empreinte est
+/// conservée ; le suivre prouve que l'on détient cette adresse, qui devient
+/// celle du compte administrateur du nouveau cabinet.
+model Invitation {
+  id               String    @id @default(cuid())
+  email            String
+  /// Nom d'activité proposé, modifiable par l'invité.
+  organizationName String
+  tokenHash        String    @unique
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime
+  usedAt           DateTime?
+  revokedAt        DateTime?
+
+  createdById String?
+  createdBy   User?   @relation("InvitationSender", fields: [createdById], references: [id], onDelete: SetNull)
+
+  /// Le cabinet ouvert avec cette invitation, une fois acceptée.
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([email])
 }

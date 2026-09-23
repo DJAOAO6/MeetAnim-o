@@ -19,6 +19,8 @@ import { getServices } from "@/lib/services-actions";
 import { getBusinessProfile, getReminderSettings } from "@/lib/business-profile-actions";
 import { describeReminderSetting } from "@/lib/appointment-reminders";
 import { AssistanceBanner } from "@/components/platform/assistance-banner";
+import { OnboardingBanner } from "@/components/onboarding/onboarding-banner";
+import { currentOrganization } from "@/lib/organization";
 import { redirect } from "next/navigation";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
@@ -55,13 +57,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // du réglage de rappels. Les charger ici évite qu'ils soient rechargés à
   // chaque ouverture de la fenêtre.
   const appointmentRange = defaultAppointmentRange();
-  const [appointments, clientOptions, reminders, services, businessProfile, reminderSettings] = await Promise.all([
+  const [appointments, clientOptions, reminders, services, businessProfile, reminderSettings, organization] = await Promise.all([
     getAppointments(appointmentRange),
     getClientPickerOptions(),
     getReminders(),
     getServices(),
     getBusinessProfile(),
     getReminderSettings(),
+    currentOrganization(),
   ]);
 
   const cabinetAddress = composeCabinetAddress(businessProfile.address, businessProfile.postalCode, businessProfile.city);
@@ -99,6 +102,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                     expiresAt={user.assistance.expiresAt.toISOString()}
                   />
                 ) : null}
+                {!organization.onboardedAt && hasPermission(user, "MANAGE_PUBLIC_SETTINGS") ? <OnboardingBanner /> : null}
                 {children}
               </main>
               <GlobalAppointmentsManager

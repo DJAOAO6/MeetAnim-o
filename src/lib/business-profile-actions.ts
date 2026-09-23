@@ -10,6 +10,8 @@ import { fitsWithinOpenHours, parseDateIdToLocalNoon, timeToMinutes } from "@/li
 import { geocodeAddress } from "@/lib/geocoding";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings } from "@/data/settings";
 import type { Prisma } from "@/generated/prisma/client";
+import { blankProfile } from "@/lib/blank-profile";
+import { slugProblem } from "@/lib/slug";
 
 export type BusinessProfileData = ProfileSettings & {
   publicColor: string;
@@ -23,51 +25,6 @@ export type BusinessProfileData = ProfileSettings & {
   departureLongitude: number | null;
 };
 
-const DEFAULT_PROFILE: BusinessProfileData = {
-  firstName: "Pauline",
-  lastName: "Faucillon",
-  profession: "Ostéopathe animalier",
-  company: "PF Ostéo Animale",
-  phone: "06 12 34 56 78",
-  email: "pauline@pf-osteo-animale.fr",
-  address: "24 rue des Carmes",
-  postalCode: "76000",
-  city: "Rouen",
-  location: "Rouen et Normandie",
-  bio: "J’accompagne chiens, chats et chevaux avec une approche douce et personnalisée.",
-  slug: "pauline-faucillon",
-  photo: "PF",
-  logo: "PF",
-  // #4FAF9F échouait au contraste WCAG AA (2,63:1) là où cette couleur sert
-  // de texte sur la page de réservation publique (booking-header.tsx) —
-  // AUDIT_COMPLET.md P1-4. Même teinte assombrie qu'ailleurs dans l'appli.
-  publicColor: "#2F7A6E",
-  cabinetAvailable: true,
-  homeAvailable: true,
-  latitude: null,
-  longitude: null,
-  tagline: null,
-  coverPicture: null,
-  website: null,
-  facebook: null,
-  instagram: null,
-  registrationNumber: null,
-  acceptedPayments: null,
-  cabinetName: null,
-  cabinetInstructions: null,
-  parkingInformation: null,
-  accessibilityInformation: null,
-  showPhonePublicly: true,
-  showAddressPublicly: true,
-  showHoursPublicly: true,
-  showSocialsPublicly: true,
-  showPaymentsPublicly: true,
-  practiceMode: "BOTH",
-  departureLabel: null,
-  departureAddress: null,
-  departureLatitude: null,
-  departureLongitude: null,
-};
 
 /** Adresse complète transmise au géocodeur IGN, dans un format qu'il résout de façon fiable. */
 function fullAddress(profile: Pick<ProfileSettings, "address" | "postalCode" | "city">): string {
@@ -81,7 +38,7 @@ function fullAddress(profile: Pick<ProfileSettings, "address" | "postalCode" | "
  */
 export async function businessProfileOf(db: ScopedPrismaClient): Promise<BusinessProfileData> {
   const row = await db.businessProfile.findFirst();
-  return row ?? await db.businessProfile.create({ data: DEFAULT_PROFILE });
+  return row ?? await db.businessProfile.create({ data: blankProfile() });
 }
 
 export async function getBusinessProfile(scoped?: ScopedPrismaClient): Promise<BusinessProfileData> {
@@ -90,7 +47,7 @@ export async function getBusinessProfile(scoped?: ScopedPrismaClient): Promise<B
   const db = scoped ?? await readDb();
   const row = await db.businessProfile.findFirst();
   if (row) return row;
-  const created = await db.businessProfile.create({ data: DEFAULT_PROFILE });
+  const created = await db.businessProfile.create({ data: blankProfile() });
   return created;
 }
 
@@ -99,6 +56,15 @@ export type BusinessProfileActionResult = { ok: true; warning?: string } | { ok:
 const DEPARTURE_GEOCODING_FAILED_WARNING = "Le point de départ n’a pas pu être localisé. Les itinéraires de tournée partiront du premier arrêt.";
 
 const GEOCODING_FAILED_WARNING = "L’adresse du cabinet n’a pas pu être localisée. Les itinéraires de tournée partiront du premier arrêt.";
+
+/** Ce que le formulaire de profil a le droit d'écrire. */
+const PROFILE_FIELDS = [
+  "firstName", "lastName", "profession", "company", "phone", "email", "address", "postalCode", "city", "location", "bio",
+  "photo", "logo", "publicColor", "tagline", "coverPicture", "website", "facebook", "instagram", "registrationNumber",
+  "acceptedPayments", "cabinetName", "cabinetInstructions", "parkingInformation", "accessibilityInformation",
+  "showPhonePublicly", "showAddressPublicly", "showHoursPublicly", "showSocialsPublicly", "showPaymentsPublicly",
+  "practiceMode", "departureLabel", "departureAddress",
+] as const satisfies readonly (keyof BusinessProfileData)[];
 
 export async function updateBusinessProfileAction(input: BusinessProfileData): Promise<BusinessProfileActionResult> {
   const user = await requireUser();
@@ -111,19 +77,20 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (!slug) return { ok: false, error: "Le lien public ne peut pas être vide." };
 
   const existing = await db.businessProfile.findFirst();
-  // cabinetAvailable/homeAvailable sont volontairement omis de `data` et
-  // gérés exclusivement par updateManualAvailabilityAction (badges du
-  // tableau de bord) : ce formulaire ne capture leur valeur qu'une fois au
-  // montage, un enregistrement de profil (bio, photo…) plus tard écraserait
-  // sinon un état de fermeture entre-temps changé depuis le tableau de bord
-  // avec une valeur périmée. latitude/longitude sont recalculées ci-dessous,
-  // jamais reprises telles quelles depuis le formulaire (qui n'a pas la main
-  // dessus).
-  // organizationId est relu avec le profil, donc présent dans l'objet du
-  // formulaire — mais un cabinet ne change jamais d'espace professionnel, et
-  // le client cloisonné refuse d'ailleurs une telle écriture.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- exclues volontairement de profileFields, voir commentaires ci-dessus
-  const { cabinetAvailable, homeAvailable, latitude: _formLatitude, longitude: _formLongitude, departureLatitude: _formDepartureLatitude, departureLongitude: _formDepartureLongitude, organizationId: _formOrganizationId, ...profileFields } = input as BusinessProfileData & { organizationId?: string };
+  if (!existing || existing.slug !== slug) {
+    const problem = slugProblem(slug);
+    if (problem) return { ok: false, error: problem };
+  }
+
+  // Seuls les champs du formulaire de profil sont écrits, nommément. Le
+  // formulaire reçoit la ligne entière (horaires, rappels, brouillon de la
+  // page publique…) telle qu'elle était à l'ouverture de la page : la
+  // réécrire effacerait ce qui a changé depuis, ailleurs.
+  // cabinetAvailable/homeAvailable restent gérés par
+  // updateManualAvailabilityAction (badges du tableau de bord) ;
+  // latitude/longitude sont recalculées ci-dessous à partir de l'adresse.
+  const { cabinetAvailable, homeAvailable } = input;
+  const profileFields = Object.fromEntries(PROFILE_FIELDS.map((key) => [key, input[key]])) as Pick<BusinessProfileData, (typeof PROFILE_FIELDS)[number]>;
   const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug };
 
   // Ne re-géocoder que si l'adresse a réellement changé : ni gaspiller un
@@ -222,7 +189,7 @@ export async function updateManualAvailabilityAction(cabinetAvailable: boolean, 
     await db.businessProfile.update({ where: { id: existing.id }, data: { cabinetAvailable, homeAvailable } });
     revalidatePath(`/reserver/${existing.slug}`);
   } else {
-    const created = await db.businessProfile.create({ data: { ...DEFAULT_PROFILE, cabinetAvailable, homeAvailable } });
+    const created = await db.businessProfile.create({ data: { ...blankProfile(), cabinetAvailable, homeAvailable } });
     revalidatePath(`/reserver/${created.slug}`);
   }
 
@@ -312,7 +279,7 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
   if (existing) {
     await db.businessProfile.update({ where: { id: existing.id }, data: { availability: input as unknown as Prisma.InputJsonValue } });
   } else {
-    await db.businessProfile.create({ data: { ...DEFAULT_PROFILE, availability: input as unknown as Prisma.InputJsonValue } });
+    await db.businessProfile.create({ data: { ...blankProfile(), availability: input as unknown as Prisma.InputJsonValue } });
   }
 
   revalidatePath("/dashboard/agenda");
@@ -355,7 +322,7 @@ export async function updateReminderSettingsAction(input: ReminderSettings): Pro
   if (existing) {
     await db.businessProfile.update({ where: { id: existing.id }, data: { reminderSettings: input as unknown as Prisma.InputJsonValue } });
   } else {
-    await db.businessProfile.create({ data: { ...DEFAULT_PROFILE, reminderSettings: input as unknown as Prisma.InputJsonValue } });
+    await db.businessProfile.create({ data: { ...blankProfile(), reminderSettings: input as unknown as Prisma.InputJsonValue } });
   }
 
   revalidatePath("/dashboard/rappels");

@@ -20,6 +20,7 @@ export type PlatformOrganizationView = {
   id: string;
   name: string;
   createdAt: string;
+  onboarded: boolean;
   slug: string | null;
   counts: { clients: number; appointments: number };
   accounts: PlatformAccountView[];
@@ -50,9 +51,12 @@ export function PlatformView({ organizations, assistances }: { organizations: Pl
         <Card key={organization.id} className="p-5 sm:p-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-animeo-dark">{organization.name}</h2>
+              <h2 className="text-lg font-extrabold text-animeo-dark">
+                {organization.name}
+                {organization.onboarded ? null : <span className="ml-2 rounded-full bg-animeo-warning-soft px-2 py-0.5 align-middle text-xs font-extrabold text-animeo-dark">Configuration en cours</span>}
+              </h2>
               <p className="mt-1 text-sm text-animeo-muted">
-                {organization.slug ? `/reserver/${organization.slug} · ` : ""}
+                {organization.slug && organization.onboarded ? `/reserver/${organization.slug} · ` : ""}
                 {organization.counts.clients} client{organization.counts.clients > 1 ? "s" : ""} · {organization.counts.appointments} rendez-vous · créé le {dateFormatter.format(new Date(organization.createdAt))}
               </p>
             </div>

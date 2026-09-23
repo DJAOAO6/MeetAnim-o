@@ -45,8 +45,23 @@ export function dbFor(organizationId: string): ScopedPrismaClient {
 
   const scoped = buildScopedClient(organizationId);
   scopedClients.set(organizationId, scoped);
+  scopedOrganizations.set(scoped, organizationId);
   return scoped;
 }
+
+/**
+ * Le cabinet que sert un client cloisonné. Pour ce qui vit hors de la base
+ * cloisonnée mais appartient quand même à un cabinet — les agendas Google
+ * connectés par ses comptes, par exemple —, sans demander à chaque appelant
+ * de transporter l'identifiant à côté du client.
+ */
+export function organizationIdOf(db: ScopedPrismaClient): string {
+  const organizationId = scopedOrganizations.get(db);
+  if (!organizationId) throw new Error("Client non cloisonné : cabinet inconnu.");
+  return organizationId;
+}
+
+const scopedOrganizations = new WeakMap<object, string>();
 
 function buildScopedClient(organizationId: string) {
   // Chaque connexion de ce client annonce à PostgreSQL le cabinet qu'elle

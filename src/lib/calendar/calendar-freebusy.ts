@@ -29,8 +29,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
-async function fetchGoogleBusyPeriods(fromIso: string, toIso: string): Promise<BusyPeriod[]> {
-  const connections = (await getActiveConnectionsForProvider("GOOGLE")).filter((connection) => connection.blockExternalBusySlots);
+async function fetchGoogleBusyPeriods(organizationId: string, fromIso: string, toIso: string): Promise<BusyPeriod[]> {
+  const connections = (await getActiveConnectionsForProvider("GOOGLE", organizationId)).filter((connection) => connection.blockExternalBusySlots);
   if (connections.length === 0) return [];
 
   const provider = providerFor("GOOGLE");
@@ -45,13 +45,15 @@ async function fetchGoogleBusyPeriods(fromIso: string, toIso: string): Promise<B
 }
 
 /** Best-effort, jamais levée : un échec renvoie simplement aucune période (repli sécurisé, étape 10). */
-export async function getGoogleBusyPeriods(fromIso: string, toIso: string): Promise<BusyPeriod[]> {
-  const cacheKey = `${fromIso}:${toIso}`;
+export async function getGoogleBusyPeriods(organizationId: string, fromIso: string, toIso: string): Promise<BusyPeriod[]> {
+  // Par cabinet : les agendas de l'un ne rendent jamais indisponibles les
+  // créneaux d'un autre.
+  const cacheKey = `${organizationId}:${fromIso}:${toIso}`;
   const cached = cache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.periods;
 
   try {
-    const periods = await fetchGoogleBusyPeriods(fromIso, toIso);
+    const periods = await fetchGoogleBusyPeriods(organizationId, fromIso, toIso);
     cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, periods });
     return periods;
   } catch {

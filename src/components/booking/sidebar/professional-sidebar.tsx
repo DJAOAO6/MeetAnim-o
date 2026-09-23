@@ -8,7 +8,7 @@ import { buildSingleStopMapsUrl } from "@/lib/tour-maps";
 import { notify } from "@/lib/notify";
 import type { PublicProfessional } from "@/data/public-booking";
 import { DEFAULT_PUBLIC_SECTIONS, sectionDefinition, type PublicSection, type PublicSectionId } from "@/data/public-page";
-import { hasCabinet } from "@/lib/practice-mode";
+import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
@@ -57,9 +57,13 @@ function PracticalInfoCard({ professional, section }: { professional: PublicProf
   const rows: { icon: Parameters<typeof Icon>[0]["name"]; text: string }[] = [];
   if (professional.showPhonePublicly && professional.phone.trim()) rows.push({ icon: "phone", text: professional.phone.trim() });
   if (professional.showPaymentsPublicly && professional.acceptedPayments?.trim()) rows.push({ icon: "euro", text: professional.acceptedPayments.trim() });
-  if (professional.cabinetAvailable && professional.homeAvailable) rows.push({ icon: "home", text: "Cabinet & à domicile" });
-  else if (professional.cabinetAvailable) rows.push({ icon: "home", text: "Cabinet uniquement" });
-  else if (professional.homeAvailable) rows.push({ icon: "car", text: "À domicile uniquement" });
+  // Ce qui est proposé aujourd'hui : la façon d'exercer (permanente),
+  // moins ce qui est temporairement fermé.
+  const offersCabinet = hasCabinet(professional.practiceMode) && professional.cabinetAvailable;
+  const offersHome = visitsHomes(professional.practiceMode) && professional.homeAvailable;
+  if (offersCabinet && offersHome) rows.push({ icon: "home", text: "Cabinet & à domicile" });
+  else if (offersCabinet) rows.push({ icon: "home", text: "Cabinet uniquement" });
+  else if (offersHome) rows.push({ icon: "car", text: "À domicile uniquement" });
   if (professional.showSocialsPublicly && (professional.website?.trim() || professional.facebook?.trim() || professional.instagram?.trim())) {
     const links = [professional.website, professional.facebook, professional.instagram].filter((link): link is string => Boolean(link?.trim()));
     for (const link of links) rows.push({ icon: "externalLink", text: link.trim().replace(/^https?:\/\//, "") });

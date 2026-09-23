@@ -5,6 +5,7 @@ export type PlatformOrganization = {
   id: string;
   name: string;
   createdAt: Date;
+  onboarded: boolean;
   slug: string | null;
   counts: { clients: number; appointments: number };
   accounts: Array<{
@@ -46,6 +47,7 @@ export async function getPlatformOverview(): Promise<PlatformOrganization[]> {
       id: true,
       name: true,
       createdAt: true,
+      onboardedAt: true,
       businessProfiles: { select: { slug: true }, take: 1 },
       users: {
         orderBy: [{ active: "desc" }, { lastName: "asc" }],
@@ -58,6 +60,7 @@ export async function getPlatformOverview(): Promise<PlatformOrganization[]> {
   return organizations.map((organization) => ({
     id: organization.id,
     name: organization.name,
+    onboarded: organization.onboardedAt !== null,
     createdAt: organization.createdAt,
     slug: organization.businessProfiles[0]?.slug ?? null,
     counts: { clients: organization._count.clients, appointments: organization._count.appointments },
