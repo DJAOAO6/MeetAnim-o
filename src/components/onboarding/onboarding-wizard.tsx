@@ -171,15 +171,30 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
 export function OnboardingDone({ slug }: { slug: string }) {
   const url = `${appOrigin}/reserver/${slug}`;
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [copied, setCopied] = useState(false);
   useEffect(() => headingRef.current?.focus(), []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // Presse-papiers refusé par le navigateur : l'adresse reste affichée,
+      // sélectionnable à la main.
+    }
+  }
+
   return (
-    <Card className="mx-auto max-w-2xl p-6 sm:p-8">
+    <Card className="mx-auto max-w-2xl p-5 sm:p-8">
       <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-black text-animeo-dark outline-none">Votre page de réservation est ouverte</h1>
       <p className="mt-2 text-sm text-animeo-muted">Vos clients peuvent prendre rendez-vous à cette adresse. Partagez-la sur votre site, vos réseaux, votre signature d’e-mail.</p>
-      <p className="mt-4 break-all rounded-xl border border-animeo-border-soft bg-animeo-bg px-4 py-3 text-sm font-bold text-animeo-dark">{url}</p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link href={`/reserver/${slug}`} target="_blank" className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg">Voir ma page</Link>
-        <Link href="/dashboard" className="inline-flex min-h-11 items-center rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white hover:bg-animeo-hover">Aller au tableau de bord</Link>
+      <div className="mt-4 flex flex-col gap-2 rounded-xl border border-animeo-border-soft bg-animeo-bg p-3 sm:flex-row sm:items-center">
+        <p className="min-w-0 flex-1 break-all px-1 text-sm font-bold text-animeo-dark">{url}</p>
+        <Button type="button" variant="secondary" size="sm" onClick={copy} className="shrink-0">{copied ? "Lien copié" : "Copier le lien"}</Button>
+      </div>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link href="/dashboard" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white hover:bg-animeo-hover sm:w-auto">Aller au tableau de bord</Link>
+        <Link href={`/reserver/${slug}`} target="_blank" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg sm:w-auto">Voir ma page</Link>
       </div>
       <p className="mt-6 text-sm text-animeo-muted">
         Tout se modifie ensuite dans <Link href="/dashboard/parametres" className="font-bold text-animeo-dark underline">Paramètres</Link> : profil, horaires, pauses et fermetures, rappels de rendez-vous.
@@ -189,10 +204,13 @@ export function OnboardingDone({ slug }: { slug: string }) {
 }
 
 /** Cadre commun d'un écran : contenu, message d'erreur, boutons Précédent / Continuer. */
-function StepForm({ children, error, pending, onBack, submitLabel = "Continuer", onSubmit }: {
+function StepForm({ children, error, pending, busy = false, onBack, submitLabel = "Continuer", onSubmit }: {
   children: ReactNode;
   error: string | null;
+  /** L'écran s'enregistre : le bouton principal le dit. */
   pending: boolean;
+  /** Autre chose est en cours dans l'écran (ajout d'une prestation) : on attend, sans rien annoncer. */
+  busy?: boolean;
   onBack?: () => void;
   submitLabel?: string;
   onSubmit: () => void;
@@ -201,13 +219,19 @@ function StepForm({ children, error, pending, onBack, submitLabel = "Continuer",
     event.preventDefault();
     onSubmit();
   }
+  const disabled = pending || busy;
   return (
     <form onSubmit={submit} noValidate>
-      <Card className="space-y-5 p-5 sm:p-6">{children}</Card>
-      {error ? <p role="alert" className="mt-4 rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        {onBack ? <Button type="button" variant="secondary" onClick={onBack} disabled={pending}>Précédent</Button> : <span />}
-        <Button type="submit" disabled={pending}>{pending ? "Enregistrement…" : submitLabel}</Button>
+      <Card className="space-y-5 p-5 sm:p-6">
+        {children}
+        {/* Dans le cadre, sous les champs : là où le regard se trouve. */}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+      </Card>
+      {/* Sur téléphone, l'action principale d'abord et en pleine largeur ;
+          « Précédent » en dessous. Côte à côte à partir d'une tablette. */}
+      <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {onBack ? <Button type="button" variant="secondary" onClick={onBack} disabled={disabled} className="w-full sm:w-auto">Précédent</Button> : <span className="hidden sm:block" />}
+        <Button type="submit" disabled={disabled} className="w-full sm:w-auto">{pending ? "Enregistrement…" : submitLabel}</Button>
       </div>
     </form>
   );
@@ -329,7 +353,7 @@ function ProfileStep({ profile, onSubmit, onBack, onDone }: { profile: BusinessP
       <TextField id="onboarding-profession" label="Métier" value={draft.profession} onChange={set("profession")} placeholder="Ostéopathe animalier, comportementaliste, toiletteur…" />
       <TextField id="onboarding-company" label="Nom de l’activité" value={draft.company} onChange={set("company")} autoComplete="organization" />
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField id="onboarding-phone" label="Téléphone" value={draft.phone} onChange={set("phone")} type="tel" autoComplete="tel" />
+        <TextField id="onboarding-phone" label="Téléphone (facultatif)" value={draft.phone} onChange={set("phone")} type="tel" autoComplete="tel" />
         <TextField id="onboarding-email" label="E-mail de contact" value={draft.email} onChange={set("email")} type="email" autoComplete="email" />
       </div>
       <div>
@@ -451,6 +475,9 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
   const [draft, setDraft] = useState(emptyDraft);
   const [formError, setFormError] = useState<string | null>(null);
   const [adding, startAdding] = useTransition();
+  // Le formulaire est ouvert d'emblée tant qu'il n'y a rien ; ensuite, il se
+  // replie : l'action attendue devient « Continuer ».
+  const [formOpen, setFormOpen] = useState(services.length === 0);
   const { error, setError, pending, run } = useStepSubmit(onDone);
 
   function toggleAnimal(animal: AnimalType) {
@@ -492,6 +519,7 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
       if (!result.ok) return setFormError(result.error);
       onChange([...services, result.service]);
       setDraft(emptyDraft);
+      setFormOpen(false);
     });
   }
 
@@ -499,14 +527,17 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
     startAdding(async () => {
       const result = await deleteServiceAction(id);
       if (!result.ok) return setFormError(result.error);
-      onChange(services.filter((service) => service.id !== id));
+      const remaining = services.filter((service) => service.id !== id);
+      onChange(remaining);
+      if (remaining.length === 0) setFormOpen(true);
     });
   }
 
   return (
     <StepForm
       error={error}
-      pending={pending || adding}
+      pending={pending}
+      busy={adding}
       onBack={onBack}
       onSubmit={() => {
         if (services.length === 0) return setError("Ajoutez au moins une prestation : c’est ce que vos clients réservent.");
@@ -533,8 +564,10 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
         </ul>
       ) : null}
 
-      <fieldset className="space-y-4 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4">
-        <legend className="px-1 text-sm font-extrabold text-animeo-dark">Nouvelle prestation</legend>
+      {formOpen ? (
+      <div className="rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4">
+      <fieldset className="min-w-0 space-y-4">
+        <legend className="mb-4 text-sm font-extrabold text-animeo-dark">{services.length === 0 ? "Votre première prestation" : "Nouvelle prestation"}</legend>
         <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
           <TextField id="onboarding-service-name" label="Nom" value={draft.name} onChange={(name) => setDraft((current) => ({ ...current, name }))} placeholder="Séance d’ostéopathie" />
           <TextField id="onboarding-service-duration" label="Durée (min)" type="number" value={draft.duration} onChange={(value) => setDraft((current) => ({ ...current, duration: value }))} />
@@ -555,8 +588,15 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
           {home ? <TextField id="onboarding-service-home-price" label="Tarif à domicile (€)" type="number" value={draft.homePrice} onChange={(value) => setDraft((current) => ({ ...current, homePrice: value }))} /> : null}
         </div>
         {formError ? <p role="alert" className="text-sm font-bold text-animeo-error">{formError}</p> : null}
-        <Button type="button" variant="secondary" onClick={add} disabled={adding}>{adding ? "Ajout…" : "Ajouter la prestation"}</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="secondary" onClick={add} disabled={adding}>{adding ? "Ajout…" : "Ajouter la prestation"}</Button>
+          {services.length > 0 ? <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setFormError(null); }} disabled={adding}>Annuler</Button> : null}
+        </div>
       </fieldset>
+      </div>
+      ) : (
+        <Button type="button" variant="secondary" onClick={() => setFormOpen(true)} className="w-full sm:w-auto">Ajouter une autre prestation</Button>
+      )}
     </StepForm>
   );
 }
@@ -609,10 +649,12 @@ function LinkStep({ profile, onBack, onOpened }: { profile: BusinessProfileData;
       <p className="text-sm text-animeo-muted">L’adresse de votre page de réservation. Elle s’ouvre au public dès que vous validez.</p>
       <div>
         <label htmlFor="onboarding-slug" className={labelClassName}>Votre lien</label>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-bold text-animeo-muted">{appOrigin.replace(/^https?:\/\//, "")}/reserver/</span>
-          <input id="onboarding-slug" value={slug} onChange={(event) => setSlug(typedSlug(event.target.value))} className={`${inputClassName} min-w-0 flex-1`} aria-describedby="onboarding-slug-hint" />
-        </div>
+        <input id="onboarding-slug" value={slug} onChange={(event) => setSlug(typedSlug(event.target.value))} className={inputClassName} aria-describedby="onboarding-slug-preview onboarding-slug-hint" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+        {/* L'adresse entière, telle que les clients la verront : le champ ne
+            porte que la partie choisie, pour rester lisible sur téléphone. */}
+        <p id="onboarding-slug-preview" className="mt-2 break-all text-sm font-bold text-animeo-dark">
+          {appOrigin.replace(/^https?:\/\//, "")}/reserver/<span className="text-animeo">{slug || "…"}</span>
+        </p>
         <p id="onboarding-slug-hint" className="mt-1.5 text-xs text-animeo-muted">Lettres minuscules, chiffres et tirets. Évitez d’en changer ensuite : les liens déjà partagés ne mèneraient plus nulle part.</p>
       </div>
     </StepForm>

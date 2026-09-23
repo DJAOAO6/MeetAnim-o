@@ -6,8 +6,10 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 
 // Routes où ce cluster entre en concurrence directe avec les actions déjà
 // présentes à l'écran (unification des tournées, phase 2 : "+ Nouvelle
-// journée", "Ouvrir ma tournée"…) — masqué plutôt que superposé.
-const HIDDEN_ON_ROUTES = ["/dashboard/tournees"];
+// journée", "Ouvrir ma tournée"…) — masqué plutôt que superposé. Pendant
+// la configuration initiale aussi : il n'y a encore ni horaires ni
+// prestations, et un rendez-vous n'y aurait pas de sens.
+const HIDDEN_ON_ROUTES = ["/dashboard/tournees", "/dashboard/bienvenue"];
 
 export function DashboardFloatingActions() {
   const pathname = usePathname();
