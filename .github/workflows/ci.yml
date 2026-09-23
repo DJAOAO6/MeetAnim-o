@@ -154,7 +154,7 @@ jobs:
           DATABASE_URL: ${{ env.RUNTIME_DATABASE_URL }}
         # onboarding.spec.ts : un second cabinet ouvert pour de bon, jusqu'à
         # une réservation au même horaire qu'un rendez-vous du premier.
-        run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts tests/organization-rls.spec.ts tests/onboarding.spec.ts --reporter=line
+        run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts tests/organization-rls.spec.ts tests/onboarding.spec.ts --reporter=github,line
 
       - name: Traces des échecs
         if: failure()
