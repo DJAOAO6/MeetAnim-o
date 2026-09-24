@@ -22,7 +22,6 @@ const bounds = (busy: Array<[number, number]> = []): SelectionBounds => ({
   dayStart: 8 * 60,
   dayEnd: 19 * 60,
   step: 15,
-  defaultDuration: 45,
   busy: busy.map(([start, end]) => ({ start, end })),
 });
 
@@ -35,15 +34,19 @@ test("le pas de temps ne produit jamais d’horaire bancal", () => {
   assert.equal(snapDown(13 * 60 + 7, 0), 13 * 60);
 });
 
-test("un clic sélectionne la durée de rendez-vous par défaut du cabinet", () => {
-  const selection = selectionFromClick(2, 13 * 60 + 7, bounds());
-  assert.deepEqual(selection, { day: 2, startMinutes: 13 * 60, endMinutes: 13 * 60 + 45 });
+test("un clic sélectionne la case cliquée, à la taille de l’intervalle affiché", () => {
+  assert.deepEqual(selectionFromClick(2, 13 * 60 + 7, bounds()), { day: 2, startMinutes: 13 * 60, endMinutes: 13 * 60 + 15 });
+  // Cases d'une heure : le créneau fait une heure.
+  assert.deepEqual(selectionFromClick(2, 13 * 60 + 7, { ...bounds(), step: 60 }), { day: 2, startMinutes: 13 * 60, endMinutes: 14 * 60 });
 });
 
-test("un clic près d’un rendez-vous raccourcit le créneau au lieu de l’enjamber", () => {
-  // Rendez-vous de 13:30 à 14:30 : un clic à 13:05 ne peut durer que 30 min.
-  const selection = selectionFromClick(0, 13 * 60 + 5, bounds([[13 * 60 + 30, 14 * 60 + 30]]));
-  assert.deepEqual(selection, { day: 0, startMinutes: 13 * 60, endMinutes: 13 * 60 + 30 });
+test("dans une case en partie occupée, un clic prend la partie libre", () => {
+  // Case 13:00–14:00, rendez-vous de 13:30 à 14:30 : un clic à 13:05 garde 13:00–13:30.
+  const before = selectionFromClick(0, 13 * 60 + 5, { ...bounds([[13 * 60 + 30, 14 * 60 + 30]]), step: 60 });
+  assert.deepEqual(before, { day: 0, startMinutes: 13 * 60, endMinutes: 13 * 60 + 30 });
+  // Rendez-vous de 12:30 à 13:45 : un clic à 13:50 garde 13:45–14:00.
+  const after = selectionFromClick(0, 13 * 60 + 50, { ...bounds([[12 * 60 + 30, 13 * 60 + 45]]), step: 60 });
+  assert.deepEqual(after, { day: 0, startMinutes: 13 * 60 + 45, endMinutes: 14 * 60 });
 });
 
 test("un clic sur un rendez-vous n’ouvre aucune sélection de zone libre", () => {

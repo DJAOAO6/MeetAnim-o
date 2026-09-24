@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * Agenda sur tablette et téléphone : colonnes jamais écrasées (la grille
  * défile dans sa carte, l'axe des heures et l'en-tête suivent), navigation
- * jour par jour à portée de pouce, vue « 3 jours », cibles de 44 px.
+ * jour par jour à portée de pouce, cibles de 44 px.
  */
 async function pageOverflow(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -57,26 +57,8 @@ test("téléphone : vue Jour, on passe d'un jour à l'autre depuis l'en-tête", 
   await expect(current).toHaveText(before!);
 
   // Cibles tactiles : 44 px au moins.
-  for (const target of [strip.getByRole("button", { name: "Jour précédent" }), strip.getByRole("button", { name: "Jour suivant" }), page.getByRole("button", { name: "Aujourd’hui" }), page.getByRole("button", { name: "3 jours" })]) {
+  for (const target of [strip.getByRole("button", { name: "Jour précédent" }), strip.getByRole("button", { name: "Jour suivant" }), page.getByRole("button", { name: "Aujourd’hui" }), page.getByRole("button", { name: "Semaine", exact: true })]) {
     const box = (await target.boundingBox())!;
     expect(box.height, "cible de 44 px").toBeGreaterThanOrEqual(44);
   }
-});
-
-test("téléphone : la vue 3 jours montre trois colonnes et avance de trois jours", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "3 jours" }).click();
-  await expect(page.getByTestId("agenda-slot-layer")).toHaveCount(3);
-  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
-  const scroller = page.getByTestId("agenda-grid-scroller");
-  expect(await scroller.evaluate((el) => el.scrollWidth - el.clientWidth), "trois jours tiennent sur un téléphone").toBeLessThanOrEqual(0);
-
-  const firstDay = page.getByTestId("agenda-day-heading").first();
-  const lastDay = page.getByTestId("agenda-day-heading").last();
-  const lastBefore = (await lastDay.textContent())!;
-  await page.getByRole("button", { name: "Afficher les jours suivants" }).click();
-  await expect(firstDay).not.toHaveText(lastBefore);
-  await page.getByRole("button", { name: "Afficher les jours précédents" }).click();
-  await expect(lastDay).toHaveText(lastBefore);
 });

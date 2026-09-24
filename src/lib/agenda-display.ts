@@ -11,7 +11,7 @@
  * l'affichage.
  */
 
-export const SLOT_MINUTES = [15, 30, 45, 60, 90] as const;
+export const SLOT_MINUTES = [15, 30, 45, 60] as const;
 export type SlotMinutes = (typeof SLOT_MINUTES)[number];
 
 export const DENSITIES = ["compact", "comfortable"] as const;
@@ -43,10 +43,22 @@ export const DEFAULT_AGENDA_DISPLAY: AgendaDisplay = {
   showClosedZones: true,
 };
 
-/** Hauteur d'une ligne de grille, en pixels. */
-export const ROW_HEIGHT: Record<Density, number> = { compact: 24, comfortable: 40 };
+/**
+ * Hauteur d'une case, en pixels. Une case plus longue est un peu plus haute :
+ * dans une grille d'une heure, un rendez-vous de 45 min doit encore montrer
+ * son heure et son nom, sans que la grille au quart d'heure devienne
+ * interminable.
+ */
+const ROW_HEIGHTS: Record<Density, Record<SlotMinutes, number>> = {
+  comfortable: { 15: 28, 30: 40, 45: 48, 60: 56 },
+  compact: { 15: 20, 30: 24, 45: 32, 60: 40 },
+};
 
-export const SLOT_LABELS: Record<SlotMinutes, string> = { 15: "15 min", 30: "30 min", 45: "45 min", 60: "1 h", 90: "1 h 30" };
+export function rowHeightFor(display: Pick<AgendaDisplay, "slotMinutes" | "density">): number {
+  return ROW_HEIGHTS[display.density][display.slotMinutes];
+}
+
+export const SLOT_LABELS: Record<SlotMinutes, string> = { 15: "15 min", 30: "30 min", 45: "45 min", 60: "1 h" };
 
 function isSlotMinutes(value: unknown): value is SlotMinutes {
   return typeof value === "number" && (SLOT_MINUTES as readonly number[]).includes(value);
@@ -92,23 +104,20 @@ export function isWeekdayShown(weekday: number, display: Pick<AgendaDisplay, "sh
 }
 
 /**
- * La plage réellement affichée : celle choisie, élargie juste assez pour
- * qu'aucun rendez-vous ne sorte de l'écran. Un réglage d'affichage ne cache
- * jamais un rendez-vous.
+ * Rendez-vous hors de la plage choisie : la grille ne s'élargit pas pour
+ * eux (9 h – 21 h, c'est 9 h – 21 h). Ils sont signalés en haut ou en bas de
+ * leur colonne, et un clic les ouvre.
  */
-export function visibleHourRange(display: AgendaDisplay, eventsMinutes: { start: number; end: number }[]): { startHour: number; endHour: number } {
-  let startHour = display.dayStart;
-  let endHour = display.dayEnd;
-  for (const event of eventsMinutes) {
-    startHour = Math.min(startHour, Math.floor(event.start / 60));
-    endHour = Math.max(endHour, Math.ceil(event.end / 60));
-  }
-  return { startHour: Math.max(0, startHour), endHour: Math.min(24, Math.max(endHour, startHour + 1)) };
+export function eventsOutsideRange<T extends { start: number; end: number }>(display: Pick<AgendaDisplay, "dayStart" | "dayEnd">, events: T[]): { before: T[]; after: T[] } {
+  return {
+    before: events.filter((event) => event.end <= display.dayStart * 60),
+    after: events.filter((event) => event.start >= display.dayEnd * 60),
+  };
 }
 
-/** Pixels par minute : la hauteur d'une ligne répartie sur sa durée. */
+/** Pixels par minute : la hauteur d'une case répartie sur sa durée. */
 export function pixelsPerMinute(display: Pick<AgendaDisplay, "slotMinutes" | "density">): number {
-  return ROW_HEIGHT[display.density] / display.slotMinutes;
+  return rowHeightFor(display) / display.slotMinutes;
 }
 
 /**

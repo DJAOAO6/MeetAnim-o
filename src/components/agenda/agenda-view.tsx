@@ -58,30 +58,6 @@ function dayOffsetOf(date: Date) {
   return Math.round((date.getTime() - getDayDate(0).getTime()) / DAY_IN_MS);
 }
 
-/**
- * Vue « 3 jours » : trois jours affichés d'affilée à partir de `offset`, en
- * sautant ceux masqués dans « Affichage » (samedi, dimanche).
- */
-function shownDaysFrom(offset: number, count: number, shown: Pick<AgendaDisplay, "showSaturday" | "showSunday">): Date[] {
-  const days: Date[] = [];
-  for (let current = offset; days.length < count && current < offset + 14; current += 1) {
-    const date = getDayDate(current);
-    if (isWeekdayShown(date.getDay(), shown)) days.push(date);
-  }
-  return days;
-}
-
-/** Décalage du premier des `count` jours affichés qui précèdent `offset`. */
-function shownDaysBefore(offset: number, count: number, shown: Pick<AgendaDisplay, "showSaturday" | "showSunday">): number {
-  let found = 0;
-  let current = offset;
-  while (found < count && current > offset - 14) {
-    current -= 1;
-    if (isWeekdayShown(getDayDate(current).getDay(), shown)) found += 1;
-  }
-  return current;
-}
-
 function getMonthDate(offset: number) {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth() + offset, 1, 12);
@@ -213,15 +189,13 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   // changer l'intervalle ou la densité ne recalcule aucune donnée ci-dessous.
   const { showSaturday, showSunday } = display;
   const activeDates = useMemo(
-    () => (view === "day" ? [getDayDate(dayOffset)]
-      : view === "threeDays" ? shownDaysFrom(dayOffset, 3, { showSaturday, showSunday })
-        : weekDates.filter((date) => isWeekdayShown(date.getDay(), { showSaturday, showSunday }))),
+    () => (view === "day" ? [getDayDate(dayOffset)] : weekDates.filter((date) => isWeekdayShown(date.getDay(), { showSaturday, showSunday }))),
     [view, dayOffset, weekDates, showSaturday, showSunday],
   );
   const monthDate = getMonthDate(monthOffset);
   const yearValue = getYearValue(yearOffset);
-  // Jour, 3 jours et Semaine partagent la même grille horaire.
-  const isGridView = view === "day" || view === "threeDays" || view === "week";
+  // Jour et Semaine partagent la même grille horaire.
+  const isGridView = view === "day" || view === "week";
 
   // L'espace pro ne charge d'office qu'une fenêtre autour d'aujourd'hui :
   // la période affichée est demandée dès qu'elle en sort (l'an dernier, la
@@ -431,7 +405,6 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
   function goToPrevious() {
     if (view === "day") setDayOffset((current) => current - 1);
-    else if (view === "threeDays") setDayOffset((current) => shownDaysBefore(current, 3, display));
     else if (view === "week") setWeekOffset((current) => current - 1);
     else if (view === "month") { setMonthOffset((current) => current - 1); setSelectedDay(null); }
     else setYearOffset((current) => current - 1);
@@ -439,14 +412,13 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
   function goToNext() {
     if (view === "day") setDayOffset((current) => current + 1);
-    else if (view === "threeDays") setDayOffset(dayOffsetOf(activeDates[activeDates.length - 1]) + 1);
     else if (view === "week") setWeekOffset((current) => current + 1);
     else if (view === "month") { setMonthOffset((current) => current + 1); setSelectedDay(null); }
     else setYearOffset((current) => current + 1);
   }
 
   function goToToday() {
-    if (view === "day" || view === "threeDays") setDayOffset(0);
+    if (view === "day") setDayOffset(0);
     else if (view === "week") setWeekOffset(0);
     else if (view === "month") { setMonthOffset(0); setSelectedDay(null); }
     else setYearOffset(0);
@@ -518,7 +490,6 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
             </button>
             <h2 className="ml-1 text-lg font-extrabold capitalize text-animeo-dark sm:text-xl">
               {view === "day" ? formatDayLabel(activeDates[0])
-                : view === "threeDays" ? formatWeekLabel(activeDates)
                 : view === "week" ? formatWeekLabel(weekDates)
                   : view === "month" ? formatMonthLabel(monthDate)
                     : yearValue}
@@ -736,7 +707,6 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 }
 
 function navLabel(view: AgendaViewMode, direction: "précédent" | "suivant") {
-  if (view === "threeDays") return direction === "précédent" ? "Afficher les jours précédents" : "Afficher les jours suivants";
   const unit = view === "day" ? "le jour" : view === "week" ? "la semaine" : view === "month" ? "le mois" : "l’année";
   const suffix = direction === "précédent" ? (view === "day" || view === "month" ? "précédent" : "précédente") : "suivant" + (view === "week" ? "e" : "");
   return `Afficher ${unit} ${suffix}`;

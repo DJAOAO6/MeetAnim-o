@@ -80,6 +80,36 @@ test("au survol d'une case libre, un « + » ; au-dessus d'un rendez-vous, rien"
   expect(visibleCount, "aucun « + » par-dessus un rendez-vous").toBe(0);
 });
 
+test("cases d'une heure : un clic sur une case libre ouvre les actions pour une heure pleine", async ({ page }) => {
+  await page.setViewportSize({ width: 1376, height: 900 });
+  await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Affichage" }).click();
+  await page.getByRole("button", { name: "1 h", exact: true }).click();
+  await page.keyboard.press("Escape");
+
+  const hover = page.getByTestId("agenda-slot-hover");
+  const layers = page.getByTestId("agenda-slot-layer");
+  await layers.first().scrollIntoViewIfNeeded();
+  const headerBottom = (await page.getByTestId("agenda-day-header").boundingBox())!.y + 80;
+  let opened = false;
+  for (let column = 0; column < (await layers.count()) && !opened; column += 1) {
+    const box = (await layers.nth(column).boundingBox())!;
+    for (let y = Math.max(box.y + 20, headerBottom); y < Math.min(box.y + box.height - 20, 880) && !opened; y += 56) {
+      await page.mouse.move(box.x + box.width / 2, y);
+      await page.waitForTimeout(30);
+      if ((await hover.nth(column).getAttribute("data-visible")) !== "true") continue;
+      const height = (await hover.nth(column).boundingBox())!.height;
+      await page.mouse.click(box.x + box.width / 2, y);
+      opened = await menu(page).isVisible().catch(() => false);
+      expect(opened, "le clic sur une case allumée ouvre toujours le menu").toBe(true);
+      // Case entièrement libre : une heure pleine, comme la case dessinée.
+      if (height >= 55) await expect(menu(page)).toContainText(/(\d{2}):00 → \d{2}:00/);
+    }
+  }
+  expect(opened).toBe(true);
+  await expect(page.getByTestId("agenda-keyboard-cursor"), "un clic de souris n'affiche pas la case clavier").toHaveCount(0);
+});
+
 test("au clavier : flèches entre les créneaux, Entrée ouvre les trois actions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });

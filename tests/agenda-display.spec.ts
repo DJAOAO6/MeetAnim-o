@@ -26,11 +26,12 @@ test("les réglages s'appliquent aussitôt et ne s'enregistrent que sur demande"
 
   await page.getByRole("button", { name: "Affichage" }).click();
   await expect(page.getByRole("button", { name: "30 min" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "1 h 30" }).click();
+  await expect(page.getByRole("button", { name: "1 h 30" }), "plus de cases de 1 h 30").toHaveCount(0);
+  await page.getByRole("button", { name: "1 h", exact: true }).click();
   await page.getByRole("switch", { name: "Afficher le dimanche" }).click();
   await expect(dayHeaders, "dimanche masqué aussitôt").toHaveCount(6);
-  // Intervalle d'1 h 30 : une étiquette par ligne (08:00, 09:30…).
-  await expect(page.getByTestId("agenda-time-column").getByText("09:30", { exact: true })).toBeVisible();
+  // Cases d'une heure : 13 cases de 56 px entre 08:00 et 21:00.
+  await expect.poll(async () => (await page.getByTestId("agenda-time-column").boundingBox())!.height).toBe(13 * 56);
 
   // Pas encore enregistré.
   const [before] = await sql`SELECT count(*)::int AS n FROM "AgendaPreferences" p JOIN "User" u ON u.id = p."userId" WHERE u.email = ${PRACTITIONER}`;
@@ -39,7 +40,7 @@ test("les réglages s'appliquent aussitôt et ne s'enregistrent que sur demande"
   await page.getByRole("button", { name: "Définir comme affichage par défaut" }).click();
   await expect(page.getByText("Affichage enregistré")).toBeVisible();
   const [saved] = await sql`SELECT p."slotMinutes", p."showSunday" FROM "AgendaPreferences" p JOIN "User" u ON u.id = p."userId" WHERE u.email = ${PRACTITIONER}`;
-  expect([saved.slotMinutes, saved.showSunday]).toEqual([90, false]);
+  expect([saved.slotMinutes, saved.showSunday]).toEqual([60, false]);
 
   // Retrouvé à la prochaine ouverture.
   await page.reload({ waitUntil: "networkidle" });
@@ -57,5 +58,33 @@ test("l'affichage enregistré par un compte ne touche pas celui d'un autre", asy
     await expect(page.getByRole("button", { name: "30 min" })).toHaveAttribute("aria-pressed", "true");
   } finally {
     await context.close();
+  }
+});
+
+test("9 h – 21 h, c'est 9 h – 21 h : ce qui en sort est signalé, et s'ouvre d'un clic", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Affichage" }).click();
+  await page.getByLabel("Début des horaires visibles").selectOption("9");
+  await page.keyboard.press("Escape");
+
+  const labels = page.getByTestId("agenda-time-column").locator("span:not([data-testid])");
+  await expect(labels.first()).toHaveText("09:00");
+  await expect(labels.last()).toHaveText("21:00");
+
+  // Aucune carte ne dépasse de la grille.
+  const column = (await page.getByTestId("agenda-time-column").boundingBox())!;
+  for (const box of await page.getByTestId("agenda-event").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect()).map(({ top, bottom }) => ({ top, bottom })))) {
+    expect(box.top).toBeGreaterThanOrEqual(column.y - 1);
+    expect(box.bottom).toBeLessThanOrEqual(column.y + column.height + 1);
+  }
+  // Pas d'ascenseur vertical dans la grille.
+  expect(await page.getByTestId("agenda-grid-scroller").evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+
+  const markers = page.getByTestId("agenda-outside-range");
+  if (await markers.count()) {
+    await expect(markers.first()).toHaveAccessibleName(/rendez-vous (avant|après) \d{2}:00/);
+    await markers.first().click();
+    await expect(page.getByRole("dialog").first()).toBeVisible();
   }
 });

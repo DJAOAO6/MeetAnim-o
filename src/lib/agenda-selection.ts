@@ -76,31 +76,37 @@ export type SelectionBounds = {
   /** Bornes de la grille affichée, en minutes depuis minuit. */
   dayStart: number;
   dayEnd: number;
+  /** Durée d'une case de la grille (intervalle choisi dans « Affichage »). */
   step: number;
-  /** Durée appliquée à un simple clic, avant tout glissement. */
-  defaultDuration: number;
   busy: BusyInterval[];
 };
 
+/** En deçà d'un quart d'heure, un créneau ne veut plus rien dire. */
+const MIN_SELECTION_MINUTES = 15;
+
 /**
- * Créneau produit par un simple clic : il commence au pas de temps survolé et
- * dure la durée de rendez-vous par défaut du cabinet — raccourcie s'il n'y a
- * pas la place jusqu'au prochain rendez-vous ou jusqu'à la fin de la grille.
+ * Créneau produit par un simple clic : la case cliquée, telle qu'elle est
+ * dessinée — une heure dans une grille d'une heure. Si un rendez-vous occupe
+ * déjà une partie de la case, seule la partie libre autour du clic est
+ * retenue.
  *
- * Renvoie null quand la minute cliquée est déjà occupée : un clic sur un
- * rendez-vous n'appartient pas à la sélection de zone libre.
+ * Renvoie null quand la minute cliquée est déjà occupée (un clic sur un
+ * rendez-vous n'appartient pas à la sélection de zone libre), ou quand la
+ * partie libre fait moins d'un quart d'heure.
  */
 export function selectionFromClick(day: number, minutes: number, bounds: SelectionBounds): SlotSelection | null {
-  const start = Math.max(bounds.dayStart, snapDown(minutes, bounds.step));
-  if (start >= bounds.dayEnd) return null;
-  if (overlapsBusy(bounds.busy, start, start + 1)) return null;
+  const at = Math.max(bounds.dayStart, minutes);
+  if (at >= bounds.dayEnd) return null;
+  if (overlapsBusy(bounds.busy, at, at + 1)) return null;
 
-  const busyStart = nextBusyStart(bounds.busy, start);
-  const ceiling = Math.min(bounds.dayEnd, busyStart ?? bounds.dayEnd);
-  const end = Math.min(start + bounds.defaultDuration, ceiling);
-  // Sous un pas de temps, le créneau ne veut plus rien dire : on ne propose
-  // pas une sélection de cinq minutes coincée avant un rendez-vous.
-  if (end - start < bounds.step) return null;
+  const cellStart = Math.max(bounds.dayStart, snapDown(at, bounds.step));
+  const cellEnd = Math.min(bounds.dayEnd, cellStart + (bounds.step > 0 ? bounds.step : MIN_SELECTION_MINUTES));
+  let start = cellStart;
+  for (const interval of bounds.busy) {
+    if (interval.end <= at && interval.end > start) start = interval.end;
+  }
+  const end = Math.min(cellEnd, nextBusyStart(bounds.busy, at) ?? cellEnd);
+  if (end - start < MIN_SELECTION_MINUTES) return null;
 
   return { day, startMinutes: start, endMinutes: end };
 }
@@ -114,27 +120,26 @@ export function selectionFromClick(day: number, minutes: number, bounds: Selecti
  * au-delà, même si le pointeur continue.
  */
 export function selectionFromDrag(day: number, anchorMinutes: number, pointerMinutes: number, bounds: SelectionBounds): SlotSelection | null {
-  const anchor = Math.max(bounds.dayStart, Math.min(bounds.dayEnd - bounds.step, snapDown(anchorMinutes, bounds.step)));
+  // Le glissement part de la case qu'un clic aurait sélectionnée, et
+  // l'étend case par case.
+  const origin = selectionFromClick(day, anchorMinutes, bounds);
+  if (!origin) return null;
   const pointer = Math.max(bounds.dayStart, Math.min(bounds.dayEnd, pointerMinutes));
 
-  if (pointer >= anchor) {
-    const busyStart = nextBusyStart(bounds.busy, anchor);
-    const ceiling = Math.min(bounds.dayEnd, busyStart ?? bounds.dayEnd);
-    const end = Math.min(Math.max(snapUp(pointer, bounds.step), anchor + bounds.step), ceiling);
-    if (end - anchor < bounds.step) return null;
-    return { day, startMinutes: anchor, endMinutes: end };
+  if (pointer >= origin.startMinutes) {
+    const ceiling = Math.min(bounds.dayEnd, nextBusyStart(bounds.busy, origin.startMinutes) ?? bounds.dayEnd);
+    const end = Math.min(Math.max(snapUp(pointer, bounds.step), origin.endMinutes), ceiling);
+    return { day, startMinutes: origin.startMinutes, endMinutes: end };
   }
 
   // Vers le haut : le plancher est la fin du dernier rendez-vous situé
   // au-dessus du point de départ.
-  const anchorEnd = anchor + bounds.step;
   let floor = bounds.dayStart;
   for (const interval of bounds.busy) {
-    if (interval.end <= anchor && interval.end > floor) floor = interval.end;
+    if (interval.end <= origin.startMinutes && interval.end > floor) floor = interval.end;
   }
-  const start = Math.max(floor, Math.min(snapDown(pointer, bounds.step), anchor));
-  if (anchorEnd - start < bounds.step) return null;
-  return { day, startMinutes: start, endMinutes: anchorEnd };
+  const start = Math.max(floor, Math.min(snapDown(pointer, bounds.step), origin.startMinutes));
+  return { day, startMinutes: start, endMinutes: origin.endMinutes };
 }
 
 /** Durées proposées sur téléphone, bornées par la place réellement libre. */

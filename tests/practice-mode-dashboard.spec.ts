@@ -63,8 +63,11 @@ test("à domicile uniquement, l'espace professionnel ne parle plus de cabinet", 
   await page.goto("/dashboard", { waitUntil: "networkidle" });
   await expect(page.getByText("Ouverture du cabinet")).toHaveCount(0);
 
+  // Le rappel « Agenda unique » vit dans l'aide de l'agenda (icône « ? »).
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-  await expect(page.getByText(/Cabinet et Domicile sont deux modes/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Aide sur l’agenda" }).focus();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await expect(page.getByRole("tooltip")).not.toContainText("Agenda unique");
 
   await page.goto("/dashboard/prestations", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Modifier" }).first().click();
@@ -76,7 +79,8 @@ test("avec les deux modes, tout est de nouveau là", async ({ page }) => {
   await setMode("BOTH");
 
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-  await expect(page.getByText(/Cabinet et Domicile sont deux modes/)).toBeVisible();
+  await page.getByRole("button", { name: "Aide sur l’agenda" }).focus();
+  await expect(page.getByRole("tooltip")).toContainText("Agenda unique : un créneau pris au cabinet l’est aussi à domicile");
 
   await page.goto("/dashboard/prestations", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Modifier" }).first().click();

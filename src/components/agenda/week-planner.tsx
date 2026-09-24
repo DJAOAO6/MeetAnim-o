@@ -6,7 +6,7 @@ import { SlotSelectionLayer } from "@/components/agenda/slot-selection-layer";
 import { selectionFromClick, toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
-import { ArrowLeftRight, Ban, Check, ChevronLeft, ChevronRight, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
+import { ArrowLeftRight, Ban, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
 import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
 import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
@@ -14,7 +14,7 @@ import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
 import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
-import { DEFAULT_AGENDA_DISPLAY, ROW_HEIGHT, eventGeometry, pixelsPerMinute, visibleHourRange, type AgendaDisplay } from "@/lib/agenda-display";
+import { DEFAULT_AGENDA_DISPLAY, eventGeometry, eventsOutsideRange, pixelsPerMinute, rowHeightFor, type AgendaDisplay } from "@/lib/agenda-display";
 
 type EventKind = "cabinet" | "domicile" | "pending" | "unavailable" | "tournee";
 
@@ -111,12 +111,11 @@ function gridLines(rowHeight: number, slotMinutes: number, pxPerMinute: number):
  * l'un d'eux serait refusé par le serveur ensuite ; autant ne pas le laisser
  * tracer. Partagé par la souris (colonne) et le clavier (grille).
  */
-function selectionBoundsFor(startHour: number, endHour: number, step: number, defaultDuration: number, dayEvents: CalendarEvent[]): SelectionBounds {
+function selectionBoundsFor(startHour: number, endHour: number, step: number, dayEvents: CalendarEvent[]): SelectionBounds {
   return {
     dayStart: startHour * 60,
     dayEnd: endHour * 60,
     step: step > 0 ? step : 15,
-    defaultDuration: defaultDuration > 0 ? defaultDuration : 45,
     busy: dayEvents.map((event) => {
       const start = slotToMinutes(event.start);
       return { start, end: start + event.duration };
@@ -126,6 +125,11 @@ function selectionBoundsFor(startHour: number, endHour: number, step: number, de
 
 function closedAtFor(dayAvailability: ReturnType<typeof getDayAvailability>) {
   return (minutes: number) => !dayAvailability.open || isHourClosed(dayAvailability.hourly, Math.floor(minutes / 60));
+}
+
+/** Millisecondes écoulées depuis `since` (0 : horodatage courant). Appelée au relâchement d'un geste, jamais au rendu. */
+function elapsedSince(since: number): number {
+  return performance.now() - since;
 }
 
 const cursorDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -231,10 +235,9 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   // durée de l'intervalle. Les rendez-vous, eux, gardent leur vraie durée.
   const pxPerMinute = pixelsPerMinute(display);
   const hourHeight = pxPerMinute * 60;
-  const { startHour, endHour } = useMemo(
-    () => visibleHourRange(display, allEvents.map((event) => ({ start: toMinutes(event.start), end: toMinutes(event.start) + event.duration }))),
-    [display, allEvents],
-  );
+  // La plage choisie, strictement : ce qui en sort est signalé dans sa colonne.
+  const startHour = display.dayStart;
+  const endHour = display.dayEnd;
   const plannerHeight = (endHour - startHour) * hourHeight;
 
   // Clavier : une case active dans la grille, déplacée aux flèches ; Entrée
@@ -246,6 +249,9 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   // et sur la case d'où le menu est parti, pas sur l'heure courante.
   const openedByKeyboardRef = useRef(false);
   const resumeCursorRef = useRef<{ day: number; minutes: number } | null>(null);
+  // Focus reçu d'un clic de souris : pas de case clavier affichée. Elle
+  // n'apparaît qu'au clavier (Tab, ou première flèche).
+  const pointerFocusRef = useRef(false);
   useEffect(() => {
     if (activeSlot || !openedByKeyboardRef.current) return;
     openedByKeyboardRef.current = false;
@@ -255,7 +261,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   const cursorStep = display.slotMinutes;
 
   function dayContext(day: number) {
-    const bounds = selectionBoundsFor(startHour, endHour, cursorStep, availability.defaultAppointmentDuration, allEvents.filter((event) => event.day === day));
+    const bounds = selectionBoundsFor(startHour, endHour, cursorStep, allEvents.filter((event) => event.day === day));
     return { bounds, closedAt: closedAtFor(getDayAvailability(dates[day], availability)) };
   }
 
@@ -279,7 +285,13 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   }
 
   function handleGridKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.target !== event.currentTarget || !keyboardCursor) return;
+    if (event.target !== event.currentTarget) return;
+    if (!keyboardCursor) {
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      setKeyboardCursor(initialKeyboardCursor());
+      return;
+    }
     const { day, minutes } = keyboardCursor;
     const last = endHour * 60 - cursorStep;
     let next: { day: number; minutes: number } | null = null;
@@ -336,7 +348,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   function handleSelectEvent(event: CalendarEvent, anchorRect: DOMRect) {
     if (justDraggedRef.current) {
       justDraggedRef.current = false;
-      if (performance.now() - dragEndedAtRef.current < 500) return;
+      if (elapsedSince(dragEndedAtRef.current) < 500) return;
     }
     if (event.appointmentId) { setSelection({ event, anchorRect }); return; }
     if (event.tourId) { onSelectTour(event.tourId, anchorRect); return; }
@@ -515,7 +527,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     dragRef.current = null;
     setDrag(null);
     disarmTouch();
-    dragEndedAtRef.current = performance.now();
+    dragEndedAtRef.current = elapsedSince(0);
     if (!state) return;
 
     const original = appointments.find((item) => item.id === state.event.appointmentId);
@@ -591,8 +603,11 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
           aria-label={isDayView ? "Planning du jour" : "Planning de la semaine"}
           aria-describedby={keyboardHintId}
           tabIndex={0}
+          onPointerDownCapture={() => { pointerFocusRef.current = true; }}
           onFocus={(event) => {
-            if (event.target !== event.currentTarget || keyboardCursor) return;
+            const fromPointer = pointerFocusRef.current;
+            pointerFocusRef.current = false;
+            if (event.target !== event.currentTarget || keyboardCursor || fromPointer) return;
             setKeyboardCursor(resumeCursorRef.current ?? initialKeyboardCursor());
             resumeCursorRef.current = null;
           }}
@@ -634,7 +649,9 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
             <div
               ref={scrollerRef}
               onScroll={minGridWidth ? syncHeader : undefined}
-              className={minGridWidth ? "overflow-x-auto overscroll-x-contain" : undefined}
+              // overflow-y-hidden : un défilement latéral ne doit jamais
+              // ajouter un ascenseur vertical dans la carte.
+              className={minGridWidth ? "overflow-x-auto overflow-y-hidden overscroll-x-contain" : undefined}
               data-testid="agenda-grid-scroller"
             >
             <div ref={gridRef} className="relative grid" style={{ gridTemplateColumns, minWidth: minGridWidth }}>
@@ -643,7 +660,6 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                 endHour={endHour}
                 plannerHeight={plannerHeight}
                 pxPerMinute={pxPerMinute}
-                slotMinutes={display.slotMinutes}
                 nowMinutes={now && dates.some(isReferenceDay) ? now.getHours() * 60 + now.getMinutes() : null}
               />
               {dates.map((date, dayIndex) => (
@@ -657,7 +673,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   plannerHeight={plannerHeight}
                   pxPerMinute={pxPerMinute}
                   slotMinutes={display.slotMinutes}
-                  rowHeight={ROW_HEIGHT[display.density]}
+                  rowHeight={rowHeightFor(display)}
                   showClosedZones={display.showClosedZones}
                   keyboardCursor={keyboardCursor && keyboardCursor.day === dayIndex ? keyboardCursor.minutes : null}
                   events={allEvents.filter((event) => event.day === dayIndex)}
@@ -669,7 +685,6 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   onBeginResize={beginResize}
                   selectedEventId={selection?.event.id ?? null}
                   slotInterval={display.slotMinutes}
-                  defaultDuration={availability.defaultAppointmentDuration}
                   dayIndex={dayIndex}
                   activeSlot={activeSlot && activeSlot.day === dayIndex ? activeSlot : null}
                   onSelectSlot={onSelectSlot ? (slot, rect, closed, pointerType, bounds) => onSelectSlot(slot, date, rect, closed, pointerType, bounds) : undefined}
@@ -740,7 +755,7 @@ function DayStrip({ date, onShift }: { date: Date; onShift: (delta: number) => v
           const weekday = stripWeekdayFormatter.format(day).replace(".", "");
           const content = (
             <>
-              <span className={`text-[11px] font-extrabold ${current ? "text-white/85" : "text-animeo-muted"}`}>{weekday.charAt(0).toUpperCase() + weekday.slice(1)}</span>
+              <span className={`text-[11px] font-extrabold ${current ? "text-white" : "text-animeo-muted"}`}>{weekday.charAt(0).toUpperCase() + weekday.slice(1)}</span>
               <span className="text-sm font-black tabular-nums">{day.getDate()}</span>
               {isReferenceDay(day) && !current ? <span aria-hidden="true" className="h-1 w-1 rounded-full bg-animeo" /> : null}
             </>
@@ -765,18 +780,14 @@ function DayStrip({ date, onShift }: { date: Date; onShift: (delta: number) => v
   );
 }
 
-/**
- * Heures de la grille. Intervalle d'une heure ou moins : une étiquette par
- * heure. Au-delà (1 h 30) : une par ligne, pour que chaque ligne se lise.
- */
-function timeLabels(startHour: number, endHour: number, slotMinutes: number): number[] {
-  const step = slotMinutes > 60 ? slotMinutes : 60;
+/** Heures de la grille : une étiquette par heure, de la première à la dernière. */
+function timeLabels(startHour: number, endHour: number): number[] {
   const labels: number[] = [];
-  for (let minutes = startHour * 60; minutes <= endHour * 60; minutes += step) labels.push(minutes);
+  for (let hour = startHour; hour <= endHour; hour += 1) labels.push(hour * 60);
   return labels;
 }
 
-function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, nowMinutes }: { startHour: number; endHour: number; plannerHeight: number; pxPerMinute: number; slotMinutes: number; nowMinutes: number | null }) {
+function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, nowMinutes }: { startHour: number; endHour: number; plannerHeight: number; pxPerMinute: number; nowMinutes: number | null }) {
   const showNow = nowMinutes !== null && nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60;
   // sticky : sur les petites largeurs, le planning peut défiler
   // horizontalement — l'axe horaire doit rester lisible en permanence
@@ -788,10 +799,13 @@ function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinute
       style={{ height: plannerHeight }}
       data-testid="agenda-time-column"
     >
-      {timeLabels(startHour, endHour, slotMinutes).map((minutes) => (
+      {/* Centrée sur sa ligne, sauf la première (sous la ligne) et la
+          dernière (au-dessus) : aucune ne dépasse de la grille, ni ne passe
+          sous l'en-tête des jours. */}
+      {timeLabels(startHour, endHour).map((minutes, index, all) => (
         <span
           key={minutes}
-          className="absolute right-3 -translate-y-1/2 text-[11px] font-bold text-animeo-muted"
+          className={`absolute right-3 text-[11px] font-bold text-animeo-muted ${index === 0 ? "translate-y-0.5" : index === all.length - 1 ? "-translate-y-[calc(100%+2px)]" : "-translate-y-1/2"}`}
           style={{ top: (minutes - startHour * 60) * pxPerMinute }}
         >
           {minutesToTime(minutes)}
@@ -812,7 +826,7 @@ function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinute
   );
 }
 
-function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, rowHeight, showClosedZones, keyboardCursor, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
+function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, rowHeight, showClosedZones, keyboardCursor, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, activeSlot, onSelectSlot, onClearSlot }: {
   date: Date;
   now: Date | null;
   availability: AvailabilitySettings;
@@ -836,7 +850,6 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   dayIndex: number;
   /** Intervalle de la grille choisi dans « Affichage » : une case = une ligne. */
   slotInterval: number;
-  defaultDuration: number;
   activeSlot: SlotSelection | null;
   onSelectSlot?: (selection: SlotSelection, anchorRect: DOMRect, closed: boolean, pointerType: string, bounds: SelectionBounds) => void;
   onClearSlot?: () => void;
@@ -846,7 +859,16 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
     () => (dayAvailability.open ? computeClosedRanges(dayAvailability.hourly, startHour, endHour) : [{ start: startHour, end: endHour }]),
     [dayAvailability, startHour, endHour],
   );
-  const layout = useMemo(() => computeEventColumns(dayEvents), [dayEvents]);
+  // Hors de la plage affichée : pas de carte, une pastille en haut ou en bas.
+  const outside = useMemo(
+    () => eventsOutsideRange({ dayStart: startHour, dayEnd: endHour }, dayEvents.map((event) => ({ event, start: toMinutes(event.start), end: toMinutes(event.start) + event.duration }))),
+    [dayEvents, startHour, endHour],
+  );
+  const visibleEvents = useMemo(() => {
+    const hidden = new Set([...outside.before, ...outside.after].map((item) => item.event.id));
+    return dayEvents.filter((event) => !hidden.has(event.id));
+  }, [dayEvents, outside]);
+  const layout = useMemo(() => computeEventColumns(visibleEvents), [visibleEvents]);
 
   /**
    * Ce qui empêche de sélectionner : tout ce qui occupe déjà la colonne —
@@ -855,8 +877,8 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
    * laisser tracer.
    */
   const selectionBounds = useMemo(
-    () => selectionBoundsFor(startHour, endHour, slotInterval, defaultDuration, dayEvents),
-    [startHour, endHour, slotInterval, defaultDuration, dayEvents],
+    () => selectionBoundsFor(startHour, endHour, slotInterval, dayEvents),
+    [startHour, endHour, slotInterval, dayEvents],
   );
   const closedAt = useMemo(() => closedAtFor(dayAvailability), [dayAvailability]);
   const nowMinutes = now ? now.getHours() * 60 + now.getMinutes() : -1;
@@ -919,11 +941,15 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
         />
       ) : null}
 
-      {dayEvents.map((event) => (
+      <OutsideRangeMarker position="before" items={outside.before.map((item) => item.event)} hour={startHour} onSelectEvent={onSelectEvent} />
+      <OutsideRangeMarker position="after" items={outside.after.map((item) => item.event)} hour={endHour} onSelectEvent={onSelectEvent} />
+
+      {visibleEvents.map((event) => (
         <CalendarEventCard
           key={event.id}
           event={event}
           startHour={startHour}
+          plannerHeight={plannerHeight}
           pxPerMinute={pxPerMinute}
           columnLayout={layout.get(event.id) ?? { column: 0, columns: 1 }}
           isDragging={event.id === draggedEventId}
@@ -939,9 +965,42 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   );
 }
 
-function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDragging, isArmed, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
+/**
+ * Rendez-vous avant ou après la plage affichée : une pastille au bord de la
+ * colonne (« 1 RDV avant 09:00 »). Un clic ouvre le premier ; la plage se
+ * règle dans « Affichage ».
+ */
+function OutsideRangeMarker({ position, items, hour, onSelectEvent }: {
+  position: "before" | "after";
+  items: CalendarEvent[];
+  hour: number;
+  onSelectEvent: (event: CalendarEvent, anchorRect: DOMRect) => void;
+}) {
+  if (items.length === 0) return null;
+  const sorted = [...items].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+  const first = sorted[0];
+  const time = minutesToTime(hour * 60);
+  const MarkerIcon = position === "before" ? ChevronUp : ChevronDown;
+  const name = first.animal ?? first.title ?? "rendez-vous";
+  return (
+    <button
+      type="button"
+      onClick={(clickEvent) => onSelectEvent(first, clickEvent.currentTarget.getBoundingClientRect())}
+      aria-label={`${items.length} rendez-vous ${position === "before" ? "avant" : "après"} ${time}, hors des horaires affichés : ouvrir ${name} à ${first.start}`}
+      title={sorted.map((item) => `${item.start} ${item.animal ?? item.title ?? ""}`).join("\n")}
+      data-testid="agenda-outside-range"
+      className={`absolute inset-x-1 z-[25] flex min-h-6 items-center justify-center gap-1 rounded-md border border-animeo-border bg-white/95 px-1 text-[10px] font-extrabold text-animeo-dark shadow-sm transition hover:border-animeo ${position === "before" ? "top-1" : "bottom-1"}`}
+    >
+      <MarkerIcon aria-hidden="true" className="h-3 w-3 shrink-0" strokeWidth={2.5} />
+      <span className="truncate">{items.length} RDV {position === "before" ? "avant" : "après"} {time}</span>
+    </button>
+  );
+}
+
+function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, columnLayout, isDragging, isArmed, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, isSelected }: {
   event: CalendarEvent;
   startHour: number;
+  plannerHeight: number;
   pxPerMinute: number;
   columnLayout: { column: number; columns: number };
   isDragging: boolean;
@@ -960,7 +1019,13 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
   const isDraggable = Boolean(event.appointmentId);
   // Vraie durée, toujours : aucune hauteur minimale qui ferait croire qu'un
   // rendez-vous de 15 min en dure 45. Seul un plancher de lisibilité reste.
-  const position = eventGeometry(toMinutes(event.start), event.duration, startHour, pxPerMinute);
+  // À cheval sur le début ou la fin de la plage affichée : la carte est
+  // coupée au bord de la grille (bord plat), son heure réelle reste écrite.
+  const geometry = eventGeometry(toMinutes(event.start), event.duration, startHour, pxPerMinute);
+  const clippedTop = geometry.top < 0;
+  const clippedBottom = geometry.top + geometry.height > plannerHeight;
+  const visibleTop = Math.max(0, geometry.top);
+  const position = { top: visibleTop, height: Math.min(plannerHeight, geometry.top + geometry.height) - visibleTop };
   const height = Math.max(position.height, MIN_VISIBLE_HEIGHT);
   const inset = Math.min(3, height * 0.08);
   // Les boutons d'une demande en attente demandent de la place ; sur une
@@ -1026,10 +1091,11 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
       onClick={isSelectable ? handleSelect : undefined}
       onKeyDown={isSelectable && !showPendingActions ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
-      aria-label={isSelectable ? selectableLabel : undefined}
+      // Tout ce que la carte peut taire faute de place : fin, mode, client.
+      aria-label={isSelectable ? `${selectableLabel}, jusqu’à ${end}, ${mode.label.toLowerCase()}${event.client ? `, ${event.client}` : ""}` : undefined}
       title={size === "full" && showLocation && columnLayout.columns === 1 ? undefined : summary}
       data-size={size}
-      className={`@container group absolute overflow-hidden border-l-4 leading-tight ${size === "tiny" ? "rounded-md px-1.5" : "rounded-lg px-1.5 py-1"} shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
+      className={`@container group absolute overflow-hidden border-l-4 leading-tight ${size === "tiny" ? "rounded-md px-1.5" : "rounded-lg px-1.5 py-1"} ${clippedTop ? "rounded-t-none" : ""} ${clippedBottom ? "rounded-b-none" : ""} shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
         isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgb(var(--theme-shadow-rgb)/0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
       } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "-translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""} ${isArmed ? "scale-[1.04] shadow-[0_14px_28px_rgb(var(--theme-shadow-rgb)/0.28)] ring-2 ring-animeo ring-offset-2" : ""}`}
       data-drag-armed={isArmed ? "true" : undefined}
@@ -1058,12 +1124,13 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
     >
       {size === "tiny" ? (
         <p className="flex h-full items-center gap-1 truncate text-[10px] font-extrabold">
-          <span className="font-black tabular-nums">{event.start}</span>
+          {/* Carte étroite : le nom d'abord, l'heure se lit sur la grille. */}
+          <span className="hidden font-black tabular-nums @min-[5.5rem]:inline">{event.start}</span>
           <span className="truncate">{name}</span>
         </p>
       ) : size === "medium" ? (
         <div className={visualHeight >= STACKED_EVENT_HEIGHT ? "" : "flex items-baseline gap-1.5"}>
-          <p className="text-[10px] font-black tabular-nums">{event.start}</p>
+          <p className={`text-[10px] font-black tabular-nums ${visualHeight >= STACKED_EVENT_HEIGHT ? "hidden @min-[3rem]:block" : "hidden @min-[5.5rem]:block"}`}>{event.start}</p>
           <p className="truncate text-xs font-extrabold">{name}</p>
         </div>
       ) : (
@@ -1071,7 +1138,7 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
           <div className="flex items-center gap-1.5">
             {/* Largeur de la carte, pas de l'écran : l'heure de fin et l'icône
                 n'apparaissent que si elles tiennent sans être coupées. */}
-            <p className="min-w-0 flex-1 truncate text-[10px] font-black tabular-nums">
+            <p className="hidden min-w-0 flex-1 truncate text-[10px] font-black tabular-nums @min-[3rem]:block">
               {event.start}<span className="hidden @min-[8.5rem]:inline"> – {end}</span>
             </p>
             <ModeIcon aria-hidden="true" className="hidden h-3.5 w-3.5 shrink-0 @min-[4.5rem]:block" strokeWidth={2.25} />

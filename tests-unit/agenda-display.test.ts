@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { DEFAULT_AGENDA_DISPLAY, eventGeometry, isWeekdayShown, normalizeAgendaDisplay, pixelsPerMinute, visibleHourRange } from "../src/lib/agenda-display";
+import { DEFAULT_AGENDA_DISPLAY, eventGeometry, eventsOutsideRange, isWeekdayShown, normalizeAgendaDisplay, pixelsPerMinute } from "../src/lib/agenda-display";
 
 test("valeurs inconnues ou absentes : celles par défaut", () => {
   assert.deepEqual(normalizeAgendaDisplay(null), DEFAULT_AGENDA_DISPLAY);
@@ -17,14 +17,20 @@ test("une plage horaire à l'envers est refusée, pas retournée", () => {
   assert.deepEqual([reversed.dayStart, reversed.dayEnd], [8, 21]);
   const same = normalizeAgendaDisplay({ dayStart: 10, dayEnd: 10 });
   assert.deepEqual([same.dayStart, same.dayEnd], [8, 21]);
-  const valid = normalizeAgendaDisplay({ dayStart: 6, dayEnd: 23, slotMinutes: 90, density: "compact" });
-  assert.deepEqual([valid.dayStart, valid.dayEnd, valid.slotMinutes, valid.density], [6, 23, 90, "compact"]);
+  const valid = normalizeAgendaDisplay({ dayStart: 6, dayEnd: 23, slotMinutes: 60, density: "compact" });
+  assert.deepEqual([valid.dayStart, valid.dayEnd, valid.slotMinutes, valid.density], [6, 23, 60, "compact"]);
+  // Les cases de 1 h 30 n'existent plus : un ancien réglage reprend 30 min.
+  assert.equal(normalizeAgendaDisplay({ slotMinutes: 90 }).slotMinutes, 30);
 });
 
-test("la hauteur vient de la densité, jamais de la durée de grille", () => {
-  // Une ligne confortable fait toujours la même hauteur, quelle que soit sa durée.
-  assert.equal(pixelsPerMinute({ slotMinutes: 15, density: "comfortable" }) * 15, pixelsPerMinute({ slotMinutes: 60, density: "comfortable" }) * 60);
-  assert.ok(pixelsPerMinute({ slotMinutes: 30, density: "compact" }) < pixelsPerMinute({ slotMinutes: 30, density: "comfortable" }));
+test("une case plus longue est un peu plus haute, et le compact reste plus serré", () => {
+  const cell = (slotMinutes: 15 | 30 | 45 | 60) => pixelsPerMinute({ slotMinutes, density: "comfortable" }) * slotMinutes;
+  assert.ok(cell(15) < cell(30) && cell(30) < cell(45) && cell(45) < cell(60));
+  // Une heure affichée prend moins de place quand les cases sont longues.
+  assert.ok(pixelsPerMinute({ slotMinutes: 60, density: "comfortable" }) < pixelsPerMinute({ slotMinutes: 15, density: "comfortable" }));
+  for (const slotMinutes of [15, 30, 45, 60] as const) {
+    assert.ok(pixelsPerMinute({ slotMinutes, density: "compact" }) < pixelsPerMinute({ slotMinutes, density: "comfortable" }));
+  }
 });
 
 test("un rendez-vous garde sa vraie durée : 45 min en grille d'une heure = 75 % d'une ligne", () => {
@@ -35,10 +41,14 @@ test("un rendez-vous garde sa vraie durée : 45 min en grille d'une heure = 75 %
   assert.equal(top / rowHeight, 1.5);
 });
 
-test("un rendez-vous hors de la plage choisie l'élargit, sans jamais être caché", () => {
-  const display = { ...DEFAULT_AGENDA_DISPLAY, dayStart: 8, dayEnd: 21 };
-  assert.deepEqual(visibleHourRange(display, []), { startHour: 8, endHour: 21 });
-  assert.deepEqual(visibleHourRange(display, [{ start: 7 * 60 + 15, end: 8 * 60 }, { start: 21 * 60, end: 21 * 60 + 30 }]), { startHour: 7, endHour: 22 });
+test("la plage choisie est respectée ; ce qui en sort est signalé, pas caché", () => {
+  const display = { ...DEFAULT_AGENDA_DISPLAY, dayStart: 9, dayEnd: 21 };
+  const early = { start: 8 * 60, end: 9 * 60 };
+  const straddling = { start: 8 * 60 + 30, end: 9 * 60 + 30 };
+  const late = { start: 21 * 60, end: 21 * 60 + 30 };
+  const { before, after } = eventsOutsideRange(display, [early, straddling, late]);
+  assert.deepEqual(before, [early]);
+  assert.deepEqual(after, [late]);
 });
 
 test("samedi et dimanche suivent leurs réglages, les autres jours restent", () => {

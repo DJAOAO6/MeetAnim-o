@@ -7,8 +7,6 @@ import {
   formatMinutes,
   selectionFromClick,
   selectionFromDrag,
-  overlapsBusy,
-  snapDown,
   type SelectionBounds,
   type SlotSelection,
 } from "@/lib/agenda-selection";
@@ -107,8 +105,9 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
   }
 
   /**
-   * Place le repère sur la case survolée, si elle est libre : jamais sur un
-   * rendez-vous, un créneau bloqué ou une zone fermée — là, curseur neutre.
+   * Place le repère sur ce qu'un clic sélectionnerait ici — la case, ou sa
+   * partie libre : jamais sur un rendez-vous, un créneau bloqué ou une zone
+   * fermée — là, curseur neutre.
    */
   function paintHover() {
     hoverFrameRef.current = null;
@@ -116,16 +115,14 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
     const hover = hoverRef.current;
     const clientY = hoverYRef.current;
     if (!layer || !hover || clientY === null) return;
-    const start = Math.max(bounds.dayStart, snapDown(minutesAt(clientY), bounds.step));
-    const end = Math.min(bounds.dayEnd, start + bounds.step);
-    const free = start < bounds.dayEnd && !overlapsBusy(bounds.busy, start, end) && !closedAt(start);
-    if (!free) {
+    const target = selectionFromClick(dayIndex, minutesAt(clientY), bounds);
+    if (!target || closedAt(target.startMinutes)) {
       hover.dataset.visible = "false";
       layer.style.cursor = "default";
       return;
     }
-    const height = ((end - start) / 60) * hourHeight;
-    hover.style.transform = `translate3d(0, ${((start - bounds.dayStart) / 60) * hourHeight}px, 0)`;
+    const height = ((target.endMinutes - target.startMinutes) / 60) * hourHeight;
+    hover.style.transform = `translate3d(0, ${((target.startMinutes - bounds.dayStart) / 60) * hourHeight}px, 0)`;
     hover.style.height = `${height}px`;
     hover.dataset.tall = height >= 40 ? "true" : "false";
     hover.dataset.visible = "true";
@@ -236,10 +233,10 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
         data-visible="false"
         data-tall="false"
         data-testid="agenda-slot-hover"
-        className={`group pointer-events-none absolute inset-x-1 top-0 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--theme-brand)_7%,var(--theme-surface))] text-animeo opacity-0 shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--theme-brand)_90%,transparent)] transition-opacity duration-150 data-[visible=true]:opacity-100 ${shown ? "invisible" : ""}`}
+        className={`group pointer-events-none absolute inset-x-1 top-0 flex items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--theme-brand)_7%,var(--theme-surface))] text-animeo opacity-0 shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--theme-brand)_90%,transparent)] transition-opacity duration-150 data-[visible=true]:opacity-100 ${shown ? "invisible" : ""}`}
       >
-        <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-        <span className="text-[11px] font-extrabold text-animeo-dark group-data-[tall=false]:hidden">Nouveau RDV</span>
+        {/* Le « + » seul : le geste se comprend sans texte. */}
+        <Plus className="h-4 w-4 shrink-0 group-data-[tall=true]:h-5 group-data-[tall=true]:w-5" strokeWidth={2.5} />
       </div>
 
       {shown ? (
