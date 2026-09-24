@@ -85,7 +85,7 @@ export function normalizeAgendaDisplay(raw: Partial<Record<keyof AgendaDisplay, 
 }
 
 /** Vrai si le jour de la semaine (0 = dimanche) est affiché. */
-export function isWeekdayShown(weekday: number, display: AgendaDisplay): boolean {
+export function isWeekdayShown(weekday: number, display: Pick<AgendaDisplay, "showSaturday" | "showSunday">): boolean {
   if (weekday === 6) return display.showSaturday;
   if (weekday === 0) return display.showSunday;
   return true;

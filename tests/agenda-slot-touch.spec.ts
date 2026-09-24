@@ -94,7 +94,7 @@ test("un appui simple ouvre la feuille de créneau, avec les durées possibles",
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole("heading", { name: "Nouveau créneau" })).toBeVisible();
   await expect(sheet.getByRole("group", { name: "Durée du créneau" })).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "Créer un rendez-vous" })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "Nouveau rendez-vous" })).toBeVisible();
 });
 
 test("changer la durée depuis la feuille met à jour le créneau", async ({ page }) => {
@@ -120,7 +120,7 @@ test("la feuille mène au formulaire, déjà réglé sur le créneau choisi", as
 
   const sheet = page.getByRole("dialog");
   const start = (await sheet.textContent())!.match(/(\d{2}:\d{2}) → /)![1];
-  await sheet.getByRole("button", { name: "Créer un rendez-vous" }).click();
+  await sheet.getByRole("button", { name: "Nouveau rendez-vous" }).click();
 
   await expect(page.getByRole("heading", { name: "Nouveau rendez-vous" })).toBeVisible({ timeout: 15000 });
   await expect(page.getByLabel("Heure")).toHaveValue(start);

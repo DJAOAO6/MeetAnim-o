@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AgendaEventPopover } from "@/components/agenda/agenda-event-popover";
 import { SlotSelectionLayer } from "@/components/agenda/slot-selection-layer";
-import { toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
+import { selectionFromClick, toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
@@ -89,6 +89,31 @@ function gridLines(rowHeight: number, slotMinutes: number, pxPerMinute: number):
   };
 }
 
+/**
+ * Ce qui empêche de sélectionner : tout ce qui occupe déjà la colonne —
+ * rendez-vous, tournées et créneaux bloqués. Un créneau tracé par-dessus
+ * l'un d'eux serait refusé par le serveur ensuite ; autant ne pas le laisser
+ * tracer. Partagé par la souris (colonne) et le clavier (grille).
+ */
+function selectionBoundsFor(startHour: number, endHour: number, step: number, defaultDuration: number, dayEvents: CalendarEvent[]): SelectionBounds {
+  return {
+    dayStart: startHour * 60,
+    dayEnd: endHour * 60,
+    step: step > 0 ? step : 15,
+    defaultDuration: defaultDuration > 0 ? defaultDuration : 45,
+    busy: dayEvents.map((event) => {
+      const start = slotToMinutes(event.start);
+      return { start, end: start + event.duration };
+    }),
+  };
+}
+
+function closedAtFor(dayAvailability: ReturnType<typeof getDayAvailability>) {
+  return (minutes: number) => !dayAvailability.open || isHourClosed(dayAvailability.hourly, Math.floor(minutes / 60));
+}
+
+const cursorDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
 const eventStyles: Record<EventKind, string> = {
   cabinet: "border-animeo-brand bg-animeo-positive-soft text-animeo-dark",
   domicile: "border-[#4C8190] bg-animeo-info-soft text-[#234E5A]",
@@ -150,6 +175,72 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     [display, allEvents],
   );
   const plannerHeight = (endHour - startHour) * hourHeight;
+
+  // Clavier : une case active dans la grille, déplacée aux flèches ; Entrée
+  // ou Espace ouvre les mêmes actions qu'un clic.
+  const [keyboardCursor, setKeyboardCursor] = useState<{ day: number; minutes: number } | null>(null);
+  const keyboardHintId = useId();
+  const cursorStep = display.slotMinutes;
+
+  function dayContext(day: number) {
+    const bounds = selectionBoundsFor(startHour, endHour, cursorStep, availability.defaultAppointmentDuration, allEvents.filter((event) => event.day === day));
+    return { bounds, closedAt: closedAtFor(getDayAvailability(dates[day], availability)) };
+  }
+
+  function initialKeyboardCursor() {
+    const today = dates.findIndex(isReferenceDay);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const minutes = today >= 0 && nowMinutes >= startHour * 60 && nowMinutes < endHour * 60
+      ? Math.floor(nowMinutes / cursorStep) * cursorStep
+      : startHour * 60;
+    return { day: Math.max(0, today), minutes };
+  }
+
+  function describeCursor(cursor: { day: number; minutes: number }): string {
+    const date = cursorDateFormatter.format(dates[cursor.day]);
+    const time = minutesToTime(cursor.minutes);
+    const { bounds, closedAt } = dayContext(cursor.day);
+    if (bounds.busy.some((interval) => cursor.minutes >= interval.start && cursor.minutes < interval.end)) return `${date}, ${time} : occupé.`;
+    if (closedAt(cursor.minutes)) return `${date}, ${time} : fermé. Entrée pour les actions.`;
+    return `Créer un rendez-vous ${date} à ${time}`;
+  }
+
+  function handleGridKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget || !keyboardCursor) return;
+    const { day, minutes } = keyboardCursor;
+    const last = endHour * 60 - cursorStep;
+    let next: { day: number; minutes: number } | null = null;
+    if (event.key === "ArrowUp") next = { day, minutes: Math.max(startHour * 60, minutes - cursorStep) };
+    else if (event.key === "ArrowDown") next = { day, minutes: Math.min(last, minutes + cursorStep) };
+    else if (event.key === "ArrowLeft") next = { day: Math.max(0, day - 1), minutes };
+    else if (event.key === "ArrowRight") next = { day: Math.min(dates.length - 1, day + 1), minutes };
+    if (next) {
+      event.preventDefault();
+      setKeyboardCursor(next);
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    if (!onSelectSlot || !gridRef.current) return;
+    const { bounds, closedAt } = dayContext(day);
+    const selected = selectionFromClick(day, minutes, bounds);
+    if (!selected) return;
+    const grid = gridRef.current.getBoundingClientRect();
+    const columnWidth = (grid.width - TIME_COLUMN_WIDTH) / dates.length;
+    const rect = new DOMRect(
+      grid.left + TIME_COLUMN_WIDTH + day * columnWidth,
+      grid.top + (selected.startMinutes - startHour * 60) * pxPerMinute,
+      columnWidth,
+      (selected.endMinutes - selected.startMinutes) * pxPerMinute,
+    );
+    onSelectSlot(selected, dates[day], rect, closedAt(selected.startMinutes), "keyboard", bounds);
+  }
+
+  // La case active reste visible : la page défile jusqu'à elle si besoin.
+  useEffect(() => {
+    if (!keyboardCursor) return;
+    document.querySelector<HTMLElement>("[data-testid='agenda-keyboard-cursor']")?.scrollIntoView({ block: "nearest" });
+  }, [keyboardCursor]);
   const now = useCurrentTime();
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -422,8 +513,15 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
         <div
           role="region"
           aria-label={isDayView ? "Planning du jour" : "Planning de la semaine"}
-          className="relative"
+          aria-describedby={keyboardHintId}
+          tabIndex={0}
+          onFocus={(event) => { if (event.target === event.currentTarget && !keyboardCursor) setKeyboardCursor(initialKeyboardCursor()); }}
+          onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setKeyboardCursor(null); }}
+          onKeyDown={handleGridKeyDown}
+          className="relative outline-none"
         >
+          <p id={keyboardHintId} className="sr-only">Flèches : passer d’un créneau à l’autre. Entrée : actions du créneau.</p>
+          <p aria-live="polite" className="sr-only">{keyboardCursor ? describeCursor(keyboardCursor) : ""}</p>
           <div>
             <div
               className="sticky top-16 z-[32] grid border-b border-animeo-border bg-animeo-surface-alt md:top-0"
@@ -469,6 +567,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   slotMinutes={display.slotMinutes}
                   rowHeight={ROW_HEIGHT[display.density]}
                   showClosedZones={display.showClosedZones}
+                  keyboardCursor={keyboardCursor && keyboardCursor.day === dayIndex ? keyboardCursor.minutes : null}
                   events={allEvents.filter((event) => event.day === dayIndex)}
                   draggedEventId={drag?.event.id ?? null}
                   armedEventId={armedEventId}
@@ -477,7 +576,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   onBeginMove={beginMove}
                   onBeginResize={beginResize}
                   selectedEventId={selection?.event.id ?? null}
-                  slotInterval={availability.slotInterval}
+                  slotInterval={display.slotMinutes}
                   defaultDuration={availability.defaultAppointmentDuration}
                   dayIndex={dayIndex}
                   activeSlot={activeSlot && activeSlot.day === dayIndex ? activeSlot : null}
@@ -573,7 +672,7 @@ function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinute
   );
 }
 
-function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, rowHeight, showClosedZones, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
+function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, rowHeight, showClosedZones, keyboardCursor, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
   date: Date;
   now: Date;
   availability: AvailabilitySettings;
@@ -584,6 +683,8 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   slotMinutes: number;
   rowHeight: number;
   showClosedZones: boolean;
+  /** Case active au clavier dans cette colonne (minutes), sinon null. */
+  keyboardCursor: number | null;
   events: CalendarEvent[];
   draggedEventId: string | null;
   onPendingAction: WeekPlannerProps["onPendingAction"];
@@ -593,7 +694,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
   onBeginResize: (event: CalendarEvent, pointerEvent: React.PointerEvent) => void;
   selectedEventId: string | null;
   dayIndex: number;
-  /** Pas de temps réglé dans Disponibilités — jamais une granularité inventée ici. */
+  /** Intervalle de la grille choisi dans « Affichage » : une case = une ligne. */
   slotInterval: number;
   defaultDuration: number;
   activeSlot: SlotSelection | null;
@@ -613,21 +714,11 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
    * l'un d'eux serait refusé par le serveur ensuite ; autant ne pas le
    * laisser tracer.
    */
-  const selectionBounds = useMemo<SelectionBounds>(() => ({
-    dayStart: startHour * 60,
-    dayEnd: endHour * 60,
-    step: slotInterval > 0 ? slotInterval : 15,
-    defaultDuration: defaultDuration > 0 ? defaultDuration : 45,
-    busy: dayEvents.map((event) => {
-      const start = slotToMinutes(event.start);
-      return { start, end: start + event.duration };
-    }),
-  }), [startHour, endHour, slotInterval, defaultDuration, dayEvents]);
-
-  const closedAt = useMemo(() => (minutes: number) => {
-    if (!dayAvailability.open) return true;
-    return isHourClosed(dayAvailability.hourly, Math.floor(minutes / 60));
-  }, [dayAvailability]);
+  const selectionBounds = useMemo(
+    () => selectionBoundsFor(startHour, endHour, slotInterval, defaultDuration, dayEvents),
+    [startHour, endHour, slotInterval, defaultDuration, dayEvents],
+  );
+  const closedAt = useMemo(() => closedAtFor(dayAvailability), [dayAvailability]);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const showTimeLine = isReferenceDay(date) && nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60;
 
@@ -664,6 +755,15 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           ) : null}
         </div>
       ))}
+
+      {keyboardCursor !== null ? (
+        <div
+          aria-hidden="true"
+          data-testid="agenda-keyboard-cursor"
+          className="pointer-events-none absolute inset-x-1 z-[31] rounded-lg ring-2 ring-animeo ring-offset-1"
+          style={{ top: (keyboardCursor - startHour * 60) * pxPerMinute, height: slotMinutes * pxPerMinute }}
+        />
+      ) : null}
 
       {onSelectSlot ? (
         <SlotSelectionLayer

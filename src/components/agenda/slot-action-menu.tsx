@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { CalendarPlus, Clock, Settings2, Ban, Unlock } from "lucide-react";
+import { CalendarOff, CalendarPlus, Settings2, Ban, Unlock } from "lucide-react";
 import { formatDuration, formatMinutes, type SlotSelection } from "@/lib/agenda-selection";
 
 export type SlotAction = "create" | "block" | "unavailable" | "more" | "openExceptionally" | "editHours";
@@ -23,12 +23,14 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "
  * un créneau déjà fermé n'a aucun sens, alors qu'ouvrir exceptionnellement en
  * a un.
  */
-export function SlotActionMenu({ selection, date, closed, anchorRect, onAction, onClose }: {
+export function SlotActionMenu({ selection, date, closed, anchorRect, canClose = true, onAction, onClose }: {
   selection: SlotSelection;
   date: Date;
   /** La plage choisie tombe dans une période fermée aux réservations. */
   closed: boolean;
   anchorRect: DOMRect;
+  /** Le compte peut-il fermer un créneau (modifier les horaires) ? */
+  canClose?: boolean;
   onAction: (action: SlotAction) => void;
   onClose: () => void;
 }) {
@@ -115,10 +117,9 @@ export function SlotActionMenu({ selection, date, closed, anchorRect, onAction, 
             </>
           ) : (
             <>
-              <MenuItem icon={CalendarPlus} label="Créer un rendez-vous" tone="primary" onClick={() => onAction("create")} />
-              <MenuItem icon={Ban} label="Bloquer ce créneau" onClick={() => onAction("block")} />
-              <MenuItem icon={Clock} label="Créer une indisponibilité" onClick={() => onAction("unavailable")} />
-              <MenuItem icon={Settings2} label="Plus d’options" muted onClick={() => onAction("more")} />
+              <MenuItem icon={CalendarPlus} label="Nouveau rendez-vous" tone="primary" onClick={() => onAction("create")} />
+              <MenuItem icon={Ban} label="Bloquer le créneau" onClick={() => onAction("block")} />
+              <MenuItem icon={CalendarOff} label="Indisponible / Fermé" disabledReason={canClose ? undefined : "Réservé aux comptes autorisés à modifier les horaires."} onClick={() => onAction("unavailable")} />
             </>
           )}
         </div>
@@ -127,11 +128,13 @@ export function SlotActionMenu({ selection, date, closed, anchorRect, onAction, 
   );
 }
 
-function MenuItem({ icon: ItemIcon, label, tone = "neutral", muted = false, onClick }: {
+function MenuItem({ icon: ItemIcon, label, tone = "neutral", muted = false, disabledReason, onClick }: {
   icon: typeof CalendarPlus;
   label: string;
   tone?: "neutral" | "primary" | "positive";
   muted?: boolean;
+  /** Action indisponible pour ce compte : visible, grisée, et elle dit pourquoi. */
+  disabledReason?: string;
   onClick: () => void;
 }) {
   const toneClassName = tone === "primary"
@@ -145,11 +148,16 @@ function MenuItem({ icon: ItemIcon, label, tone = "neutral", muted = false, onCl
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-sm font-extrabold transition hover:bg-animeo-bg ${toneClassName}`}
+      onClick={disabledReason ? undefined : onClick}
+      aria-disabled={disabledReason ? true : undefined}
+      title={disabledReason}
+      className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-sm font-extrabold transition ${disabledReason ? "cursor-not-allowed text-animeo-muted opacity-60" : `hover:bg-animeo-bg ${toneClassName}`}`}
     >
       <ItemIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
-      {label}
+      <span className="min-w-0">
+        {label}
+        {disabledReason ? <span className="block text-[11px] font-semibold">{disabledReason}</span> : null}
+      </span>
     </button>
   );
 }

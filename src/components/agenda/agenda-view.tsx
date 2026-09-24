@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
@@ -20,6 +20,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
+import { updateAvailabilityAction } from "@/lib/business-profile-actions";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { hasPermission } from "@/lib/auth/permissions";
 import { notify } from "@/lib/notify";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
@@ -127,6 +130,8 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   const [display, setDisplay] = useState<AgendaDisplay>(initialDisplay);
   const router = useRouter();
   const { appointments, openManager, openNewAppointment, updateAppointmentStatus, ensureRange } = useAppointments();
+  // Fermer un créneau modifie les horaires : même droit que dans Paramètres.
+  const canCloseSlots = hasPermission(useCurrentUser(), "MANAGE_PUBLIC_SETTINGS");
   const [view, setView] = useState<AgendaViewMode>("week");
 
   useEffect(() => {
@@ -173,9 +178,15 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   // Création demandée sur une période fermée : confirmée avant d'ouvrir le
   // formulaire, jamais par une boîte de dialogue du navigateur.
   const [confirmingClosedSlot, setConfirmingClosedSlot] = useState<{ date: string; start: string; duration: number } | null>(null);
-  const weekDates = getWeekDates(weekOffset);
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   // Samedi et dimanche masqués : les colonnes restantes se partagent la largeur.
-  const activeDates = view === "day" ? [getDayDate(dayOffset)] : weekDates.filter((date) => isWeekdayShown(date.getDay(), display));
+  // Mis en cache sur ce qui décide des jours affichés, et sur rien d'autre :
+  // changer l'intervalle ou la densité ne recalcule aucune donnée ci-dessous.
+  const { showSaturday, showSunday } = display;
+  const activeDates = useMemo(
+    () => (view === "day" ? [getDayDate(dayOffset)] : weekDates.filter((date) => isWeekdayShown(date.getDay(), { showSaturday, showSunday }))),
+    [view, dayOffset, weekDates, showSaturday, showSunday],
+  );
   const monthDate = getMonthDate(monthOffset);
   const yearValue = getYearValue(yearOffset);
 
@@ -193,7 +204,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
     void ensureRange(visibleFrom, visibleTo);
   }, [ensureRange, visibleFrom, visibleTo]);
 
-  const appointmentEvents: CalendarEvent[] = appointments
+  const appointmentEvents: CalendarEvent[] = useMemo(() => appointments
     .filter((appointment) => appointment.status !== "cancelled")
     .map((appointment) => ({ appointment, day: activeDates.findIndex((date) => dateId(date) === appointment.date) }))
     .filter(({ day }) => day >= 0)
@@ -207,7 +218,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
       animal: appointment.animalName,
       client: appointment.clientName,
       location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
-    }));
+    })), [appointments, activeDates]);
   // Indépendant de activeDates/view : une demande en attente doit rester
   // visible même quand la période actuellement affichée dans le planning ne
   // la contient pas (AUDIT_COMPLET.md P1-9 — corrige le fait que le panneau
@@ -225,13 +236,13 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
     }))
     .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
 
-  function matchesFilter(kind: CalendarEvent["kind"]) {
-    return filter === "all" || filter === kind;
-  }
-  const filteredAppointmentEvents = appointmentEvents.filter((event) => matchesFilter(event.kind));
+  const filteredAppointmentEvents = useMemo(
+    () => appointmentEvents.filter((event) => filter === "all" || filter === event.kind),
+    [appointmentEvents, filter],
+  );
 
-  const activeTours = tours.filter((tour) => tour.status === "Active");
-  const tourEvents: CalendarEvent[] = activeDates.flatMap((date, day) => {
+  const tourEvents: CalendarEvent[] = useMemo(() => activeDates.flatMap((date, day) => {
+    const activeTours = tours.filter((tour) => tour.status === "Active");
     const id = dateId(date);
     const weekday = weekdayLabelFor(date);
     return activeTours
@@ -246,10 +257,13 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
         title: tour.name,
         location: `${tour.appointmentCount} rendez-vous`,
       }));
-  });
-  const filteredTourEvents = tourEvents.filter((event) => matchesFilter(event.kind));
+  }), [tours, activeDates]);
+  const filteredTourEvents = useMemo(
+    () => tourEvents.filter((event) => filter === "all" || filter === event.kind),
+    [tourEvents, filter],
+  );
 
-  const blockedEvents: CalendarEvent[] = activeDates.flatMap((date, day) => {
+  const blockedEvents: CalendarEvent[] = useMemo(() => activeDates.flatMap((date, day) => {
     const id = dateId(date);
     return blockedSlots
       .filter((slot) => slot.date === id)
@@ -263,7 +277,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
         title: slot.reason || "Indisponible",
         location: "Créneau bloqué",
       }));
-  });
+  }), [blockedSlots, activeDates]);
 
   // Jour proposé par défaut pour "Nouveau rendez-vous"/"Bloquer un créneau",
   // selon la vue active : le jour affiché en Jour, le lundi de la semaine
@@ -325,15 +339,32 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
       return;
     }
 
-    // « Indisponibilité » et « Ouvrir exceptionnellement » demandent une
-    // distinction que la base ne porte pas encore : BlockedSlot n'a pas de
-    // type, et il n'existe pas d'ouverture exceptionnelle. Plutôt que de
-    // faire passer l'un pour l'autre, on le dit.
-    notify.info(
-      action === "unavailable"
-        ? "Les indisponibilités arrivent — en attendant, « Bloquer ce créneau » empêche les réservations en ligne."
-        : "L’ouverture exceptionnelle arrive — en attendant, vous pouvez ajouter le rendez-vous manuellement.",
-    );
+    if (action === "unavailable") {
+      // « Indisponible / Fermé » : une fermeture exceptionnelle, la même que
+      // celle des Disponibilités — le créneau n'est plus proposé, ni au
+      // cabinet ni à domicile, et apparaît fermé dans l'agenda.
+      const closure = {
+        id: `closure-${Date.now()}`,
+        date: day,
+        start,
+        end: formatMinutes(selection.endMinutes),
+        scope: "Tout fermer" as const,
+        reason: "Indisponible",
+      };
+      // `force` : la sélection s'arrête toujours au premier rendez-vous
+      // rencontré, la fermeture n'en recouvre donc aucun. Le contrôle général
+      // des horaires signalerait sinon des rendez-vous déjà hors horaires,
+      // sans rapport avec ce créneau, et bloquerait la fermeture.
+      const result = await updateAvailabilityAction({ ...availability, closures: [...availability.closures, closure] }, true);
+      if (!result.ok) { notify.error(result.error); return; }
+      notify.success(`Indisponible de ${start} à ${closure.end} : le créneau n’est plus proposé à la réservation.`);
+      router.refresh();
+      return;
+    }
+
+    // « Ouvrir exceptionnellement » demande une ouverture ponctuelle que les
+    // horaires ne portent pas encore : on le dit plutôt que de simuler.
+    notify.info("L’ouverture exceptionnelle arrive — en attendant, vous pouvez ajouter le rendez-vous manuellement.");
   }
 
   async function saveBlockedSlot(input: Parameters<typeof createBlockedSlotAction>[0]) {
@@ -599,8 +630,9 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
         </>
       )}
 
-      {slotSelection && slotSelection.pointerType === "mouse" ? (
+      {slotSelection && (slotSelection.pointerType === "mouse" || slotSelection.pointerType === "keyboard") ? (
         <SlotActionMenu
+          canClose={canCloseSlots}
           selection={slotSelection.selection}
           date={slotSelection.date}
           closed={slotSelection.closed}
@@ -610,8 +642,9 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
         />
       ) : null}
 
-      {slotSelection && slotSelection.pointerType !== "mouse" ? (
+      {slotSelection && slotSelection.pointerType !== "mouse" && slotSelection.pointerType !== "keyboard" ? (
         <SlotActionSheet
+          canClose={canCloseSlots}
           selection={slotSelection.selection}
           date={slotSelection.date}
           closed={slotSelection.closed}

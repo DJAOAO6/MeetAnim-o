@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import {
   formatDuration,
   formatMinutes,
   selectionFromClick,
   selectionFromDrag,
+  overlapsBusy,
   snapDown,
   type SelectionBounds,
   type SlotSelection,
@@ -41,7 +43,11 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
   onClear: () => void;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
-  const [hoverMinutes, setHoverMinutes] = useState<number | null>(null);
+  // Survol : un seul repère par colonne, déplacé directement (transform) au
+  // rythme de l'affichage — jamais un rendu React par mouvement de souris.
+  const hoverRef = useRef<HTMLDivElement>(null);
+  const hoverFrameRef = useRef<number | null>(null);
+  const hoverYRef = useRef<number | null>(null);
   // Sélection en cours de tracé, avant relâchement : gardée localement pour
   // que le glissement ne re-rende que cette colonne.
   const [drafting, setDrafting] = useState<SlotSelection | null>(null);
@@ -93,12 +99,58 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
     }, 16);
   }
 
+  function hideHover() {
+    hoverYRef.current = null;
+    const hover = hoverRef.current;
+    if (hover) hover.dataset.visible = "false";
+    if (layerRef.current) layerRef.current.style.cursor = "";
+  }
+
+  /**
+   * Place le repère sur la case survolée, si elle est libre : jamais sur un
+   * rendez-vous, un créneau bloqué ou une zone fermée — là, curseur neutre.
+   */
+  function paintHover() {
+    hoverFrameRef.current = null;
+    const layer = layerRef.current;
+    const hover = hoverRef.current;
+    const clientY = hoverYRef.current;
+    if (!layer || !hover || clientY === null) return;
+    const start = Math.max(bounds.dayStart, snapDown(minutesAt(clientY), bounds.step));
+    const end = Math.min(bounds.dayEnd, start + bounds.step);
+    const free = start < bounds.dayEnd && !overlapsBusy(bounds.busy, start, end) && !closedAt(start);
+    if (!free) {
+      hover.dataset.visible = "false";
+      layer.style.cursor = "default";
+      return;
+    }
+    const height = ((end - start) / 60) * hourHeight;
+    hover.style.transform = `translate3d(0, ${((start - bounds.dayStart) / 60) * hourHeight}px, 0)`;
+    hover.style.height = `${height}px`;
+    hover.dataset.tall = height >= 40 ? "true" : "false";
+    hover.dataset.visible = "true";
+    layer.style.cursor = "pointer";
+  }
+
+  function trackHover(event: React.PointerEvent<HTMLDivElement>) {
+    // Souris seulement, et bouton relâché : pendant le déplacement d'un
+    // rendez-vous, un repère ferait croire qu'on peut lâcher là une sélection.
+    if (event.pointerType !== "mouse" || event.buttons !== 0) return;
+    hoverYRef.current = event.clientY;
+    if (hoverFrameRef.current === null) hoverFrameRef.current = window.requestAnimationFrame(paintHover);
+  }
+
+  useEffect(() => () => {
+    if (hoverFrameRef.current !== null) window.cancelAnimationFrame(hoverFrameRef.current);
+  }, []);
+
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     // Doigt et stylet : rien ici. Le geste est traité au relâchement (tap),
     // ce qui laisse le navigateur faire défiler sans jamais lui disputer le
     // pointeur.
     if (event.pointerType !== "mouse" || event.button !== 0) return;
 
+    hideHover();
     const anchorMinutes = minutesAt(event.clientY);
     const initial = selectionFromClick(dayIndex, anchorMinutes, bounds);
     if (!initial) { onClear(); return; }
@@ -161,7 +213,6 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
   }
 
   const shown = drafting ?? selection;
-  const hoverTop = hoverMinutes !== null ? ((snapDown(hoverMinutes, bounds.step) - bounds.dayStart) / 60) * hourHeight : 0;
 
   return (
     <div
@@ -169,25 +220,27 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
       data-testid="agenda-slot-layer"
       data-day={dayIndex}
       // z-0 : sous les rendez-vous, qui gardent leurs propres clics.
-      className="absolute inset-0 z-0 cursor-cell"
+      className="absolute inset-0 z-0"
       onPointerDown={handlePointerDown}
       onClick={handleClick}
-      // `buttons` à zéro : le repère de survol ne s'affiche pas pendant qu'un
-      // rendez-vous est en cours de déplacement au-dessus de la grille — il
-      // ferait croire qu'on peut lâcher là une sélection.
-      onPointerMove={(event) => { if (event.pointerType === "mouse" && event.buttons === 0) setHoverMinutes(minutesAt(event.clientY)); }}
-      onPointerLeave={() => setHoverMinutes(null)}
+      onPointerMove={trackHover}
+      onPointerLeave={hideHover}
     >
-      {/* Survol : un repère discret, juste assez pour comprendre que la zone
-          répond. Pas de bouton « + » répété sur chaque case — l'agenda en
-          serait constellé. */}
-      {hoverMinutes !== null && !shown ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 rounded-md bg-animeo-soft/50"
-          style={{ top: hoverTop, height: (bounds.step / 60) * hourHeight }}
-        />
-      ) : null}
+      {/* Survol (souris) : au repos, rien ; sur une case libre, un contour
+          orange doux, un fond à peine teinté et un « + ». Contour en ombre
+          intérieure : la case ne change jamais de taille. Masqué dès qu'une
+          sélection est tracée. */}
+      <div
+        ref={hoverRef}
+        aria-hidden="true"
+        data-visible="false"
+        data-tall="false"
+        data-testid="agenda-slot-hover"
+        className={`group pointer-events-none absolute inset-x-1 top-0 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--theme-brand)_7%,var(--theme-surface))] text-animeo opacity-0 shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--theme-brand)_55%,transparent)] transition-opacity duration-150 data-[visible=true]:opacity-100 ${shown ? "invisible" : ""}`}
+      >
+        <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+        <span className="text-[11px] font-extrabold group-data-[tall=false]:hidden">Nouveau RDV</span>
+      </div>
 
       {shown ? (
         <div

@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarPlus, Clock, Settings2, Unlock } from "lucide-react";
+import { Ban, CalendarOff, CalendarPlus, Unlock } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { formatDuration, formatMinutes, type SlotSelection } from "@/lib/agenda-selection";
 import type { SlotAction } from "@/components/agenda/slot-action-menu";
@@ -18,12 +18,14 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "
  * Feuille ancrée en bas (comportement par défaut de Modal sur petit écran) :
  * les actions tombent sous le pouce, pas en haut de l'écran.
  */
-export function SlotActionSheet({ selection, date, closed, durations, onSelectDuration, onAction, onClose }: {
+export function SlotActionSheet({ selection, date, closed, durations, canClose = true, onSelectDuration, onAction, onClose }: {
   selection: SlotSelection;
   date: Date;
   closed: boolean;
   /** Durées réellement possibles ici, bornées par le rendez-vous suivant. */
   durations: number[];
+  /** Le compte peut-il fermer un créneau (modifier les horaires) ? */
+  canClose?: boolean;
   onSelectDuration: (minutes: number) => void;
   onAction: (action: SlotAction) => void;
   onClose: () => void;
@@ -77,10 +79,9 @@ export function SlotActionSheet({ selection, date, closed, durations, onSelectDu
             </>
           ) : (
             <>
-              <SheetAction icon={CalendarPlus} label="Créer un rendez-vous" primary onClick={() => onAction("create")} />
-              <SheetAction icon={Ban} label="Bloquer ce créneau" onClick={() => onAction("block")} />
-              <SheetAction icon={Clock} label="Créer une indisponibilité" onClick={() => onAction("unavailable")} />
-              <SheetAction icon={Settings2} label="Plus d’options" onClick={() => onAction("more")} />
+              <SheetAction icon={CalendarPlus} label="Nouveau rendez-vous" primary onClick={() => onAction("create")} />
+              <SheetAction icon={Ban} label="Bloquer le créneau" onClick={() => onAction("block")} />
+              <SheetAction icon={CalendarOff} label="Indisponible / Fermé" disabledReason={canClose ? undefined : "Réservé aux comptes autorisés à modifier les horaires."} onClick={() => onAction("unavailable")} />
             </>
           )}
         </div>
@@ -89,22 +90,28 @@ export function SlotActionSheet({ selection, date, closed, durations, onSelectDu
   );
 }
 
-function SheetAction({ icon: ActionIcon, label, primary = false, onClick }: {
+function SheetAction({ icon: ActionIcon, label, primary = false, disabledReason, onClick }: {
   icon: typeof CalendarPlus;
   label: string;
   primary?: boolean;
+  /** Action indisponible pour ce compte : visible, grisée, et elle dit pourquoi. */
+  disabledReason?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-4 text-left text-sm font-extrabold transition ${
-        primary ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"
+      onClick={disabledReason ? undefined : onClick}
+      aria-disabled={disabledReason ? true : undefined}
+      className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-4 py-2 text-left text-sm font-extrabold transition ${
+        disabledReason ? "cursor-not-allowed bg-animeo-bg text-animeo-muted opacity-60" : primary ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"
       }`}
     >
       <ActionIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
-      {label}
+      <span className="min-w-0">
+        {label}
+        {disabledReason ? <span className="block text-xs font-semibold">{disabledReason}</span> : null}
+      </span>
     </button>
   );
 }
