@@ -97,13 +97,6 @@ const eventStyles: Record<EventKind, string> = {
   tournee: "border-[#8067B0] bg-[#EEEAF8] text-[#55417F]",
 };
 
-const legend = [
-  { label: "Cabinet", color: "bg-animeo" },
-  { label: "Domicile", color: "bg-[#4C8190]" },
-  { label: "En attente", color: "bg-animeo-accent" },
-  { label: "Tournée", color: "bg-[#8067B0]" },
-  { label: "Fermé", color: "bg-animeo-subtle" },
-];
 
 const dayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
 const dragDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -411,22 +404,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
 
   return (
     <>
-      <Card className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-animeo-border-soft px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-extrabold text-animeo-dark">{isDayView ? "Planning du jour" : "Planning de la semaine"}</h2>
-            <p className="mt-0.5 text-xs text-animeo-muted">Horaires affichés de {String(startHour).padStart(2, "0")}h00 à {String(endHour).padStart(2, "0")}h00 · glissez un rendez-vous pour le replanifier · sur mobile, appui long avant de déplacer</p>
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-2" aria-label="Légende du planning">
-            {legend.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 text-xs font-bold text-animeo-muted">
-                <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
-                {item.label}
-              </div>
-            ))}
-          </div>
-        </div>
-
+      {/* overflow-clip et non overflow-hidden : les deux découpent les coins
+          arrondis, mais seul le second crée un conteneur de défilement — qui
+          empêcherait l'en-tête des jours de rester collé en haut de la page. */}
+      <Card className="overflow-clip">
         {/* Pas de min-w forcé : les colonnes de jour (minmax(0,1fr) dans
             gridTemplateColumns) se répartissent sur toute la largeur
             réellement disponible plutôt que de forcer un défilement
@@ -435,18 +416,20 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
             de portable courantes. Le dégradé ci-dessous reste en filet de
             sécurité pour le cas extrême (très petit écran) où un
             défilement resterait malgré tout nécessaire. */}
-        {/* Zone défilante atteignable au clavier : sans tabIndex, une semaine
-            sans rendez-vous n'a rien de focalisable, et ne peut donc pas
-            défiler sans souris (axe : scrollable-region-focusable). */}
+        {/* Plus de défilement interne : c'est la page qui défile, et
+            l'en-tête des jours reste collé en haut (sous la barre du
+            téléphone). Aucun conteneur de défilement entre lui et la page. */}
         <div
-          tabIndex={0}
           role="region"
           aria-label={isDayView ? "Planning du jour" : "Planning de la semaine"}
-          className="relative overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
+          className="relative"
         >
-          {!isDayView ? <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-20 w-8 bg-gradient-to-l from-white to-transparent sm:hidden" /> : null}
           <div>
-            <div className="grid border-b border-animeo-border bg-animeo-surface-alt" style={{ gridTemplateColumns }}>
+            <div
+              className="sticky top-16 z-[32] grid border-b border-animeo-border bg-animeo-surface-alt md:top-0"
+              style={{ gridTemplateColumns }}
+              data-testid="agenda-day-header"
+            >
               <div className="border-r border-animeo-border" />
               {dates.map((date) => {
                 const active = isReferenceDay(date);
@@ -465,7 +448,14 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
             </div>
 
             <div ref={gridRef} className="relative grid" style={{ gridTemplateColumns }}>
-              <TimeColumn startHour={startHour} endHour={endHour} plannerHeight={plannerHeight} pxPerMinute={pxPerMinute} slotMinutes={display.slotMinutes} />
+              <TimeColumn
+                startHour={startHour}
+                endHour={endHour}
+                plannerHeight={plannerHeight}
+                pxPerMinute={pxPerMinute}
+                slotMinutes={display.slotMinutes}
+                nowMinutes={dates.some(isReferenceDay) ? now.getHours() * 60 + now.getMinutes() : null}
+              />
               {dates.map((date, dayIndex) => (
                 <DayColumn
                   key={date.toISOString()}
@@ -547,7 +537,8 @@ function timeLabels(startHour: number, endHour: number, slotMinutes: number): nu
   return labels;
 }
 
-function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinutes }: { startHour: number; endHour: number; plannerHeight: number; pxPerMinute: number; slotMinutes: number }) {
+function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, nowMinutes }: { startHour: number; endHour: number; plannerHeight: number; pxPerMinute: number; slotMinutes: number; nowMinutes: number | null }) {
+  const showNow = nowMinutes !== null && nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60;
   // sticky : sur les petites largeurs, le planning peut défiler
   // horizontalement — l'axe horaire doit rester lisible en permanence
   // plutôt que sortir de l'écran avec les premières colonnes. z-index
@@ -567,6 +558,17 @@ function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinute
           {minutesToTime(minutes)}
         </span>
       ))}
+      {/* L'heure actuelle, face à sa ligne : elle masque l'étiquette d'heure
+          qu'elle recouvre, pour rester lisible. */}
+      {showNow ? (
+        <span
+          className="absolute right-1.5 z-10 -translate-y-1/2 rounded-md bg-animeo-accent px-1.5 py-0.5 text-[11px] font-black tabular-nums text-animeo-dark shadow-sm"
+          style={{ top: (nowMinutes - startHour * 60) * pxPerMinute }}
+          data-testid="agenda-now-label"
+        >
+          {minutesToTime(nowMinutes)}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -640,8 +642,8 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           className="pointer-events-none absolute inset-x-0 z-30 flex items-center"
           style={{ top: (nowMinutes - startHour * 60) * pxPerMinute }}
         >
-          <span className="-ml-[3px] h-2 w-2 shrink-0 rounded-full bg-animeo-error" />
-          <div className="h-[2px] flex-1 bg-animeo-error" />
+          <span className="-ml-[4px] h-2 w-2 shrink-0 rounded-full bg-animeo-accent ring-2 ring-white" />
+          <div className="h-[2px] flex-1 bg-animeo-accent" />
         </div>
       ) : null}
 

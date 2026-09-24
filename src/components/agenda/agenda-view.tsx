@@ -488,21 +488,20 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
         {view !== "year" ? (
           <div className="mt-4">
-            <AgendaFilterBar value={filter} onChange={setFilter} />
+            <AgendaFilterBar
+              value={filter}
+              onChange={setFilter}
+              help={view === "day" || view === "week" ? [
+                `Horaires affichés de ${String(display.dayStart).padStart(2, "0")}:00 à ${String(display.dayEnd).padStart(2, "0")}:00 — à régler dans « Affichage ».`,
+                "Cliquez sur une case vide pour créer un rendez-vous ou bloquer le créneau.",
+                "Glissez un rendez-vous pour le replanifier ; sur téléphone, appuyez longuement avant de le déplacer.",
+                // Ce rappel n'a de sens qu'avec les deux modes : sans cabinet, il n'y a rien à concilier.
+                ...(hasCabinet(practiceMode) && visitsHomes(practiceMode) ? ["Agenda unique : un créneau pris au cabinet l’est aussi à domicile, et inversement."] : []),
+              ] : []}
+            />
           </div>
         ) : null}
 
-        {/* Ce rappel n'a de sens qu'avec les deux modes : sans cabinet, il
-            n'y a rien à concilier. */}
-        {(view === "day" || view === "week") && hasCabinet(practiceMode) && visitsHomes(practiceMode) ? (
-          <div className="mt-4 flex items-start gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
-            <Icon name="calendar" className="mt-0.5 h-5 w-5 shrink-0 text-animeo" />
-            <p>
-              <strong>Agenda unique :</strong> Cabinet et Domicile sont deux modes de réservation.
-              Un créneau occupé dans l’un est automatiquement indisponible dans l’autre.
-            </p>
-          </div>
-        ) : null}
 
       </Card>
   );

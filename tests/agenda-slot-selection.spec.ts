@@ -152,7 +152,8 @@ test("une sélection s’arrête au rendez-vous existant au lieu de le traverser
   const box = await layerBox(layer);
   // La grille démarre à startHour ; on vise 10:00 puis on descend de 5 heures.
   const hourHeight = 72;
-  const gridStartHour = Number((await page.getByText(/Horaires affichés de/).textContent())!.match(/de (\d{2})h00/)![1]);
+  // Première heure de la grille : la première étiquette de la colonne des heures.
+  const gridStartHour = Number((await page.getByTestId("agenda-time-column").locator("span").first().textContent())!.slice(0, 2));
   const fromY = (10 - gridStartHour) * hourHeight + 4;
   await dragInColumn(page, layer, fromY, fromY + 5 * hourHeight);
 
