@@ -236,10 +236,10 @@ export function SlotSelectionLayer({ dayIndex, bounds, hourHeight, selection, cl
         data-visible="false"
         data-tall="false"
         data-testid="agenda-slot-hover"
-        className={`group pointer-events-none absolute inset-x-1 top-0 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--theme-brand)_7%,var(--theme-surface))] text-animeo opacity-0 shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--theme-brand)_55%,transparent)] transition-opacity duration-150 data-[visible=true]:opacity-100 ${shown ? "invisible" : ""}`}
+        className={`group pointer-events-none absolute inset-x-1 top-0 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--theme-brand)_7%,var(--theme-surface))] text-animeo opacity-0 shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--theme-brand)_90%,transparent)] transition-opacity duration-150 data-[visible=true]:opacity-100 ${shown ? "invisible" : ""}`}
       >
         <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} />
-        <span className="text-[11px] font-extrabold group-data-[tall=false]:hidden">Nouveau RDV</span>
+        <span className="text-[11px] font-extrabold text-animeo-dark group-data-[tall=false]:hidden">Nouveau RDV</span>
       </div>
 
       {shown ? (

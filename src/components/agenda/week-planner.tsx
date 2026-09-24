@@ -146,11 +146,21 @@ function isReferenceDay(date: Date) {
   return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
 }
 
-function useCurrentTime() {
-  const [now, setNow] = useState(() => new Date());
+/**
+ * L'heure du navigateur, et seulement la sienne : nulle au rendu serveur,
+ * dont l'horloge (et souvent le fuseau) diffère — sinon l'hydratation
+ * échouerait sur le repère « maintenant ».
+ */
+function useCurrentTime(): Date | null {
+  const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(interval);
+    const tick = () => setNow(new Date());
+    const first = setTimeout(tick, 0);
+    const interval = setInterval(tick, 60000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
   }, []);
   return now;
 }
@@ -179,6 +189,15 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   // Clavier : une case active dans la grille, déplacée aux flèches ; Entrée
   // ou Espace ouvre les mêmes actions qu'un clic.
   const [keyboardCursor, setKeyboardCursor] = useState<{ day: number; minutes: number } | null>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
+  // Menu ouvert au clavier : à sa fermeture (Échap), le focus revient dans la
+  // grille plutôt que de se perdre — sauf si une fenêtre l'a pris entre-temps.
+  const openedByKeyboardRef = useRef(false);
+  useEffect(() => {
+    if (activeSlot || !openedByKeyboardRef.current) return;
+    openedByKeyboardRef.current = false;
+    if (document.activeElement === document.body) regionRef.current?.focus();
+  }, [activeSlot]);
   const keyboardHintId = useId();
   const cursorStep = display.slotMinutes;
 
@@ -189,7 +208,8 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
 
   function initialKeyboardCursor() {
     const today = dates.findIndex(isReferenceDay);
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const current = now ?? new Date();
+    const nowMinutes = current.getHours() * 60 + current.getMinutes();
     const minutes = today >= 0 && nowMinutes >= startHour * 60 && nowMinutes < endHour * 60
       ? Math.floor(nowMinutes / cursorStep) * cursorStep
       : startHour * 60;
@@ -233,6 +253,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       columnWidth,
       (selected.endMinutes - selected.startMinutes) * pxPerMinute,
     );
+    openedByKeyboardRef.current = true;
     onSelectSlot(selected, dates[day], rect, closedAt(selected.startMinutes), "keyboard", bounds);
   }
 
@@ -511,6 +532,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
             l'en-tête des jours reste collé en haut (sous la barre du
             téléphone). Aucun conteneur de défilement entre lui et la page. */}
         <div
+          ref={regionRef}
           role="region"
           aria-label={isDayView ? "Planning du jour" : "Planning de la semaine"}
           aria-describedby={keyboardHintId}
@@ -552,7 +574,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                 plannerHeight={plannerHeight}
                 pxPerMinute={pxPerMinute}
                 slotMinutes={display.slotMinutes}
-                nowMinutes={dates.some(isReferenceDay) ? now.getHours() * 60 + now.getMinutes() : null}
+                nowMinutes={now && dates.some(isReferenceDay) ? now.getHours() * 60 + now.getMinutes() : null}
               />
               {dates.map((date, dayIndex) => (
                 <DayColumn
@@ -674,7 +696,7 @@ function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, slotMinute
 
 function DayColumn({ date, now, availability, startHour, endHour, plannerHeight, pxPerMinute, slotMinutes, rowHeight, showClosedZones, keyboardCursor, events: dayEvents, draggedEventId, armedEventId, onPendingAction, onSelectEvent, onBeginMove, onBeginResize, selectedEventId, dayIndex, slotInterval, defaultDuration, activeSlot, onSelectSlot, onClearSlot }: {
   date: Date;
-  now: Date;
+  now: Date | null;
   availability: AvailabilitySettings;
   startHour: number;
   endHour: number;
@@ -719,8 +741,8 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
     [startHour, endHour, slotInterval, defaultDuration, dayEvents],
   );
   const closedAt = useMemo(() => closedAtFor(dayAvailability), [dayAvailability]);
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const showTimeLine = isReferenceDay(date) && nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60;
+  const nowMinutes = now ? now.getHours() * 60 + now.getMinutes() : -1;
+  const showTimeLine = now !== null && isReferenceDay(date) && nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60;
 
   return (
     <div
@@ -733,8 +755,10 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           className="pointer-events-none absolute inset-x-0 z-30 flex items-center"
           style={{ top: (nowMinutes - startHour * 60) * pxPerMinute }}
         >
-          <span className="-ml-[4px] h-2 w-2 shrink-0 rounded-full bg-animeo-accent ring-2 ring-white" />
-          <div className="h-[2px] flex-1 bg-animeo-accent" />
+          {/* Accent assombri vers le brun du texte : 3,4:1 sur la grille,
+              quand l'accent pur n'atteint pas le contraste d'un repère. */}
+          <span className="-ml-[4px] h-2 w-2 shrink-0 rounded-full bg-[color-mix(in_srgb,var(--theme-accent)_70%,var(--theme-text))] ring-2 ring-white" />
+          <div className="h-[2px] flex-1 bg-[color-mix(in_srgb,var(--theme-accent)_70%,var(--theme-text))]" />
         </div>
       ) : null}
 

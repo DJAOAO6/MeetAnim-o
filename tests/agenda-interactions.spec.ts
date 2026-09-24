@@ -82,6 +82,14 @@ test("au clavier : flèches entre les créneaux, Entrée ouvre les trois actions
   await expect(menu(page).getByRole("button")).toHaveText(["Nouveau rendez-vous", "Bloquer le créneau", /^Indisponible \/ Fermé/]);
   await page.keyboard.press("Escape");
   await expect(menu(page)).toHaveCount(0);
+  await expect(grid, "le focus revient dans la grille").toBeFocused();
+
+  // L'aide s'ouvre au focus et se referme avec Échap, sans bouger la souris.
+  const help = page.getByRole("button", { name: "Aide sur l’agenda" });
+  await help.focus();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toBeHidden();
 });
 
 test("sans le droit de modifier les horaires, « Indisponible / Fermé » est grisé et dit pourquoi", async ({ page }) => {

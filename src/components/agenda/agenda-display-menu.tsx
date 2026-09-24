@@ -144,7 +144,7 @@ function Segmented<T extends string | number>({ label, options, value, onChange 
               type="button"
               aria-pressed={active}
               onClick={() => onChange(option.value)}
-              className={`min-h-9 flex-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-extrabold transition ${active ? "bg-animeo text-white shadow-sm" : "text-animeo-dark hover:bg-white"}`}
+              className={`min-h-11 flex-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-extrabold transition sm:min-h-9 ${active ? "bg-animeo text-white shadow-sm" : "text-animeo-dark hover:bg-white"}`}
             >
               {option.label}
             </button>
