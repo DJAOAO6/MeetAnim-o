@@ -246,7 +246,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
       ) : null}
 
       {editing ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToWindowEdges]} onDragEnd={handleDragEnd}>
+        <DndContext id="dashboard-widgets" sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToWindowEdges]} onDragEnd={handleDragEnd}>
           <SortableContext items={visibleWidgets.map((widget) => widget.id)} strategy={rectSortingStrategy}>
             {grid}
           </SortableContext>

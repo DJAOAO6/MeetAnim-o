@@ -13,6 +13,29 @@ const sql = neon(process.env.DATABASE_URL!);
 const PRACTITIONER = "praticien-test@pf-osteo-animale.fr";
 const menu = (page: Page) => page.getByRole("dialog", { name: "Actions du créneau sélectionné" });
 
+/**
+ * Descend depuis la case active jusqu'à une case libre et ouverte, puis
+ * Entrée. La case de départ suit l'heure courante : elle peut tomber sur une
+ * zone fermée, dont le menu propose d'autres actions — on le referme et on
+ * continue.
+ */
+async function openFreeSlotMenu(page: Page) {
+  // Une colonne peut n'avoir aucune case libre (tournée, puis fermeture) :
+  // on remonte alors en haut du jour précédent et on recommence.
+  for (let day = 0; day < 7; day += 1) {
+    for (let step = 0; step < 40; step += 1) {
+      await page.keyboard.press("Enter");
+      if (await menu(page).isVisible().catch(() => false)) {
+        if (await menu(page).getByRole("button", { name: "Nouveau rendez-vous" }).count()) return;
+        await page.keyboard.press("Escape");
+      }
+      await page.keyboard.press("ArrowDown");
+    }
+    await page.keyboard.press("ArrowLeft");
+    for (let step = 0; step < 40; step += 1) await page.keyboard.press("ArrowUp");
+  }
+}
+
 let originalAvailability: unknown = null;
 
 test.describe.configure({ mode: "serial" });
@@ -72,12 +95,7 @@ test("au clavier : flèches entre les créneaux, Entrée ouvre les trois actions
   const moved = (await cursor.boundingBox())!;
   expect(moved.x !== after.x || moved.y !== after.y, "la case change de jour").toBe(true);
 
-  // Descendre jusqu'à une case libre, puis Entrée.
-  for (let step = 0; step < 30; step += 1) {
-    await page.keyboard.press("Enter");
-    if (await menu(page).isVisible().catch(() => false)) break;
-    await page.keyboard.press("ArrowDown");
-  }
+  await openFreeSlotMenu(page);
   await expect(menu(page)).toBeVisible();
   await expect(menu(page).getByRole("button")).toHaveText(["Nouveau rendez-vous", "Bloquer le créneau", /^Indisponible \/ Fermé/]);
   await page.keyboard.press("Escape");
@@ -93,17 +111,21 @@ test("au clavier : flèches entre les créneaux, Entrée ouvre les trois actions
 });
 
 test("sans le droit de modifier les horaires, « Indisponible / Fermé » est grisé et dit pourquoi", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-  await page.getByRole("region", { name: "Planning de la semaine" }).focus();
-  for (let step = 0; step < 30; step += 1) {
-    await page.keyboard.press("Enter");
-    if (await menu(page).isVisible().catch(() => false)) break;
-    await page.keyboard.press("ArrowDown");
+  // D'autres specs accordent ce droit au compte de test sans le retirer :
+  // on le retire le temps de l'essai, puis on rend les droits d'avant.
+  const [account] = await sql`SELECT permissions FROM "User" WHERE email = ${PRACTITIONER}`;
+  await sql`UPDATE "User" SET permissions = array_remove(permissions, 'MANAGE_PUBLIC_SETTINGS') WHERE email = ${PRACTITIONER}`;
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+    await page.getByRole("region", { name: "Planning de la semaine" }).focus();
+    await openFreeSlotMenu(page);
+    const close = menu(page).getByRole("button", { name: /Indisponible \/ Fermé/ });
+    await expect(close).toHaveAttribute("aria-disabled", "true");
+    await expect(close).toContainText("Réservé aux comptes autorisés à modifier les horaires");
+  } finally {
+    await sql`UPDATE "User" SET permissions = ${account.permissions}::text[] WHERE email = ${PRACTITIONER}`;
   }
-  const close = menu(page).getByRole("button", { name: /Indisponible \/ Fermé/ });
-  await expect(close).toHaveAttribute("aria-disabled", "true");
-  await expect(close).toContainText("Réservé aux comptes autorisés à modifier les horaires");
 });
 
 test("« Indisponible / Fermé » ferme vraiment le créneau", async ({ page }) => {
@@ -115,11 +137,7 @@ test("« Indisponible / Fermé » ferme vraiment le créneau", async ({ page }) 
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
   const grid = page.getByRole("region", { name: "Planning de la semaine" });
   await grid.focus();
-  for (let step = 0; step < 30; step += 1) {
-    await page.keyboard.press("Enter");
-    if (await menu(page).isVisible().catch(() => false)) break;
-    await page.keyboard.press("ArrowDown");
-  }
+  await openFreeSlotMenu(page);
   await menu(page).getByRole("button", { name: "Indisponible / Fermé" }).click();
   await expect(page.getByText(/Indisponible de \d{2}:\d{2} à \d{2}:\d{2}/)).toBeVisible();
   const [row] = await sql`SELECT availability FROM "BusinessProfile" WHERE "organizationId" = 'org-1002-pattes'`;

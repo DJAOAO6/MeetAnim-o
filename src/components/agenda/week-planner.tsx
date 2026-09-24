@@ -6,7 +6,7 @@ import { SlotSelectionLayer } from "@/components/agenda/slot-selection-layer";
 import { selectionFromClick, toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
+import { ArrowLeftRight, Ban, Check, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
 import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
 import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
@@ -73,6 +73,14 @@ const TOUCH_HOLD_TOLERANCE_PX = 10;
 const MIN_VISIBLE_HEIGHT = 12;
 /** Hauteur à partir de laquelle une demande en attente montre ses boutons. */
 const PENDING_ACTIONS_MIN_HEIGHT = 72;
+/**
+ * Contenu d'une carte selon sa hauteur à l'écran : une ligne tronquée sous
+ * TINY, l'heure et le nom jusqu'à FULL, tout le détail au-delà. Ce qui ne
+ * tient pas reste lisible au survol (title) et dans le nom accessible.
+ */
+const TINY_EVENT_HEIGHT = 22;
+const STACKED_EVENT_HEIGHT = 36;
+const FULL_EVENT_HEIGHT = 48;
 
 /**
  * Lignes de la grille, dessinées en fond plutôt qu'avec un élément par
@@ -113,6 +121,15 @@ function closedAtFor(dayAvailability: ReturnType<typeof getDayAvailability>) {
 }
 
 const cursorDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+/** Mode du rendez-vous : une icône et un mot, jamais la couleur seule. */
+const eventModes: Record<EventKind, { icon: typeof PawPrint; label: string }> = {
+  cabinet: { icon: PawPrint, label: "Au cabinet" },
+  domicile: { icon: Home, label: "À domicile" },
+  tournee: { icon: MapPin, label: "Tournée" },
+  pending: { icon: Clock, label: "Demande en attente" },
+  unavailable: { icon: Ban, label: "Indisponible" },
+};
 
 const eventStyles: Record<EventKind, string> = {
   cabinet: "border-animeo-brand bg-animeo-positive-soft text-animeo-dark",
@@ -191,8 +208,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   const [keyboardCursor, setKeyboardCursor] = useState<{ day: number; minutes: number } | null>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   // Menu ouvert au clavier : à sa fermeture (Échap), le focus revient dans la
-  // grille plutôt que de se perdre — sauf si une fenêtre l'a pris entre-temps.
+  // grille plutôt que de se perdre — sauf si une fenêtre l'a pris entre-temps —
+  // et sur la case d'où le menu est parti, pas sur l'heure courante.
   const openedByKeyboardRef = useRef(false);
+  const resumeCursorRef = useRef<{ day: number; minutes: number } | null>(null);
   useEffect(() => {
     if (activeSlot || !openedByKeyboardRef.current) return;
     openedByKeyboardRef.current = false;
@@ -254,6 +273,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       (selected.endMinutes - selected.startMinutes) * pxPerMinute,
     );
     openedByKeyboardRef.current = true;
+    resumeCursorRef.current = keyboardCursor;
     onSelectSlot(selected, dates[day], rect, closedAt(selected.startMinutes), "keyboard", bounds);
   }
 
@@ -266,6 +286,9 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   const gridRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const justDraggedRef = useRef(false);
+  // Seul le clic émis au relâchement est ignoré : un rendez-vous lâché
+  // ailleurs ne doit pas faire ignorer, bien plus tard, le clic sur une carte.
+  const dragEndedAtRef = useRef(0);
   // Rendez-vous dont le déplacement tactile est armé : sert au retour visuel
   // « mode déplacement » et n'a aucun effet à la souris.
   const [armedEventId, setArmedEventId] = useState<string | null>(null);
@@ -277,7 +300,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
   useEffect(() => () => { releaseTouchScrollRef.current?.(); }, []);
 
   function handleSelectEvent(event: CalendarEvent, anchorRect: DOMRect) {
-    if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+    if (justDraggedRef.current) {
+      justDraggedRef.current = false;
+      if (performance.now() - dragEndedAtRef.current < 500) return;
+    }
     if (event.appointmentId) { setSelection({ event, anchorRect }); return; }
     if (event.tourId) { onSelectTour(event.tourId, anchorRect); return; }
     if (event.blockedSlotId) { onSelectBlockedSlot(event.blockedSlotId, anchorRect); return; }
@@ -455,6 +481,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     dragRef.current = null;
     setDrag(null);
     disarmTouch();
+    dragEndedAtRef.current = performance.now();
     if (!state) return;
 
     const original = appointments.find((item) => item.id === state.event.appointmentId);
@@ -537,7 +564,11 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
           aria-label={isDayView ? "Planning du jour" : "Planning de la semaine"}
           aria-describedby={keyboardHintId}
           tabIndex={0}
-          onFocus={(event) => { if (event.target === event.currentTarget && !keyboardCursor) setKeyboardCursor(initialKeyboardCursor()); }}
+          onFocus={(event) => {
+            if (event.target !== event.currentTarget || keyboardCursor) return;
+            setKeyboardCursor(resumeCursorRef.current ?? initialKeyboardCursor());
+            resumeCursorRef.current = null;
+          }}
           onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setKeyboardCursor(null); }}
           onKeyDown={handleGridKeyDown}
           className="relative outline-none"
@@ -848,7 +879,9 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
   // Les boutons d'une demande en attente demandent de la place ; sur une
   // carte plus courte, la demande se traite depuis le panneau au-dessus de
   // la grille, la cloche ou sa fiche.
-  const showPendingActions = isPending && height >= PENDING_ACTIONS_MIN_HEIGHT;
+  // Partagée avec un autre rendez-vous, la carte est trop étroite pour trois
+  // boutons lisibles : un clic l'ouvre, comme les autres.
+  const showPendingActions = isPending && height >= PENDING_ACTIONS_MIN_HEIGHT && columnLayout.columns === 1;
   const selectableLabel = isUnavailable
     ? `Ouvrir le créneau bloqué : ${event.title ?? "Indisponible"} à ${event.start}`
     : isTournee
@@ -858,6 +891,17 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
         : `Ouvrir le rendez-vous de ${event.animal ?? "l’animal"} à ${event.start}`;
   const { column, columns } = columnLayout;
   const columnWidthPercent = 100 / columns;
+  const mode = eventModes[event.kind];
+  const ModeIcon = mode.icon;
+  const name = (isUnavailable || isTournee ? event.title : event.animal) ?? mode.label;
+  const end = minutesToTime(toMinutes(event.start) + event.duration);
+  const visualHeight = height - inset * 2;
+  const size = visualHeight < TINY_EVENT_HEIGHT ? "tiny" : visualHeight < FULL_EVENT_HEIGHT ? "medium" : "full";
+  // Une ligne n'apparaît que si elle tient entière, boutons d'une demande compris.
+  const showClient = visualHeight >= 54 && (!showPendingActions || visualHeight >= 86);
+  const showLocation = visualHeight >= 68 && !showPendingActions;
+  // Tout ce que la carte ne montre pas faute de place, en bulle au survol.
+  const summary = [`${event.start} – ${end}`, name, event.client, mode.label, event.location].filter(Boolean).join(" · ");
 
   function handleSelect() {
     if (!isSelectable || !articleRef.current) return;
@@ -896,7 +940,9 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
       onKeyDown={isSelectable && !showPendingActions ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
       aria-label={isSelectable ? selectableLabel : undefined}
-      className={`group absolute overflow-hidden rounded-xl border-l-4 p-1.5 leading-tight shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
+      title={size === "full" && showLocation && columnLayout.columns === 1 ? undefined : summary}
+      data-size={size}
+      className={`@container group absolute overflow-hidden border-l-4 leading-tight ${size === "tiny" ? "rounded-md px-1.5" : "rounded-lg px-1.5 py-1"} shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
         isSelectable ? "outline-none hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgb(var(--theme-shadow-rgb)/0.16)] focus-visible:ring-2 focus-visible:ring-animeo-dark" : ""
       } ${isDraggable ? "cursor-grab active:cursor-grabbing" : isSelectable ? "cursor-pointer" : ""} ${isSelected ? "-translate-y-0.5 scale-[1.02] ring-2 ring-animeo-dark ring-offset-1" : ""} ${isDragging ? "opacity-30" : ""} ${isArmed ? "scale-[1.04] shadow-[0_14px_28px_rgb(var(--theme-shadow-rgb)/0.28)] ring-2 ring-animeo ring-offset-2" : ""}`}
       data-drag-armed={isArmed ? "true" : undefined}
@@ -923,53 +969,40 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
         touchAction: "manipulation",
       }}
     >
-      <p className="text-[10px] font-black">{event.start}</p>
-      <p className="mt-0.5 truncate text-xs font-extrabold">
-        {isUnavailable || isTournee ? event.title : event.animal}
-      </p>
-      {event.client ? <p className="truncate text-[10px] font-bold">{event.client}</p> : null}
-      {/* Sans opacité sur ces deux lignes : appliquée à un texte de 10 px sur
-          une pastille colorée, elle les faisait passer sous le seuil de
-          contraste AA. Elles héritent désormais de la couleur de la pastille,
-          déjà vérifiée. */}
-      {event.location ? (
-        <p className="mt-1 flex items-center gap-1 truncate text-[10px] font-semibold">
-          {isTournee ? <Icon name="tournees" className="h-3 w-3 shrink-0" /> : null}
-          {event.kind === "cabinet" ? <Icon name="home" className="h-3 w-3 shrink-0" /> : null}
-          {event.kind === "domicile" ? <Icon name="car" className="h-3 w-3 shrink-0" /> : null}
-          {event.location}
+      {size === "tiny" ? (
+        <p className="flex h-full items-center gap-1 truncate text-[10px] font-extrabold">
+          <span className="font-black tabular-nums">{event.start}</span>
+          <span className="truncate">{name}</span>
         </p>
-      ) : null}
+      ) : size === "medium" ? (
+        <div className={visualHeight >= STACKED_EVENT_HEIGHT ? "" : "flex items-baseline gap-1.5"}>
+          <p className="text-[10px] font-black tabular-nums">{event.start}</p>
+          <p className="truncate text-xs font-extrabold">{name}</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5">
+            {/* Largeur de la carte, pas de l'écran : l'heure de fin et l'icône
+                n'apparaissent que si elles tiennent sans être coupées. */}
+            <p className="min-w-0 flex-1 truncate text-[10px] font-black tabular-nums">
+              {event.start}<span className="hidden @min-[8.5rem]:inline"> – {end}</span>
+            </p>
+            <ModeIcon aria-hidden="true" className="hidden h-3.5 w-3.5 shrink-0 @min-[4.5rem]:block" strokeWidth={2.25} />
+          </div>
+          <p className="mt-0.5 truncate text-xs font-extrabold">{name}</p>
+          {/* Sans opacité sur ces lignes : appliquée à un texte de 10 px sur
+              une pastille colorée, elle les faisait passer sous le seuil de
+              contraste AA. Elles héritent de la couleur de la pastille. */}
+          {event.client && showClient ? <p className="truncate text-[10px] font-bold">{event.client}</p> : null}
+          {showLocation ? <p className="mt-0.5 truncate text-[10px] font-semibold">{event.location ?? mode.label}</p> : null}
+        </>
+      )}
 
       {showPendingActions ? (
         <div className="mt-1.5 grid grid-cols-3 gap-1">
-          <button
-            type="button"
-            title="Accepter"
-            aria-label="Accepter le rendez-vous"
-            onClick={(clickEvent) => { clickEvent.stopPropagation(); onPendingAction("Accepté", event); }}
-            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-animeo-warning transition hover:bg-animeo hover:text-white"
-          >
-            ✓
-          </button>
-          <button
-            type="button"
-            title="Décaler"
-            aria-label="Décaler le rendez-vous"
-            onClick={(clickEvent) => { clickEvent.stopPropagation(); handleSelect(); }}
-            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-animeo-warning transition hover:bg-white hover:text-animeo-dark"
-          >
-            ↔
-          </button>
-          <button
-            type="button"
-            title="Refuser"
-            aria-label="Refuser le rendez-vous"
-            onClick={(clickEvent) => { clickEvent.stopPropagation(); onPendingAction("Refusé", event); }}
-            className="flex items-center justify-center rounded-md bg-white/85 py-1 text-xs font-black leading-none text-animeo-warning transition hover:bg-animeo-error hover:text-white"
-          >
-            ✕
-          </button>
+          <PendingButton label="Accepter le rendez-vous" icon={Check} tone="hover:bg-animeo hover:text-white" onClick={() => onPendingAction("Accepté", event)} />
+          <PendingButton label="Décaler le rendez-vous" icon={ArrowLeftRight} tone="hover:bg-white hover:text-animeo-dark" onClick={handleSelect} />
+          <PendingButton label="Refuser le rendez-vous" icon={X} tone="hover:bg-animeo-error hover:text-white" onClick={() => onPendingAction("Refusé", event)} />
         </div>
       ) : null}
 
@@ -983,5 +1016,19 @@ function CalendarEventCard({ event, startHour, pxPerMinute, columnLayout, isDrag
         </div>
       ) : null}
     </article>
+  );
+}
+
+function PendingButton({ label, icon: ButtonIcon, tone, onClick }: { label: string; icon: typeof Check; tone: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title={label.replace(" le rendez-vous", "")}
+      aria-label={label}
+      onClick={(clickEvent) => { clickEvent.stopPropagation(); onClick(); }}
+      className={`flex items-center justify-center rounded-md bg-white/85 py-1 text-animeo-warning transition ${tone}`}
+    >
+      <ButtonIcon aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.75} />
+    </button>
   );
 }

@@ -216,7 +216,7 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
           de l'aperçu sur les écrans plus étroits. */}
       <section className="rounded-[22px] border border-animeo-border bg-animeo-surface p-4">
         <h2 className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-animeo-muted">Sections</h2>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext id="public-page-sections" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={config.sections.map((section) => section.id)} strategy={verticalListSortingStrategy}>
             <ul className="space-y-2">
               {config.sections.map((section) => {
