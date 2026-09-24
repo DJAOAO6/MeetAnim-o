@@ -23,8 +23,11 @@ export function AgendaFilterBar({ value, onChange, help = [] }: AgendaFilterBarP
   const chips = filterOptions.filter((option): option is { id: Exclude<MonthFilter, "all">; label: string } => option.id !== "all");
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div role="group" aria-label="Légende et filtre des rendez-vous" className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2 sm:flex-wrap">
+      {/* Téléphone : une seule rangée qui défile, plutôt que trois lignes de
+          pastilles au-dessus de la grille. L'aide reste hors de la rangée,
+          sa bulle n'y serait pas coupée. */}
+      <div role="group" aria-label="Légende et filtre des rendez-vous" className="-my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] sm:my-0 sm:flex-initial sm:flex-wrap sm:overflow-visible sm:py-0">
         {chips.map((option) => {
           const active = value === option.id;
           return (
@@ -34,7 +37,7 @@ export function AgendaFilterBar({ value, onChange, help = [] }: AgendaFilterBarP
               aria-pressed={active}
               title={active ? "Afficher tous les types" : `N’afficher que : ${option.label}`}
               onClick={() => onChange(active ? "all" : option.id)}
-              className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 text-xs font-extrabold transition sm:min-h-9 ${
+              className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 text-xs font-extrabold transition sm:min-h-9 ${
                 active ? "border-animeo bg-animeo text-white" : "border-transparent bg-animeo-bg text-animeo-dark hover:border-animeo-border"
               }`}
             >
@@ -43,7 +46,7 @@ export function AgendaFilterBar({ value, onChange, help = [] }: AgendaFilterBarP
             </button>
           );
         })}
-        <span className="inline-flex min-h-11 items-center gap-2 rounded-full bg-animeo-bg px-3 text-xs font-extrabold text-animeo-muted sm:min-h-9">
+        <span className="inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-animeo-bg px-3 text-xs font-extrabold text-animeo-muted sm:min-h-9">
           <span aria-hidden="true" className="h-2 w-2 rounded-full bg-animeo-subtle" />
           Fermé
         </span>
@@ -51,7 +54,7 @@ export function AgendaFilterBar({ value, onChange, help = [] }: AgendaFilterBarP
 
       {help.length ? (
         <span
-          className="group relative inline-flex"
+          className="group relative inline-flex shrink-0"
           onKeyDown={(event) => { if (event.key === "Escape") setHelpDismissed(true); }}
           onPointerLeave={() => setHelpDismissed(false)}
           onBlur={() => setHelpDismissed(false)}
@@ -67,7 +70,7 @@ export function AgendaFilterBar({ value, onChange, help = [] }: AgendaFilterBarP
           <span
             id={tooltipId}
             role="tooltip"
-            className={`pointer-events-none invisible absolute left-0 top-[calc(100%+0.375rem)] z-50 w-72 rounded-xl bg-animeo-dark px-3 py-2.5 text-xs font-semibold leading-5 text-white opacity-0 shadow-lg transition-opacity duration-150 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 sm:left-1/2 sm:-translate-x-1/2 ${helpDismissed ? "!invisible !opacity-0" : ""}`}
+            className={`pointer-events-none invisible absolute right-0 top-[calc(100%+0.375rem)] z-50 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-animeo-dark px-3 py-2.5 text-xs font-semibold leading-5 text-white opacity-0 shadow-lg transition-opacity duration-150 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 ${helpDismissed ? "!invisible !opacity-0" : ""}`}
           >
             {help.map((line) => <span key={line} className="block">{line}</span>)}
           </span>

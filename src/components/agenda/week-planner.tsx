@@ -6,7 +6,7 @@ import { SlotSelectionLayer } from "@/components/agenda/slot-selection-layer";
 import { selectionFromClick, toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
-import { ArrowLeftRight, Ban, Check, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
+import { ArrowLeftRight, Ban, Check, ChevronLeft, ChevronRight, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
 import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
 import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
@@ -55,9 +55,17 @@ type WeekPlannerProps = {
   blockedEvents?: CalendarEvent[];
   /** Affichage choisi par le compte : intervalle, densité, heures visibles, zones fermées. */
   display?: AgendaDisplay;
+  /** Vue Jour : passer au jour d'avant ou d'après depuis l'en-tête (téléphone). */
+  onShiftDay?: (delta: number) => void;
 };
 
 const TIME_COLUMN_WIDTH = 56;
+/**
+ * Largeur minimale d'une colonne de jour. En deçà (tablette, barre latérale
+ * ouverte), la grille défile latéralement dans sa carte plutôt que de
+ * réduire les rendez-vous à une lettre ; l'axe des heures reste en place.
+ */
+const MIN_DAY_COLUMN_WIDTH = 92;
 const SNAP_MINUTES = 15;
 const DRAG_THRESHOLD_PX = 4;
 // Tactile : le glissement n'est jamais armé au premier mouvement du doigt —
@@ -67,7 +75,7 @@ const DRAG_THRESHOLD_PX = 4;
 // possible ; le défilement garde la priorité pendant tout ce délai.
 const TOUCH_HOLD_MS = 500;
 // Tolérance de tremblement pendant l'appui : au-delà, c'est un défilement.
-const TOUCH_HOLD_TOLERANCE_PX = 10;
+const TOUCH_HOLD_TOLERANCE_PX = 8;
 
 /** Plancher de lisibilité d'une carte, en pixels : en deçà, on ne voit plus rien. */
 const MIN_VISIBLE_HEIGHT = 12;
@@ -186,12 +194,38 @@ type DragState =
   | { kind: "move"; event: CalendarEvent; originDay: number; originStartMinutes: number; grabOffsetMinutes: number; currentDay: number; currentStartMinutes: number }
   | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
 
-export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [], display = DEFAULT_AGENDA_DISPLAY }: WeekPlannerProps) {
+export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [], display = DEFAULT_AGENDA_DISPLAY, onShiftDay }: WeekPlannerProps) {
   const { appointments, saveAppointment } = useAppointments();
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const isDayView = dates.length === 1;
   const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px repeat(${dates.length}, minmax(0,1fr))`;
+  const minGridWidth = isDayView ? undefined : TIME_COLUMN_WIDTH + dates.length * MIN_DAY_COLUMN_WIDTH;
+
+  // Défilement latéral : la grille défile dans son propre conteneur, et
+  // l'en-tête des jours (collé en haut de la page, donc hors de ce
+  // conteneur) suit par une simple translation — sans nouveau rendu.
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const headerTrackRef = useRef<HTMLDivElement>(null);
+  const headerCornerRef = useRef<HTMLDivElement>(null);
+  function syncHeader() {
+    const x = scrollerRef.current?.scrollLeft ?? 0;
+    if (headerTrackRef.current) headerTrackRef.current.style.transform = x ? `translateX(${-x}px)` : "";
+    if (headerCornerRef.current) headerCornerRef.current.style.transform = x ? `translateX(${x}px)` : "";
+  }
+  // Semaine trop large pour l'écran : aujourd'hui, s'il y figure, est amené
+  // en première colonne visible.
+  const firstDateId = dates.length ? dateIdOf(dates[0]) : "";
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const today = dates.findIndex(isReferenceDay);
+    const overflow = scroller.scrollWidth - scroller.clientWidth;
+    scroller.scrollLeft = overflow > 0 && today > 0 ? Math.min(overflow, today * ((scroller.scrollWidth - TIME_COLUMN_WIDTH) / dates.length)) : 0;
+    syncHeader();
+    // Seulement quand la période change, pas à chaque rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstDateId, dates.length]);
   const allEvents = useMemo(() => [...appointmentEvents, ...tourEvents, ...blockedEvents], [appointmentEvents, tourEvents, blockedEvents]);
   // Géométrie de la grille : la hauteur d'une ligne vient de la densité, sa
   // durée de l'intervalle. Les rendez-vous, eux, gardent leur vraie durée.
@@ -547,17 +581,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
           arrondis, mais seul le second crée un conteneur de défilement — qui
           empêcherait l'en-tête des jours de rester collé en haut de la page. */}
       <Card className="overflow-clip">
-        {/* Pas de min-w forcé : les colonnes de jour (minmax(0,1fr) dans
-            gridTemplateColumns) se répartissent sur toute la largeur
-            réellement disponible plutôt que de forcer un défilement
-            horizontal dès que cette largeur descend sous un seuil arbitraire
-            — c'est justement ce qui coupait Samedi/Dimanche sur les largeurs
-            de portable courantes. Le dégradé ci-dessous reste en filet de
-            sécurité pour le cas extrême (très petit écran) où un
-            défilement resterait malgré tout nécessaire. */}
-        {/* Plus de défilement interne : c'est la page qui défile, et
-            l'en-tête des jours reste collé en haut (sous la barre du
-            téléphone). Aucun conteneur de défilement entre lui et la page. */}
+        {/* Défilement vertical : celui de la page, pour que l'en-tête des
+            jours reste collé en haut (sous la barre du téléphone). Défilement
+            latéral : seulement quand les colonnes passeraient sous
+            MIN_DAY_COLUMN_WIDTH, dans le conteneur de la grille. */}
         <div
           ref={regionRef}
           role="region"
@@ -577,16 +604,21 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
           <p aria-live="polite" className="sr-only">{keyboardCursor ? describeCursor(keyboardCursor) : ""}</p>
           <div>
             <div
-              className="sticky top-16 z-[32] grid border-b border-animeo-border bg-animeo-surface-alt md:top-0"
-              style={{ gridTemplateColumns }}
+              className="sticky top-16 z-[32] overflow-clip border-b border-animeo-border bg-animeo-surface-alt md:top-0"
               data-testid="agenda-day-header"
             >
-              <div className="border-r border-animeo-border" />
+              {isDayView && onShiftDay ? <DayStrip date={dates[0]} onShift={onShiftDay} /> : null}
+              <div
+                ref={headerTrackRef}
+                className={`grid will-change-transform ${isDayView && onShiftDay ? "max-md:hidden" : ""}`}
+                style={{ gridTemplateColumns, minWidth: minGridWidth }}
+              >
+              <div ref={headerCornerRef} className="relative z-[1] border-r border-animeo-border bg-animeo-surface-alt" />
               {dates.map((date) => {
                 const active = isReferenceDay(date);
 
                 return (
-                  <div key={date.toISOString()} className="border-r border-animeo-border px-2 py-3 text-center last:border-r-0">
+                  <div key={date.toISOString()} className="border-r border-animeo-border px-2 py-3 text-center last:border-r-0" data-testid="agenda-day-heading">
                     <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
                       {dayFormatter.format(date).replace(".", "")}
                     </p>
@@ -596,9 +628,16 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                   </div>
                 );
               })}
+              </div>
             </div>
 
-            <div ref={gridRef} className="relative grid" style={{ gridTemplateColumns }}>
+            <div
+              ref={scrollerRef}
+              onScroll={minGridWidth ? syncHeader : undefined}
+              className={minGridWidth ? "overflow-x-auto overscroll-x-contain" : undefined}
+              data-testid="agenda-grid-scroller"
+            >
+            <div ref={gridRef} className="relative grid" style={{ gridTemplateColumns, minWidth: minGridWidth }}>
               <TimeColumn
                 startHour={startHour}
                 endHour={endHour}
@@ -660,6 +699,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
                 </div>
               ) : null}
             </div>
+            </div>
           </div>
         </div>
       </Card>
@@ -675,6 +715,53 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
         />
       ) : null}
     </>
+  );
+}
+
+const stripWeekdayFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
+const stripDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+/**
+ * Vue Jour sur téléphone : « ‹ Mar 22 · Mer 23 · Jeu 24 › » dans l'en-tête
+ * collé, à portée de pouce, pour passer d'un jour à l'autre sans remonter à
+ * la barre d'outils. Au-delà du téléphone, l'en-tête habituel reprend.
+ */
+function DayStrip({ date, onShift }: { date: Date; onShift: (delta: number) => void }) {
+  const days = [-1, 0, 1].map((delta) => ({ delta, day: new Date(date.getFullYear(), date.getMonth(), date.getDate() + delta, 12) }));
+  const arrow = "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-animeo-dark transition hover:bg-white";
+  return (
+    <nav aria-label="Changer de jour" className="flex items-center gap-1 px-1.5 py-1.5 md:hidden" data-testid="agenda-day-strip">
+      <button type="button" aria-label="Jour précédent" onClick={() => onShift(-1)} className={arrow}>
+        <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+      </button>
+      <div className="grid flex-1 grid-cols-3 gap-1">
+        {days.map(({ delta, day }) => {
+          const current = delta === 0;
+          const weekday = stripWeekdayFormatter.format(day).replace(".", "");
+          const content = (
+            <>
+              <span className={`text-[11px] font-extrabold ${current ? "text-white/85" : "text-animeo-muted"}`}>{weekday.charAt(0).toUpperCase() + weekday.slice(1)}</span>
+              <span className="text-sm font-black tabular-nums">{day.getDate()}</span>
+              {isReferenceDay(day) && !current ? <span aria-hidden="true" className="h-1 w-1 rounded-full bg-animeo" /> : null}
+            </>
+          );
+          const base = "flex min-h-11 items-center justify-center gap-1.5 rounded-xl";
+          return current ? (
+            <p key={delta} aria-current="date" className={`${base} bg-animeo text-white`}>
+              <span className="sr-only">{stripDateFormatter.format(day)}</span>
+              <span aria-hidden="true" className="contents">{content}</span>
+            </p>
+          ) : (
+            <button key={delta} type="button" aria-label={`Afficher ${stripDateFormatter.format(day)}`} onClick={() => onShift(delta)} className={`${base} text-animeo-dark transition hover:bg-white`}>
+              {content}
+            </button>
+          );
+        })}
+      </div>
+      <button type="button" aria-label="Jour suivant" onClick={() => onShift(1)} className={arrow}>
+        <ChevronRight aria-hidden="true" className="h-5 w-5" />
+      </button>
+    </nav>
   );
 }
 

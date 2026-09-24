@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Lock, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
@@ -51,6 +52,34 @@ function getWeekDates(offset: number) {
 function getDayDate(offset: number) {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12);
+}
+
+function dayOffsetOf(date: Date) {
+  return Math.round((date.getTime() - getDayDate(0).getTime()) / DAY_IN_MS);
+}
+
+/**
+ * Vue « 3 jours » : trois jours affichés d'affilée à partir de `offset`, en
+ * sautant ceux masqués dans « Affichage » (samedi, dimanche).
+ */
+function shownDaysFrom(offset: number, count: number, shown: Pick<AgendaDisplay, "showSaturday" | "showSunday">): Date[] {
+  const days: Date[] = [];
+  for (let current = offset; days.length < count && current < offset + 14; current += 1) {
+    const date = getDayDate(current);
+    if (isWeekdayShown(date.getDay(), shown)) days.push(date);
+  }
+  return days;
+}
+
+/** Décalage du premier des `count` jours affichés qui précèdent `offset`. */
+function shownDaysBefore(offset: number, count: number, shown: Pick<AgendaDisplay, "showSaturday" | "showSunday">): number {
+  let found = 0;
+  let current = offset;
+  while (found < count && current > offset - 14) {
+    current -= 1;
+    if (isWeekdayShown(getDayDate(current).getDay(), shown)) found += 1;
+  }
+  return current;
 }
 
 function getMonthDate(offset: number) {
@@ -184,11 +213,15 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   // changer l'intervalle ou la densité ne recalcule aucune donnée ci-dessous.
   const { showSaturday, showSunday } = display;
   const activeDates = useMemo(
-    () => (view === "day" ? [getDayDate(dayOffset)] : weekDates.filter((date) => isWeekdayShown(date.getDay(), { showSaturday, showSunday }))),
+    () => (view === "day" ? [getDayDate(dayOffset)]
+      : view === "threeDays" ? shownDaysFrom(dayOffset, 3, { showSaturday, showSunday })
+        : weekDates.filter((date) => isWeekdayShown(date.getDay(), { showSaturday, showSunday }))),
     [view, dayOffset, weekDates, showSaturday, showSunday],
   );
   const monthDate = getMonthDate(monthOffset);
   const yearValue = getYearValue(yearOffset);
+  // Jour, 3 jours et Semaine partagent la même grille horaire.
+  const isGridView = view === "day" || view === "threeDays" || view === "week";
 
   // L'espace pro ne charge d'office qu'une fenêtre autour d'aujourd'hui :
   // la période affichée est demandée dès qu'elle en sort (l'an dernier, la
@@ -285,7 +318,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   // aujourd'hui si l'année affichée est l'année courante sinon le 1er
   // janvier en Année.
   function smartDefaultDateId(): string {
-    if (view === "day" || view === "week") return dateId(activeDates[0]);
+    if (isGridView) return dateId(activeDates[0]);
     if (view === "month") return dateId(selectedDay ?? monthDate);
     const today = new Date();
     return yearValue === today.getFullYear() ? dateId(today) : dateId(new Date(yearValue, 0, 1, 12));
@@ -398,6 +431,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
   function goToPrevious() {
     if (view === "day") setDayOffset((current) => current - 1);
+    else if (view === "threeDays") setDayOffset((current) => shownDaysBefore(current, 3, display));
     else if (view === "week") setWeekOffset((current) => current - 1);
     else if (view === "month") { setMonthOffset((current) => current - 1); setSelectedDay(null); }
     else setYearOffset((current) => current - 1);
@@ -405,13 +439,14 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 
   function goToNext() {
     if (view === "day") setDayOffset((current) => current + 1);
+    else if (view === "threeDays") setDayOffset(dayOffsetOf(activeDates[activeDates.length - 1]) + 1);
     else if (view === "week") setWeekOffset((current) => current + 1);
     else if (view === "month") { setMonthOffset((current) => current + 1); setSelectedDay(null); }
     else setYearOffset((current) => current + 1);
   }
 
   function goToToday() {
-    if (view === "day") setDayOffset(0);
+    if (view === "day" || view === "threeDays") setDayOffset(0);
     else if (view === "week") setWeekOffset(0);
     else if (view === "month") { setMonthOffset(0); setSelectedDay(null); }
     else setYearOffset(0);
@@ -423,8 +458,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   }
 
   function jumpToDay(date: Date) {
-    const diffDays = Math.round((date.getTime() - getDayDate(0).getTime()) / DAY_IN_MS);
-    setDayOffset(diffDays);
+    setDayOffset(dayOffsetOf(date));
     setView("day");
   }
 
@@ -463,7 +497,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               type="button"
               onClick={goToPrevious}
               aria-label={navLabel(view, "précédent")}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
+              className="flex h-11 w-11 items-center sm:h-10 sm:w-10 justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4 rotate-180" />
             </button>
@@ -471,19 +505,20 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               type="button"
               onClick={goToNext}
               aria-label={navLabel(view, "suivant")}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
+              className="flex h-11 w-11 items-center sm:h-10 sm:w-10 justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
             >
               <Icon name="arrow" className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={goToToday}
-              className="rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo"
+              className="min-h-11 rounded-xl border sm:min-h-0 border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo"
             >
               Aujourd’hui
             </button>
             <h2 className="ml-1 text-lg font-extrabold capitalize text-animeo-dark sm:text-xl">
               {view === "day" ? formatDayLabel(activeDates[0])
+                : view === "threeDays" ? formatWeekLabel(activeDates)
                 : view === "week" ? formatWeekLabel(weekDates)
                   : view === "month" ? formatMonthLabel(monthDate)
                     : yearValue}
@@ -496,24 +531,30 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               inatteignable, alors que la page ne défilait pas latéralement. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <AgendaViewSwitcher value={view} onChange={handleViewChange} />
-            {view === "day" || view === "week" ? <AgendaDisplayMenu value={display} onChange={setDisplay} /> : null}
+            {isGridView ? <AgendaDisplayMenu value={display} onChange={setDisplay} /> : null}
 
-            <button
-              type="button"
-              onClick={openBlockSlotModal}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
-              <LockIcon />
-              Bloquer un créneau
-            </button>
-            <button
-              type="button"
-              onClick={() => openNewAppointment(smartDefaultDateId())}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
-            >
-              <span aria-hidden="true" className="text-xl leading-none">+</span>
-              Nouveau rendez-vous
-            </button>
+            {/* Téléphone : les deux actions côte à côte, libellés courts ;
+                au-delà, elles rejoignent la rangée. */}
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              <button
+                type="button"
+                onClick={openBlockSlotModal}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-dark px-3 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft sm:min-h-0 sm:px-4"
+              >
+                <Lock aria-hidden="true" className="h-4 w-4" />
+                <span className="sm:hidden">Bloquer</span>
+                <span className="hidden sm:inline">Bloquer un créneau</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => openNewAppointment(smartDefaultDateId())}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-animeo px-3 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover sm:min-h-0 sm:px-4"
+              >
+                <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />
+                <span className="sm:hidden">Nouveau RDV</span>
+                <span className="hidden sm:inline">Nouveau rendez-vous</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -522,7 +563,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
             <AgendaFilterBar
               value={filter}
               onChange={setFilter}
-              help={view === "day" || view === "week" ? [
+              help={isGridView ? [
                 `Horaires affichés de ${String(display.dayStart).padStart(2, "0")}:00 à ${String(display.dayEnd).padStart(2, "0")}:00 — à régler dans « Affichage ».`,
                 "Cliquez sur une case vide pour créer un rendez-vous ou bloquer le créneau.",
                 "Glissez un rendez-vous pour le replanifier ; sur téléphone, appuyez longuement avant de le déplacer.",
@@ -544,13 +585,16 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
         description="Votre planning unique pour les rendez-vous au cabinet et à domicile."
       />
 
-      {view === "day" || view === "week" ? (
+      {isGridView ? (
         <>
           <PendingRequestsPanel requests={pendingRequests} onAction={handlePendingAction} />
 
           {toolbarCard}
 
-          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
+          {/* grid-cols-1 (minmax(0,1fr)) : sans lui, la colonne prend la
+              largeur minimale de la grille et la page déborde au lieu de
+              laisser la grille défiler dans sa carte. */}
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_310px]">
             <WeekPlanner
               display={display}
               dates={activeDates}
@@ -565,6 +609,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
               onSelectSlot={handleSelectSlot}
               onClearSlot={() => setSlotSelection(null)}
               activeSlot={slotSelection?.selection ?? null}
+              onShiftDay={view === "day" ? (delta) => setDayOffset((current) => current + delta) : undefined}
             />
             <AgendaSidePanel weekDates={weekDates} tours={tours} tourAppointments={tourAppointments} onSelectDate={jumpToDay} />
           </div>
@@ -691,6 +736,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
 }
 
 function navLabel(view: AgendaViewMode, direction: "précédent" | "suivant") {
+  if (view === "threeDays") return direction === "précédent" ? "Afficher les jours précédents" : "Afficher les jours suivants";
   const unit = view === "day" ? "le jour" : view === "week" ? "la semaine" : view === "month" ? "le mois" : "l’année";
   const suffix = direction === "précédent" ? (view === "day" || view === "month" ? "précédent" : "précédente") : "suivant" + (view === "week" ? "e" : "");
   return `Afficher ${unit} ${suffix}`;
@@ -739,14 +785,5 @@ function PendingRequestsPanel({ requests, onAction }: {
         ))}
       </div>
     </Card>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <rect x="5" y="10" width="14" height="11" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    </svg>
   );
 }
