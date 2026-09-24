@@ -204,7 +204,9 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
       return;
     }
     setInitialSnapshot(JSON.stringify({ draft, addressLine, addressExtra, postalCode, city }));
-    notify.success(appointment ? "Rendez-vous modifié" : "Rendez-vous créé");
+    notify.success(!appointment ? "Rendez-vous créé"
+      : draft.status === "cancelled" && appointment.status !== "cancelled" ? "Rendez-vous annulé — le créneau est de nouveau libre."
+        : "Rendez-vous modifié");
   }
 
   return (

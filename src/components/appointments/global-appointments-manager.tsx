@@ -46,8 +46,9 @@ export function GlobalAppointmentsManager({ context }: { context: AppointmentMod
     const result = await updateAppointmentStatus(appointment.id, status);
     if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
 
-    if (status === "cancelled") notify.success("Rendez-vous annulé — le créneau est de nouveau libre.");
-    else if (status === "confirmed") notify.success("Rendez-vous confirmé");
+    const wasRequest = appointment.status === "pending";
+    if (status === "cancelled") notify.success(wasRequest ? "Demande refusée — le créneau est de nouveau libre." : "Rendez-vous annulé — le créneau est de nouveau libre.");
+    else if (status === "confirmed") notify.success(wasRequest ? "Demande acceptée" : "Rendez-vous confirmé");
     else notify.success("Rendez-vous marqué comme terminé");
   }
 

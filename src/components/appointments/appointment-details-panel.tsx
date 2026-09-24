@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Car, CheckCircle, Clock, FileText, MapPin, Navigation, PawPrint, Pencil, Phone, Scissors, User } from "lucide-react";
+import { Building2, CalendarClock, Car, Check, CheckCircle, Clock, FileText, MapPin, Navigation, PawPrint, Pencil, Phone, Scissors, User, X } from "lucide-react";
+import type { AppointmentAction } from "@/components/appointments/appointment-actions-menu";
 import { appointmentStatusLabels, type Appointment } from "@/data/appointments";
 import { statusTone } from "@/components/appointments/appointment-status";
 import { useAppointmentActions } from "@/components/appointments/use-appointment-actions";
@@ -18,9 +19,11 @@ import { minutesToTime, timeToMinutes } from "@/lib/booking-validation";
  * la modification passe par « Modifier », qui ouvre le formulaire complet,
  * pour qu'un champ ne puisse pas être changé par mégarde en lisant.
  */
-export function AppointmentDetailsPanel({ appointment, onEdit, actions }: {
+export function AppointmentDetailsPanel({ appointment, onEdit, onAction, actions }: {
   appointment: Appointment;
   onEdit: () => void;
+  /** Réponse à une demande en attente (accepter, décaler, refuser). */
+  onAction?: (action: AppointmentAction) => void;
   /**
    * Gestes de fin de consultation, fournis par la fenêtre plutôt que créés
    * ici : le menu d'une ligne de liste déclenche exactement les mêmes, et une
@@ -34,17 +37,20 @@ export function AppointmentDetailsPanel({ appointment, onEdit, actions }: {
   const { complete, completing, createDocument, creatingDocument, canCreateDocument } = actions;
 
   return (
-    <article className="flex h-full flex-col rounded-2xl border border-animeo-border bg-animeo-bg p-5">
+    // Écran large : la fiche tient dans sa colonne. Les informations défilent
+    // si besoin, les actions restent en bas, toujours en vue.
+    <article className="flex h-full min-h-0 flex-col rounded-2xl border border-animeo-border bg-animeo-bg">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
       <header>
         <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-extrabold ${tone.chip}`}>
           <span aria-hidden="true" className={`h-2 w-2 rounded-full ${tone.dot}`} />
           {appointmentStatusLabels[appointment.status]}
         </span>
-        <h3 className="mt-3 text-xl font-black text-animeo-dark">{appointment.animalName}</h3>
+        <h3 className="mt-2 text-xl font-black text-animeo-dark">{appointment.animalName}</h3>
         <p className="text-sm font-bold text-animeo-muted">{appointment.clientName}</p>
       </header>
 
-      <dl className="mt-5 grid gap-4 border-t border-animeo-border-soft pt-5 text-sm">
+      <dl className="mt-4 grid gap-3.5 border-t border-animeo-border-soft pt-4 text-sm">
         <DetailRow icon={<Clock aria-hidden="true" className="h-4 w-4" />} label="Horaire">
           <span className="block font-extrabold capitalize text-animeo-dark">{formatLongDate(appointment.date)}</span>
           <span className="block text-xs text-animeo-muted">{appointment.start} → {end} · {appointment.duration} min</span>
@@ -78,7 +84,73 @@ export function AppointmentDetailsPanel({ appointment, onEdit, actions }: {
         </div>
       ) : null}
 
-      <div className="mt-auto grid gap-2 pt-5">
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {appointment.clientId ? (
+          <Link
+            href={`/dashboard/clients/${appointment.clientId}`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+          >
+            <User aria-hidden="true" className="h-4 w-4" />
+            Fiche client
+          </Link>
+        ) : null}
+        {appointment.clientId && appointment.animalId ? (
+          <Link
+            href={`/dashboard/clients/${appointment.clientId}?animal=${appointment.animalId}`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+          >
+            <PawPrint aria-hidden="true" className="h-4 w-4" />
+            Fiche animal
+          </Link>
+        ) : null}
+
+        {/* Itinéraire : ce dont on a besoin juste avant de partir, et qui
+            n'a de sens que pour une visite à domicile. */}
+        {appointment.mode === "home" ? (
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+          >
+            <Navigation aria-hidden="true" className="h-4 w-4" />
+            Itinéraire
+          </a>
+        ) : null}
+
+        {appointment.clientPhone ? (
+          <a
+            href={toTelHref(appointment.clientPhone) ?? undefined}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+          >
+            <Phone aria-hidden="true" className="h-4 w-4" />
+            Appeler
+          </a>
+        ) : null}
+      </div>
+      </div>
+
+      <div className="grid shrink-0 gap-2 border-t border-animeo-border-soft p-4">
+        {appointment.status === "pending" && onAction ? (
+          <div className="grid grid-cols-3 gap-2">
+            <Button type="button" onClick={() => onAction("confirm")}>
+              <Check aria-hidden="true" className="h-4 w-4" />
+              Accepter
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => onAction("reschedule")}>
+              <CalendarClock aria-hidden="true" className="h-4 w-4" />
+              Décaler
+            </Button>
+            <button
+              type="button"
+              onClick={() => onAction("decline")}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-animeo-danger-soft px-3 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft/70"
+            >
+              <X aria-hidden="true" className="h-4 w-4" />
+              Refuser
+            </button>
+          </div>
+        ) : null}
         {/* « Consultation réalisée » n'est pas un simple changement de statut :
             l'action crée aussi la consultation au dossier de l'animal et
             propose un rappel à la bonne échéance. */}
@@ -96,55 +168,13 @@ export function AppointmentDetailsPanel({ appointment, onEdit, actions }: {
           </Button>
         ) : null}
 
-        <Button type="button" onClick={onEdit}>
-          <Pencil aria-hidden="true" className="h-4 w-4" />
-          Modifier le rendez-vous
-        </Button>
+        {appointment.status !== "pending" ? (
+          <Button type="button" onClick={onEdit}>
+            <Pencil aria-hidden="true" className="h-4 w-4" />
+            Modifier le rendez-vous
+          </Button>
+        ) : null}
 
-        <div className="grid grid-cols-2 gap-2">
-          {appointment.clientId ? (
-            <Link
-              href={`/dashboard/clients/${appointment.clientId}`}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
-              <User aria-hidden="true" className="h-4 w-4" />
-              Fiche client
-            </Link>
-          ) : null}
-          {appointment.clientId && appointment.animalId ? (
-            <Link
-              href={`/dashboard/clients/${appointment.clientId}?animal=${appointment.animalId}`}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
-              <PawPrint aria-hidden="true" className="h-4 w-4" />
-              Fiche animal
-            </Link>
-          ) : null}
-
-          {/* Itinéraire : ce dont on a besoin juste avant de partir, et qui
-              n'a de sens que pour une visite à domicile. */}
-          {appointment.mode === "home" ? (
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(appointment.location)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
-              <Navigation aria-hidden="true" className="h-4 w-4" />
-              Itinéraire
-            </a>
-          ) : null}
-
-          {appointment.clientPhone ? (
-            <a
-              href={toTelHref(appointment.clientPhone) ?? undefined}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
-              <Phone aria-hidden="true" className="h-4 w-4" />
-              Appeler
-            </a>
-          ) : null}
-        </div>
       </div>
 
     </article>

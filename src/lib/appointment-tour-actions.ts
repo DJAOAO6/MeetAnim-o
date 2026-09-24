@@ -31,7 +31,7 @@ export async function listTourRunsForDateAction(dateId: string): Promise<TourRun
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateId)) return [];
 
   const runs = await db.tourRun.findMany({
-    where: { userId: user.id, date: new Date(`${dateId}T00:00:00.000Z`) },
+    where: { userId: user.id, date: new Date(`${dateId}T00:00:00.000Z`), cancelledAt: null },
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, _count: { select: { stops: true } } },
   });

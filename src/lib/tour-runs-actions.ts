@@ -19,6 +19,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { TourEndpointType, TourStopType, TourRun as DbTourRun, TourStop as DbTourStop, Appointment as DbAppointment } from "@/generated/prisma/client";
 
 const TOURS_PATH = "/dashboard/tournees";
+const AGENDA_PATH = "/dashboard/agenda";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -296,7 +297,7 @@ export async function createTourRunAction(input: z.infer<typeof createTourRunSch
   // considère jamais deux NULL comme en conflit — vérification explicite
   // pour garder l'invariant "un seul objet visible par date" (audit de
   // conformité, constat n°8).
-  const existing = await db.tourRun.findFirst({ where: { userId: user.id, date: new Date(`${data.dateId}T00:00:00.000Z`) }, select: { id: true } });
+  const existing = await db.tourRun.findFirst({ where: { userId: user.id, date: new Date(`${data.dateId}T00:00:00.000Z`), cancelledAt: null }, select: { id: true } });
   if (existing) return { ok: false, error: "Une journée existe déjà pour cette date." };
 
   const tourRun = await db.tourRun.create({
@@ -431,9 +432,28 @@ export async function deleteTourRunAction(tourRunId: string): Promise<ActionResu
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  await db.tourRun.delete({ where: { id: parsedId.data } });
+  await removeTourRuns(db, [parsedId.data], user.id);
   revalidatePath(TOURS_PATH);
+  revalidatePath(AGENDA_PATH);
   return { ok: true };
+}
+
+/**
+ * Retire des journées. Une journée née d'un motif récurrent est marquée
+ * annulée (ses arrêts partent, les rendez-vous restent) : effacée, la
+ * génération la recréait et l'agenda l'affichait encore. Une journée créée à
+ * la main n'a rien pour la faire revenir : elle est simplement supprimée.
+ */
+async function removeTourRuns(db: Awaited<ReturnType<typeof currentDb>>, ids: string[], userId: string): Promise<number> {
+  const rows = await db.tourRun.findMany({ where: { id: { in: ids }, userId, cancelledAt: null }, select: { id: true, templateId: true } });
+  const generated = rows.filter((row) => row.templateId).map((row) => row.id);
+  const manual = rows.filter((row) => !row.templateId).map((row) => row.id);
+  await db.$transaction([
+    db.tourStop.deleteMany({ where: { tourRunId: { in: generated } } }),
+    db.tourRun.updateMany({ where: { id: { in: generated } }, data: { cancelledAt: new Date(), lastOptimizationProposal: Prisma.DbNull } }),
+    db.tourRun.deleteMany({ where: { id: { in: manual } } }),
+  ]);
+  return rows.length;
 }
 
 /**
@@ -452,9 +472,10 @@ export async function deleteTourRunsAction(tourRunIds: string[]): Promise<Action
   const parsed = z.array(z.string().cuid()).min(1).max(500).safeParse(tourRunIds);
   if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
 
-  const result = await db.tourRun.deleteMany({ where: { id: { in: parsed.data }, userId: user.id } });
+  const deleted = await removeTourRuns(db, parsed.data, user.id);
   revalidatePath(TOURS_PATH);
-  return { ok: true, deleted: result.count };
+  revalidatePath(AGENDA_PATH);
+  return { ok: true, deleted };
 }
 
 // ---------------------------------------------------------------------------

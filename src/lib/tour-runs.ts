@@ -134,7 +134,7 @@ export async function getTourRunForDate(userId: string, dateId: string): Promise
   const db = await currentDb();
   const date = new Date(`${dateId}T00:00:00.000Z`);
   return db.tourRun.findFirst({
-    where: { userId, date },
+    where: { userId, date, cancelledAt: null },
     include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude },
     orderBy: { createdAt: "desc" },
   });
@@ -142,7 +142,7 @@ export async function getTourRunForDate(userId: string, dateId: string): Promise
 
 export async function getTourRunById(id: string, userId: string): Promise<TourRunWithStops | null> {
   const db = await currentDb();
-  return db.tourRun.findFirst({ where: { id, userId }, include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude } });
+  return db.tourRun.findFirst({ where: { id, userId, cancelledAt: null }, include: { stops: { orderBy: { order: "asc" }, include: stopInclude }, ...templateZonesInclude } });
 }
 
 // ---------------------------------------------------------------------------
@@ -557,7 +557,7 @@ export async function getTourRunsListData(userId: string, todayId: string): Prom
 
   const [rows, fillOpportunities] = await Promise.all([
     db.tourRun.findMany({
-      where: { userId, date: { gte: windowStart, lte: windowEnd } },
+      where: { userId, date: { gte: windowStart, lte: windowEnd }, cancelledAt: null },
       include: {
         stops: { select: { id: true } },
         template: { select: { id: true, day: true, dateId: true, recurrence: true, zones: { select: { name: true } } } },
@@ -614,7 +614,7 @@ export async function getUpcomingGeneratedCounts(userId: string): Promise<Record
   const today = new Date(`${todayDateId()}T00:00:00.000Z`);
   const rows = await db.tourRun.groupBy({
     by: ["templateId"],
-    where: { userId, templateId: { not: null }, date: { gte: today } },
+    where: { userId, templateId: { not: null }, date: { gte: today }, cancelledAt: null },
     _count: { _all: true },
   });
   const counts: Record<string, number> = {};

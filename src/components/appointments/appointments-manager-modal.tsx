@@ -19,6 +19,7 @@ import { useAppointmentActions } from "@/components/appointments/use-appointment
 import type { AppointmentAction } from "@/components/appointments/appointment-actions-menu";
 import { dateId, referenceDate, startOfWeek, weekDatesFrom } from "@/components/dashboard/dashboard-date";
 import type { Appointment, AppointmentStatus } from "@/data/appointments";
+import { notify } from "@/lib/notify";
 
 function normalize(value: string): string {
   return value.normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("fr-FR");
@@ -126,6 +127,14 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
     if (action === "edit") { onEdit(appointment); return; }
     if (action === "duplicate") { onDuplicate(appointment); return; }
     if (action === "confirm") { await onStatusChange(appointment, "confirmed"); return; }
+    // Refuser une demande : pas de confirmation, comme depuis l'agenda —
+    // c'est la réponse attendue, et le client en est prévenu.
+    if (action === "decline") { await onStatusChange(appointment, "cancelled"); return; }
+    if (action === "reschedule") {
+      notify.info("Choisissez le nouvel horaire puis enregistrez : le client reçoit la proposition.");
+      onEdit(appointment);
+      return;
+    }
     // « Terminé » n'est pas un simple statut : la consultation est écrite au
     // dossier de l'animal et un rappel est proposé. D'où la vraie action,
     // et non un changement de statut qui aurait l'air identique de l'extérieur
@@ -155,6 +164,7 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
         onClose={onClose}
         size="2xl"
         mobile="fullscreen"
+        fill
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <Button type="button" variant="secondary" onClick={onClose}>Fermer</Button>
@@ -165,7 +175,10 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
           </div>
         }
       >
-        <div className="grid gap-4">
+        {/* Écran large : filtres en haut, puis la liste et la fiche qui
+            défilent chacune de leur côté — lire une fiche ne fait plus
+            défiler la liste, et ses actions restent en vue. */}
+        <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)]">
           <AppointmentFilters
             value={filters}
             resultCount={filtered.length}
@@ -173,10 +186,10 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
             onReset={() => setFilters(defaultFilters)}
           />
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
-            <div className="min-w-0">
+          <div className="grid gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+            <div className="min-w-0 lg:-mr-2 lg:overflow-y-auto lg:overscroll-contain lg:pb-2 lg:pr-2">
               {filtered.length > 0 ? (
-                <div className="grid gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   {grouped.map(([day, dayAppointments]) => (
                     <AppointmentDayGroup key={day} dateId={day} count={dayAppointments.length}>
                       <AppointmentList
@@ -195,9 +208,9 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
 
             {/* La fiche passe au-dessus de la liste sous lg : à cette largeur,
                 deux colonnes donneraient deux colonnes illisibles. */}
-            <div className="order-first min-h-[18rem] min-w-0 lg:order-none lg:sticky lg:top-0">
+            <div className="order-first min-h-[18rem] min-w-0 lg:order-none lg:min-h-0">
               {selected ? (
-                <AppointmentDetailsPanel appointment={selected} onEdit={() => onEdit(selected)} actions={actions} />
+                <AppointmentDetailsPanel appointment={selected} onEdit={() => onEdit(selected)} onAction={(action) => handleAction(action, selected)} actions={actions} />
               ) : <AppointmentDetailsPlaceholder />}
             </div>
           </div>

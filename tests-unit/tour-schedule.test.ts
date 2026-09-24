@@ -54,3 +54,10 @@ test("nextOccurrenceDateId retrouve la bonne date pour chaque motif", () => {
   assert.equal(nextOccurrenceDateId(oneOff, "2026-09-01"), "2026-09-15");
   assert.equal(nextOccurrenceDateId(oneOff, "2026-09-16"), null, "date ponctuelle passée : plus d'occurrence");
 });
+
+test("une journée annulée : le motif ne tourne pas ce jour-là, les autres semaines restent", () => {
+  const tour = { day: "Mardi", dateId: "2026-09-01", recurrence: "Toutes les semaines" as const, cancelledDates: ["2026-09-08"] };
+  assert.equal(tourRunsOnDate(tour, "2026-09-08", "Mardi"), false);
+  assert.equal(tourRunsOnDate(tour, "2026-09-01", "Mardi"), true);
+  assert.equal(tourRunsOnDate(tour, "2026-09-15", "Mardi"), true);
+});

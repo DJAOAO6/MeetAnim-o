@@ -213,6 +213,59 @@ test.describe("Page Tournées — liste de journées datées", () => {
   });
 
   /**
+   * Supprimer une journée née d'un motif : elle est retenue comme annulée.
+   * Effacée, la génération la recréait au chargement suivant, et l'agenda —
+   * qui dessine le motif — continuait de l'afficher.
+   */
+  test("une journée de motif supprimée ne revient pas, et disparaît de l'agenda", async ({ page }) => {
+    const sql = neon(process.env.DATABASE_URL!);
+    await cleanupE2EListFixtures();
+    const [zone] = await sql`INSERT INTO "Zone" (id, name) VALUES (${fakeCuid()}, ${zoneName}) RETURNING id`;
+    const [tour] = await sql`
+      INSERT INTO "Tour" (id, name, recurrence, day, "dateLabel", "startTime", "endTime", "zoneId", status)
+      VALUES (${fakeCuid()}, ${tourName}, 'Toutes les semaines', 'Jeudi', 'Tous les jeudis', '09:00', '17:00', ${zone.id}, 'ACTIVE')
+      RETURNING id
+    `;
+    await sql`INSERT INTO "_TourZones" ("A", "B") VALUES (${tour.id}, ${zone.id})`;
+    const thursdayId = nextWeekdayDateId(4, 2);
+    const runId = fakeCuid();
+    await sql`
+      INSERT INTO "TourRun" (id, "userId", "templateId", name, date, "startType", "endType", "departureTime", "createdAt", "updatedAt")
+      VALUES (${runId}, ${testUserId}, ${tour.id}, ${tourName}, ${thursdayId}::date, 'CABINET', 'SAME_AS_START', '09:00', now(), now())
+    `;
+
+    await login(page);
+    await page.goto("/dashboard/tournees");
+    const rowOf = () => page.locator("li").filter({ has: page.getByRole("button", { name: new RegExp(zoneName) }) });
+    await expect(rowOf().first()).toBeVisible({ timeout: 15000 });
+    page.once("dialog", (dialog) => dialog.accept());
+    await rowOf().first().getByRole("button", { name: /^Supprimer la tournée du/ }).click();
+    await expect(rowOf()).toHaveCount(0, { timeout: 15000 });
+
+    const [kept] = await sql`SELECT "cancelledAt" FROM "TourRun" WHERE id = ${runId}`;
+    expect(kept?.cancelledAt, "la journée est retenue comme annulée").toBeTruthy();
+
+    // Rechargée, la page relance la génération : la journée ne revient pas.
+    await page.reload();
+    await page.waitForTimeout(800);
+    await expect(rowOf()).toHaveCount(0);
+    // Pour ce compte : chaque administrateur a ses propres journées générées.
+    const [count] = await sql`SELECT COUNT(*)::int AS n FROM "TourRun" WHERE "templateId" = ${tour.id} AND "userId" = ${testUserId} AND date = ${thursdayId}::date AND "cancelledAt" IS NULL`;
+    expect(count.n, "aucune journée recréée").toBe(0);
+
+    // Agenda : la semaine de ce jeudi ne montre plus la tournée ce jour-là.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+    const now = new Date();
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    const [year, month, day] = thursdayId.split("-").map(Number);
+    const weeksAhead = Math.floor((new Date(year, month - 1, day).getTime() - monday.getTime()) / (7 * 24 * 3600 * 1000));
+    for (let week = 0; week < weeksAhead; week += 1) await page.getByRole("button", { name: "Afficher la semaine suivante" }).click();
+    await expect(page.getByRole("region", { name: "Planning de la semaine" })).toBeVisible();
+    await expect(page.locator(`[data-testid='agenda-event'][aria-label^="Ouvrir la tournée ${tourName}"]`)).toHaveCount(0);
+  });
+
+  /**
    * La cause des journées en double.
    *
    * Les journées générées survivent à leur motif (TourRun.template est en

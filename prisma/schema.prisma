@@ -1055,6 +1055,12 @@ model TourRun {
   // TourStop.order, qui seul reflète la tournée réellement retenue).
   lastOptimizationProposal Json?
 
+  // Journée d'un motif récurrent supprimée par le praticien : gardée, marquée
+  // annulée, plutôt qu'effacée. Effacée, la génération suivante la recréait
+  // (rien ne retenait qu'elle avait été retirée) et l'agenda, qui dessine le
+  // motif, continuait de l'afficher. Une journée annulée n'apparaît nulle part.
+  cancelledAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -21,6 +21,8 @@ type AppointmentSummaryProps = {
   // bouton "×" isolé (fermeture d'une popover flottante sans liste, ex.
   // AgendaEventPopover) — même distinction que AppointmentForm.
   backLabel?: string;
+  /** Annuler le rendez-vous (ou refuser la demande) depuis la fiche. */
+  onCancel?: () => void;
 };
 
 /**
@@ -28,7 +30,7 @@ type AppointmentSummaryProps = {
  * formulaire de modification (jamais directement dessus) pour éviter de
  * modifier une information par mégarde en atterrissant sur un champ éditable.
  */
-export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: AppointmentSummaryProps) {
+export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onCancel }: AppointmentSummaryProps) {
   const isHomeVisit = appointment.mode === "home";
   // Mêmes gestes que dans le centre de gestion, par le même hook : « terminer »
   // crée la consultation au dossier et propose un rappel, et le compte rendu
@@ -103,6 +105,11 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel }: A
         <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
           Modifier
         </button>
+        {onCancel && (appointment.status === "confirmed" || appointment.status === "pending") ? (
+          <button type="button" onClick={onCancel} className="mt-2 min-h-11 w-full rounded-xl px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
+            {appointment.status === "pending" ? "Refuser la demande" : "Annuler le rendez-vous"}
+          </button>
+        ) : null}
       </div>
 
       {reminderDialog}

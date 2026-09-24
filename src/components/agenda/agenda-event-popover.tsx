@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { AppointmentSummary } from "@/components/appointments/appointment-summary";
+import { useAppointments } from "@/components/appointments/appointments-context";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { notify } from "@/lib/notify";
 import type { Appointment } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
@@ -24,6 +27,12 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<"view" | "edit">("view");
   const popoverRef = useRef<HTMLDivElement>(null);
+  const { updateAppointmentStatus } = useAppointments();
+  // Confirmation d'annulation ouverte : la fiche ne se referme ni au clic
+  // dans la confirmation, ni à Échap (qui ne ferme que la confirmation).
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const confirmingRef = useRef(false);
+  useEffect(() => { confirmingRef.current = confirmingCancel; }, [confirmingCancel]);
 
   const placement = useMemo(() => {
     const width = Math.min(POPOVER_WIDTH, window.innerWidth - MARGIN * 2);
@@ -41,12 +50,15 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
+      if (confirmingRef.current) return;
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) onClose();
     }
     function handleKeyDown(event: KeyboardEvent) {
+      if (confirmingRef.current) return;
       if (event.key === "Escape") onClose();
     }
     function handleScroll(event: Event) {
+      if (confirmingRef.current) return;
       if (popoverRef.current && event.target instanceof Node && popoverRef.current.contains(event.target)) return;
       onClose();
     }
@@ -64,8 +76,21 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
 
   async function handleSave(input: SaveAppointmentInput) {
     const result = await onSave(input);
-    if (result.ok) setMode("view");
+    if (!result.ok) return result;
+    // Annulé depuis le formulaire : la fiche se ferme, le créneau libéré
+    // apparaît aussitôt dans l'agenda.
+    if (input.status === "cancelled" && appointment.status !== "cancelled") { onClose(); return result; }
+    setMode("view");
     return result;
+  }
+
+  async function cancelAppointment() {
+    const wasRequest = appointment.status === "pending";
+    setConfirmingCancel(false);
+    const result = await updateAppointmentStatus(appointment.id, "cancelled");
+    if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
+    notify.success(wasRequest ? "Demande refusée — le créneau est de nouveau libre." : "Rendez-vous annulé — le créneau est de nouveau libre.");
+    onClose();
   }
 
   return createPortal(
@@ -81,11 +106,23 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
         }`}
       >
         {mode === "view" ? (
-          <AppointmentSummary appointment={appointment} onEdit={() => setMode("edit")} onBack={onClose} />
+          <AppointmentSummary appointment={appointment} onEdit={() => setMode("edit")} onBack={onClose} onCancel={() => setConfirmingCancel(true)} />
         ) : (
           <AppointmentForm appointment={appointment} clients={clients} onSave={handleSave} onBack={() => setMode("view")} backLabel="Retour à la fiche" />
         )}
       </div>
+      {/* Hors de la fiche : elle est transformée (animation), ce qui
+          confinerait une fenêtre fixe à ses propres dimensions. */}
+      {confirmingCancel ? (
+        <ConfirmModal
+          title={appointment.status === "pending" ? "Refuser cette demande ?" : "Annuler ce rendez-vous ?"}
+          message={`${appointment.animalName} (${appointment.clientName}), ${appointment.start}. Le rendez-vous reste dans l’historique, le créneau redevient libre, et le client en est prévenu.`}
+          confirmLabel={appointment.status === "pending" ? "Refuser la demande" : "Annuler le rendez-vous"}
+          cancelLabel="Garder"
+          onConfirm={cancelAppointment}
+          onClose={() => setConfirmingCancel(false)}
+        />
+      ) : null}
     </div>,
     document.body,
   );

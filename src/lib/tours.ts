@@ -3,11 +3,12 @@ import { parisDateId } from "@/lib/paris-time";
 import { cache } from "react";
 import type { ScopedPrismaClient } from "@/lib/db";
 import { readDb } from "@/lib/organization";
+import { getCurrentUser } from "@/lib/auth/dal";
 import { formatFrenchDate } from "@/lib/format";
 import { destinationPoint, projectToPercent } from "@/lib/geo";
 import { estimateExpectedReturnTime, estimateTourRoute, type TourEstimate } from "@/lib/tour-estimate";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
-import { findMatchingZone, minutesToTime, timeToMinutes } from "@/lib/booking-validation";
+import { findMatchingZone, minutesToTime, timeToMinutes, toLocalDateId } from "@/lib/booking-validation";
 import { nextOccurrenceDateId } from "@/lib/tour-schedule";
 import type { AnimalSpecies } from "@/data/species";
 import type { City, Coordinates, MapClient, Tour, TourAppointment, Zone, ZoneSector } from "@/data/tours";
@@ -163,11 +164,44 @@ const getTourOccurrences = cache(async (scoped?: ScopedPrismaClient): Promise<Ma
   return new Map(rows.map((tour, index) => [tour.id, occurrences[index]]));
 });
 
+/**
+ * Dates annulées de chaque motif, depuis 90 jours et à venir.
+ *
+ * Chaque compte administrateur a ses propres journées générées : pour le
+ * compte connecté, c'est la sienne qui décide (annulée → la tournée n'a pas
+ * lieu dans son agenda). Sans compte (page publique) ou sans journée à lui,
+ * la date n'est retirée que si toutes les journées de ce jour sont annulées.
+ */
+async function cancelledDatesByTour(db: ScopedPrismaClient, viewerId: string | null): Promise<Map<string, string[]>> {
+  const since = new Date(`${parisDateId(new Date(), -90)}T00:00:00.000Z`);
+  const rows = await db.tourRun.findMany({
+    where: { templateId: { not: null }, date: { gte: since } },
+    select: { templateId: true, userId: true, date: true, cancelledAt: true },
+  });
+  type Day = { templateId: string; dateId: string; active: boolean; cancelled: boolean; mine?: "active" | "cancelled" };
+  const days = new Map<string, Day>();
+  for (const row of rows) {
+    const dateId = toLocalDateId(row.date);
+    const key = `${row.templateId}|${dateId}`;
+    const day = days.get(key) ?? { templateId: row.templateId!, dateId, active: false, cancelled: false };
+    if (row.cancelledAt) day.cancelled = true; else day.active = true;
+    if (viewerId && row.userId === viewerId && day.mine !== "active") day.mine = row.cancelledAt ? "cancelled" : "active";
+    days.set(key, day);
+  }
+  const byTour = new Map<string, string[]>();
+  for (const day of days.values()) {
+    const hidden = day.mine ? day.mine === "cancelled" : day.cancelled && !day.active;
+    if (hidden) byTour.set(day.templateId, [...(byTour.get(day.templateId) ?? []), day.dateId]);
+  }
+  return byTour;
+}
+
 export async function getTours(scoped?: ScopedPrismaClient): Promise<Tour[]> {
   const db = scoped ?? await readDb();
-  const [rows, occurrences] = await Promise.all([
+  const [rows, occurrences, cancelledDates] = await Promise.all([
     db.tour.findMany({ orderBy: { name: "asc" }, include: { zones: true } }),
     getTourOccurrences(scoped),
+    cancelledDatesByTour(db, scoped ? null : (await getCurrentUser())?.id ?? null),
   ]);
 
   return rows.map((tour): Tour => {
@@ -184,6 +218,7 @@ export async function getTours(scoped?: ScopedPrismaClient): Promise<Tour[]> {
       zoneId: tour.zoneId,
       zoneIds: tour.zones.length > 0 ? tour.zones.map((zone) => zone.id) : [tour.zoneId],
       status: statusLabel[tour.status],
+      cancelledDates: cancelledDates.get(tour.id) ?? [],
       appointmentCount: occurrence?.appointmentCount ?? 0,
       estimatedDistanceKm: occurrence?.estimate.distanceKm ?? null,
       estimatedDurationMinutes: occurrence?.estimate.durationMinutes ?? null,

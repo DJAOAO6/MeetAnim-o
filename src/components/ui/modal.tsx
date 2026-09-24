@@ -19,6 +19,11 @@ type ModalProps = {
   mobile?: "sheet" | "fullscreen";
   /** Barre d'actions, collée en bas et toujours atteignable. */
   footer?: ReactNode;
+  /**
+   * Écran large : hauteur fixe, et le contenu gère lui-même son défilement
+   * (liste + fiche qui défilent chacune de leur côté). Sans effet en dessous.
+   */
+  fill?: boolean;
   children: ReactNode;
 };
 
@@ -48,7 +53,7 @@ const sizeClassName: Record<ModalSize, string> = {
  * fermeture par Échap, blocage du défilement de la page derrière, liaison
  * aria du titre et de la description.
  */
-export function Modal({ title, description, onClose, size = "md", mobile = "sheet", footer, children }: ModalProps) {
+export function Modal({ title, description, onClose, size = "md", mobile = "sheet", footer, fill = false, children }: ModalProps) {
   const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
   const titleId = useId();
   const descriptionId = useId();
@@ -81,7 +86,7 @@ export function Modal({ title, description, onClose, size = "md", mobile = "shee
           isSheet
             ? "max-h-[92dvh] rounded-t-[26px] sm:max-h-[90dvh] sm:rounded-[20px]"
             : "h-[100dvh] rounded-none sm:h-auto sm:max-h-[90dvh] sm:rounded-[20px]"
-        }`}
+        } ${fill ? "lg:h-[90dvh]" : ""}`}
       >
         {/* Poignée : signale qu'on est sur une feuille et où la saisir. Purement
             visuelle, la fermeture passe par le bouton et par Échap. */}
@@ -102,7 +107,7 @@ export function Modal({ title, description, onClose, size = "md", mobile = "shee
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">{children}</div>
+        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 ${fill ? "lg:overflow-hidden" : ""}`}>{children}</div>
 
         {footer ? (
           // pb calculé : sur les téléphones à barre gestuelle, la dernière

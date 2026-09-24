@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck,
+  CalendarClock,
   CheckCircle,
   Copy,
   MoreHorizontal,
@@ -18,6 +19,8 @@ export type AppointmentAction =
   | "confirm"
   | "complete"
   | "cancel"
+  | "decline"
+  | "reschedule"
   | "duplicate"
   | "openClient"
   | "openAnimal";
@@ -41,14 +44,19 @@ type MenuEntry = {
  * fiche : un rendez-vous peut avoir été saisi avec un simple nom.
  */
 const entries: MenuEntry[] = [
-  { action: "edit", label: "Modifier", icon: Pencil, available: () => true },
-  { action: "confirm", label: "Marquer comme confirmé", icon: CalendarCheck, available: (appointment) => appointment.status === "pending" },
+  { action: "confirm", label: "Accepter la demande", icon: CalendarCheck, available: (appointment) => appointment.status === "pending" },
+  { action: "reschedule", label: "Proposer un autre horaire", icon: CalendarClock, available: (appointment) => appointment.status === "pending" },
+  { action: "edit", label: "Modifier", icon: Pencil, available: (appointment) => appointment.status !== "pending" },
   { action: "complete", label: "Marquer comme terminé", icon: CheckCircle, available: (appointment) => appointment.status === "confirmed" },
   { action: "duplicate", label: "Dupliquer", icon: Copy, available: () => true },
   { action: "openClient", label: "Voir la fiche client", icon: User, available: (appointment) => Boolean(appointment.clientId) },
   { action: "openAnimal", label: "Voir la fiche animal", icon: PawPrint, available: (appointment) => Boolean(appointment.clientId && appointment.animalId) },
-  { action: "cancel", label: "Annuler le rendez-vous", icon: XCircle, destructive: true, available: (appointment) => appointment.status !== "cancelled" },
+  { action: "decline", label: "Refuser la demande", icon: XCircle, destructive: true, available: (appointment) => appointment.status === "pending" },
+  { action: "cancel", label: "Annuler le rendez-vous", icon: XCircle, destructive: true, available: (appointment) => appointment.status === "confirmed" },
 ];
+
+/** Hauteur approximative du menu déplié (six entrées). */
+const MENU_HEIGHT_ESTIMATE = 290;
 
 /**
  * Menu d'actions d'une ligne de rendez-vous.
@@ -63,7 +71,23 @@ export function AppointmentActionsMenu({ appointment, onAction }: {
   onAction: (action: AppointmentAction) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Vers le haut quand la place manque dessous (bas d'une liste qui défile) :
+  // sinon le menu était coupé par le bord de la liste.
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  function toggle() {
+    if (!open && containerRef.current) {
+      const button = containerRef.current.getBoundingClientRect();
+      let limit = window.innerHeight;
+      for (let parent = containerRef.current.parentElement; parent; parent = parent.parentElement) {
+        const { overflowY } = getComputedStyle(parent);
+        if (overflowY === "auto" || overflowY === "scroll") { limit = parent.getBoundingClientRect().bottom; break; }
+      }
+      setOpenUpward(limit - button.bottom < MENU_HEIGHT_ESTIMATE && button.top > MENU_HEIGHT_ESTIMATE);
+    }
+    setOpen((current) => !current);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -88,7 +112,7 @@ export function AppointmentActionsMenu({ appointment, onAction }: {
     <div ref={containerRef} className="relative shrink-0">
       <button
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggle}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Actions pour le rendez-vous de ${appointment.animalName} à ${appointment.start}`}
@@ -100,7 +124,7 @@ export function AppointmentActionsMenu({ appointment, onAction }: {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+4px)] z-20 w-60 rounded-2xl border border-animeo-border bg-white p-1.5 shadow-[0_16px_40px_rgb(var(--theme-shadow-rgb)/0.18)]"
+          className={`absolute right-0 z-20 w-60 ${openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]"} rounded-2xl border border-animeo-border bg-white p-1.5 shadow-[0_16px_40px_rgb(var(--theme-shadow-rgb)/0.18)]`}
         >
           {visible.map((entry) => {
             const EntryIcon = entry.icon;

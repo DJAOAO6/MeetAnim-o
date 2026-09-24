@@ -54,8 +54,10 @@ export function AppointmentFilters({ value, resultCount, onChange, onReset }: {
   const filtered = value.search.trim() !== "" || value.date !== defaultFilters.date || value.status !== "all" || value.place !== "all";
 
   return (
-    <div className="grid gap-3">
-      <div className="relative">
+    // Écran large : recherche et filtres sur une seule ligne — chaque ligne
+    // gagnée revient à la liste et à la fiche.
+    <div className="grid gap-3 xl:flex xl:items-center">
+      <div className="relative xl:min-w-0 xl:flex-1">
         <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-animeo-muted" />
         <input
           type="search"
@@ -77,7 +79,7 @@ export function AppointmentFilters({ value, resultCount, onChange, onReset }: {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
         <select value={value.date} onChange={(event) => onChange({ date: event.target.value as DateFilter })} aria-label="Filtrer par date" className={selectClassName}>
           {Object.entries(dateFilterLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>

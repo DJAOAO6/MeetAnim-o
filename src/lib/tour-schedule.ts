@@ -29,7 +29,9 @@ function dayOfMonth(dateId: string): number {
  * nouveaux motifs) revient chaque semaine sans condition de date, pour
  * rester rétrocompatible.
  */
-export function tourRunsOnDate(tour: Pick<Tour, "day" | "dateId" | "recurrence">, dateId: string, weekday: string): boolean {
+export function tourRunsOnDate(tour: Pick<Tour, "day" | "dateId" | "recurrence" | "cancelledDates">, dateId: string, weekday: string): boolean {
+  // Journée annulée par le praticien : le motif ne tourne pas ce jour-là.
+  if (tour.cancelledDates?.includes(dateId)) return false;
   if (tour.recurrence === "Une seule fois") return tour.day === weekday && tour.dateId === dateId;
 
   // "Tous les mois" s'ancre sur le jour du mois (dateId), pas sur le jour de

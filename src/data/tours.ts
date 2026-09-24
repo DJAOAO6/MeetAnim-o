@@ -52,6 +52,11 @@ export type Tour = {
   zoneId: string;
   zoneIds: string[];
   status: TourStatus;
+  /**
+   * Dates (AAAA-MM-JJ) où la journée de ce motif a été annulée : la tournée
+   * n'a pas lieu ces jours-là (voir tourRunsOnDate).
+   */
+  cancelledDates?: string[];
   appointmentCount: number;
   consultationHours: string;
   // Calculées depuis les vraies coordonnées des arrêts de la prochaine
