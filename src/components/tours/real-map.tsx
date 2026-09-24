@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { Circle, MapContainer, Marker, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { Circle, MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { destinationPoint, haversineDistanceKm } from "@/lib/geo";
 
 export type RealMapPoint = {
@@ -57,6 +57,13 @@ type RealMapProps = {
   // fitBounds (sinon un praticien loin de sa tournée dézoomerait toute la
   // carte à chaque activation).
   liveLocation?: { lat: number; lng: number } | null;
+  // Clic sur le fond de carte (ni marqueur, ni poignée) : sert à
+  // désélectionner. Absent = aucun effet, comme avant.
+  onBackgroundClick?: () => void;
+  // Décalage, en pixels, appliqué au centrage sur le point sélectionné :
+  // le point s'affiche en haut à gauche du centre, hors de la fiche posée
+  // sur la carte. Absent = centrage exact, comme avant.
+  selectedOffset?: { x: number; y: number };
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -146,15 +153,28 @@ function FitToPoints({ points }: { points: RealMapPoint[] }) {
   return null;
 }
 
-function FlyToSelected({ point }: { point?: RealMapPoint }) {
+function FlyToSelected({ point, offset }: { point?: RealMapPoint; offset?: { x: number; y: number } }) {
   const map = useMap();
 
   useEffect(() => {
     if (!point) return;
-    map.flyTo([point.lat, point.lng], Math.max(map.getZoom(), 13), { duration: 0.6 });
+    const zoom = Math.max(map.getZoom(), 13);
+    // Centre déplacé de `offset` : le point apparaît en haut à gauche du
+    // centre, et la fiche posée en bas à droite ne le recouvre pas.
+    const target = offset
+      ? map.unproject(map.project([point.lat, point.lng], zoom).add([offset.x, offset.y]), zoom)
+      : L.latLng(point.lat, point.lng);
+    map.flyTo(target, zoom, { duration: 0.6 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [point?.id]);
 
+  return null;
+}
+
+function BackgroundClick({ onClick }: { onClick: () => void }) {
+  // Les clics sur un marqueur ne remontent pas jusqu'à la carte (Leaflet) :
+  // seul un clic sur le fond arrive ici.
+  useMapEvents({ click: () => onClick() });
   return null;
 }
 
@@ -170,7 +190,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -188,7 +208,8 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToPoints points={points} />
-        <FlyToSelected point={selectedPoint} />
+        <FlyToSelected point={selectedPoint} offset={selectedOffset} />
+        {onBackgroundClick ? <BackgroundClick onClick={onBackgroundClick} /> : null}
         <FlyToFocus focus={focus} />
         {circle ? (
           <Circle

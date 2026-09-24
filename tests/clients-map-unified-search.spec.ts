@@ -160,7 +160,11 @@ test.describe("Carte clients — recherche unifiée (Phase 1)", () => {
     await expect(animalOption).toHaveAttribute("aria-selected", "true");
     await search.press("Enter");
 
-    // La sélection centre la carte sur ce client et affiche sa fiche en overlay.
-    await expect(page.getByRole("heading", { name: "Camille " + sharedLastName })).toBeVisible();
+    // Ce client de test n'a pas de position : sa ligne est sélectionnée dans
+    // la liste, qui propose de le localiser — aucune fiche flottante sur la
+    // carte, où rien ne lui correspond.
+    const selectedRow = page.locator("[data-client-row]").filter({ hasText: "Camille " + sharedLastName });
+    await expect(selectedRow.locator("[aria-current='true']")).toBeVisible();
+    await expect(selectedRow.getByRole("button", { name: "Localiser" })).toBeVisible();
   });
 });

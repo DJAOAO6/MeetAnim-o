@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -10,6 +11,8 @@ import { Icon } from "@/components/ui/icon";
 import { useGeolocation } from "@/components/ui/use-geolocation";
 import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { haversineDistanceKm } from "@/lib/geo";
+import { geocodeClientAddressAction } from "@/lib/clients-actions";
+import { notify } from "@/lib/notify";
 import type { AnimalSpecies, MapClient } from "@/data/tours";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
@@ -41,7 +44,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
   const [dueOnly, setDueOnly] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(clients[0]?.id ?? "");
+  // Aucune sélection à l'arrivée : la carte montre d'abord toute la
+  // clientèle. Une fiche ne s'ouvre qu'à un geste (marqueur, liste, recherche).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   // Jamais activée par défaut : la demande d'autorisation du navigateur est
   // intrusive, ne doit s'afficher qu'à un geste explicite.
   const [showLiveLocation, setShowLiveLocation] = useState(false);
@@ -155,7 +160,46 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
 
   const visibleClients = perimeterCenter ? clientsInPerimeter : filteredClients;
   const locatedClients = visibleClients.filter((client) => client.coordinates);
-  const selectedClient = visibleClients.find((client) => client.id === selectedId) ?? visibleClients[0];
+  const selectedClient = selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
+
+  // Un client sorti des filtres, du périmètre ou de la recherche n'est plus
+  // sélectionné : il ne revient pas sélectionné s'il réapparaît.
+  // Ajusté pendant le rendu (motif React « état dérivé d'un changement ») :
+  // pas d'effet, donc pas de rendu intermédiaire avec une sélection fantôme.
+  if (selectedId !== null && !selectedClient) setSelectedId(null);
+
+  // Même geste pour sélectionner et désélectionner : un second clic sur le
+  // client déjà choisi (marqueur ou ligne) referme sa fiche.
+  function toggleSelection(id: string) {
+    setSelectedId((current) => (current === id ? null : id));
+  }
+
+  // Échap referme la fiche — sauf dans un champ, où Échap appartient au champ.
+  useEffect(() => {
+    if (!selectedId) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.closest("input, textarea, select, [contenteditable='true']"))) return;
+      setSelectedId(null);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedId]);
+
+  // La ligne du client choisi sur la carte se montre dans la liste. Seule la
+  // liste défile (jamais la page) : sur téléphone, la liste est sous la
+  // carte, et choisir un marqueur ne doit pas faire sauter l'écran.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!selectedId || !list) return;
+    const row = list.querySelector<HTMLElement>(`[data-client-row="${CSS.escape(selectedId)}"]`);
+    if (!row) return;
+    const rowTop = row.offsetTop - list.offsetTop;
+    if (rowTop < list.scrollTop) list.scrollTop = rowTop;
+    else if (rowTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = rowTop + row.offsetHeight - list.clientHeight;
+  }, [selectedId]);
   const points = locatedClients.map((client) => ({
     id: client.id,
     lat: client.coordinates!.lat,
@@ -191,7 +235,6 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
       : clients.find((client) => client.id === selection.animal.id);
     if (!target) return;
     setSelectedId(target.id);
-    if (target.coordinates) focusOn(target.coordinates.lat, target.coordinates.lng, 14, target.id);
   }
 
   // Filtres actifs seulement : les filtres inactifs se rangent (bouton
@@ -342,10 +385,16 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
           </div>
           <RealMap
             points={points}
-            selectedId={selectedClient?.id}
-            onSelect={setSelectedId}
+            selectedId={selectedClient?.coordinates ? selectedClient.id : undefined}
+            onSelect={toggleSelection}
+            onBackgroundClick={() => setSelectedId(null)}
+            // Fiche en bas à droite (large) ou en bas (étroit) : le point
+            // choisi s'affiche au-dessus et à gauche, jamais dessous.
+            selectedOffset={showCircleHandle ? { x: 160, y: 90 } : { x: 0, y: 120 }}
             heightClassName="h-[610px]"
-            overlay={selectedClient ? <MapClientPopup client={selectedClient} /> : undefined}
+            // Pas de fiche flottante pour un client sans position : rien sur
+            // la carte ne lui correspond. Il se traite depuis la liste.
+            overlay={selectedClient?.coordinates ? <MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
             circleHandle={showCircleHandle}
             onCircleRadiusChange={handleCircleRadiusChange}
@@ -362,9 +411,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             <p className="mt-0.5 text-xs text-animeo-muted">{perimeterCenter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}</p>
           </div>
           {visibleClients.length > 0 ? (
-            <div className="max-h-[650px] divide-y divide-animeo-border-soft overflow-y-auto">
-              {visibleClients.map((client) => (
-                <button key={client.id} type="button" onClick={() => setSelectedId(client.id)} className={`flex w-full items-center gap-3 p-4 text-left transition ${selectedClient?.id === client.id ? "bg-animeo-soft" : "hover:bg-animeo-bg"}`}>
+            <div ref={listRef} className="relative max-h-[650px] divide-y divide-animeo-border-soft overflow-y-auto">
+              {visibleClients.map((client) => {
+                const selected = selectedClient?.id === client.id;
+                return (
+                <div key={client.id} data-client-row={client.id} className={selected ? "bg-animeo-soft" : undefined}>
+                <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 18%, white)` }}>{client.avatar}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
@@ -376,7 +428,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                   </span>
                   {client.dueForReminder ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-animeo-accent" title="À relancer" /> : null}
                 </button>
-              ))}
+                {selected && !client.coordinates ? <UnlocatedClientActions client={client} /> : null}
+                </div>
+                );
+              })}
             </div>
           ) : (
             <div className="p-8 text-center"><Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" /><p className="mt-3 text-sm font-bold text-animeo-muted">Aucun client ne correspond aux filtres.</p></div>
@@ -391,17 +446,52 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   );
 }
 
-function MapClientPopup({ client }: { client: MapClient }) {
+/**
+ * Client choisi sans position : rien sur la carte ne lui correspond, sa
+ * fiche reste dans la liste, avec de quoi le localiser à partir de son
+ * adresse.
+ */
+function UnlocatedClientActions({ client }: { client: MapClient }) {
+  const router = useRouter();
+  const [locating, setLocating] = useState(false);
+
+  async function locate() {
+    setLocating(true);
+    const result = await geocodeClientAddressAction(client.clientId);
+    setLocating(false);
+    if (!result.ok) { notify.error(result.error); return; }
+    notify.success(`${client.ownerName} est localisé sur la carte.`);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-4 pb-4 pl-[4.75rem]">
+      <p className="w-full text-xs text-animeo-muted">Position inconnue : l’adresse de la fiche n’a pas encore été localisée.</p>
+      <button type="button" onClick={locate} disabled={locating} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
+        <Icon name="map" className="h-3.5 w-3.5" />
+        {locating ? "Localisation…" : "Localiser"}
+      </button>
+      <Link href={`/dashboard/clients/${client.clientId}`} className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+        Fiche client
+      </Link>
+    </div>
+  );
+}
+
+function MapClientPopup({ client, onClose }: { client: MapClient; onClose: () => void }) {
   const { theme } = useDashboardTheme();
   return (
     <div className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm">
       <div className="flex items-start gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 22%, white)` }}>{client.avatar}</span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="truncate font-black text-animeo-dark">{client.ownerName}</h3>
           <p className="mt-0.5 text-xs font-extrabold text-animeo">{client.animalName}</p>
           <p className="text-[10px] font-semibold text-animeo-muted">{client.species} · {client.breed}</p>
         </div>
+        <button type="button" onClick={onClose} aria-label={`Fermer la fiche de ${client.ownerName}`} className="-mr-1.5 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
+          <span aria-hidden="true">×</span>
+        </button>
       </div>
       <dl className="mt-3 space-y-1.5 text-[11px]">
         <PopupLine label="Ville" value={client.city} />

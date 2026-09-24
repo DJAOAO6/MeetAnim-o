@@ -59,9 +59,10 @@ test.describe("Carte clients — pas de repli sur Rouen pour une ville inconnue 
   test("un client d'une ville hors de la liste des 13 villes est listé mais absent de la carte, jamais positionné à Rouen", async ({ page }) => {
     await page.goto("/dashboard/carte");
 
-    const listRow = page.getByText(uniqueAnimalName);
-    await expect(listRow).toBeVisible();
-    const row = listRow.locator("xpath=ancestor::button[1]");
+    // La ligne de la liste, et elle seule : le nom figure aussi dans les
+    // données de la page transmises au navigateur.
+    const row = page.locator("[data-client-row]").filter({ hasText: uniqueAnimalName });
+    await expect(row).toBeVisible();
     await expect(row.getByText("Position inconnue")).toBeVisible();
 
     await expect(page.locator(`[title*="${uniqueAnimalName}"]`)).toHaveCount(0);
