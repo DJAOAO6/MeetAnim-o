@@ -1,6 +1,7 @@
 "use client";
 
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
+import { OverlayPortal } from "@/components/ui/overlay-portal";
 
 type ConfirmModalProps = {
   title: string;
@@ -21,33 +22,35 @@ export function ConfirmModal({ title, message, confirmLabel = "Confirmer", cance
   const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
-      <section
-        ref={dialogRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-message"
-        className="w-full max-w-sm rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none"
-      >
-        <div className="p-6">
-          <h2 id="confirm-dialog-title" className="text-lg font-black text-animeo-dark">{title}</h2>
-          <p id="confirm-dialog-message" className="mt-2 text-sm leading-relaxed text-animeo-muted">{message}</p>
-        </div>
-        <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className={`rounded-xl px-5 py-2.5 text-sm font-extrabold text-white transition ${destructive ? "bg-animeo-error hover:bg-animeo-danger" : "bg-animeo hover:bg-animeo-hover"}`}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </section>
-    </div>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
+        <section
+          ref={dialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          aria-describedby="confirm-dialog-message"
+          className="w-full max-w-sm rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none"
+        >
+          <div className="p-6">
+            <h2 id="confirm-dialog-title" className="text-lg font-black text-animeo-dark">{title}</h2>
+            <p id="confirm-dialog-message" className="mt-2 text-sm leading-relaxed text-animeo-muted">{message}</p>
+          </div>
+          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className={`rounded-xl px-5 py-2.5 text-sm font-extrabold text-white transition ${destructive ? "bg-animeo-error hover:bg-animeo-danger" : "bg-animeo hover:bg-animeo-hover"}`}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+        </section>
+      </div>
+    </OverlayPortal>
   );
 }

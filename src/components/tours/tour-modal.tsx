@@ -12,6 +12,7 @@ import { notify } from "@/lib/notify";
 import { saveZoneAction } from "@/lib/tours-actions";
 import type { GeocodedAddress } from "@/data/geocoding";
 import type { Tour, Zone } from "@/data/tours";
+import { OverlayPortal } from "@/components/ui/overlay-portal";
 
 export type TourFormValue = {
   id?: string;
@@ -159,163 +160,165 @@ export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZone
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
-        <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="tournees" className="h-6 w-6" /></div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-animeo">Consultations à domicile</p>
-              <h2 id="tour-dialog-title" className="mt-1 text-2xl font-medium text-animeo-dark">{tour ? "Modifier la tournée" : "Créer une tournée"}</h2>
-              <p className="mt-1 text-sm text-animeo-muted">Une ou plusieurs zones, un rythme, un point de départ.</p>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/55 p-4 backdrop-blur-sm" role="presentation">
+        <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-dialog-title" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
+          <div className="flex items-start justify-between border-b border-animeo-border-soft bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-animeo text-white"><Icon name="tournees" className="h-6 w-6" /></div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-animeo">Consultations à domicile</p>
+                <h2 id="tour-dialog-title" className="mt-1 text-2xl font-medium text-animeo-dark">{tour ? "Modifier la tournée" : "Créer une tournée"}</h2>
+                <p className="mt-1 text-sm text-animeo-muted">Une ou plusieurs zones, un rythme, un point de départ.</p>
+              </div>
             </div>
+            <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
           </div>
-          <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
-        </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
-            <Field label="Nom de la tournée" wide>
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex. Secteur Dieppe" className={inputClassName} required />
-            </Field>
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+              <Field label="Nom de la tournée" wide>
+                <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ex. Secteur Dieppe" className={inputClassName} required />
+              </Field>
 
-            <Field label="Zones" wide>
-              <input
-                value={zoneQuery}
-                onChange={(event) => setZoneQuery(event.target.value)}
-                placeholder="Rechercher ou créer une zone"
-                className={inputClassName}
-              />
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {filteredZones.map((zone) => {
-                  const selected = zoneIds.includes(zone.id);
-                  return (
-                    <button
-                      key={zone.id}
-                      type="button"
-                      onClick={() => toggleZone(zone.id)}
-                      aria-pressed={selected}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${selected ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-transparent bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
-                    >
-                      {zone.name}
-                    </button>
-                  );
-                })}
-              </div>
-              {zoneQuery.trim() && !exactZoneMatch ? (
-                <button type="button" onClick={() => setZoneDraftName(zoneQuery.trim())} disabled={creatingZone} className="mt-2 text-xs font-medium text-animeo hover:underline disabled:opacity-60">
-                  {creatingZone ? "Création…" : `+ Créer la zone "${zoneQuery.trim()}"`}
-                </button>
-              ) : null}
-              {zoneIds.length === 0 ? <p className="mt-1.5 text-xs font-semibold text-animeo-danger">Sélectionnez au moins une zone.</p> : null}
-            </Field>
+              <Field label="Zones" wide>
+                <input
+                  value={zoneQuery}
+                  onChange={(event) => setZoneQuery(event.target.value)}
+                  placeholder="Rechercher ou créer une zone"
+                  className={inputClassName}
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {filteredZones.map((zone) => {
+                    const selected = zoneIds.includes(zone.id);
+                    return (
+                      <button
+                        key={zone.id}
+                        type="button"
+                        onClick={() => toggleZone(zone.id)}
+                        aria-pressed={selected}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${selected ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-transparent bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+                      >
+                        {zone.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {zoneQuery.trim() && !exactZoneMatch ? (
+                  <button type="button" onClick={() => setZoneDraftName(zoneQuery.trim())} disabled={creatingZone} className="mt-2 text-xs font-medium text-animeo hover:underline disabled:opacity-60">
+                    {creatingZone ? "Création…" : `+ Créer la zone "${zoneQuery.trim()}"`}
+                  </button>
+                ) : null}
+                {zoneIds.length === 0 ? <p className="mt-1.5 text-xs font-semibold text-animeo-danger">Sélectionnez au moins une zone.</p> : null}
+              </Field>
 
-            <Field label="Type" wide>
-              <div className="inline-flex rounded-xl bg-animeo-soft p-1">
-                <button type="button" onClick={() => setIsRecurring(true)} aria-pressed={isRecurring} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Récurrente</button>
-                <button type="button" onClick={() => setIsRecurring(false)} aria-pressed={!isRecurring} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${!isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Ponctuelle</button>
-              </div>
-            </Field>
+              <Field label="Type" wide>
+                <div className="inline-flex rounded-xl bg-animeo-soft p-1">
+                  <button type="button" onClick={() => setIsRecurring(true)} aria-pressed={isRecurring} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Récurrente</button>
+                  <button type="button" onClick={() => setIsRecurring(false)} aria-pressed={!isRecurring} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${!isRecurring ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Ponctuelle</button>
+                </div>
+              </Field>
 
-            {isRecurring ? (
-              <>
-                <Field label="Récurrence">
-                  <select value={recurrence} onChange={(event) => setRecurrence(event.target.value as Tour["recurrence"])} className={inputClassName}>
-                    <option value="Toutes les semaines">Toutes les semaines</option>
-                    <option value="Toutes les deux semaines">Une semaine sur deux</option>
-                    <option value="Tous les mois">Tous les mois</option>
-                  </select>
-                </Field>
-                {recurrence !== "Tous les mois" ? (
-                  <Field label="Jour">
-                    <select value={day} onChange={(event) => setDay(event.target.value)} className={inputClassName}>
-                      {days.map((item) => <option key={item} value={item}>{item.toLocaleLowerCase("fr-FR")}</option>)}
+              {isRecurring ? (
+                <>
+                  <Field label="Récurrence">
+                    <select value={recurrence} onChange={(event) => setRecurrence(event.target.value as Tour["recurrence"])} className={inputClassName}>
+                      <option value="Toutes les semaines">Toutes les semaines</option>
+                      <option value="Toutes les deux semaines">Une semaine sur deux</option>
+                      <option value="Tous les mois">Tous les mois</option>
                     </select>
                   </Field>
-                ) : null}
-              </>
-            ) : null}
-
-            {needsAnchorDate ? (
-              <Field label={isRecurring ? "Date de la première occurrence" : "Date"}>
-                <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName} required />
-              </Field>
-            ) : null}
-
-            <Field label="Heure de début">
-              <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClassName} required />
-            </Field>
-
-            <Field label="Heure de fin">
-              <input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClassName} required />
-            </Field>
-
-            <Field label="Point de départ" wide>
-              <div className="inline-flex rounded-xl bg-animeo-soft p-1">
-                <button type="button" onClick={() => setStartType("Cabinet")} aria-pressed={startType === "Cabinet"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Cabinet" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>{departureLabel}</button>
-                <button type="button" onClick={() => setStartType("Adresse personnalisée")} aria-pressed={startType === "Adresse personnalisée"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Adresse personnalisée" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Adresse personnalisée</button>
-              </div>
-              {startType === "Adresse personnalisée" ? (
-                <div className="mt-2">
-                  <AddressAutocomplete
-                    value={startAddressQuery}
-                    onQueryChange={(value) => { setStartAddressQuery(value); setStartAddress(null); }}
-                    onSelect={(result) => { setStartAddress(result); setStartAddressQuery(result.label); }}
-                    placeholder="Rechercher une adresse"
-                    inputClassName={inputClassName}
-                  />
-                </div>
+                  {recurrence !== "Tous les mois" ? (
+                    <Field label="Jour">
+                      <select value={day} onChange={(event) => setDay(event.target.value)} className={inputClassName}>
+                        {days.map((item) => <option key={item} value={item}>{item.toLocaleLowerCase("fr-FR")}</option>)}
+                      </select>
+                    </Field>
+                  ) : null}
+                </>
               ) : null}
-            </Field>
 
-            <Field label="Arrêts max (optionnel)">
-              <input type="number" min={1} value={maxStops} onChange={(event) => setMaxStops(event.target.value)} placeholder="Aucune limite" className={inputClassName} />
-            </Field>
+              {needsAnchorDate ? (
+                <Field label={isRecurring ? "Date de la première occurrence" : "Date"}>
+                  <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName} required />
+                </Field>
+              ) : null}
 
-            <Field label="Statut">
-              <Toggle checked={status === "Active"} onChange={(checked) => setStatus(checked ? "Active" : "Inactive")} label={status === "Active" ? "Active" : "Inactive"} />
-            </Field>
+              <Field label="Heure de début">
+                <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClassName} required />
+              </Field>
 
-            <Field label="Note (optionnel)" wide>
-              <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Ex. l'écurie n'ouvre qu'à 14 h" rows={2} className={`${inputClassName} h-auto py-2.5`} />
-            </Field>
-          </div>
+              <Field label="Heure de fin">
+                <input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className={inputClassName} required />
+              </Field>
 
-          <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:items-center sm:justify-end sm:p-6">
-            {tour && onDelete ? (
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-500/20 sm:mr-auto"
-              >
-                <TrashIcon />
-                Supprimer la tournée
-              </button>
-            ) : null}
-            <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-            <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Enregistrement…" : tour ? "Enregistrer" : "Créer la tournée"}</button>
-          </div>
-        </form>
-      </section>
+              <Field label="Point de départ" wide>
+                <div className="inline-flex rounded-xl bg-animeo-soft p-1">
+                  <button type="button" onClick={() => setStartType("Cabinet")} aria-pressed={startType === "Cabinet"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Cabinet" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>{departureLabel}</button>
+                  <button type="button" onClick={() => setStartType("Adresse personnalisée")} aria-pressed={startType === "Adresse personnalisée"} className={`rounded-lg px-5 py-2 text-sm font-medium transition ${startType === "Adresse personnalisée" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted"}`}>Adresse personnalisée</button>
+                </div>
+                {startType === "Adresse personnalisée" ? (
+                  <div className="mt-2">
+                    <AddressAutocomplete
+                      value={startAddressQuery}
+                      onQueryChange={(value) => { setStartAddressQuery(value); setStartAddress(null); }}
+                      onSelect={(result) => { setStartAddress(result); setStartAddressQuery(result.label); }}
+                      placeholder="Rechercher une adresse"
+                      inputClassName={inputClassName}
+                    />
+                  </div>
+                ) : null}
+              </Field>
 
-      {zoneDraftName !== null ? (
-        <ZoneModal defaultName={zoneDraftName} onClose={() => setZoneDraftName(null)} onSave={saveNewZone} />
-      ) : null}
+              <Field label="Arrêts max (optionnel)">
+                <input type="number" min={1} value={maxStops} onChange={(event) => setMaxStops(event.target.value)} placeholder="Aucune limite" className={inputClassName} />
+              </Field>
 
-      {tour && onDelete && deleteConfirmOpen ? (
-        <ConfirmModal
-          title="Supprimer cette tournée ?"
-          message={
-            tour.appointmentCount > 0
-              ? `« ${tour.name} » contient ${tour.appointmentCount} rendez-vous à sa prochaine occurrence. Ils resteront dans votre agenda mais ne seront plus rattachés à une tournée. Cette action est irréversible.`
-              : `« ${tour.name} » sera définitivement supprimée. Cette action est irréversible.`
-          }
-          confirmLabel="Supprimer la tournée"
-          onConfirm={() => onDelete(tour)}
-          onClose={() => setDeleteConfirmOpen(false)}
-        />
-      ) : null}
-    </div>
+              <Field label="Statut">
+                <Toggle checked={status === "Active"} onChange={(checked) => setStatus(checked ? "Active" : "Inactive")} label={status === "Active" ? "Active" : "Inactive"} />
+              </Field>
+
+              <Field label="Note (optionnel)" wide>
+                <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Ex. l'écurie n'ouvre qu'à 14 h" rows={2} className={`${inputClassName} h-auto py-2.5`} />
+              </Field>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:items-center sm:justify-end sm:p-6">
+              {tour && onDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-500/20 sm:mr-auto"
+                >
+                  <TrashIcon />
+                  Supprimer la tournée
+                </button>
+              ) : null}
+              <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+              <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Enregistrement…" : tour ? "Enregistrer" : "Créer la tournée"}</button>
+            </div>
+          </form>
+        </section>
+
+        {zoneDraftName !== null ? (
+          <ZoneModal defaultName={zoneDraftName} onClose={() => setZoneDraftName(null)} onSave={saveNewZone} />
+        ) : null}
+
+        {tour && onDelete && deleteConfirmOpen ? (
+          <ConfirmModal
+            title="Supprimer cette tournée ?"
+            message={
+              tour.appointmentCount > 0
+                ? `« ${tour.name} » contient ${tour.appointmentCount} rendez-vous à sa prochaine occurrence. Ils resteront dans votre agenda mais ne seront plus rattachés à une tournée. Cette action est irréversible.`
+                : `« ${tour.name} » sera définitivement supprimée. Cette action est irréversible.`
+            }
+            confirmLabel="Supprimer la tournée"
+            onConfirm={() => onDelete(tour)}
+            onClose={() => setDeleteConfirmOpen(false)}
+          />
+        ) : null}
+      </div>
+    </OverlayPortal>
   );
 }
 

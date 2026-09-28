@@ -50,54 +50,53 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Modal
-        title="Bloquer un créneau"
-        description="Ce créneau sera indisponible au cabinet et à domicile."
-        onClose={guardedClose}
-        size="sm"
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
-            <Button type="submit" disabled={pending}>{pending ? "Blocage…" : "Bloquer ce créneau"}</Button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-            <Field label="Date">
-              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName} required />
+    <Modal
+      onSubmit={handleSubmit}
+      title="Bloquer un créneau"
+      description="Ce créneau sera indisponible au cabinet et à domicile."
+      onClose={guardedClose}
+      size="sm"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
+          <Button type="submit" disabled={pending}>{pending ? "Blocage…" : "Bloquer ce créneau"}</Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+          <Field label="Date">
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className={inputClassName} required />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Heure de début">
+              <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClassName} required />
             </Field>
-
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Heure de début">
-                <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className={inputClassName} required />
-              </Field>
-              <Field label="Durée">
-                <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className={inputClassName}>
-                  {durationOptions.map((option) => (
-                    <option key={option} value={option}>{option < 60 ? `${option} min` : `${Math.floor(option / 60)}h${option % 60 ? String(option % 60).padStart(2, "0") : ""}`}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-
-            <Field label="Motif" hint="Facultatif">
-              <input
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                list="blocked-slot-reasons"
-                placeholder="Ex. Pause déjeuner"
-                className={inputClassName}
-              />
-              <datalist id="blocked-slot-reasons">
-                {reasonSuggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}
-              </datalist>
+            <Field label="Durée">
+              <select value={duration} onChange={(event) => setDuration(Number(event.target.value))} className={inputClassName}>
+                {durationOptions.map((option) => (
+                  <option key={option} value={option}>{option < 60 ? `${option} min` : `${Math.floor(option / 60)}h${option % 60 ? String(option % 60).padStart(2, "0") : ""}`}</option>
+                ))}
+              </select>
             </Field>
+          </div>
 
-            {error ? <p className="rounded-xl bg-animeo-danger-soft px-3.5 py-2.5 text-sm font-bold text-animeo-danger">{error}</p> : null}
-        </div>
-      </Modal>
-    </form>
+          <Field label="Motif" hint="Facultatif">
+            <input
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              list="blocked-slot-reasons"
+              placeholder="Ex. Pause déjeuner"
+              className={inputClassName}
+            />
+            <datalist id="blocked-slot-reasons">
+              {reasonSuggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}
+            </datalist>
+          </Field>
+
+          {error ? <p className="rounded-xl bg-animeo-danger-soft px-3.5 py-2.5 text-sm font-bold text-animeo-danger">{error}</p> : null}
+      </div>
+    </Modal>
   );
 }
 

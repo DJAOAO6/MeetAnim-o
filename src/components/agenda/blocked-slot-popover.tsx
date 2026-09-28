@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { overlayRoot } from "@/components/ui/overlay-portal";
 import type { BlockedSlot } from "@/lib/blocked-slots-actions";
 
 type BlockedSlotPopoverProps = {
@@ -104,6 +105,6 @@ export function BlockedSlotPopover({ slot, anchorRect, onDelete, onClose }: Bloc
         </div>
       </div>
     </div>,
-    document.body,
+    overlayRoot(),
   );
 }

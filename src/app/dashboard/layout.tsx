@@ -95,8 +95,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             <div className="min-h-screen overflow-x-clip bg-animeo-bg pt-16 text-animeo-text transition-[padding] duration-200 ease-out md:pl-[var(--sidebar-width,260px)] md:pt-0">
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} showPlatform={user.platformAdmin && !user.assistance} />
               {/* pb-24 sous md : dégagement pour la barre de navigation
-                  fixe du bas, sinon elle recouvre la fin du contenu. */}
-              <main className="mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10">
+                  fixe du bas, sinon elle recouvre la fin du contenu.
+                  `isolate` : le contenu des pages forme son propre plan.
+                  Quels que soient ses z-index (recherche, carte, en-têtes
+                  collants), il ne passe jamais au-dessus du menu latéral,
+                  de l'en-tête mobile ni de la barre du bas. Les fenêtres
+                  superposées sortent de ce plan par OverlayPortal. */}
+              <main className="isolate mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10">
                 {user.assistance ? (
                   <AssistanceBanner
                     assistedName={`${user.firstName} ${user.lastName}`.trim()}

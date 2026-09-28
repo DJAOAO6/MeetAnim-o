@@ -23,6 +23,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { finalizeDocumentAction, saveDocumentAction } from "@/lib/documents-actions";
 import { notify } from "@/lib/notify";
 import type { StudioDocumentDetail } from "@/data/documents";
+import { OverlayPortal } from "@/components/ui/overlay-portal";
 
 // Konva a besoin de `window` — jamais rendu côté serveur, même convention
 // que RealMap/TourRunMap (dynamic + ssr:false).
@@ -255,121 +256,123 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   const { width, height } = PAGE_DIMENSIONS[content.pageSize];
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-neutral-100">
-      <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-2.5 sm:px-5">
-        <Link href="/dashboard/documents" className="flex items-center gap-1.5 text-sm font-semibold text-neutral-500 transition hover:text-neutral-800">
-          <Icon name="arrow" className="h-4 w-4 rotate-180" />
-          Retour
-        </Link>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-[70] flex flex-col bg-neutral-100">
+        <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-2.5 sm:px-5">
+          <Link href="/dashboard/documents" className="flex items-center gap-1.5 text-sm font-semibold text-neutral-500 transition hover:text-neutral-800">
+            <Icon name="arrow" className="h-4 w-4 rotate-180" />
+            Retour
+          </Link>
 
-        {!previewMode ? (
-          <div className="flex items-center gap-0.5 border-l border-neutral-200 pl-3">
-            <button
-              type="button"
-              aria-label="Annuler"
-              title="Annuler (Ctrl+Z)"
-              disabled={readOnly || !canUndo}
-              onClick={() => undo()}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <UndoIcon />
+          {!previewMode ? (
+            <div className="flex items-center gap-0.5 border-l border-neutral-200 pl-3">
+              <button
+                type="button"
+                aria-label="Annuler"
+                title="Annuler (Ctrl+Z)"
+                disabled={readOnly || !canUndo}
+                onClick={() => undo()}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <UndoIcon />
+              </button>
+              <button
+                type="button"
+                aria-label="Rétablir"
+                title="Rétablir (Ctrl+Maj+Z)"
+                disabled={readOnly || !canRedo}
+                onClick={() => redo()}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <RedoIcon />
+              </button>
+            </div>
+          ) : null}
+
+          <input
+            aria-label="Titre du document"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onBlur={handleTitleBlur}
+            disabled={readOnly}
+            className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-bold text-neutral-800 outline-none transition hover:border-neutral-200 focus:border-animeo focus:bg-neutral-50 disabled:hover:border-transparent"
+          />
+
+          <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
+            {document.status}
+          </span>
+
+          {!previewMode && saveLabel[saveState] ? <span className="text-xs font-semibold text-neutral-500">{saveLabel[saveState]}</span> : null}
+
+          <div className="ml-auto flex gap-2">
+            <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-md border border-neutral-200 px-3.5 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50">
+              {previewMode ? "Reprendre l’édition" : "Aperçu"}
             </button>
             <button
               type="button"
-              aria-label="Rétablir"
-              title="Rétablir (Ctrl+Maj+Z)"
-              disabled={readOnly || !canRedo}
-              onClick={() => redo()}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+              disabled={readOnly || finalizing}
+              onClick={() => setConfirmFinalize(true)}
+              className="rounded-md bg-animeo px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <RedoIcon />
+              {finalizing ? "Finalisation…" : "Finaliser"}
             </button>
           </div>
-        ) : null}
+        </header>
 
-        <input
-          aria-label="Titre du document"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onBlur={handleTitleBlur}
-          disabled={readOnly}
-          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-bold text-neutral-800 outline-none transition hover:border-neutral-200 focus:border-animeo focus:bg-neutral-50 disabled:hover:border-transparent"
-        />
+        <div className="flex flex-1 overflow-hidden">
+          {!previewMode ? <StudioSidebar readOnly={readOnly} /> : null}
 
-        <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
-          {document.status}
-        </span>
-
-        {!previewMode && saveLabel[saveState] ? <span className="text-xs font-semibold text-neutral-500">{saveLabel[saveState]}</span> : null}
-
-        <div className="ml-auto flex gap-2">
-          <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-md border border-neutral-200 px-3.5 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50">
-            {previewMode ? "Reprendre l’édition" : "Aperçu"}
-          </button>
-          <button
-            type="button"
-            disabled={readOnly || finalizing}
-            onClick={() => setConfirmFinalize(true)}
-            className="rounded-md bg-animeo px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {finalizing ? "Finalisation…" : "Finaliser"}
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-        {!previewMode ? <StudioSidebar readOnly={readOnly} /> : null}
-
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Conteneur non défilant : ancre le zoom (bas-droite) à un point fixe
-              du viewport, indépendant du défilement du canevas en dessous. */}
-          <div className="relative flex-1 overflow-hidden">
-            {/* items-start (jamais items-center) : une page A4 (1123px) dépasse
-                presque toujours la hauteur de la fenêtre — centrer verticalement
-                un enfant plus grand que son conteneur pousse la moitié du
-                contenu en overflow négatif, inaccessible au défilement (bug
-                classique flex + overflow-auto). Aligné en haut, comme n'importe
-                quel document qu'on lit de haut en bas. */}
-            <div ref={canvasScrollRef} className="absolute inset-0 flex items-start justify-center overflow-auto p-8">
-              {/* Conteneur "de taille" : ses dimensions réelles (mises à
-                  l'échelle du zoom) pilotent les bornes de défilement — un
-                  `transform: scale()` seul ne change pas la boîte de mise en
-                  page de son conteneur, voir le plan. */}
-              <div style={{ width: width * zoomLevel, height: height * zoomLevel }}>
-                <div className="relative" style={{ width, height, transform: `scale(${zoomLevel})`, transformOrigin: "top left" }}>
-                  <CanvasStage readOnly={readOnly} stageRef={stageRef} />
-                  <div ref={overlayRef} className="pointer-events-none absolute inset-0">
-                    <TextOverlay readOnly={readOnly} />
-                    <AnatomyOverlay readOnly={readOnly} />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Conteneur non défilant : ancre le zoom (bas-droite) à un point fixe
+                du viewport, indépendant du défilement du canevas en dessous. */}
+            <div className="relative flex-1 overflow-hidden">
+              {/* items-start (jamais items-center) : une page A4 (1123px) dépasse
+                  presque toujours la hauteur de la fenêtre — centrer verticalement
+                  un enfant plus grand que son conteneur pousse la moitié du
+                  contenu en overflow négatif, inaccessible au défilement (bug
+                  classique flex + overflow-auto). Aligné en haut, comme n'importe
+                  quel document qu'on lit de haut en bas. */}
+              <div ref={canvasScrollRef} className="absolute inset-0 flex items-start justify-center overflow-auto p-8">
+                {/* Conteneur "de taille" : ses dimensions réelles (mises à
+                    l'échelle du zoom) pilotent les bornes de défilement — un
+                    `transform: scale()` seul ne change pas la boîte de mise en
+                    page de son conteneur, voir le plan. */}
+                <div style={{ width: width * zoomLevel, height: height * zoomLevel }}>
+                  <div className="relative" style={{ width, height, transform: `scale(${zoomLevel})`, transformOrigin: "top left" }}>
+                    <CanvasStage readOnly={readOnly} stageRef={stageRef} />
+                    <div ref={overlayRef} className="pointer-events-none absolute inset-0">
+                      <TextOverlay readOnly={readOnly} />
+                      <AnatomyOverlay readOnly={readOnly} />
+                    </div>
+                    {/* Hors de overlayRef volontairement : ce div est capturé tel quel
+                        par l'export PDF (html-to-image), la barre d'alignement ne
+                        doit jamais pouvoir s'y retrouver, même par accident de timing. */}
+                    {!previewMode ? <AlignmentToolbar readOnly={readOnly} /> : null}
+                    {!previewMode ? <SelectionLockBadge readOnly={readOnly} /> : null}
                   </div>
-                  {/* Hors de overlayRef volontairement : ce div est capturé tel quel
-                      par l'export PDF (html-to-image), la barre d'alignement ne
-                      doit jamais pouvoir s'y retrouver, même par accident de timing. */}
-                  {!previewMode ? <AlignmentToolbar readOnly={readOnly} /> : null}
-                  {!previewMode ? <SelectionLockBadge readOnly={readOnly} /> : null}
                 </div>
               </div>
+              <ZoomControl />
             </div>
-            <ZoomControl />
+
+            {!previewMode ? <PagesFooterBar readOnly={readOnly || finalizing} /> : null}
           </div>
 
-          {!previewMode ? <PagesFooterBar readOnly={readOnly || finalizing} /> : null}
+          {!previewMode ? <InspectorTabs readOnly={readOnly} /> : null}
         </div>
 
-        {!previewMode ? <InspectorTabs readOnly={readOnly} /> : null}
+        {confirmFinalize ? (
+          <ConfirmModal
+            title="Finaliser ce document ?"
+            message="Le document sera verrouillé : plus aucune modification directe. Pour le corriger ensuite, vous devrez le dupliquer."
+            confirmLabel="Finaliser"
+            destructive={false}
+            onConfirm={handleFinalize}
+            onClose={() => setConfirmFinalize(false)}
+          />
+        ) : null}
       </div>
-
-      {confirmFinalize ? (
-        <ConfirmModal
-          title="Finaliser ce document ?"
-          message="Le document sera verrouillé : plus aucune modification directe. Pour le corriger ensuite, vous devrez le dupliquer."
-          confirmLabel="Finaliser"
-          destructive={false}
-          onConfirm={handleFinalize}
-          onClose={() => setConfirmFinalize(false)}
-        />
-      ) : null}
-    </div>
+    </OverlayPortal>
   );
 }
 

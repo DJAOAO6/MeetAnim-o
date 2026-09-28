@@ -288,7 +288,10 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
   const hasAnyGroup = showClientsGroup || showAnimalsGroup || showZonesGroup || showPlacesGroup || showAddressesGroup;
 
   return (
-    <div ref={containerRef} className={`relative z-50 ${className ?? ""}`}>
+    // z-40 suffit : la liste doit passer au-dessus de la carte et des
+    // en-têtes collants de la page (z-32 au plus), rien de plus — le contenu
+    // est isolé du menu latéral (voir <main> dans le layout).
+    <div ref={containerRef} className={`relative z-40 ${className ?? ""}`}>
       <div className="relative">
         <SearchIcon />
         <input
@@ -313,7 +316,7 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
       </div>
 
       {open && hasAnyGroup ? (
-        <div id={listboxId} role="listbox" aria-label="Résultats de recherche" className="absolute z-[700] mt-1.5 max-h-96 w-full overflow-y-auto rounded-xl border border-animeo-border bg-white py-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
+        <div id={listboxId} role="listbox" aria-label="Résultats de recherche" className="absolute z-10 mt-1.5 max-h-96 w-full overflow-y-auto rounded-xl border border-animeo-border bg-white py-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
           {showClientsGroup ? (
             <div role="group" aria-label="Clients">
               <GroupLabel>Clients</GroupLabel>

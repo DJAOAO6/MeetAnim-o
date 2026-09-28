@@ -21,6 +21,7 @@ import {
 } from "@/lib/clients-import-actions";
 import { notify } from "@/lib/notify";
 import type { AnimalSpecies } from "@/data/species";
+import { OverlayPortal } from "@/components/ui/overlay-portal";
 
 const CHUNK_SIZE = 200;
 
@@ -214,90 +215,92 @@ export function ClientImportModal({ onClose, onImported }: { onClose: () => void
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-0 backdrop-blur-sm sm:p-4">
-      <section
-        ref={dialogRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="client-import-dialog-title"
-        className="flex h-full w-full max-w-4xl flex-col overflow-hidden bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none sm:h-auto sm:max-h-[92vh] sm:rounded-[18px]"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-animeo-border-soft p-5 sm:p-6">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Import de clients</p>
-            <h2 id="client-import-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{STEP_TITLES[step]}</h2>
+    <OverlayPortal>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-animeo-deep/60 p-0 backdrop-blur-sm sm:p-4">
+        <section
+          ref={dialogRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="client-import-dialog-title"
+          className="flex h-full w-full max-w-4xl flex-col overflow-hidden bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none sm:h-auto sm:max-h-[92vh] sm:rounded-[18px]"
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-animeo-border-soft p-5 sm:p-6">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Import de clients</p>
+              <h2 id="client-import-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{STEP_TITLES[step]}</h2>
+            </div>
+            <button type="button" onClick={requestClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
           </div>
-          <button type="button" onClick={requestClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6">
-          {step === "file" ? <ClientImportStepFile onFileRead={handleFileRead} /> : null}
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+            {step === "file" ? <ClientImportStepFile onFileRead={handleFileRead} /> : null}
 
-          {step === "columns" ? (
-            <ClientImportStepColumns
-              headers={headers}
-              rawRows={rawRows}
-              mapping={mapping}
-              onMappingChange={setMapping}
-              onBack={() => setStep("file")}
-              onContinue={() => void goToReview()}
-            />
-          ) : null}
-
-          {step === "review" ? (
-            checkingMatches ? (
-              <p className="py-10 text-center text-sm font-bold text-animeo-muted">Vérification des fiches déjà existantes…</p>
-            ) : (
-              <ClientImportStepReview
-                prepared={prepared}
-                conflictPolicy={conflictPolicy}
-                onConflictPolicyChange={setConflictPolicy}
-                defaultSpecies={defaultSpecies}
-                onDefaultSpeciesChange={setDefaultSpecies}
-                hasUnrecognizedSpecies={hasUnrecognizedSpecies}
-                excludedLines={excludedLines}
-                onToggleExclude={toggleExclude}
-                existingGroupIndexes={existingGroupIndexes}
-                onBack={() => setStep("columns")}
-                onStartImport={() => void startImport()}
+            {step === "columns" ? (
+              <ClientImportStepColumns
+                headers={headers}
+                rawRows={rawRows}
+                mapping={mapping}
+                onMappingChange={setMapping}
+                onBack={() => setStep("file")}
+                onContinue={() => void goToReview()}
               />
-            )
-          ) : null}
+            ) : null}
 
-          {step === "run" && runState ? (
-            <ClientImportStepRun
-              runState={runState}
-              onResume={resumeImport}
-              onUndo={() => setUndoConfirmOpen(true)}
-              onViewClients={onClose}
-            />
-          ) : null}
-        </div>
-      </section>
+            {step === "review" ? (
+              checkingMatches ? (
+                <p className="py-10 text-center text-sm font-bold text-animeo-muted">Vérification des fiches déjà existantes…</p>
+              ) : (
+                <ClientImportStepReview
+                  prepared={prepared}
+                  conflictPolicy={conflictPolicy}
+                  onConflictPolicyChange={setConflictPolicy}
+                  defaultSpecies={defaultSpecies}
+                  onDefaultSpeciesChange={setDefaultSpecies}
+                  hasUnrecognizedSpecies={hasUnrecognizedSpecies}
+                  excludedLines={excludedLines}
+                  onToggleExclude={toggleExclude}
+                  existingGroupIndexes={existingGroupIndexes}
+                  onBack={() => setStep("columns")}
+                  onStartImport={() => void startImport()}
+                />
+              )
+            ) : null}
 
-      {closeConfirmOpen ? (
-        <ConfirmModal
-          title="Interrompre l'import ?"
-          message="L'import en cours sera interrompu. Les fiches déjà créées resteront en base — vous pourrez reprendre ou annuler l'import plus tard depuis cette même fenêtre."
-          confirmLabel="Interrompre"
-          onConfirm={() => {
-            setCloseConfirmOpen(false);
-            onClose();
-          }}
-          onClose={() => setCloseConfirmOpen(false)}
-        />
-      ) : null}
+            {step === "run" && runState ? (
+              <ClientImportStepRun
+                runState={runState}
+                onResume={resumeImport}
+                onUndo={() => setUndoConfirmOpen(true)}
+                onViewClients={onClose}
+              />
+            ) : null}
+          </div>
+        </section>
 
-      {undoConfirmOpen ? (
-        <ConfirmModal
-          title="Annuler cet import ?"
-          message="Les fiches créées par cet import seront supprimées, sauf celles ayant reçu un rendez-vous, une consultation ou un rappel depuis. Cette action est irréversible."
-          confirmLabel="Annuler l'import"
-          onConfirm={() => void confirmUndo()}
-          onClose={() => setUndoConfirmOpen(false)}
-        />
-      ) : null}
-    </div>
+        {closeConfirmOpen ? (
+          <ConfirmModal
+            title="Interrompre l'import ?"
+            message="L'import en cours sera interrompu. Les fiches déjà créées resteront en base — vous pourrez reprendre ou annuler l'import plus tard depuis cette même fenêtre."
+            confirmLabel="Interrompre"
+            onConfirm={() => {
+              setCloseConfirmOpen(false);
+              onClose();
+            }}
+            onClose={() => setCloseConfirmOpen(false)}
+          />
+        ) : null}
+
+        {undoConfirmOpen ? (
+          <ConfirmModal
+            title="Annuler cet import ?"
+            message="Les fiches créées par cet import seront supprimées, sauf celles ayant reçu un rendez-vous, une consultation ou un rappel depuis. Cette action est irréversible."
+            confirmLabel="Annuler l'import"
+            onConfirm={() => void confirmUndo()}
+            onClose={() => setUndoConfirmOpen(false)}
+          />
+        ) : null}
+      </div>
+    </OverlayPortal>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CalendarOff, CalendarPlus, Settings2, Ban, Unlock } from "lucide-react";
 import { formatDuration, formatMinutes, type SlotSelection } from "@/lib/agenda-selection";
+import { OverlayPortal } from "@/components/ui/overlay-portal";
 
 export type SlotAction = "create" | "block" | "unavailable" | "more" | "openExceptionally" | "editHours";
 
@@ -75,56 +76,58 @@ export function SlotActionMenu({ selection, date, closed, anchorRect, canClose =
   const duration = selection.endMinutes - selection.startMinutes;
 
   return (
-    <>
-      {/* Capteur de clic extérieur : il ferme le menu sans avaler le clic
-          suivant, pour qu'un clic ailleurs dans la grille démarre aussitôt
-          une nouvelle sélection. */}
-      <div
-        role="presentation"
-        className="fixed inset-0 z-[55]"
-        onPointerDown={onClose}
-      />
+    <OverlayPortal>
+      <>
+        {/* Capteur de clic extérieur : il ferme le menu sans avaler le clic
+            suivant, pour qu'un clic ailleurs dans la grille démarre aussitôt
+            une nouvelle sélection. */}
+        <div
+          role="presentation"
+          className="fixed inset-0 z-[55]"
+          onPointerDown={onClose}
+        />
 
-      <div
-        ref={menuRef}
-        role="dialog"
-        aria-label="Actions du créneau sélectionné"
-        className="fixed z-[56] w-[264px] rounded-2xl border border-animeo-border bg-white p-2 shadow-[0_18px_44px_rgb(var(--theme-shadow-rgb)/0.18)]"
-        style={{ top: position?.top ?? -9999, left: position?.left ?? -9999, visibility: position ? "visible" : "hidden" }}
-      >
-        <div className="px-2.5 pb-2 pt-1.5">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
-            <span className="capitalize">{dateFormatter.format(date)}</span>
-          </p>
-          <p className="mt-1 text-sm font-black text-animeo-dark">
-            {formatMinutes(selection.startMinutes)} → {formatMinutes(selection.endMinutes)}
-          </p>
-          <p className="text-xs text-animeo-muted">{formatDuration(duration)}</p>
-
-          {closed ? (
-            <p className="mt-2 rounded-lg bg-animeo-border-soft px-2 py-1.5 text-[11px] font-bold text-animeo-muted">
-              Cette période est fermée aux réservations.
+        <div
+          ref={menuRef}
+          role="dialog"
+          aria-label="Actions du créneau sélectionné"
+          className="fixed z-[56] w-[264px] rounded-2xl border border-animeo-border bg-white p-2 shadow-[0_18px_44px_rgb(var(--theme-shadow-rgb)/0.18)]"
+          style={{ top: position?.top ?? -9999, left: position?.left ?? -9999, visibility: position ? "visible" : "hidden" }}
+        >
+          <div className="px-2.5 pb-2 pt-1.5">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+              <span className="capitalize">{dateFormatter.format(date)}</span>
             </p>
-          ) : null}
-        </div>
+            <p className="mt-1 text-sm font-black text-animeo-dark">
+              {formatMinutes(selection.startMinutes)} → {formatMinutes(selection.endMinutes)}
+            </p>
+            <p className="text-xs text-animeo-muted">{formatDuration(duration)}</p>
 
-        <div className="border-t border-animeo-border-soft pt-1.5">
-          {closed ? (
-            <>
-              <MenuItem icon={Unlock} label="Ouvrir exceptionnellement" tone="positive" onClick={() => onAction("openExceptionally")} />
-              <MenuItem icon={CalendarPlus} label="Ajouter un rendez-vous" onClick={() => onAction("create")} />
-              <MenuItem icon={Settings2} label="Modifier les horaires" onClick={() => onAction("editHours")} />
-            </>
-          ) : (
-            <>
-              <MenuItem icon={CalendarPlus} label="Nouveau rendez-vous" tone="primary" onClick={() => onAction("create")} />
-              <MenuItem icon={Ban} label="Bloquer le créneau" onClick={() => onAction("block")} />
-              <MenuItem icon={CalendarOff} label="Indisponible / Fermé" disabledReason={canClose ? undefined : "Réservé aux comptes autorisés à modifier les horaires."} onClick={() => onAction("unavailable")} />
-            </>
-          )}
+            {closed ? (
+              <p className="mt-2 rounded-lg bg-animeo-border-soft px-2 py-1.5 text-[11px] font-bold text-animeo-muted">
+                Cette période est fermée aux réservations.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="border-t border-animeo-border-soft pt-1.5">
+            {closed ? (
+              <>
+                <MenuItem icon={Unlock} label="Ouvrir exceptionnellement" tone="positive" onClick={() => onAction("openExceptionally")} />
+                <MenuItem icon={CalendarPlus} label="Ajouter un rendez-vous" onClick={() => onAction("create")} />
+                <MenuItem icon={Settings2} label="Modifier les horaires" onClick={() => onAction("editHours")} />
+              </>
+            ) : (
+              <>
+                <MenuItem icon={CalendarPlus} label="Nouveau rendez-vous" tone="primary" onClick={() => onAction("create")} />
+                <MenuItem icon={Ban} label="Bloquer le créneau" onClick={() => onAction("block")} />
+                <MenuItem icon={CalendarOff} label="Indisponible / Fermé" disabledReason={canClose ? undefined : "Réservé aux comptes autorisés à modifier les horaires."} onClick={() => onAction("unavailable")} />
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </>
+      </>
+    </OverlayPortal>
   );
 }
 

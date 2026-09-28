@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { overlayRoot } from "@/components/ui/overlay-portal";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { AppointmentSummary } from "@/components/appointments/appointment-summary";
 import { useAppointments } from "@/components/appointments/appointments-context";
@@ -124,6 +125,6 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
         />
       ) : null}
     </div>,
-    document.body,
+    overlayRoot(),
   );
 }
