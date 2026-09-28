@@ -48,6 +48,7 @@
     "read-excel-file": "^9.3.10",
     "sanitize-html": "^2.17.7",
     "sonner": "^2.0.8",
+    "supercluster": "^9.1.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.15"
   },

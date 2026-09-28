@@ -63,8 +63,13 @@ const row = (page: Page, lastName: string) => page.locator("[data-client-row]").
 async function openMap(page: Page) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
+  await expect(row(page, "SelectionAE2E")).toBeVisible({ timeout: 15000 });
+  // Vue d'ensemble : les marqueurs proches sont regroupés. Choisir le client
+  // dans la liste zoome sur lui (les groupes se séparent), Échap referme.
+  await row(page, "SelectionAE2E").getByRole("button").first().click();
   await expect(marker(page, "SelectionAE2E")).toBeVisible({ timeout: 15000 });
-  await page.waitForTimeout(900); // fin du recadrage initial
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(900); // fin du recentrage
 }
 
 /** Un point du fond de carte, vérifié : ni marqueur, ni contrôle, ni fiche. */
@@ -89,6 +94,8 @@ test.describe("Carte clients — sélection et désélection", () => {
   test.beforeEach(async ({ page }) => { await login(page); await openMap(page); });
 
   test("aucune fiche ouverte à l'arrivée, aucune ligne sélectionnée", async ({ page }) => {
+    await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
+    await expect(row(page, "SelectionAE2E")).toBeVisible({ timeout: 15000 });
     await expect(popup(page)).toHaveCount(0);
     await expect(page.locator("[data-client-row] [aria-current='true']")).toHaveCount(0);
   });

@@ -417,6 +417,18 @@ a:focus-visible {
   fill: var(--theme-brand);
   fill-opacity: 0.08;
 }
+.leaflet-container path.map-spider-leg {
+  stroke: var(--theme-brand);
+  stroke-width: 1.5;
+  stroke-opacity: 0.6;
+  fill: none;
+}
+/* Marqueur atteint au clavier : un contour net, visible sur toute tuile. */
+.leaflet-container .leaflet-marker-icon:focus-visible {
+  outline: 3px solid var(--theme-brand);
+  outline-offset: 3px;
+  border-radius: 9999px;
+}
 .leaflet-container path.map-territory {
   stroke: var(--theme-brand);
   stroke-width: 2;

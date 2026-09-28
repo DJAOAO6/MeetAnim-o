@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LocateFixed } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -14,15 +14,16 @@ import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { circleBounds, haversineDistanceKm, pointInGeometry, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 import { geocodeClientAddressAction } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
-import type { AnimalSpecies, MapClient } from "@/data/tours";
+import type { AnimalSpecies } from "@/data/tours";
+import type { MapClientAnimal, MapClientSummary } from "@/data/map-clients";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
-  loading: () => <div className="flex h-[610px] items-center justify-center rounded-2xl border border-animeo-border bg-animeo-positive-soft text-sm font-bold text-animeo-muted">Chargement de la carte…</div>,
+  loading: () => <div className="flex h-[min(610px,70dvh)] min-h-[340px] items-center justify-center rounded-2xl border border-animeo-border bg-animeo-positive-soft text-sm font-bold text-animeo-muted">Chargement de la carte…</div>,
 });
 
 type ClientsMapProps = {
-  clients: MapClient[];
+  clients: MapClientSummary[];
   cabinetCoordinates?: { lat: number; lng: number } | null;
 };
 
@@ -40,6 +41,27 @@ type TerritoryPerimeter = {
   bounds?: GeoBounds;
 };
 type LoadedTerritory = { geometry: TerritoryGeometry; bounds: GeoBounds };
+
+type MapClient = MapClientSummary;
+
+/** Initiales d'un client sans animal : de quoi remplir sa pastille. */
+function initialsOf(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toLocaleUpperCase("fr-FR")).join("");
+}
+
+/**
+ * L'animal qui représente un client sur la carte (couleur, pastille) : le
+ * premier de l'espèce filtrée s'il y a un filtre, sinon son premier animal.
+ */
+function leadAnimal(client: MapClient, species: AnimalSpecies[]): MapClientAnimal | undefined {
+  return client.animals.find((animal) => species.length === 0 || species.includes(animal.species)) ?? client.animals[0];
+}
+
+function animalsLine(client: MapClient): string {
+  return client.animals.length ? client.animals.map((animal) => `${animal.name} · ${animal.species}`).join(", ") : "Aucun animal";
+}
+
+const positionSourceLabels = { address: "Adresse du client", appointment: "Dernier rendez-vous à domicile" } as const;
 
 const territoryTypeLabels: Record<TerritoryPerimeter["type"], string> = { departement: "Département", region: "Région" };
 
@@ -212,9 +234,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
     return clients.filter((client) => {
-      const matchesSpecies = selectedSpecies.length === 0 || selectedSpecies.includes(client.species);
+      const matchesSpecies = selectedSpecies.length === 0 || client.animals.some((animal) => selectedSpecies.includes(animal.species));
       const matchesReminder = !dueOnly || client.dueForReminder;
-      const matchesQuery = !normalizedQuery || `${client.ownerName} ${client.animalName}`.toLocaleLowerCase("fr-FR").includes(normalizedQuery);
+      const matchesQuery = !normalizedQuery || `${client.ownerName} ${client.animals.map((animal) => animal.name).join(" ")}`.toLocaleLowerCase("fr-FR").includes(normalizedQuery);
       return matchesSpecies && matchesReminder && matchesQuery;
     });
   }, [clients, dueOnly, query, selectedSpecies]);
@@ -274,7 +296,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const selectedClient = selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
 
   const distanceFrom = (client: MapClient) => (sortMode === "distance" && proximityOrigin && client.coordinates ? haversineDistanceKm(proximityOrigin, client.coordinates) : null);
-  const byName = (a: MapClient, b: MapClient) => nameCollator.compare(a.ownerName, b.ownerName) || nameCollator.compare(a.animalName, b.animalName);
+  const byName = (a: MapClient, b: MapClient) => nameCollator.compare(a.ownerName, b.ownerName) || nameCollator.compare(a.city, b.city);
   // Clients localisés, dans l'ordre de la liste : c'est aussi l'ordre de
   // « Précédent / Suivant ». Les clients sans position suivent à part.
   const orderedLocated = [...locatedClients].sort((a, b) => {
@@ -370,13 +392,14 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const insidePerimeter = new Set(visibleClients.map((client) => client.id));
   const points = filteredClients.filter((client) => client.coordinates).map((client) => {
     const outside = hasPerimeter && !insidePerimeter.has(client.id);
+    const lead = leadAnimal(client, selectedSpecies);
     return {
       id: client.id,
       lat: client.coordinates!.lat,
       lng: client.coordinates!.lng,
-      label: client.avatar,
-      title: `${client.ownerName} · ${client.animalName} · ${client.city} · ${client.species}${client.dueForReminder ? " · À relancer" : ""}${outside ? " · hors du périmètre" : ""}`,
-      color: resolveSpeciesColor(theme.speciesColors, client.species),
+      label: lead?.avatar || initialsOf(client.ownerName),
+      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${outside ? " · hors du périmètre" : ""}`,
+      color: lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
       badge: client.dueForReminder,
       dimmed: outside,
     };
@@ -384,9 +407,11 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
 
   // Marges du recadrage : la fiche ouverte occupe le bas à droite (large) ou
   // le bas de la carte (étroit) — le cercle doit rester visible à côté.
-  const fitPadding = selectedClient?.coordinates
-    ? showCircleHandle ? { topLeft: [40, 40] as [number, number], bottomRight: [340, 40] as [number, number] } : { topLeft: [24, 24] as [number, number], bottomRight: [24, 300] as [number, number] }
+  // (Sur téléphone, la fiche passe sous la carte : aucune marge à prévoir.)
+  const fitPadding = selectedClient?.coordinates && showCircleHandle
+    ? { topLeft: [40, 40] as [number, number], bottomRight: [340, 40] as [number, number] }
     : undefined;
+  const animalCount = visibleClients.reduce((sum, client) => sum + client.animals.length, 0);
 
   // Sélectionner un lieu dans la recherche unifiée applique directement un
   // périmètre : le seul moyen d'en définir un depuis la phase 2 (l'ancien
@@ -408,8 +433,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     // "zone" jamais sélectionnable ici (voir sources={...} sur <UnifiedSearch>).
     if (selection.kind !== "client" && selection.kind !== "animal") return;
     const target = selection.kind === "client"
-      ? clients.find((client) => client.clientId === selection.client.id)
-      : clients.find((client) => client.id === selection.animal.id);
+      ? clients.find((client) => client.id === selection.client.id)
+      : clients.find((client) => client.animals.some((animal) => animal.id === selection.animal.id));
     if (!target) return;
     setSelectedId(target.id);
   }
@@ -466,7 +491,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             </button>
 
             <span key={visibleClients.length} className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
-              {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""}
+              {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""} · {animalCount} anima{animalCount > 1 ? "ux" : "l"}
             </span>
           </div>
         </div>
@@ -586,7 +611,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               aria-pressed={showLiveLocation}
               className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showLiveLocation ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
             >
-              📍 {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
+              <LocateFixed aria-hidden="true" className="h-3.5 w-3.5" />
+              {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
             </button>
             {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
 
@@ -613,13 +639,19 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.
             keyboard={false}
-            // Fiche en bas à droite (large) ou en bas (étroit) : le point
-            // choisi s'affiche au-dessus et à gauche, jamais dessous.
-            selectedOffset={showCircleHandle ? { x: 160, y: 90 } : { x: 0, y: 120 }}
-            heightClassName="h-[610px]"
-            // Pas de fiche flottante pour un client sans position : rien sur
-            // la carte ne lui correspond. Il se traite depuis la liste.
-            overlay={selectedClient?.coordinates ? <MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} /> : undefined}
+            // Fiche en bas à droite (large) : le point choisi s'affiche
+            // au-dessus et à gauche, jamais dessous. Sur téléphone, la fiche
+            // passe sous la carte : centrage exact.
+            selectedOffset={showCircleHandle ? { x: 160, y: 90 } : undefined}
+            // Hauteur suivant l'écran, jamais plus que la fenêtre : la page
+            // reste lisible autour de la carte.
+            heightClassName="h-[min(610px,70dvh)] min-h-[340px]"
+            cluster
+            wheelZoom="afterClick"
+            // Pas de fiche flottante pour un client sans position (rien sur
+            // la carte ne lui correspond), ni sur téléphone (elle couvrait la
+            // moitié de la carte).
+            overlay={selectedClient?.coordinates && showCircleHandle ? <MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
             pin={perimeterCenter?.pin ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, label: perimeterCenter.label } : null}
             areas={[
@@ -634,6 +666,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             defaultCenter={cabinetCoordinates ? [cabinetCoordinates.lat, cabinetCoordinates.lng] : null}
             liveLocation={liveLocation}
           />
+          {/* Téléphone : la fiche du client choisi se range sous la carte. */}
+          {selectedClient?.coordinates && !showCircleHandle ? (
+            <div className="mt-3"><MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} docked /></div>
+          ) : null}
         </Card>
 
         <Card className="overflow-hidden xl:sticky xl:top-6">
@@ -674,10 +710,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                 ) : null}
                 <div data-client-row={client.id} className={selected ? "bg-animeo-soft" : undefined}>
                 <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 18%, white)` }}>{client.avatar}</span>
+                  <ClientBadge client={client} species={selectedSpecies} tint={18} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
-                    <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{client.animalName} · {client.species}</span>
+                    <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{animalsLine(client)}</span>
                     <span className="mt-1 block truncate text-[10px] text-animeo-muted">
                       {client.city} · {client.lastConsultation}
                       {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
@@ -698,9 +734,6 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
         </Card>
       </div>
 
-      <div className="rounded-2xl border border-animeo-soft-strong bg-animeo-soft px-4 py-3 text-xs font-semibold leading-relaxed text-animeo-dark">
-        Carte OpenStreetMap avec positions réelles. Itinéraires optimisés prévus en V2.
-      </div>
     </div>
   );
 }
@@ -716,7 +749,7 @@ function UnlocatedClientActions({ client }: { client: MapClient }) {
 
   async function locate() {
     setLocating(true);
-    const result = await geocodeClientAddressAction(client.clientId);
+    const result = await geocodeClientAddressAction(client.id);
     setLocating(false);
     if (!result.ok) { notify.error(result.error); return; }
     notify.success(`${client.ownerName} est localisé sur la carte.`);
@@ -730,23 +763,43 @@ function UnlocatedClientActions({ client }: { client: MapClient }) {
         <Icon name="map" className="h-3.5 w-3.5" />
         {locating ? "Localisation…" : "Localiser"}
       </button>
-      <Link href={`/dashboard/clients/${client.clientId}`} className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+      <Link href={`/dashboard/clients/${client.id}`} className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
         Fiche client
       </Link>
     </div>
   );
 }
 
-function MapClientPopup({ client, onClose }: { client: MapClient; onClose: () => void }) {
+/** Pastille d'un client : l'avatar de son animal représentatif, ou ses initiales. */
+function ClientBadge({ client, species, tint }: { client: MapClient; species: AnimalSpecies[]; tint: number }) {
   const { theme } = useDashboardTheme();
+  const lead = leadAnimal(client, species);
+  const color = lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)";
   return (
-    <div className="rounded-2xl border border-white/70 bg-white/95 p-4 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm">
+    <span aria-hidden="true" className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ${lead?.avatar ? "text-2xl" : "text-sm font-black text-animeo-dark"}`} style={{ backgroundColor: `color-mix(in srgb, ${color} ${tint}%, white)` }}>
+      {lead?.avatar || initialsOf(client.ownerName)}
+    </span>
+  );
+}
+
+function MapClientPopup({ client, onClose, docked = false }: { client: MapClient; onClose: () => void; docked?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-4 ${docked ? "border-animeo-border bg-white" : "border-white/70 bg-white/95 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm"}`}>
       <div className="flex items-start gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 22%, white)` }}>{client.avatar}</span>
+        <ClientBadge client={client} species={[]} tint={22} />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-black text-animeo-dark">{client.ownerName}</h3>
-          <p className="mt-0.5 text-xs font-extrabold text-animeo">{client.animalName}</p>
-          <p className="text-[10px] font-semibold text-animeo-muted">{client.species} · {client.breed}</p>
+          {client.animals.length ? (
+            <ul className="mt-0.5 space-y-0.5">
+              {client.animals.slice(0, 4).map((animal) => (
+                <li key={animal.id} className="truncate text-xs">
+                  <span className="font-extrabold text-animeo">{animal.name}</span>
+                  <span className="font-semibold text-animeo-muted"> · {animal.species}{animal.breed ? ` · ${animal.breed}` : ""}</span>
+                </li>
+              ))}
+              {client.animals.length > 4 ? <li className="text-[11px] font-semibold text-animeo-muted">et {client.animals.length - 4} autre{client.animals.length - 4 > 1 ? "s" : ""}</li> : null}
+            </ul>
+          ) : <p className="mt-0.5 text-xs font-semibold text-animeo-muted">Aucun animal</p>}
         </div>
         <button type="button" onClick={onClose} aria-label={`Fermer la fiche de ${client.ownerName}`} className="-mr-1.5 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
           <span aria-hidden="true">×</span>
@@ -756,8 +809,9 @@ function MapClientPopup({ client, onClose }: { client: MapClient; onClose: () =>
         <PopupLine label="Ville" value={client.city} />
         <PopupLine label="Dernière consultation" value={client.lastConsultation} />
         <PopupLine label="Prochain rappel" value={client.nextReminder} />
+        {client.positionSource ? <PopupLine label="Position" value={positionSourceLabels[client.positionSource]} /> : null}
       </dl>
-      <Link href={`/dashboard/clients/${client.clientId}`} className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Voir la fiche client</Link>
+      <Link href={`/dashboard/clients/${client.id}`} className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Voir la fiche client</Link>
     </div>
   );
 }

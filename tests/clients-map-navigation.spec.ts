@@ -30,6 +30,8 @@ const fixtures = [
   { suffix: "d", lastName: "NavDeltaE2E", point: null },
 ] as const;
 const animalId = (suffix: string) => `tmp-nav-animal-${suffix}`;
+// Une ligne par client : les lignes portent l'identifiant du client.
+const rowId = (suffix: string) => `tmp-nav-client-${suffix}`;
 
 async function seed() {
   const sql = neon(process.env.DATABASE_URL!);
@@ -65,7 +67,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
-const row = (page: Page, suffix: string) => page.locator(`[data-client-row="${animalId(suffix)}"]`);
+const row = (page: Page, suffix: string) => page.locator(`[data-client-row="${rowId(suffix)}"]`);
 const selectedRowId = (page: Page) => page.locator("[data-client-row]:has([aria-current='true'])").getAttribute("data-client-row");
 const counter = (page: Page) => page.getByTestId("map-navigation-counter");
 
@@ -96,7 +98,7 @@ test.describe("Carte clients — navigation entre clients", () => {
   test("Précédent / Suivant suivent l'ordre de la liste, avec le compteur", async ({ page }) => {
     const order = await locatedOrder(page);
     await row(page, "a").getByRole("button").first().click();
-    const position = order.indexOf(animalId("a"));
+    const position = order.indexOf(rowId("a"));
     await expect(counter(page)).toHaveText(`${position + 1} / ${order.length}`);
 
     await page.getByRole("button", { name: "Client suivant" }).click();
@@ -105,21 +107,21 @@ test.describe("Carte clients — navigation entre clients", () => {
     await expect(page.getByTestId("map-navigation-live")).toHaveText(/, \d+ sur \d+\.$/);
 
     await page.getByRole("button", { name: "Client précédent" }).click();
-    expect(await selectedRowId(page)).toBe(animalId("a"));
+    expect(await selectedRowId(page)).toBe(rowId("a"));
   });
 
   test("au clavier : → et ← dans la liste ; rien dans un champ de saisie", async ({ page }) => {
     const order = await locatedOrder(page);
-    const position = order.indexOf(animalId("a"));
+    const position = order.indexOf(rowId("a"));
     await row(page, "a").getByRole("button").first().click();
     await page.keyboard.press("ArrowRight");
     expect(await selectedRowId(page)).toBe(order[position + 1]);
     await page.keyboard.press("ArrowLeft");
-    expect(await selectedRowId(page)).toBe(animalId("a"));
+    expect(await selectedRowId(page)).toBe(rowId("a"));
 
     await page.getByPlaceholder("Rechercher un client, un animal ou un lieu").focus();
     await page.keyboard.press("ArrowRight");
-    expect(await selectedRowId(page), "une flèche dans un champ reste au champ").toBe(animalId("a"));
+    expect(await selectedRowId(page), "une flèche dans un champ reste au champ").toBe(rowId("a"));
     await page.keyboard.press("Escape");
   });
 
@@ -128,8 +130,8 @@ test.describe("Carte clients — navigation entre clients", () => {
     await page.getByRole("button", { name: "Proximité" }).click();
     await expect(page.getByText("À vol d’oiseau depuis Test NavAlphaE2E")).toBeVisible();
     const order = await locatedOrder(page);
-    expect(order[0], "le client choisi en tête (0 km)").toBe(animalId("a"));
-    expect(order.indexOf(animalId("b"))).toBeLessThan(order.indexOf(animalId("c")));
+    expect(order[0], "le client choisi en tête (0 km)").toBe(rowId("a"));
+    expect(order.indexOf(rowId("b"))).toBeLessThan(order.indexOf(rowId("c")));
     await expect(row(page, "a")).toContainText("0,0 km");
     await expect(row(page, "b")).toContainText(/1[0-9],\d km/);
   });
@@ -137,7 +139,7 @@ test.describe("Carte clients — navigation entre clients", () => {
   test("les clients sans position sont à part, et jamais parcourus", async ({ page }) => {
     await expect(page.getByText(/^Sans position \(\d+\)$/)).toBeVisible();
     const order = await locatedOrder(page);
-    expect(order).not.toContain(animalId("d"));
+    expect(order).not.toContain(rowId("d"));
     // Précédent sans sélection : le dernier client localisé, montré dans la liste.
     await page.getByRole("button", { name: "Client précédent" }).click();
     expect(await selectedRowId(page)).toBe(order[order.length - 1]);

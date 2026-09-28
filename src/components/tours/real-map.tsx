@@ -4,8 +4,9 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ReactNode } from "react";
 import type { GeoJsonObject } from "geojson";
-import { useEffect, useMemo, useRef } from "react";
-import { Circle, GeoJSON, MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Supercluster from "supercluster";
+import { Circle, GeoJSON, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { destinationPoint, haversineDistanceKm, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 
 export type RealMapPoint = {
@@ -86,6 +87,13 @@ type RealMapProps = {
   // chaque nouveau jeton, avec les marges demandées.
   fitBounds?: RealMapFitBounds | null;
   fitPadding?: RealMapPadding;
+  // Regroupement des marqueurs selon le zoom (supercluster). Absent = un
+  // marqueur par point, comme avant.
+  cluster?: boolean;
+  // Molette : « always » (défaut, comme avant) ou « afterClick » — la
+  // molette fait défiler la page tant qu'on n'a pas cliqué sur la carte ;
+  // Ctrl + molette zoome toujours.
+  wheelZoom?: "always" | "afterClick";
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -155,7 +163,20 @@ const pinIcon = L.divIcon({
   iconAnchor: [15, 39],
 });
 
+// Une icône par apparence, réutilisée : sans ce cache, chaque rendu
+// recréait un L.divIcon par marqueur (et Leaflet remplaçait le DOM).
+const iconCache = new Map<string, L.DivIcon>();
+
 function markerIcon(point: RealMapPoint, selected: boolean) {
+  const key = `${point.color}|${point.label}|${selected}|${point.badge ?? false}|${point.dimmed ?? false}`;
+  const cached = iconCache.get(key);
+  if (cached) return cached;
+  const icon = buildMarkerIcon(point, selected);
+  iconCache.set(key, icon);
+  return icon;
+}
+
+function buildMarkerIcon(point: RealMapPoint, selected: boolean) {
   const size = selected ? 42 : 34;
   const badge = point.badge ? `<span style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:9999px;background:#f4b860;border:2px solid white;"></span>` : "";
   return L.divIcon({
@@ -164,6 +185,171 @@ function markerIcon(point: RealMapPoint, selected: boolean) {
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
+}
+
+const clusterIconCache = new Map<string, L.DivIcon>();
+
+/** Groupe de marqueurs : un disque aux couleurs du thème, avec son effectif. */
+function clusterIcon(count: number, dimmed: boolean) {
+  const label = count >= 1000 ? `${Math.round(count / 100) / 10}k` : String(count);
+  const key = `${label}|${dimmed}`;
+  const cached = clusterIconCache.get(key);
+  if (cached) return cached;
+  const size = count < 10 ? 36 : count < 100 ? 42 : 50;
+  const icon = L.divIcon({
+    className: "",
+    html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:var(--theme-brand);color:#fff;font-weight:800;font-size:13px;border:3px solid white;box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.3);${dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${label}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+  clusterIconCache.set(key, icon);
+  return icon;
+}
+
+type ClusterPointProps = { id: string };
+
+/**
+ * Marqueurs regroupés selon le zoom. Un clic sur un groupe zoome jusqu'à
+ * le séparer ; s'il ne se sépare plus (clients à la même adresse), ses
+ * points se déploient en éventail autour de lui — position d'affichage
+ * seulement, jamais les coordonnées. Le point choisi n'est jamais caché
+ * dans un groupe.
+ */
+function ClusteredMarkers({ points, selectedId, onSelect }: { points: RealMapPoint[]; selectedId?: string; onSelect?: (id: string) => void }) {
+  const map = useMap();
+  const [view, setView] = useState(() => ({ bounds: map.getBounds(), zoom: map.getZoom() }));
+  const [spider, setSpider] = useState<{ center: L.LatLng; ids: string[] } | null>(null);
+  useMapEvents({
+    moveend: () => setView({ bounds: map.getBounds(), zoom: map.getZoom() }),
+    zoomstart: () => setSpider(null),
+  });
+
+  const byId = useMemo(() => new Map(points.map((point) => [point.id, point])), [points]);
+  const indexes = useMemo(() => {
+    const build = (list: RealMapPoint[]) => {
+      const index = new Supercluster<ClusterPointProps, Record<string, never>>({ radius: 48, maxZoom: map.getMaxZoom() });
+      index.load(list.map((point) => ({ type: "Feature", properties: { id: point.id }, geometry: { type: "Point", coordinates: [point.lng, point.lat] } })));
+      return index;
+    };
+    const free = points.filter((point) => point.id !== selectedId);
+    return { normal: build(free.filter((point) => !point.dimmed)), dimmed: build(free.filter((point) => point.dimmed)) };
+  }, [points, selectedId, map]);
+
+  const padded = view.bounds.pad(0.25);
+  const bbox: [number, number, number, number] = [padded.getWest(), padded.getSouth(), padded.getEast(), padded.getNorth()];
+  const zoom = Math.round(view.zoom);
+  const spiderIds = new Set(spider?.ids ?? []);
+
+  function openCluster(index: Supercluster<ClusterPointProps, Record<string, never>>, clusterId: number, center: L.LatLng) {
+    const expansion = index.getClusterExpansionZoom(clusterId);
+    if (expansion <= map.getMaxZoom() && expansion > map.getZoom()) {
+      map.flyTo(center, expansion, { duration: 0.5 });
+      return;
+    }
+    setSpider({ center, ids: index.getLeaves(clusterId, Infinity).map((leaf) => leaf.properties.id) });
+  }
+
+  // Positions en éventail autour du groupe, en pixels, recalculées au zoom courant.
+  const spiderPositions = spider
+    ? spider.ids.map((id, position) => {
+        const origin = map.latLngToLayerPoint(spider.center);
+        const radius = 34 + spider.ids.length * 5;
+        const angle = (2 * Math.PI * position) / spider.ids.length - Math.PI / 2;
+        return { id, latlng: map.layerPointToLatLng(L.point(origin.x + radius * Math.cos(angle), origin.y + radius * Math.sin(angle))) };
+      })
+    : [];
+
+  const selected = selectedId ? byId.get(selectedId) : undefined;
+
+  return (
+    <>
+      {(["normal", "dimmed"] as const).flatMap((group) =>
+        indexes[group].getClusters(bbox, zoom).map((feature) => {
+          const [lng, lat] = feature.geometry.coordinates;
+          if ("cluster" in feature.properties && feature.properties.cluster) {
+            const { cluster_id: clusterId, point_count: count } = feature.properties;
+            const center = L.latLng(lat, lng);
+            return (
+              <Marker
+                key={`${group}-cluster-${clusterId}`}
+                position={center}
+                icon={clusterIcon(count, group === "dimmed")}
+                title={`${count} clients ici — afficher le détail`}
+                interactive={group === "normal"}
+                keyboard={group === "normal"}
+                eventHandlers={group === "normal" ? { click: () => openCluster(indexes.normal, clusterId, center) } : {}}
+              />
+            );
+          }
+          const point = byId.get((feature.properties as ClusterPointProps).id);
+          if (!point || spiderIds.has(point.id)) return null;
+          return <PointMarker key={`${point.id}:${point.dimmed ? "hors" : "dans"}`} point={point} selected={false} onSelect={onSelect} />;
+        }),
+      )}
+      {spiderPositions.map(({ id, latlng }) => {
+        const point = byId.get(id);
+        if (!point || !spider) return null;
+        return (
+          <PointMarkerWithLeg key={`spider-${id}`} point={point} position={latlng} origin={spider.center} onSelect={onSelect} />
+        );
+      })}
+      {selected ? <PointMarker key={`selected-${selected.id}`} point={selected} selected onSelect={onSelect} /> : null}
+    </>
+  );
+}
+
+function PointMarker({ point, selected, onSelect, position }: { point: RealMapPoint; selected: boolean; onSelect?: (id: string) => void; position?: L.LatLng }) {
+  return (
+    <Marker
+      position={position ?? [point.lat, point.lng]}
+      icon={markerIcon(point, selected)}
+      title={point.title}
+      interactive={!point.dimmed}
+      keyboard={!point.dimmed}
+      zIndexOffset={selected ? 800 : 0}
+      eventHandlers={point.dimmed ? {} : { click: () => onSelect?.(point.id) }}
+    />
+  );
+}
+
+function PointMarkerWithLeg({ point, position, origin, onSelect }: { point: RealMapPoint; position: L.LatLng; origin: L.LatLng; onSelect?: (id: string) => void }) {
+  return (
+    <>
+      <Polyline positions={[origin, position]} pathOptions={{ className: "map-spider-leg" }} interactive={false} />
+      <PointMarker point={point} selected={false} onSelect={onSelect} position={position} />
+    </>
+  );
+}
+
+/**
+ * Molette « après un clic » : tant que la carte n'a pas été touchée, la
+ * molette fait défiler la page (sinon la carte capturait tout le scroll).
+ * Ctrl + molette zoome toujours, comme sur les cartes en ligne courantes.
+ */
+function WheelActivation({ onHint }: { onHint: (visible: boolean) => void }) {
+  const map = useMap();
+  useMapEvents({
+    click: () => { map.scrollWheelZoom.enable(); onHint(false); },
+    mouseout: () => map.scrollWheelZoom.disable(),
+  });
+  useEffect(() => {
+    const container = map.getContainer();
+    let hideTimer: number | undefined;
+    function handleWheel(event: WheelEvent) {
+      if (map.scrollWheelZoom.enabled()) return;
+      if (event.ctrlKey) {
+        event.preventDefault();
+        map.setZoom(map.getZoom() + (event.deltaY < 0 ? 1 : -1));
+        return;
+      }
+      onHint(true);
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => onHint(false), 1600);
+    }
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => { container.removeEventListener("wheel", handleWheel); window.clearTimeout(hideTimer); };
+  }, [map, onHint]);
+  return null;
 }
 
 function FitToPoints({ points }: { points: RealMapPoint[] }) {
@@ -238,7 +424,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always" }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -247,10 +433,12 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
   const zoom = points.length > 0 || defaultCenter ? 12 : 5;
   const selectedPoint = points.find((point) => point.id === selectedId);
   const mapRef = useRef<L.Map | null>(null);
+  const [wheelHint, setWheelHint] = useState(false);
 
   return (
     <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${heightClassName}`}>
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom keyboard={keyboard} className="h-full w-full" ref={mapRef}>
+      <MapContainer center={center} zoom={zoom} scrollWheelZoom={wheelZoom === "always"} keyboard={keyboard} className="h-full w-full" ref={mapRef}>
+        {wheelZoom === "afterClick" ? <WheelActivation onHint={setWheelHint} /> : null}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -279,7 +467,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         {circle && circleHandle && onCircleRadiusChange ? (
           <CircleResizeHandle key={`${circle.lat}:${circle.lng}:${circleHandleResetKey}`} circle={circle} onRadiusChange={onCircleRadiusChange} />
         ) : null}
-        {points.map((point) => (
+        {cluster ? <ClusteredMarkers points={points} selectedId={selectedId} onSelect={onSelect} /> : points.map((point) => (
           <Marker
             // react-leaflet ne met à jour ni `title` ni `interactive` d'un
             // marqueur existant : un point qui passe hors du périmètre est
@@ -296,6 +484,11 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
       </MapContainer>
 
       {overlay ? <div className="pointer-events-none absolute bottom-4 right-4 z-[500] w-[min(300px,calc(100%-2rem))]"><div className="pointer-events-auto">{overlay}</div></div> : null}
+      {wheelHint ? (
+        <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-[500] mx-auto w-fit rounded-xl bg-animeo-dark/85 px-3 py-2 text-xs font-bold text-white">
+          Cliquez sur la carte pour zoomer à la molette (ou Ctrl + molette)
+        </div>
+      ) : null}
     </div>
   );
 }
