@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { ClientsMap } from "@/components/tours/clients-map";
 import { PageHeader } from "@/components/layout/page-header";
-import { getMapClientSummaries } from "@/lib/map-clients";
-import { getZones } from "@/lib/tours";
+import { getMapAppointments, getMapClientSummaries } from "@/lib/map-clients";
+import { parisDateId } from "@/lib/paris-time";
+import { getPublicZones, getTours } from "@/lib/tours";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { requireUser } from "@/lib/auth/dal";
 import { ModuleClosed } from "@/components/modules/module-closed";
@@ -19,7 +20,7 @@ export const metadata: Metadata = { title: "Carte clients" };
 export default async function CartePage() {
   const moduleUser = await requireUser();
   if (!hasModule(moduleUser.modules, "TOURS")) return <ModuleClosed moduleKey="TOURS" />;
-  const [mapClients, profile, zones] = await Promise.all([getMapClientSummaries(), getBusinessProfile(), getZones()]);
+  const [mapClients, profile, zones, tours, appointments] = await Promise.all([getMapClientSummaries(), getBusinessProfile(), getPublicZones(), getTours(), getMapAppointments()]);
   const cabinetCoordinates = profile.latitude != null && profile.longitude != null ? { lat: profile.latitude, lng: profile.longitude } : null;
 
   return (
@@ -29,9 +30,13 @@ export default async function CartePage() {
         clients={mapClients}
         cabinetCoordinates={cabinetCoordinates}
         practiceMode={profile.practiceMode}
-        // Zones de tournée qui ont un secteur (lieu + rayon) : les autres,
-        // décrites par une liste de communes, n'ont pas de contour à tracer.
-        tourZones={zones.flatMap((zone) => (zone.sector ? [{ id: zone.id, name: zone.name, ...zone.sector }] : []))}
+        zones={zones}
+        // Tournées actives qui ont encore une date à venir.
+        plannedTours={tours.flatMap((tour) => (tour.status === "Active" && tour.nextOccurrenceLabel
+          ? [{ id: tour.id, name: tour.name, zoneIds: tour.zoneIds.length ? tour.zoneIds : [tour.zoneId], nextOccurrenceLabel: tour.nextOccurrenceLabel, startTime: tour.startTime, endTime: tour.endTime }]
+          : []))}
+        appointments={appointments}
+        todayId={parisDateId()}
       />
     </>
   );

@@ -22,6 +22,8 @@ export type MapClientSummary = {
   id: string;
   ownerName: string;
   city: string;
+  /** Code postal de la fiche (vide si inconnu) — sert à rattacher le client à une zone. */
+  postalCode: string;
   address: string;
   /** Téléphone de la fiche, vide si aucun (l'action « Appeler » disparaît). */
   phone: string;
@@ -39,4 +41,26 @@ export type MapClientSummary = {
   positionSource: MapPositionSource | null;
   /** Précision d'une position d'adresse ; nulle si inconnue (rendez-vous, ancienne position). */
   precision: "EXACT" | "STREET" | "CITY" | null;
+};
+
+/**
+ * Rendez-vous à venir, mode « Activité » de la carte : où vais-je
+ * travailler ? Un rendez-vous au cabinet n'a pas de point à lui (il a lieu au
+ * lieu d'exercice) ; un rendez-vous à domicile sans coordonnées est listé,
+ * jamais placé au hasard.
+ */
+export type MapAppointment = {
+  id: string;
+  /** Jour (AAAA-MM-JJ) et heure de début (HH:MM). */
+  dateId: string;
+  start: string;
+  clientId: string | null;
+  clientName: string;
+  animalName: string;
+  animalSpecies: AnimalSpecies | null;
+  serviceName: string;
+  city: string;
+  place: "home" | "cabinet";
+  status: "PENDING" | "CONFIRMED" | "COMPLETED";
+  coordinates: { lat: number; lng: number } | null;
 };

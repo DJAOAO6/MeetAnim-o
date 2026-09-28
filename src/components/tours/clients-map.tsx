@@ -21,7 +21,14 @@ import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import type { AnimalSpecies } from "@/data/tours";
-import type { MapClientAnimal, MapClientSummary } from "@/data/map-clients";
+import type { MapAppointment, MapClientAnimal, MapClientSummary } from "@/data/map-clients";
+import type { PublicZone } from "@/data/public-booking";
+import {
+  ACTIVITY_RANGES, appointmentsInRange, mapModeParam, matchesVisitFilter, MAP_MODES, parseActivityRange, parseMapMode, parseVisitFilter,
+  parseZoneFilter, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
+  type ActivityRange, type MapMode, type VisitFilter, type ZoneFilter,
+} from "@/lib/map-modes";
+import { APPOINTMENT_LEGEND, appointmentStatusColors, appointmentTitle, MapAppointmentCard, MapAppointmentList, MapModeSwitcher, Segmented, ToursPanel, type PlannedTour } from "@/components/tours/map-modes";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
@@ -33,29 +40,39 @@ type ClientsMapProps = {
   cabinetCoordinates?: { lat: number; lng: number } | null;
   /** Mode d'exercice : nom du repère (cabinet / lieu d'exercice) et lieu d'un nouveau rendez-vous. */
   practiceMode?: PracticeMode;
-  /** Zones de tournée qui ont un secteur (lieu + rayon). */
-  tourZones?: Array<{ id: string; name: string; lat: number; lng: number; radiusKm: number }>;
+  /** Zones de tournée (communes, codes postaux, secteur éventuel). */
+  zones?: PublicZone[];
+  /** Tournées actives qui ont encore une date à venir. */
+  plannedTours?: PlannedTour[];
+  /** Rendez-vous d'aujourd'hui aux 30 prochains jours (mode « Activité »). */
+  appointments?: MapAppointment[];
+  /** Jour de référence (AAAA-MM-JJ, heure de Paris), fixé par le serveur. */
+  todayId?: string;
 };
 
 type ColorMode = "species" | "visit" | "due";
 const colorModeLabels: Record<ColorMode, string> = { species: "Espèce", visit: "Dernière visite", due: "À relancer" };
 
-/** Mois écoulés depuis une date AAAA-MM-JJ (null : jamais). */
-function monthsSince(dateId: string | null): number | null {
-  if (!dateId) return null;
-  const [year, month, day] = dateId.split("-").map(Number);
-  const now = new Date();
-  return (now.getFullYear() - year) * 12 + (now.getMonth() + 1 - month) - (now.getDate() < day ? 1 : 0);
-}
-
 /** Ancienneté de la dernière visite, en trois paliers (jamais la couleur seule : le libellé suit). */
-function visitBucket(client: MapClientSummary): { color: string; label: string } {
-  const months = monthsSince(client.lastConsultationAt);
-  if (months === null) return { color: "var(--theme-danger)", label: "Jamais vu" };
-  if (months < 3) return { color: "var(--theme-success)", label: "Vu il y a moins de 3 mois" };
-  if (months < 12) return { color: "var(--theme-warning)", label: "Vu il y a 3 à 12 mois" };
+function visitBucket(client: MapClientSummary, todayId: string): { color: string; label: string } {
+  if (!client.lastConsultationAt) return { color: "var(--theme-danger)", label: "Jamais vu" };
+  const tier = visitTier(client.lastConsultationAt, todayId);
+  if (tier === "recent") return { color: "var(--theme-success)", label: "Vu il y a moins de 3 mois" };
+  if (tier === "mid") return { color: "var(--theme-warning)", label: "Vu il y a 3 à 12 mois" };
   return { color: "var(--theme-danger)", label: "Pas vu depuis plus de 12 mois" };
 }
+
+const ZONE_LEGEND = [
+  { color: "var(--theme-brand)", label: "Dans une zone" },
+  { color: "var(--theme-subtle)", label: "Non rattaché" },
+];
+
+const mapTitles: Record<MapMode, string> = {
+  clients: "Répartition des clients",
+  activity: "Rendez-vous à venir",
+  reminders: "Suivi des visites",
+  tours: "Zones et tournées",
+};
 
 const VISIT_LEGEND = [
   { color: "var(--theme-success)", label: "Moins de 3 mois" },
@@ -77,6 +94,11 @@ type MapUrlState = {
   radius: number;
   territory: { type: "departement" | "region"; code: string; label: string } | null;
   selected: string | null;
+  mode: MapMode;
+  range: ActivityRange;
+  visit: VisitFilter;
+  zone: ZoneFilter | null;
+  appointment: string | null;
 };
 
 function parseMapUrl(params: URLSearchParams): MapUrlState {
@@ -98,6 +120,11 @@ function parseMapUrl(params: URLSearchParams): MapUrlState {
       ? { type: territoryType, code: territoryParam[1], label: params.get("nom") ?? territoryParam[1] }
       : null,
     selected: params.get("client"),
+    mode: parseMapMode(params.get("mode")),
+    range: parseActivityRange(params.get("periode")),
+    visit: parseVisitFilter(params.get("suivi")),
+    zone: parseZoneFilter(params.get("zone")),
+    appointment: params.get("rdv"),
   };
 }
 
@@ -176,13 +203,22 @@ const PERIMETER_RADIUS_TIERS = [15, 30, 50];
 // paliers restent.
 const CIRCLE_HANDLE_MIN_WIDTH_QUERY = "(min-width: 640px)";
 
-export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = "BOTH", tourZones = [] }: ClientsMapProps) {
+export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = "BOTH", zones = [], plannedTours = [], appointments = [], todayId: todayIdProp }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   // Lu une seule fois : l'adresse sert d'état de départ, puis suit la carte.
   const [initialUrl] = useState(() => parseMapUrl(new URLSearchParams(searchParams.toString())));
+  // Jour de référence du serveur (heure de Paris) : le même au rendu serveur
+  // et dans le navigateur.
+  const [todayId] = useState(() => todayIdProp ?? new Date().toISOString().slice(0, 10));
+  // Une même carte, quatre questions (Clients, Activité, Relances, Tournées).
+  const [mapMode, setMapMode] = useState<MapMode>(initialUrl.mode);
+  const [activityRange, setActivityRange] = useState<ActivityRange>(initialUrl.range);
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>(initialUrl.visit);
+  const [zoneFilter, setZoneFilter] = useState<ZoneFilter | null>(initialUrl.zone);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialUrl.appointment);
   const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>(initialUrl.species);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
   const [dueOnly, setDueOnly] = useState(initialUrl.due);
@@ -330,15 +366,33 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     } else setPerimeterRadiusKm(radiusKm);
   }
 
+  // Zones qui couvrent chaque client (mode « Tournées ») : même règle que
+  // la réservation en ligne.
+  const zoneIdsByClient = useMemo(() => new Map(clients.map((client) => [client.id, zoneIdsOf(client, zones)])), [clients, zones]);
+  const zoneCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ids of zoneIdsByClient.values()) for (const id of ids) counts[id] = (counts[id] ?? 0) + 1;
+    return counts;
+  }, [zoneIdsByClient]);
+  const unattachedCount = clients.filter((client) => (zoneIdsByClient.get(client.id) ?? []).length === 0).length;
+  const sectorZones = zones.flatMap((zone) => (zone.sector ? [{ id: zone.id, name: zone.name, ...zone.sector }] : []));
+
   const filteredClients = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
+    const zoneFilterIds = zoneFilter?.kind === "zone" ? [zoneFilter.id]
+      : zoneFilter?.kind === "tour" ? plannedTours.find((tour) => tour.id === zoneFilter.id)?.zoneIds ?? []
+        : [];
     return clients.filter((client) => {
       const matchesSpecies = selectedSpecies.length === 0 || client.animals.some((animal) => selectedSpecies.includes(animal.species));
-      const matchesReminder = !dueOnly || client.dueForReminder;
+      // Relances : le suivi choisi (à relancer, ancienneté) ; ailleurs, la bascule « À relancer ».
+      const matchesReminder = mapMode === "reminders" ? matchesVisitFilter(client, visitFilter, todayId) : !dueOnly || client.dueForReminder;
       const matchesQuery = !normalizedQuery || `${client.ownerName} ${client.animals.map((animal) => animal.name).join(" ")}`.toLocaleLowerCase("fr-FR").includes(normalizedQuery);
-      return matchesSpecies && matchesReminder && matchesQuery;
+      const clientZones = zoneIdsByClient.get(client.id) ?? [];
+      const matchesZone = mapMode !== "tours" || !zoneFilter
+        || (zoneFilter.kind === "none" ? clientZones.length === 0 : clientZones.some((id) => zoneFilterIds.includes(id)));
+      return matchesSpecies && matchesReminder && matchesQuery && matchesZone;
     });
-  }, [clients, dueOnly, query, selectedSpecies]);
+  }, [clients, dueOnly, query, selectedSpecies, mapMode, visitFilter, todayId, zoneIdsByClient, zoneFilter, plannedTours]);
 
   // Retirer le périmètre : cercle, épingle, contour et filtre partent, et la
   // carte revient sur l'ensemble des clients.
@@ -398,7 +452,28 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
       && client.coordinates.lng >= mapBounds.west && client.coordinates.lng <= mapBounds.east)
     : perimeterClients;
   const locatedClients = visibleClients.filter((client) => client.coordinates);
-  const selectedClient = selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
+  const selectedClient = mapMode !== "activity" && selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
+
+  // Mode « Activité » : les rendez-vous de la période, avec les mêmes filtres
+  // (espèce, recherche, périmètre, zone affichée).
+  const inPerimeter = (point: { lat: number; lng: number } | null) => {
+    if (territory) return territory.status !== "ready" || !territory.geometry ? true : Boolean(point && pointInGeometry(point, territory.geometry));
+    if (perimeterCenter) return Boolean(point && haversineDistanceKm(perimeterCenter, point) <= perimeterRadiusKm);
+    return true;
+  };
+  const inView = (point: { lat: number; lng: number } | null) => !visibleOnly || !mapBounds
+    || Boolean(point && point.lat >= mapBounds.south && point.lat <= mapBounds.north && point.lng >= mapBounds.west && point.lng <= mapBounds.east);
+  const normalizedActivityQuery = query.trim().toLocaleLowerCase("fr-FR");
+  const activityAppointments = mapMode === "activity"
+    ? appointmentsInRange(appointments, todayId, activityRange).filter((appointment) =>
+      (selectedSpecies.length === 0 || (appointment.animalSpecies !== null && selectedSpecies.includes(appointment.animalSpecies)))
+      && (!normalizedActivityQuery || `${appointment.clientName} ${appointment.animalName}`.toLocaleLowerCase("fr-FR").includes(normalizedActivityQuery))
+      && (!hasPerimeter || inPerimeter(appointment.coordinates))
+      && inView(appointment.coordinates))
+    : [];
+  const selectedAppointment = mapMode === "activity" && selectedAppointmentId ? activityAppointments.find((appointment) => appointment.id === selectedAppointmentId) ?? null : null;
+  if (selectedAppointmentId !== null && mapMode === "activity" && !selectedAppointment) setSelectedAppointmentId(null);
+  const homeAppointmentCount = activityAppointments.filter((appointment) => appointment.place === "home").length;
 
   const distanceFrom = (client: MapClient) => (sortMode === "distance" && proximityOrigin && client.coordinates ? haversineDistanceKm(proximityOrigin, client.coordinates) : null);
   const byName = (a: MapClient, b: MapClient) => nameCollator.compare(a.ownerName, b.ownerName) || nameCollator.compare(a.city, b.city);
@@ -455,7 +530,37 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // sélectionné : il ne revient pas sélectionné s'il réapparaît.
   // Ajusté pendant le rendu (motif React « état dérivé d'un changement ») :
   // pas d'effet, donc pas de rendu intermédiaire avec une sélection fantôme.
-  if (selectedId !== null && !selectedClient) setSelectedId(null);
+  if (selectedId !== null && mapMode !== "activity" && !selectedClient) setSelectedId(null);
+
+  // Changer de mode referme la fiche ouverte : un client et un rendez-vous
+  // ne se confondent pas.
+  function changeMode(next: MapMode) {
+    setMapMode(next);
+    setSelectedId(null);
+    setSelectedAppointmentId(null);
+    setHoveredId(null);
+  }
+
+  function toggleAppointment(id: string) {
+    setSelectedAppointmentId((current) => (current === id ? null : id));
+  }
+
+  // Choisir une zone ou une tournée recadre sur leurs secteurs (quand elles
+  // en ont : une zone décrite par ses communes n'a pas de contour).
+  function chooseZoneFilter(next: ZoneFilter | null) {
+    setZoneFilter(next);
+    setSelectedId(null);
+    const ids = next?.kind === "zone" ? [next.id] : next?.kind === "tour" ? plannedTours.find((tour) => tour.id === next.id)?.zoneIds ?? [] : [];
+    const sectors = zones.filter((zone) => ids.includes(zone.id) && zone.sector).map((zone) => circleBounds(zone.sector!, zone.sector!.radiusKm));
+    if (sectors.length > 0) {
+      fitTo({
+        south: Math.min(...sectors.map((bounds) => bounds.south)),
+        north: Math.max(...sectors.map((bounds) => bounds.north)),
+        west: Math.min(...sectors.map((bounds) => bounds.west)),
+        east: Math.max(...sectors.map((bounds) => bounds.east)),
+      });
+    }
+  }
 
   // Même geste pour sélectionner et désélectionner : un second clic sur le
   // client déjà choisi (marqueur ou ligne) referme sa fiche.
@@ -465,16 +570,17 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   // Échap referme la fiche — sauf dans un champ, où Échap appartient au champ.
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId && !selectedAppointmentId) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (target && (target.closest("input, textarea, select, [contenteditable='true']"))) return;
       setSelectedId(null);
+      setSelectedAppointmentId(null);
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId]);
+  }, [selectedId, selectedAppointmentId]);
 
   // La ligne du client choisi sur la carte se montre dans la liste. Seule la
   // liste défile (jamais la page) : sur téléphone, la liste est sous la
@@ -495,22 +601,37 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // visibles pour le contexte, atténués et non cliquables ; la liste, elle,
   // ne montre que ceux du périmètre.
   const insidePerimeter = new Set(perimeterClients.map((client) => client.id));
-  const points = filteredClients.filter((client) => client.coordinates).map((client) => {
+  // Couleur des points : au choix en mode Clients ; imposée par la question
+  // posée dans les autres modes.
+  const effectiveColor = mapMode === "reminders" ? "visit" : colorMode;
+  const clientPoints = filteredClients.filter((client) => client.coordinates).map((client) => {
     const outside = hasPerimeter && !insidePerimeter.has(client.id);
     const lead = leadAnimal(client, selectedSpecies);
+    const clientZones = zoneIdsByClient.get(client.id) ?? [];
+    const zoneLabel = clientZones.length ? ` · ${clientZones.map((id) => zones.find((zone) => zone.id === id)?.name).join(", ")}` : " · non rattaché";
     return {
       id: client.id,
       lat: client.coordinates!.lat,
       lng: client.coordinates!.lng,
       label: lead?.avatar || initialsOf(client.ownerName),
-      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${colorMode === "visit" ? ` · ${visitBucket(client).label.toLowerCase()}` : ""}${outside ? " · hors du périmètre" : ""}`,
-      color: colorMode === "visit" ? visitBucket(client).color
-        : colorMode === "due" ? (client.dueForReminder ? "var(--theme-brand)" : "var(--theme-subtle)")
-          : lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
+      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${effectiveColor === "visit" && mapMode !== "tours" ? ` · ${visitBucket(client, todayId).label.toLowerCase()}` : ""}${mapMode === "tours" ? zoneLabel : ""}${outside ? " · hors du périmètre" : ""}`,
+      color: mapMode === "tours" ? (clientZones.length ? "var(--theme-brand)" : "var(--theme-subtle)")
+        : effectiveColor === "visit" ? visitBucket(client, todayId).color
+          : effectiveColor === "due" ? (client.dueForReminder ? "var(--theme-brand)" : "var(--theme-subtle)")
+            : lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
       badge: client.dueForReminder,
       dimmed: outside,
     };
   });
+  const appointmentPoints = activityAppointments.filter((appointment) => appointment.coordinates).map((appointment) => ({
+    id: appointment.id,
+    lat: appointment.coordinates!.lat,
+    lng: appointment.coordinates!.lng,
+    label: initialsOf(appointment.clientName),
+    title: appointmentTitle(appointment, todayId),
+    color: appointmentStatusColors[appointment.status],
+  }));
+  const points = mapMode === "activity" ? appointmentPoints : clientPoints;
 
   // Marges du recadrage : la fiche ouverte occupe le bas à droite (large) ou
   // le bas de la carte (étroit) — le cercle doit rester visible à côté.
@@ -593,11 +714,19 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
         params.set("nom", territory.label);
       }
       if (selectedId) params.set("client", selectedId);
+      const modeParam = mapModeParam(mapMode);
+      if (modeParam) params.set("mode", modeParam);
+      if (mapMode === "activity") {
+        if (activityRange !== "7") params.set("periode", activityRange);
+        if (selectedAppointmentId) params.set("rdv", selectedAppointmentId);
+      }
+      if (mapMode === "reminders" && visitFilter !== "all") params.set("suivi", visitFilter);
+      if (mapMode === "tours" && zoneFilter) params.set("zone", zoneFilterParam(zoneFilter));
       const next = params.toString();
       if (next !== window.location.search.replace(/^\?/, "")) window.history.replaceState(window.history.state, "", next ? `${pathname}?${next}` : pathname);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [selectedSpecies, dueOnly, colorMode, visibleOnly, showZones, perimeterCenter, perimeterRadiusKm, territory, selectedId, pathname]);
+  }, [selectedSpecies, dueOnly, colorMode, visibleOnly, showZones, perimeterCenter, perimeterRadiusKm, territory, selectedId, pathname, mapMode, activityRange, selectedAppointmentId, visitFilter, zoneFilter]);
 
   // Sélectionner un lieu dans la recherche unifiée applique directement un
   // périmètre : le seul moyen d'en définir un depuis la phase 2 (l'ancien
@@ -622,6 +751,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
       ? clients.find((client) => client.id === selection.client.id)
       : clients.find((client) => client.animals.some((animal) => animal.id === selection.animal.id));
     if (!target) return;
+    if (mapMode === "activity") changeMode("clients");
     setSelectedId(target.id);
   }
 
@@ -632,12 +762,21 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // ci-dessous, pas dans cette liste générique "clic = retire".
   const activeFilterTokens: FilterToken[] = [
     ...selectedSpecies.map((species): FilterToken => ({ key: `species-${species}`, label: species, onRemove: () => toggleSpecies(species) })),
-    ...(dueOnly ? [{ key: "due", label: "À relancer", onRemove: () => setDueOnly(false) }] : []),
+    ...(dueOnly && (mapMode === "clients" || mapMode === "tours") ? [{ key: "due", label: "À relancer", onRemove: () => setDueOnly(false) }] : []),
   ];
 
   return (
     <div className="space-y-6">
       <Card className="p-4 sm:p-5">
+        {/* Mode de la carte, et l'option propre à ce mode. */}
+        <div className="mb-3 flex flex-col items-start gap-2 border-b border-animeo-border-soft pb-3">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <MapModeSwitcher mode={mapMode} onChange={changeMode} />
+            <p className="text-xs font-semibold text-animeo-muted" data-testid="map-mode-question">{MAP_MODES.find((mode) => mode.id === mapMode)!.question}</p>
+          </div>
+          {mapMode === "activity" ? <Segmented label="Période" options={ACTIVITY_RANGES} value={activityRange} onChange={(range) => { setActivityRange(range); setSelectedAppointmentId(null); }} size="sm" /> : null}
+          {mapMode === "reminders" ? <Segmented label="Suivi des visites" options={VISIT_FILTERS} value={visitFilter} onChange={setVisitFilter} size="sm" /> : null}
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="min-w-0 sm:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} sources={["client", "animal", "place", "address"]} /></div>
 
@@ -666,7 +805,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               ) : null}
             </div>
 
-            <button
+            {mapMode === "clients" || mapMode === "tours" ? <button
               type="button"
               onClick={() => setDueOnly((current) => !current)}
               aria-pressed={dueOnly}
@@ -674,11 +813,17 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             >
               <Icon name="bell" className="h-3.5 w-3.5" />
               À relancer
-            </button>
+            </button> : null}
 
-            <span key={visibleClients.length} className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
-              {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""} · {animalCount} anima{animalCount > 1 ? "ux" : "l"}
-            </span>
+            {mapMode === "activity" ? (
+              <span key={`rdv-${activityAppointments.length}`} className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
+                {activityAppointments.length} rendez-vous · {homeAppointmentCount} à domicile
+              </span>
+            ) : (
+              <span key={visibleClients.length} className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
+                {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""} · {animalCount} anima{animalCount > 1 ? "ux" : "l"}
+              </span>
+            )}
           </div>
         </div>
 
@@ -783,20 +928,24 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
         <Card className="p-4 sm:p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-extrabold text-animeo-dark">Répartition des clients</h2>
-              <p className="mt-0.5 text-xs text-animeo-muted">Cliquez sur un point pour afficher sa fiche</p>
+              <h2 className="font-extrabold text-animeo-dark">{mapTitles[mapMode]}</h2>
+              <p className="mt-0.5 text-xs text-animeo-muted">{mapMode === "activity" ? "Rendez-vous à domicile localisés ; ceux du cabinet sont dans la liste" : "Cliquez sur un point pour afficher sa fiche"}</p>
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
-              <label className="inline-flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
+              {mapMode === "clients" ? <label className="inline-flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
                 Couleur
                 <select value={colorMode} onChange={(event) => setColorMode(event.target.value as ColorMode)} className="min-h-9 rounded-lg border border-animeo-border bg-white px-2 text-xs font-extrabold text-animeo-dark">
                   {(Object.keys(colorModeLabels) as ColorMode[]).map((mode) => <option key={mode} value={mode}>{colorModeLabels[mode]}</option>)}
                 </select>
-              </label>
+              </label> : null}
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-animeo-muted" aria-label="Légende">
-                {colorMode === "species" ? animalSpeciesList.map((item) => (
+                {mapMode === "activity" ? APPOINTMENT_LEGEND.map((item) => (
+                  <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
+                )) : mapMode === "tours" ? ZONE_LEGEND.map((item) => (
+                  <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
+                )) : effectiveColor === "species" ? animalSpeciesList.map((item) => (
                   <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item}</span>
-                )) : colorMode === "visit" ? VISIT_LEGEND.map((item) => (
+                )) : effectiveColor === "visit" ? VISIT_LEGEND.map((item) => (
                   <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
                 )) : (
                   <>
@@ -804,7 +953,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-animeo-subtle" />À jour</span>
                   </>
                 )}
-                {colorMode === "species" ? <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span> : null}
+                {mapMode !== "activity" && mapMode !== "tours" && effectiveColor !== "due" ? <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span> : null}
               </div>
             </div>
           </div>
@@ -819,7 +968,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
             </button>
             {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
-            {tourZones.length > 0 ? (
+            {sectorZones.length > 0 && mapMode !== "tours" ? (
               <button type="button" onClick={() => setShowZones((current) => !current)} aria-pressed={showZones} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showZones ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}>
                 Zones de tournée
               </button>
@@ -834,7 +983,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             </button>
 
             {/* Parcourir les clients localisés, dans l'ordre de la liste. */}
-            <div role="group" aria-label="Parcourir les clients sur la carte" className="ml-auto flex items-center gap-1">
+            <div role="group" aria-label="Parcourir les clients sur la carte" className={`ml-auto items-center gap-1 ${mapMode === "activity" ? "hidden" : "flex"}`}>
               <button type="button" onClick={() => goTo(-1)} disabled={orderedLocated.length === 0 || navIndex === 0} aria-label="Client précédent" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40">
                 <ChevronLeft aria-hidden="true" className="h-4 w-4" />
                 <span className="hidden sm:inline">Précédent</span>
@@ -850,9 +999,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           </div>
           <RealMap
             points={points}
-            selectedId={selectedClient?.coordinates ? selectedClient.id : undefined}
-            onSelect={toggleSelection}
-            onBackgroundClick={() => setSelectedId(null)}
+            selectedId={mapMode === "activity" ? (selectedAppointment?.coordinates ? selectedAppointment.id : undefined) : selectedClient?.coordinates ? selectedClient.id : undefined}
+            onSelect={mapMode === "activity" ? toggleAppointment : toggleSelection}
+            onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); }}
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.
             keyboard={false}
@@ -869,11 +1018,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             highlightedId={hoveredId}
             onHover={setHoveredId}
             practice={cabinetCoordinates ? { ...cabinetCoordinates, label: practiceLabel } : null}
-            zoneCircles={showZones ? tourZones.map((zone) => ({ id: zone.id, lat: zone.lat, lng: zone.lng, radiusKm: zone.radiusKm, label: zone.name })) : []}
+            zoneCircles={showZones || mapMode === "tours" ? sectorZones.map((zone) => ({ id: zone.id, lat: zone.lat, lng: zone.lng, radiusKm: zone.radiusKm, label: zone.name })) : []}
             // Pas de fiche flottante pour un client sans position (rien sur
             // la carte ne lui correspond), ni sur téléphone (elle couvrait la
             // moitié de la carte).
-            overlay={selectedClient?.coordinates && showCircleHandle ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} /> : undefined}
+            overlay={!showCircleHandle ? undefined
+              : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} />
+                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
             pin={perimeterCenter?.pin ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, label: perimeterCenter.label } : null}
             areas={[
@@ -892,14 +1043,36 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           {selectedClient?.coordinates && !showCircleHandle ? (
             <div className="mt-3"><MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} docked /></div>
           ) : null}
+          {selectedAppointment?.coordinates && !showCircleHandle ? (
+            <div className="mt-3"><MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} docked /></div>
+          ) : null}
         </Card>
         </div>
 
         <Card className="overflow-hidden xl:sticky xl:top-6">
+          {mapMode === "activity" ? (
+            <>
+              <div className="border-b border-animeo-border-soft px-5 py-4">
+                <h2 className="font-extrabold text-animeo-dark">Rendez-vous</h2>
+                <p className="mt-0.5 text-xs text-animeo-muted">
+                  {homeAppointmentCount} à domicile · {activityAppointments.length - homeAppointmentCount} au cabinet{hasPerimeter ? " · dans le périmètre" : ""}
+                </p>
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-extrabold text-animeo-dark">
+                  <input type="checkbox" checked={visibleOnly} onChange={(event) => setVisibleOnly(event.target.checked)} className="h-4 w-4 rounded border-animeo-border text-animeo focus:ring-animeo" />
+                  Uniquement cette zone
+                </label>
+              </div>
+              <MapAppointmentList appointments={activityAppointments} todayId={todayId} selectedId={selectedAppointmentId} onSelect={toggleAppointment} hoveredId={hoveredId} onHover={setHoveredId} />
+            </>
+          ) : (
+          <>
+          {mapMode === "tours" ? (
+            <ToursPanel zones={zones} plannedTours={plannedTours} zoneCounts={zoneCounts} unattachedCount={unattachedCount} totalCount={clients.length} filter={zoneFilter} onFilter={chooseZoneFilter} />
+          ) : null}
           <div className="border-b border-animeo-border-soft px-5 py-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="font-extrabold text-animeo-dark">Clients visibles</h2>
+                <h2 className="font-extrabold text-animeo-dark">{mapMode === "reminders" ? "Clients à revoir" : mapMode === "tours" && zoneFilter ? "Clients de la sélection" : "Clients visibles"}</h2>
                 <p className="mt-0.5 text-xs text-animeo-muted">
                   {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : hasPerimeter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
                 </p>
@@ -950,7 +1123,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
                     <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{animalsLine(client)}</span>
                     <span className="mt-1 block truncate text-[10px] text-animeo-muted">
-                      {client.city} · {client.lastConsultation}
+                      {client.city} · {mapMode === "reminders" ? `Dernière visite : ${client.lastConsultation}` : client.lastConsultation}
                       {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
                       {client.precision === "CITY" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
                     </span>
@@ -966,6 +1139,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             </div>
           ) : (
             <div className="p-8 text-center"><Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" /><p className="mt-3 text-sm font-bold text-animeo-muted">Aucun client ne correspond aux filtres.</p></div>
+          )}
+          </>
           )}
         </Card>
       </div>

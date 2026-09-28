@@ -1,8 +1,9 @@
 import "server-only";
 import { readDb } from "@/lib/organization";
 import { formatFrenchDate } from "@/lib/format";
+import { parisDateId } from "@/lib/paris-time";
 import type { AnimalSpecies } from "@/data/species";
-import type { MapClientSummary } from "@/data/map-clients";
+import type { MapAppointment, MapClientSummary } from "@/data/map-clients";
 
 /**
  * Clients de la carte, un par propriétaire (et non plus un par animal : le
@@ -26,6 +27,7 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       firstName: true,
       lastName: true,
       city: true,
+      postalCode: true,
       address: true,
       phone: true,
       latitude: true,
@@ -80,6 +82,7 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       id: client.id,
       ownerName: `${client.firstName} ${client.lastName}`.trim(),
       city: client.city,
+      postalCode: client.postalCode ?? "",
       address: client.address,
       phone: client.phone,
       animals,
@@ -95,4 +98,43 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       precision: fromAddress ? client.geocodePrecision : null,
     };
   });
+}
+
+/** Horizon du mode « Activité » : aujourd'hui, 7 ou 30 jours. */
+export const MAP_ACTIVITY_DAYS = 30;
+
+/**
+ * Rendez-vous d'aujourd'hui aux 30 prochains jours (heure de Paris), hors
+ * annulés, dans l'ordre du calendrier. Position : celle du rendez-vous à
+ * domicile quand il en a une ; au cabinet, aucune (voir MapAppointment).
+ */
+export async function getMapAppointments(): Promise<MapAppointment[]> {
+  const db = await readDb();
+  const fromId = parisDateId();
+  const toId = parisDateId(new Date(), MAP_ACTIVITY_DAYS - 1);
+  const appointments = await db.appointment.findMany({
+    where: { date: { gte: new Date(`${fromId}T00:00:00Z`), lte: new Date(`${toId}T00:00:00Z`) }, status: { not: "CANCELLED" } },
+    orderBy: [{ date: "asc" }, { start: "asc" }],
+    select: {
+      id: true, date: true, start: true, clientId: true, clientName: true, animalName: true, animalSpecies: true,
+      serviceName: true, city: true, location: true, mode: true, status: true, latitude: true, longitude: true,
+      client: { select: { city: true } },
+    },
+  });
+  return appointments.map((appointment): MapAppointment => ({
+    id: appointment.id,
+    dateId: appointment.date.toISOString().slice(0, 10),
+    start: appointment.start,
+    clientId: appointment.clientId,
+    clientName: appointment.clientName,
+    animalName: appointment.animalName,
+    animalSpecies: (appointment.animalSpecies as AnimalSpecies | null) ?? null,
+    serviceName: appointment.serviceName,
+    city: appointment.city || appointment.client?.city || "",
+    place: appointment.mode === "DOMICILE" ? "home" : "cabinet",
+    status: appointment.status as MapAppointment["status"],
+    coordinates: appointment.mode === "DOMICILE" && appointment.latitude != null && appointment.longitude != null
+      ? { lat: appointment.latitude, lng: appointment.longitude }
+      : null,
+  }));
 }
