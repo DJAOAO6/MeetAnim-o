@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, LocateFixed } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CalendarPlus, ChevronLeft, ChevronRight, Crosshair, LocateFixed, Maximize2, Minimize2, Navigation, Phone } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -14,6 +14,12 @@ import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { circleBounds, haversineDistanceKm, pointInGeometry, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 import { geocodeClientAddressAction, locateUnlocatedClientsAction } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
+import { sendRemindersBulkAction } from "@/lib/reminders-actions";
+import { hasModule } from "@/lib/modules";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
+import { useCurrentUser } from "@/components/auth/current-user-provider";
+import { useAppointments } from "@/components/appointments/appointments-context";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import type { AnimalSpecies } from "@/data/tours";
 import type { MapClientAnimal, MapClientSummary } from "@/data/map-clients";
 
@@ -25,7 +31,75 @@ const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) =
 type ClientsMapProps = {
   clients: MapClientSummary[];
   cabinetCoordinates?: { lat: number; lng: number } | null;
+  /** Mode d'exercice : nom du repère (cabinet / lieu d'exercice) et lieu d'un nouveau rendez-vous. */
+  practiceMode?: PracticeMode;
+  /** Zones de tournée qui ont un secteur (lieu + rayon). */
+  tourZones?: Array<{ id: string; name: string; lat: number; lng: number; radiusKm: number }>;
 };
+
+type ColorMode = "species" | "visit" | "due";
+const colorModeLabels: Record<ColorMode, string> = { species: "Espèce", visit: "Dernière visite", due: "À relancer" };
+
+/** Mois écoulés depuis une date AAAA-MM-JJ (null : jamais). */
+function monthsSince(dateId: string | null): number | null {
+  if (!dateId) return null;
+  const [year, month, day] = dateId.split("-").map(Number);
+  const now = new Date();
+  return (now.getFullYear() - year) * 12 + (now.getMonth() + 1 - month) - (now.getDate() < day ? 1 : 0);
+}
+
+/** Ancienneté de la dernière visite, en trois paliers (jamais la couleur seule : le libellé suit). */
+function visitBucket(client: MapClientSummary): { color: string; label: string } {
+  const months = monthsSince(client.lastConsultationAt);
+  if (months === null) return { color: "var(--theme-danger)", label: "Jamais vu" };
+  if (months < 3) return { color: "var(--theme-success)", label: "Vu il y a moins de 3 mois" };
+  if (months < 12) return { color: "var(--theme-warning)", label: "Vu il y a 3 à 12 mois" };
+  return { color: "var(--theme-danger)", label: "Pas vu depuis plus de 12 mois" };
+}
+
+const VISIT_LEGEND = [
+  { color: "var(--theme-success)", label: "Moins de 3 mois" },
+  { color: "var(--theme-warning)", label: "3 à 12 mois" },
+  { color: "var(--theme-danger)", label: "Plus de 12 mois ou jamais" },
+];
+
+/**
+ * État de la carte gardé dans l'adresse de la page : un lien partagé ou un
+ * retour arrière retrouve les mêmes filtres, le même lieu, le même client.
+ */
+type MapUrlState = {
+  species: AnimalSpecies[];
+  due: boolean;
+  color: ColorMode;
+  visibleOnly: boolean;
+  showZones: boolean;
+  center: { lat: number; lng: number; label: string; pin?: boolean; communeCode?: string } | null;
+  radius: number;
+  territory: { type: "departement" | "region"; code: string; label: string } | null;
+  selected: string | null;
+};
+
+function parseMapUrl(params: URLSearchParams): MapUrlState {
+  const [lat, lng] = (params.get("lieu") ?? "").split(",").map(Number);
+  const territoryParam = params.get("territoire")?.split(":");
+  const territoryType = territoryParam?.[0];
+  const color = params.get("couleur");
+  return {
+    species: (params.get("especes")?.split(",").filter((item) => (animalSpeciesList as readonly string[]).includes(item)) ?? []) as AnimalSpecies[],
+    due: params.get("relance") === "1",
+    color: color === "visit" || color === "due" ? color : "species",
+    visibleOnly: params.get("vue") === "visible",
+    showZones: params.get("zones") === "1",
+    center: Number.isFinite(lat) && Number.isFinite(lng) && params.get("lieu")
+      ? { lat, lng, label: params.get("nom") ?? "ce lieu", pin: params.get("adresse") === "1" || undefined, communeCode: params.get("commune") ?? undefined }
+      : null,
+    radius: Math.min(200, Math.max(5, Number(params.get("rayon")) || DEFAULT_PERIMETER_RADIUS_KM)),
+    territory: (territoryType === "departement" || territoryType === "region") && territoryParam?.[1]
+      ? { type: territoryType, code: territoryParam[1], label: params.get("nom") ?? territoryParam[1] }
+      : null,
+    selected: params.get("client"),
+  };
+}
 
 // Cercle autour d'un point : une adresse (épingle) ou une commune (contour
 // affiché en plus, code INSEE pour le charger).
@@ -102,15 +176,30 @@ const PERIMETER_RADIUS_TIERS = [15, 30, 50];
 // paliers restent.
 const CIRCLE_HANDLE_MIN_WIDTH_QUERY = "(min-width: 640px)";
 
-export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapProps) {
+export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = "BOTH", tourZones = [] }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
-  const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>([]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Lu une seule fois : l'adresse sert d'état de départ, puis suit la carte.
+  const [initialUrl] = useState(() => parseMapUrl(new URLSearchParams(searchParams.toString())));
+  const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>(initialUrl.species);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
-  const [dueOnly, setDueOnly] = useState(false);
+  const [dueOnly, setDueOnly] = useState(initialUrl.due);
+  const [colorMode, setColorMode] = useState<ColorMode>(initialUrl.color);
+  // Liste limitée à ce que montre la carte, mise à jour à chaque déplacement.
+  const [visibleOnly, setVisibleOnly] = useState(initialUrl.visibleOnly);
+  const [mapBounds, setMapBounds] = useState<GeoBounds | null>(null);
+  const [showZones, setShowZones] = useState(initialUrl.showZones);
+  // Survol synchronisé liste ↔ carte (halo, ligne en surbrillance), sans
+  // jamais déplacer la carte.
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const mapCardRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const [query, setQuery] = useState("");
   // Aucune sélection à l'arrivée : la carte montre d'abord toute la
   // clientèle. Une fiche ne s'ouvre qu'à un geste (marqueur, liste, recherche).
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialUrl.selected);
   // Tri de la liste et ordre de « Précédent / Suivant ». Proximité : depuis
   // le client choisi au moment du tri, sinon le lieu d'exercice — un point
   // fixe, pour que l'ordre ne bouge pas à chaque client parcouru.
@@ -121,16 +210,18 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const [showLiveLocation, setShowLiveLocation] = useState(false);
   const { position: liveLocation, error: liveLocationError } = useGeolocation(showLiveLocation);
 
-  const [perimeterCenter, setPerimeterCenter] = useState<PerimeterCenter | null>(null);
-  const [territory, setTerritory] = useState<TerritoryPerimeter | null>(null);
+  const [perimeterCenter, setPerimeterCenter] = useState<PerimeterCenter | null>(initialUrl.center);
+  const [territory, setTerritory] = useState<TerritoryPerimeter | null>(initialUrl.territory ? { ...initialUrl.territory, status: "loading" } : null);
   // Contour de la commune choisie : affiché autour du cercle, sans filtrer.
   const [communeArea, setCommuneArea] = useState<{ code: string; geometry: TerritoryGeometry } | null>(null);
   // Chaque nouveau lieu invalide les chargements en cours du précédent.
   const placeRequestRef = useRef(0);
   // Recadrage demandé à la carte (cercle, territoire, tous les clients).
-  const [fitTarget, setFitTarget] = useState<(GeoBounds & { token: string }) | null>(null);
+  const [fitTarget, setFitTarget] = useState<(GeoBounds & { token: string }) | null>(
+    () => (initialUrl.center ? { ...circleBounds(initialUrl.center, initialUrl.radius), token: "url" } : null),
+  );
   const fitTokenRef = useRef(0);
-  const [perimeterRadiusKm, setPerimeterRadiusKm] = useState(DEFAULT_PERIMETER_RADIUS_KM);
+  const [perimeterRadiusKm, setPerimeterRadiusKm] = useState(initialUrl.radius);
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
   // Change uniquement pour un rayon fixé hors glisser (palier, nouveau
   // centre) : force CircleResizeHandle à se replacer au bord du cercle sans
@@ -299,7 +390,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const unlocatedFilteredCount = useMemo(() => filteredClients.filter((client) => !client.coordinates).length, [filteredClients]);
 
   const hasPerimeter = Boolean(perimeterCenter || territory);
-  const visibleClients = hasPerimeter ? clientsInPerimeter : filteredClients;
+  const perimeterClients = hasPerimeter ? clientsInPerimeter : filteredClients;
+  // « Uniquement cette zone » : la liste suit l'emprise de la carte.
+  const visibleClients = visibleOnly && mapBounds
+    ? perimeterClients.filter((client) => client.coordinates
+      && client.coordinates.lat >= mapBounds.south && client.coordinates.lat <= mapBounds.north
+      && client.coordinates.lng >= mapBounds.west && client.coordinates.lng <= mapBounds.east)
+    : perimeterClients;
   const locatedClients = visibleClients.filter((client) => client.coordinates);
   const selectedClient = selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
 
@@ -397,7 +494,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   // Sur la carte : tous les clients filtrés. Ceux hors du périmètre restent
   // visibles pour le contexte, atténués et non cliquables ; la liste, elle,
   // ne montre que ceux du périmètre.
-  const insidePerimeter = new Set(visibleClients.map((client) => client.id));
+  const insidePerimeter = new Set(perimeterClients.map((client) => client.id));
   const points = filteredClients.filter((client) => client.coordinates).map((client) => {
     const outside = hasPerimeter && !insidePerimeter.has(client.id);
     const lead = leadAnimal(client, selectedSpecies);
@@ -406,8 +503,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
       lat: client.coordinates!.lat,
       lng: client.coordinates!.lng,
       label: lead?.avatar || initialsOf(client.ownerName),
-      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${outside ? " · hors du périmètre" : ""}`,
-      color: lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
+      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${colorMode === "visit" ? ` · ${visitBucket(client).label.toLowerCase()}` : ""}${outside ? " · hors du périmètre" : ""}`,
+      color: colorMode === "visit" ? visitBucket(client).color
+        : colorMode === "due" ? (client.dueForReminder ? "var(--theme-brand)" : "var(--theme-subtle)")
+          : lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
       badge: client.dueForReminder,
       dimmed: outside,
     };
@@ -420,6 +519,85 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     ? { topLeft: [40, 40] as [number, number], bottomRight: [340, 40] as [number, number] }
     : undefined;
   const animalCount = visibleClients.reduce((sum, client) => sum + client.animals.length, 0);
+  // Clients à relancer dans le périmètre (action groupée, 7.9).
+  const dueInPerimeter = hasPerimeter ? perimeterClients.filter((client) => client.dueReminderIds.length > 0) : [];
+  const practiceLabel = hasCabinet(practiceMode) ? "Mon cabinet" : "Mon lieu d’exercice";
+
+  function boundsOf(list: MapClientSummary[]): GeoBounds | null {
+    const located = list.filter((client) => client.coordinates).map((client) => client.coordinates!);
+    if (located.length === 0) return null;
+    return {
+      south: Math.min(...located.map((point) => point.lat)),
+      north: Math.max(...located.map((point) => point.lat)),
+      west: Math.min(...located.map((point) => point.lng)),
+      east: Math.max(...located.map((point) => point.lng)),
+    };
+  }
+
+  function recenter() {
+    if (territory?.bounds) { fitTo(territory.bounds); return; }
+    if (perimeterCenter) { fitTo(circleBounds(perimeterCenter, perimeterRadiusKm)); return; }
+    const bounds = boundsOf(perimeterClients);
+    if (bounds) fitTo(bounds);
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void mapCardRef.current?.requestFullscreen?.();
+  }
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === mapCardRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // Lieu ou territoire venus de l'adresse : leurs contours se chargent au
+  // départ (un nouveau lieu choisi ensuite annule ces chargements).
+  useEffect(() => {
+    const code = initialUrl.center?.communeCode;
+    if (code) void fetchTerritory("commune", code).then((loaded) => {
+      if (loaded && placeRequestRef.current === 0) setCommuneArea({ code, geometry: loaded.geometry });
+    });
+    const fromUrl = initialUrl.territory;
+    if (fromUrl) void fetchTerritory(fromUrl.type, fromUrl.code).then((loaded) => {
+      if (placeRequestRef.current !== 0) return;
+      if (!loaded) { setTerritory({ ...fromUrl, status: "error" }); return; }
+      setTerritory({ ...fromUrl, status: "ready", geometry: loaded.geometry, bounds: loaded.bounds });
+      fitTo(loaded.bounds);
+    });
+    // Une seule fois, au départ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // L'adresse suit la carte : history.replaceState (pas d'entrée d'historique
+  // par clic, et surtout pas de rechargement serveur qui reconstruirait les
+  // marqueurs), avec un court délai pour ne pas réécrire pendant un glisser.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams();
+      if (selectedSpecies.length) params.set("especes", selectedSpecies.join(","));
+      if (dueOnly) params.set("relance", "1");
+      if (colorMode !== "species") params.set("couleur", colorMode);
+      if (visibleOnly) params.set("vue", "visible");
+      if (showZones) params.set("zones", "1");
+      if (perimeterCenter) {
+        params.set("lieu", `${perimeterCenter.lat.toFixed(5)},${perimeterCenter.lng.toFixed(5)}`);
+        params.set("nom", perimeterCenter.label);
+        params.set("rayon", String(Math.round(perimeterRadiusKm)));
+        if (perimeterCenter.communeCode) params.set("commune", perimeterCenter.communeCode);
+        if (perimeterCenter.pin) params.set("adresse", "1");
+      }
+      if (territory) {
+        params.set("territoire", `${territory.type}:${territory.code}`);
+        params.set("nom", territory.label);
+      }
+      if (selectedId) params.set("client", selectedId);
+      const next = params.toString();
+      if (next !== window.location.search.replace(/^\?/, "")) window.history.replaceState(window.history.state, "", next ? `${pathname}?${next}` : pathname);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [selectedSpecies, dueOnly, colorMode, visibleOnly, showZones, perimeterCenter, perimeterRadiusKm, territory, selectedId, pathname]);
 
   // Sélectionner un lieu dans la recherche unifiée applique directement un
   // périmètre : le seul moyen d'en définir un depuis la phase 2 (l'ancien
@@ -575,6 +753,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
           </div>
         ) : null}
 
+        {hasPerimeter && dueInPerimeter.length > 0 ? <ZoneReminders clients={dueInPerimeter} onDone={() => router.refresh()} /> : null}
+
         {territory ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark" role="status">
             <Icon name="map" className="h-5 w-5 shrink-0 text-animeo" />
@@ -599,17 +779,33 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
       <p aria-live="polite" className="sr-only" data-testid="map-navigation-live">{navigationAnnouncement}</p>
 
       <div onKeyDown={handleNavigationKeys} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
+        <div ref={mapCardRef} className={fullscreen ? "overflow-y-auto bg-animeo-bg p-4" : undefined}>
         <Card className="p-4 sm:p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="font-extrabold text-animeo-dark">Répartition des clients</h2>
               <p className="mt-0.5 text-xs text-animeo-muted">Cliquez sur un point pour afficher sa fiche</p>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-animeo-muted">
-              {animalSpeciesList.map((item) => (
-                <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item}</span>
-              ))}
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <label className="inline-flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
+                Couleur
+                <select value={colorMode} onChange={(event) => setColorMode(event.target.value as ColorMode)} className="min-h-9 rounded-lg border border-animeo-border bg-white px-2 text-xs font-extrabold text-animeo-dark">
+                  {(Object.keys(colorModeLabels) as ColorMode[]).map((mode) => <option key={mode} value={mode}>{colorModeLabels[mode]}</option>)}
+                </select>
+              </label>
+              <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-animeo-muted" aria-label="Légende">
+                {colorMode === "species" ? animalSpeciesList.map((item) => (
+                  <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item}</span>
+                )) : colorMode === "visit" ? VISIT_LEGEND.map((item) => (
+                  <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
+                )) : (
+                  <>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-animeo" />À relancer</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-animeo-subtle" />À jour</span>
+                  </>
+                )}
+                {colorMode === "species" ? <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span> : null}
+              </div>
             </div>
           </div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -623,6 +819,19 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
             </button>
             {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
+            {tourZones.length > 0 ? (
+              <button type="button" onClick={() => setShowZones((current) => !current)} aria-pressed={showZones} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showZones ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}>
+                Zones de tournée
+              </button>
+            ) : null}
+            <button type="button" onClick={recenter} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark">
+              <Crosshair aria-hidden="true" className="h-3.5 w-3.5" />
+              Recentrer
+            </button>
+            <button type="button" onClick={toggleFullscreen} aria-pressed={fullscreen} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark">
+              {fullscreen ? <Minimize2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />}
+              {fullscreen ? "Quitter le plein écran" : "Plein écran"}
+            </button>
 
             {/* Parcourir les clients localisés, dans l'ordre de la liste. */}
             <div role="group" aria-label="Parcourir les clients sur la carte" className="ml-auto flex items-center gap-1">
@@ -653,13 +862,18 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             selectedOffset={showCircleHandle ? { x: 160, y: 90 } : undefined}
             // Hauteur suivant l'écran, jamais plus que la fenêtre : la page
             // reste lisible autour de la carte.
-            heightClassName="h-[min(610px,70dvh)] min-h-[340px]"
+            heightClassName={fullscreen ? "h-[calc(100dvh-11rem)] min-h-[340px]" : "h-[min(610px,70dvh)] min-h-[340px]"}
             cluster
             wheelZoom="afterClick"
+            onViewChange={setMapBounds}
+            highlightedId={hoveredId}
+            onHover={setHoveredId}
+            practice={cabinetCoordinates ? { ...cabinetCoordinates, label: practiceLabel } : null}
+            zoneCircles={showZones ? tourZones.map((zone) => ({ id: zone.id, lat: zone.lat, lng: zone.lng, radiusKm: zone.radiusKm, label: zone.name })) : []}
             // Pas de fiche flottante pour un client sans position (rien sur
             // la carte ne lui correspond), ni sur téléphone (elle couvrait la
             // moitié de la carte).
-            overlay={selectedClient?.coordinates && showCircleHandle ? <MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} /> : undefined}
+            overlay={selectedClient?.coordinates && showCircleHandle ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
             pin={perimeterCenter?.pin ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, label: perimeterCenter.label } : null}
             areas={[
@@ -676,9 +890,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
           />
           {/* Téléphone : la fiche du client choisi se range sous la carte. */}
           {selectedClient?.coordinates && !showCircleHandle ? (
-            <div className="mt-3"><MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} docked /></div>
+            <div className="mt-3"><MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} docked /></div>
           ) : null}
         </Card>
+        </div>
 
         <Card className="overflow-hidden xl:sticky xl:top-6">
           <div className="border-b border-animeo-border-soft px-5 py-4">
@@ -688,6 +903,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                 <p className="mt-0.5 text-xs text-animeo-muted">
                   {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : hasPerimeter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
                 </p>
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-extrabold text-animeo-dark">
+                  <input type="checkbox" checked={visibleOnly} onChange={(event) => setVisibleOnly(event.target.checked)} className="h-4 w-4 rounded border-animeo-border text-animeo focus:ring-animeo" />
+                  Uniquement cette zone
+                </label>
               </div>
               <div role="group" aria-label="Trier la liste" className="flex shrink-0 rounded-xl bg-animeo-bg p-1">
                 <button type="button" aria-pressed={sortMode === "name"} onClick={() => chooseSort("name")} className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition ${sortMode === "name" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}>Nom</button>
@@ -719,7 +938,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                     <LocateAllButton />
                   </p>
                 ) : null}
-                <div data-client-row={client.id} className={selected ? "bg-animeo-soft" : undefined}>
+                <div
+                  data-client-row={client.id}
+                  onMouseEnter={() => setHoveredId(client.id)}
+                  onMouseLeave={() => setHoveredId((current) => (current === client.id ? null : current))}
+                  className={selected ? "bg-animeo-soft" : hoveredId === client.id ? "bg-animeo-bg" : undefined}
+                >
                 <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
                   <ClientBadge client={client} species={selectedSpecies} tint={18} />
                   <span className="min-w-0 flex-1">
@@ -746,6 +970,50 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
         </Card>
       </div>
 
+    </div>
+  );
+}
+
+/**
+ * Action groupée d'une zone : envoyer d'un coup les rappels « à relancer »
+ * de ses clients, avec le système de rappels existant (même message que
+ * l'envoi groupé de la page Rappels), après confirmation.
+ */
+function ZoneReminders({ clients, onDone }: { clients: MapClient[]; onDone: () => void }) {
+  const modules = useCurrentUser()?.modules ?? [];
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  if (!hasModule(modules, "REMINDERS")) return null;
+  const ids = clients.flatMap((client) => client.dueReminderIds);
+
+  async function send() {
+    setConfirming(false);
+    setSending(true);
+    const result = await sendRemindersBulkAction(ids);
+    setSending(false);
+    const sent = result.sentIds.length;
+    if (sent) notify.success(`${sent} rappel${sent > 1 ? "s" : ""} envoyé${sent > 1 ? "s" : ""}.`);
+    if (result.failedNames.length) notify.error(`Non envoyé${result.failedNames.length > 1 ? "s" : ""} : ${result.failedNames.join(", ")}.`);
+    onDone();
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm text-animeo-dark">
+      <p className="min-w-0 flex-1"><strong>{clients.length} client{clients.length > 1 ? "s" : ""} à relancer</strong> dans cette zone.</p>
+      <button type="button" onClick={() => setConfirming(true)} disabled={sending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
+        {sending ? "Envoi…" : "Envoyer les rappels"}
+      </button>
+      {confirming ? (
+        <ConfirmModal
+          title={`Envoyer ${ids.length} rappel${ids.length > 1 ? "s" : ""} ?`}
+          message={`Un e-mail de relance part vers ${clients.length} client${clients.length > 1 ? "s" : ""} de cette zone (${clients.map((client) => client.ownerName).slice(0, 4).join(", ")}${clients.length > 4 ? "…" : ""}), avec le lien de prise de rendez-vous.`}
+          confirmLabel="Envoyer"
+          cancelLabel="Annuler"
+          destructive={false}
+          onConfirm={send}
+          onClose={() => setConfirming(false)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -822,7 +1090,10 @@ function ClientBadge({ client, species, tint }: { client: MapClient; species: An
   );
 }
 
-function MapClientPopup({ client, onClose, docked = false }: { client: MapClient; onClose: () => void; docked?: boolean }) {
+function MapClientPopup({ client, onClose, docked = false, homeVisits = true }: { client: MapClient; onClose: () => void; docked?: boolean; homeVisits?: boolean }) {
+  const { openNewAppointment } = useAppointments();
+  const phone = client.phone.replace(/[^\d+]/g, "");
+  const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
     <div className={`rounded-2xl border p-4 ${docked ? "border-animeo-border bg-white" : "border-white/70 bg-white/95 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm"}`}>
       <div className="flex items-start gap-3">
@@ -851,7 +1122,21 @@ function MapClientPopup({ client, onClose, docked = false }: { client: MapClient
         <PopupLine label="Prochain rappel" value={client.nextReminder} />
         {positionLabel(client) ? <PopupLine label="Position" value={positionLabel(client)!} /> : null}
       </dl>
-      <Link href={`/dashboard/clients/${client.id}`} className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Voir la fiche client</Link>
+      {/* Actions possibles seulement : pas d'« Appeler » sans téléphone. */}
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        {phone ? (
+          <a href={`tel:${phone}`} className={action}><Phone aria-hidden="true" className="h-4 w-4" />Appeler</a>
+        ) : null}
+        {client.coordinates ? (
+          <a href={`https://www.google.com/maps/dir/?api=1&destination=${client.coordinates.lat},${client.coordinates.lng}`} target="_blank" rel="noopener noreferrer" className={action}>
+            <Navigation aria-hidden="true" className="h-4 w-4" />Itinéraire
+          </a>
+        ) : null}
+        <button type="button" onClick={() => openNewAppointment(undefined, { clientId: client.id, mode: homeVisits ? "home" : undefined })} className={action}>
+          <CalendarPlus aria-hidden="true" className="h-4 w-4" />Nouveau RDV
+        </button>
+      </div>
+      <Link href={`/dashboard/clients/${client.id}`} className="mt-2 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Voir la fiche client</Link>
     </div>
   );
 }

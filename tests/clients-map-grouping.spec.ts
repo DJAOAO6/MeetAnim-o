@@ -14,8 +14,8 @@ config({ path: ".env.local" });
 const testEmail = "praticien-test@pf-osteo-animale.fr";
 const testPassword = "Praticien-Test-2026!";
 // Trois clients à la même adresse, loin des autres clients de la base.
-const STACK = { lat: 49.9234, lng: 1.0781 };
-const FAMILY = { lat: 49.9, lng: 1.2 };
+const STACK = { lat: 49.62, lng: 1.62 };
+const FAMILY = { lat: 49.597, lng: 1.742 };
 
 const clients = [
   { id: "tmp-group-family", lastName: "FamilleE2E", point: FAMILY, animals: [["tmp-group-pet-1", "OscarE2E", "Chien"], ["tmp-group-pet-2", "NalaE2E", "Chat"]] },

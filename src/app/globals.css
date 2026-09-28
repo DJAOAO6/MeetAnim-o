@@ -417,6 +417,29 @@ a:focus-visible {
   fill: var(--theme-brand);
   fill-opacity: 0.08;
 }
+.leaflet-container .map-marker-highlight > span {
+  outline: 4px solid color-mix(in srgb, var(--theme-brand) 45%, transparent);
+  outline-offset: 1px;
+  transform: scale(1.15);
+}
+.leaflet-container path.map-zone {
+  stroke: var(--theme-heading);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 5;
+  fill: var(--theme-heading);
+  fill-opacity: 0.04;
+}
+.leaflet-container .map-zone-label {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--theme-heading);
+  font-weight: 800;
+  font-size: 11px;
+}
+.leaflet-container .map-zone-label::before {
+  display: none;
+}
 .leaflet-container path.map-spider-leg {
   stroke: var(--theme-brand);
   stroke-width: 1.5;

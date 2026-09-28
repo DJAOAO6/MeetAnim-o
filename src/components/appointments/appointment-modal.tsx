@@ -64,7 +64,8 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
   onCreated?: () => void;
 }) {
   const { clients, services, cabinetAddress, practiceMode, reminderSummary } = context;
-  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, services, practiceMode });
+  const prefillClient = prefill?.clientId ? clients.find((client) => client.id === prefill.clientId) : undefined;
+  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, prefillClient, services, practiceMode });
 
   // Clients et animaux créés pendant la saisie : ils n'existent pas encore
   // dans la liste venue du serveur, qui ne sera rafraîchie qu'au prochain

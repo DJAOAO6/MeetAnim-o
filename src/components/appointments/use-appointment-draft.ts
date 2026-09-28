@@ -74,7 +74,7 @@ function animalDetailOf(animal: { species?: string; breed?: string; age?: string
  * font que rendre un résultat, elles ne détiennent jamais l'état du
  * rendez-vous.
  */
-export function useAppointmentDraft({ appointment, template, defaultDate, prefill, services, practiceMode }: {
+export function useAppointmentDraft({ appointment, template, defaultDate, prefill, prefillClient, services, practiceMode }: {
   /** Rendez-vous en cours de modification. */
   appointment?: Appointment;
   /**
@@ -87,6 +87,8 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
   defaultDate?: string;
   /** Créneau choisi dans la grille de l'agenda, appliqué par-dessus les valeurs par défaut. */
   prefill?: AppointmentPrefill;
+  /** Fiche du client à préremplir (résolue par l'appelant à partir de prefill.clientId). */
+  prefillClient?: ClientPickerOption;
   services: ServiceSettings[];
   /** Mode d'exercice : décide du lieu proposé par défaut. */
   practiceMode: PracticeMode;
@@ -135,27 +137,31 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
     // Sans cabinet, le rendez-vous est à domicile d'office : proposer un
     // lieu qui n'existe pas obligerait à le corriger à chaque fois.
     const place: AppointmentPlace = prefill?.mode === "home" || !hasCabinet(practiceMode) ? "home" : "cabinet";
+    // Client déjà choisi (ex. « Nouveau RDV » depuis la carte) : mêmes
+    // valeurs que si on l'avait sélectionné dans la liste.
+    const client = prefillClient;
+    const firstAnimal = client?.animals[0];
     return {
       place,
       tourRunId: null,
       date: prefill?.date ?? defaultDate ?? toLocalDateId(new Date()),
       start: prefill?.start ?? "09:00",
       duration: prefill?.duration ?? firstService?.duration ?? 60,
-      clientId: undefined,
-      clientName: "",
-      clientPhone: "",
-      animalId: undefined,
-      animalName: "",
-      animalSpecies: undefined,
-      animalDetail: "",
+      clientId: client?.id,
+      clientName: client ? `${client.firstName} ${client.lastName}` : "",
+      clientPhone: client?.phone ?? "",
+      animalId: firstAnimal?.id,
+      animalName: firstAnimal?.name ?? "",
+      animalSpecies: (firstAnimal?.species as AnimalSpecies | undefined) ?? undefined,
+      animalDetail: animalDetailOf(firstAnimal),
       serviceName: firstService?.name ?? "",
       price: (place === "cabinet" ? firstService?.cabinetPrice : firstService?.homePrice) ?? 0,
       status: "confirmed",
       notes: "",
-      addressLine: "",
+      addressLine: client?.address ?? "",
       addressExtra: "",
       postalCode: "",
-      city: "",
+      city: client?.city ?? "",
       latitude: undefined,
       longitude: undefined,
       repeat: null,

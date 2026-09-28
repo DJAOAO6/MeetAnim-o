@@ -38,7 +38,7 @@ test.describe("Carte clients — dropdown de recherche au-dessus des contrôles 
     const zoomIn = page.locator(".leaflet-control-zoom-in");
     await expect(zoomIn).toBeVisible({ timeout: 10000 });
 
-    const searchInput = page.getByRole("combobox");
+    const searchInput = page.getByRole("combobox", { name: /Rechercher/ });
     await searchInput.fill("Ro"); // déclenche la recherche de lieux (>= 2 caractères)
     await page.waitForTimeout(500);
 

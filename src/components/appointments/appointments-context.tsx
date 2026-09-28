@@ -59,6 +59,8 @@ export type AppointmentPrefill = {
   start?: string;
   duration?: number;
   mode?: AppointmentMode;
+  /** Client déjà choisi (depuis la carte, par exemple). */
+  clientId?: string;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(null);

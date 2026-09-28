@@ -15,8 +15,8 @@ const testEmail = "praticien-test@pf-osteo-animale.fr";
 const testPassword = "Praticien-Test-2026!";
 
 const fixtures = [
-  { suffix: "a", lastName: "SelectionAE2E", animal: "SelectAlphaE2E", point: { lat: 49.4432, lng: 1.17 } },
-  { suffix: "b", lastName: "SelectionBE2E", animal: "SelectBetaE2E", point: { lat: 49.47, lng: 1.2 } },
+  { suffix: "a", lastName: "SelectionAE2E", animal: "SelectAlphaE2E", point: { lat: 49.3, lng: 1.75 } },
+  { suffix: "b", lastName: "SelectionBE2E", animal: "SelectBetaE2E", point: { lat: 49.327, lng: 1.78 } },
   { suffix: "c", lastName: "SelectionCE2E", animal: "SelectGammaE2E", point: null },
 ] as const;
 
