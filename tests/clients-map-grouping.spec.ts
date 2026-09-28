@@ -116,6 +116,6 @@ test.describe("Carte clients — regroupement et affichage", () => {
     const mapBox = (await page.locator(".leaflet-container").boundingBox())!;
     const closeBox = (await close.boundingBox())!;
     expect(closeBox.y, "la fiche commence sous la carte").toBeGreaterThan(mapBox.y + mapBox.height);
-    await expect(page.getByRole("button", { name: /Afficher ma position/ })).not.toContainText("📍");
+    await expect(page.getByRole("button", { name: /Autour de moi/ })).not.toContainText("📍");
   });
 });

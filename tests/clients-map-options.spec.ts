@@ -96,7 +96,7 @@ test.describe("Carte clients — options avancées", () => {
   test("la fiche propose Appeler, Itinéraire et Nouveau RDV (client prérempli)", async ({ page }) => {
     await page.goto(quimper, { waitUntil: "networkidle" });
     await row(page, "OptionsQuimperE2E").getByRole("button").first().click();
-    await expect(page.getByRole("link", { name: "Appeler" })).toHaveAttribute("href", "tel:0600000021");
+    await expect(page.getByRole("link", { name: "Appeler" })).toHaveAttribute("href", "tel:+33600000021");
     await expect(page.getByRole("link", { name: "Itinéraire" })).toHaveAttribute("href", /destination=47\.996,-4\.102/);
     await expect.poll(() => page.url()).toContain("client=tmp-options-client-q");
 

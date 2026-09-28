@@ -57,7 +57,7 @@ test.describe("Carte clients — pas de repli sur Rouen pour une ville inconnue 
   });
 
   test("un client d'une ville hors de la liste des 13 villes est listé mais absent de la carte, jamais positionné à Rouen", async ({ page }) => {
-    await page.goto("/dashboard/carte");
+    await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
 
     // La ligne de la liste, et elle seule : le nom figure aussi dans les
     // données de la page transmises au navigateur.
