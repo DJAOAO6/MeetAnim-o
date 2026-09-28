@@ -32,6 +32,8 @@ export type MapClientSummary = {
   lastConsultation: string;
   /** Même date, brute (AAAA-MM-JJ), pour colorer par ancienneté ; nulle si jamais vu. */
   lastConsultationAt: string | null;
+  /** Prochain rendez-vous (non annulé), déjà mis en forme : « 2 octobre — 14:30 » ; nul s'il n'y en a pas. */
+  nextAppointment: string | null;
   /** Prochain rappel prévu, tous animaux confondus, déjà mis en forme. */
   nextReminder: string;
   dueForReminder: boolean;

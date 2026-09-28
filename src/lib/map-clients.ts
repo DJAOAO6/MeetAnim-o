@@ -18,8 +18,24 @@ import type { MapAppointment, MapClientSummary } from "@/data/map-clients";
  * Deux animaux d'un même propriétaire ne peuvent donc plus apparaître à
  * deux endroits. Les clients sans animal figurent aussi sur la carte.
  */
+const dayMonthFormatter = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
+
 export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
   const db = await readDb();
+  // Prochain rendez-vous de chaque client : une requête pour tous, le
+  // premier par client dans l'ordre du calendrier.
+  const todayId = parisDateId();
+  const upcoming = await db.appointment.findMany({
+    where: { clientId: { not: null }, status: { not: "CANCELLED" }, date: { gte: new Date(`${todayId}T00:00:00Z`) } },
+    orderBy: [{ date: "asc" }, { start: "asc" }],
+    select: { clientId: true, date: true, start: true },
+  });
+  const nextByClient = new Map<string, string>();
+  for (const appointment of upcoming) {
+    if (appointment.clientId && !nextByClient.has(appointment.clientId)) {
+      nextByClient.set(appointment.clientId, `${dayMonthFormatter.format(appointment.date)} — ${appointment.start}`);
+    }
+  }
   const clients = await db.client.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
@@ -88,6 +104,7 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       animals,
       lastConsultation: lastConsultation ? formatFrenchDate(lastConsultation) : "Aucune consultation",
       lastConsultationAt: lastConsultation ? lastConsultation.toISOString().slice(0, 10) : null,
+      nextAppointment: nextByClient.get(client.id) ?? null,
       nextReminder: nextReminder ? formatFrenchDate(nextReminder) : "-",
       dueForReminder: animals.some((animal) => animal.dueForReminder),
       dueReminderIds: client.animals.flatMap((animal) => animal.reminders.map((reminder) => reminder.id)),

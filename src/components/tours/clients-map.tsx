@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarPlus, ChevronLeft, ChevronRight, Crosshair, LocateFixed, Maximize2, Minimize2, Navigation, Phone, UserRound } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Crosshair, LocateFixed, MapPin, Maximize2, Minimize2, Navigation, Phone, UserRound } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -683,6 +683,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Clients à relancer dans le périmètre (action groupée, 7.9).
   const dueInPerimeter = hasPerimeter ? perimeterClients.filter((client) => client.dueReminderIds.length > 0) : [];
   const practiceLabel = hasCabinet(practiceMode) ? "Mon cabinet" : "Mon lieu d’exercice";
+  const practiceDistanceOrigin = cabinetCoordinates ? { ...cabinetCoordinates, from: hasCabinet(practiceMode) ? "du cabinet" : "du lieu d’exercice" } : null;
 
   function boundsOf(list: MapClientSummary[]): GeoBounds | null {
     const located = list.filter((client) => client.coordinates).map((client) => client.coordinates!);
@@ -1083,7 +1084,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             // moitié de la carte).
             overlay={!showCircleHandle ? undefined
               : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} />
-                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} /> : undefined}
+                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
             pin={perimeterCenter?.pin ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, label: perimeterCenter.label } : null}
             areas={[
@@ -1100,7 +1101,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           />
           {/* Téléphone : la fiche du client choisi se range sous la carte. */}
           {selectedClient?.coordinates && !showCircleHandle ? (
-            <div className="mt-3"><MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} onClose={() => setSelectedId(null)} docked /></div>
+            <div className="mt-3"><MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked /></div>
           ) : null}
           {selectedAppointment?.coordinates && !showCircleHandle ? (
             <div className="mt-3"><MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} docked /></div>
@@ -1350,8 +1351,17 @@ function ClientQuickActions({ client, homeVisits }: { client: MapClient; homeVis
   );
 }
 
-function MapClientPopup({ client, onClose, docked = false, homeVisits = true }: { client: MapClient; onClose: () => void; docked?: boolean; homeVisits?: boolean }) {
+function MapClientPopup({ client, onClose, docked = false, homeVisits = true, practice = null }: {
+  client: MapClient;
+  onClose: () => void;
+  docked?: boolean;
+  homeVisits?: boolean;
+  /** Lieu d'exercice, pour la distance (« du cabinet », « du lieu d'exercice »). */
+  practice?: { lat: number; lng: number; from: string } | null;
+}) {
   const { openNewAppointment } = useAppointments();
+  // À vol d'oiseau, dit comme tel (jamais un temps de trajet).
+  const distance = practice && client.coordinates ? haversineDistanceKm(practice, client.coordinates) : null;
   const tel = toTelHref(client.phone);
   const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
@@ -1376,11 +1386,18 @@ function MapClientPopup({ client, onClose, docked = false, homeVisits = true }: 
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <dl className="mt-3 space-y-1.5 text-[11px]">
-        <PopupLine label="Ville" value={client.city} />
+      <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-animeo-dark">
+        <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-animeo-muted" />
+        <span className="truncate">{client.city || "Commune inconnue"}</span>
+        {distance !== null ? <span className="shrink-0 font-semibold text-animeo-muted">· {formatKm(distance)} {practice!.from}</span> : null}
+      </p>
+      <dl className="mt-2 space-y-1.5 text-[11px]">
         <PopupLine label="Dernière consultation" value={client.lastConsultation} />
+        <PopupLine label="Prochain rendez-vous" value={client.nextAppointment ?? "Aucun"} />
         <PopupLine label="Prochain rappel" value={client.nextReminder} />
-        {positionLabel(client) ? <PopupLine label="Position" value={positionLabel(client)!} /> : null}
+        {/* L'origine de la position est toujours dite : adresse, dernier
+            rendez-vous à domicile, ou position approximative. */}
+        <PopupLine label="Position" value={positionLabel(client) ?? "Position inconnue"} />
       </dl>
       {/* Actions possibles seulement : pas d'« Appeler » sans téléphone. */}
       <div className="mt-3 grid grid-cols-3 gap-1.5">

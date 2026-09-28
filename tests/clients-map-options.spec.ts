@@ -20,8 +20,12 @@ const fixtures = [
   { suffix: "b", lastName: "OptionsBrestE2E", city: "Brest", point: { lat: 48.39, lng: -4.486 }, due: false },
 ] as const;
 
+const in5Days = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.now() + 5 * 86400000));
+const in5DaysLabel = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${in5Days}T00:00:00Z`));
+
 async function cleanup() {
   const sql = neon(process.env.DATABASE_URL!);
+  await sql`DELETE FROM "Appointment" WHERE id = 'tmp-options-appt-q'`;
   for (const fixture of fixtures) {
     await sql`DELETE FROM "Reminder" WHERE id = ${`tmp-options-reminder-${fixture.suffix}`}`;
     await sql`DELETE FROM "Animal" WHERE id = ${`tmp-options-animal-${fixture.suffix}`}`;
@@ -38,6 +42,10 @@ async function seed() {
     await sql`INSERT INTO "Animal" (id, "clientId", name, species, breed, age, weight, sex, avatar, "avatarBackground", history, conditions, treatments, notes, "updatedAt") VALUES (${animalId}, ${clientId}, ${`Pet${fixture.suffix}E2E`}, 'Chien', '', '', '', '', '', '', '', '', '', '', now())`;
     if (fixture.due) {
       await sql`INSERT INTO "Reminder" (id, "clientId", "animalId", "lastConsultation", delay, "dueDate", status, "updatedAt") VALUES (${`tmp-options-reminder-${fixture.suffix}`}, ${clientId}, ${animalId}, now() - interval '7 months', 'SIX_MONTHS', now() - interval '1 month', 'DUE', now())`;
+      await sql`
+        INSERT INTO "Appointment" (id, "clientId", "animalId", "clientName", "animalName", "serviceName", date, start, duration, mode, location, price, status, notes, "createdAt", "updatedAt")
+        VALUES ('tmp-options-appt-q', ${clientId}, ${animalId}, 'Test OptionsQuimperE2E', 'PetqE2E', 'Séance E2E', ${in5Days}::date, '14:30', 30, 'CABINET', 'Cabinet', 50, 'CONFIRMED', '', now(), now())
+      `;
     }
   }
 }
@@ -99,6 +107,11 @@ test.describe("Carte clients — options avancées", () => {
     await expect(page.getByRole("link", { name: "Appeler" })).toHaveAttribute("href", "tel:+33600000021");
     await expect(page.getByRole("link", { name: "Itinéraire" })).toHaveAttribute("href", /destination=47\.996,-4\.102/);
     await expect.poll(() => page.url()).toContain("client=tmp-options-client-q");
+    // Mini centre d'action : prochain rendez-vous, origine de la position, distance.
+    const card = page.getByRole("button", { name: "Fermer la fiche de Test OptionsQuimperE2E" }).locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
+    await expect(card).toContainText(`Prochain rendez-vous${in5DaysLabel} — 14:30`);
+    await expect(card).toContainText("PositionAdresse du client · précise");
+    await expect(card).toContainText(/km du (cabinet|lieu d’exercice)/);
 
     await page.getByRole("button", { name: "Nouveau RDV" }).click();
     const dialog = page.getByRole("dialog");
