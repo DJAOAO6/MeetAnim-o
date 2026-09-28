@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,14 @@ type ClientsMapProps = {
 };
 
 type PerimeterCenter = { lat: number; lng: number; label: string };
+type SortMode = "name" | "distance";
+type ProximityOrigin = { lat: number; lng: number; label: string };
+
+const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
+const kmFormatter = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+// Distance à vol d'oiseau, dite comme telle : jamais une durée de trajet,
+// qui demanderait un vrai calcul d'itinéraire.
+const formatKm = (km: number) => `${kmFormatter.format(km)} km`;
 type FilterToken = { key: string; label: string; onRemove: () => void };
 
 const DEFAULT_PERIMETER_RADIUS_KM = 15;
@@ -47,6 +56,11 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   // Aucune sélection à l'arrivée : la carte montre d'abord toute la
   // clientèle. Une fiche ne s'ouvre qu'à un geste (marqueur, liste, recherche).
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Tri de la liste et ordre de « Précédent / Suivant ». Proximité : depuis
+  // le client choisi au moment du tri, sinon le lieu d'exercice — un point
+  // fixe, pour que l'ordre ne bouge pas à chaque client parcouru.
+  const [sortMode, setSortMode] = useState<SortMode>("name");
+  const [proximityOrigin, setProximityOrigin] = useState<ProximityOrigin | null>(null);
   // Jamais activée par défaut : la demande d'autorisation du navigateur est
   // intrusive, ne doit s'afficher qu'à un geste explicite.
   const [showLiveLocation, setShowLiveLocation] = useState(false);
@@ -162,6 +176,57 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const locatedClients = visibleClients.filter((client) => client.coordinates);
   const selectedClient = selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
 
+  const distanceFrom = (client: MapClient) => (sortMode === "distance" && proximityOrigin && client.coordinates ? haversineDistanceKm(proximityOrigin, client.coordinates) : null);
+  const byName = (a: MapClient, b: MapClient) => nameCollator.compare(a.ownerName, b.ownerName) || nameCollator.compare(a.animalName, b.animalName);
+  // Clients localisés, dans l'ordre de la liste : c'est aussi l'ordre de
+  // « Précédent / Suivant ». Les clients sans position suivent à part.
+  const orderedLocated = [...locatedClients].sort((a, b) => {
+    const da = distanceFrom(a);
+    const db = distanceFrom(b);
+    return da !== null && db !== null ? da - db || byName(a, b) : byName(a, b);
+  });
+  const orderedUnlocated = visibleClients.filter((client) => !client.coordinates).sort(byName);
+  const navIndex = selectedClient?.coordinates ? orderedLocated.findIndex((client) => client.id === selectedClient.id) : -1;
+
+  // Précédent / Suivant ne parcourent que les clients localisés (la carte
+  // n'a rien à montrer pour les autres). Sans sélection : Suivant part du
+  // premier, Précédent du dernier.
+  function goTo(delta: 1 | -1) {
+    if (orderedLocated.length === 0) return;
+    const next = navIndex === -1 ? (delta > 0 ? 0 : orderedLocated.length - 1) : navIndex + delta;
+    if (next < 0 || next >= orderedLocated.length) return;
+    setSelectedId(orderedLocated[next].id);
+  }
+
+  const proximityCandidate: ProximityOrigin | null = selectedClient?.coordinates
+    ? { ...selectedClient.coordinates, label: selectedClient.ownerName }
+    : cabinetCoordinates ? { ...cabinetCoordinates, label: "votre lieu d’exercice" } : null;
+  // Choisir « Proximité » (même s'il est déjà actif) fixe le point de départ
+  // à l'instant : le client choisi, sinon le lieu d'exercice.
+  function chooseSort(mode: SortMode) {
+    if (mode === "distance") {
+      if (!proximityCandidate) return;
+      setProximityOrigin(proximityCandidate);
+    }
+    setSortMode(mode);
+  }
+
+  // Flèches gauche/droite quand le focus est dans la carte ou la liste —
+  // jamais dans un champ, où elles déplacent le curseur de saisie.
+  function handleNavigationKeys(event: React.KeyboardEvent) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    const target = event.target as HTMLElement;
+    if (target.closest("input, textarea, select, [contenteditable='true']")) return;
+    event.preventDefault();
+    goTo(event.key === "ArrowRight" ? 1 : -1);
+  }
+
+  const navigationAnnouncement = selectedClient
+    ? navIndex >= 0
+      ? `${selectedClient.ownerName}, ${selectedClient.city}, ${navIndex + 1} sur ${orderedLocated.length}.`
+      : `${selectedClient.ownerName}, position inconnue.`
+    : "";
+
   // Un client sorti des filtres, du périmètre ou de la recherche n'est plus
   // sélectionné : il ne revient pas sélectionné s'il réapparaît.
   // Ajusté pendant le rendu (motif React « état dérivé d'un changement ») :
@@ -196,7 +261,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     if (!selectedId || !list) return;
     const row = list.querySelector<HTMLElement>(`[data-client-row="${CSS.escape(selectedId)}"]`);
     if (!row) return;
-    const rowTop = row.offsetTop - list.offsetTop;
+    // Position de la ligne dans le contenu de la liste, quel que soit
+    // l'ancêtre positionné : mesurée à l'écran, rapportée au défilement.
+    const rowTop = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
     if (rowTop < list.scrollTop) list.scrollTop = rowTop;
     else if (rowTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = rowTop + row.offsetHeight - list.clientHeight;
   }, [selectedId]);
@@ -358,7 +425,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
         ) : null}
       </Card>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
+      {/* Annonce du client parcouru, pour les lecteurs d'écran. */}
+      <p aria-live="polite" className="sr-only" data-testid="map-navigation-live">{navigationAnnouncement}</p>
+
+      <div onKeyDown={handleNavigationKeys} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px]">
         <Card className="p-4 sm:p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -382,12 +452,30 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               📍 {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
             </button>
             {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
+
+            {/* Parcourir les clients localisés, dans l'ordre de la liste. */}
+            <div role="group" aria-label="Parcourir les clients sur la carte" className="ml-auto flex items-center gap-1">
+              <button type="button" onClick={() => goTo(-1)} disabled={orderedLocated.length === 0 || navIndex === 0} aria-label="Client précédent" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40">
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+                <span className="hidden sm:inline">Précédent</span>
+              </button>
+              <span className="min-w-[4.5rem] text-center text-xs font-extrabold tabular-nums text-animeo-muted" data-testid="map-navigation-counter">
+                {navIndex >= 0 ? `${navIndex + 1} / ${orderedLocated.length}` : `${orderedLocated.length} localisé${orderedLocated.length > 1 ? "s" : ""}`}
+              </span>
+              <button type="button" onClick={() => goTo(1)} disabled={orderedLocated.length === 0 || navIndex === orderedLocated.length - 1} aria-label="Client suivant" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40">
+                <span className="hidden sm:inline">Suivant</span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <RealMap
             points={points}
             selectedId={selectedClient?.coordinates ? selectedClient.id : undefined}
             onSelect={toggleSelection}
             onBackgroundClick={() => setSelectedId(null)}
+            // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
+            // la carte se déplace à la souris, au doigt, ou par les boutons.
+            keyboard={false}
             // Fiche en bas à droite (large) ou en bas (étroit) : le point
             // choisi s'affiche au-dessus et à gauche, jamais dessous.
             selectedOffset={showCircleHandle ? { x: 160, y: 90 } : { x: 0, y: 120 }}
@@ -407,15 +495,41 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
 
         <Card className="overflow-hidden xl:sticky xl:top-6">
           <div className="border-b border-animeo-border-soft px-5 py-4">
-            <h2 className="font-extrabold text-animeo-dark">Clients visibles</h2>
-            <p className="mt-0.5 text-xs text-animeo-muted">{perimeterCenter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-extrabold text-animeo-dark">Clients visibles</h2>
+                <p className="mt-0.5 text-xs text-animeo-muted">
+                  {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : perimeterCenter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
+                </p>
+              </div>
+              <div role="group" aria-label="Trier la liste" className="flex shrink-0 rounded-xl bg-animeo-bg p-1">
+                <button type="button" aria-pressed={sortMode === "name"} onClick={() => chooseSort("name")} className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition ${sortMode === "name" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}>Nom</button>
+                <button
+                  type="button"
+                  aria-pressed={sortMode === "distance"}
+                  onClick={() => chooseSort("distance")}
+                  disabled={!proximityCandidate}
+                  title={proximityCandidate ? `Trier par distance depuis ${proximityCandidate.label}` : "Choisissez un client, ou renseignez l’adresse de votre lieu d’exercice"}
+                  className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-40 ${sortMode === "distance" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
+                >
+                  Proximité
+                </button>
+              </div>
+            </div>
           </div>
           {visibleClients.length > 0 ? (
-            <div ref={listRef} className="relative max-h-[650px] divide-y divide-animeo-border-soft overflow-y-auto">
-              {visibleClients.map((client) => {
+            <div ref={listRef} data-testid="map-client-list" className="relative max-h-[650px] divide-y divide-animeo-border-soft overflow-y-auto">
+              {[...orderedLocated, ...orderedUnlocated].map((client, index) => {
                 const selected = selectedClient?.id === client.id;
+                const distance = distanceFrom(client);
                 return (
-                <div key={client.id} data-client-row={client.id} className={selected ? "bg-animeo-soft" : undefined}>
+                <Fragment key={client.id}>
+                {/* Les clients sans position forment une section à part : la
+                    carte et « Précédent / Suivant » ne peuvent rien en montrer. */}
+                {index === orderedLocated.length && orderedUnlocated.length > 0 ? (
+                  <p className="bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">Sans position ({orderedUnlocated.length})</p>
+                ) : null}
+                <div data-client-row={client.id} className={selected ? "bg-animeo-soft" : undefined}>
                 <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm" style={{ backgroundColor: `color-mix(in srgb, ${resolveSpeciesColor(theme.speciesColors, client.species)} 18%, white)` }}>{client.avatar}</span>
                   <span className="min-w-0 flex-1">
@@ -426,10 +540,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                       {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
                     </span>
                   </span>
+                  {distance !== null ? <span className="shrink-0 text-xs font-extrabold tabular-nums text-animeo-dark">{formatKm(distance)}</span> : null}
                   {client.dueForReminder ? <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-animeo-accent" title="À relancer" /> : null}
                 </button>
                 {selected && !client.coordinates ? <UnlocatedClientActions client={client} /> : null}
                 </div>
+                </Fragment>
                 );
               })}
             </div>

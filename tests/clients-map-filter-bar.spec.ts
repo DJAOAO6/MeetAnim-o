@@ -123,7 +123,7 @@ test.describe("Carte clients — barre de filtres compacte (Phase 2)", () => {
     await expect(dueButton).toHaveAttribute("aria-pressed", "true");
 
     // Seul le chien (rappel dû) reste visible dans la liste "Clients visibles".
-    const clientsList = page.getByRole("heading", { name: "Clients visibles" }).locator("xpath=../following-sibling::div[1]");
+    const clientsList = page.getByTestId("map-client-list");
     await expect(clientsList.getByText(dogAnimalName)).toBeVisible();
     await expect(clientsList.getByText(catAnimalName)).toHaveCount(0);
   });
@@ -150,7 +150,7 @@ test.describe("Carte clients — barre de filtres compacte (Phase 2)", () => {
     await expect(speciesButtonLocator(page)).toHaveText("Espèce");
     await expect(dueButtonLocator(page)).toHaveAttribute("aria-pressed", "false");
 
-    const clientsList = page.getByRole("heading", { name: "Clients visibles" }).locator("xpath=../following-sibling::div[1]");
+    const clientsList = page.getByTestId("map-client-list");
     await expect(clientsList.getByText(catAnimalName)).toBeVisible();
   });
 

@@ -119,7 +119,7 @@ function perimeterTokenLocator(page: Page) {
 }
 
 function clientsListLocator(page: Page) {
-  return page.getByRole("heading", { name: "Clients visibles" }).locator("xpath=../following-sibling::div[1]");
+  return page.getByTestId("map-client-list");
 }
 
 test.describe("Carte clients — périmètre par paliers et poignée (Phase 3)", () => {

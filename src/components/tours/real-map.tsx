@@ -64,6 +64,10 @@ type RealMapProps = {
   // le point s'affiche en haut à gauche du centre, hors de la fiche posée
   // sur la carte. Absent = centrage exact, comme avant.
   selectedOffset?: { x: number; y: number };
+  // Flèches du clavier gérées par Leaflet (déplacement de la carte). Faux
+  // quand la page s'en sert pour autre chose (passer d'un client à l'autre).
+  // Absent = comportement Leaflet par défaut, comme avant.
+  keyboard?: boolean;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -190,7 +194,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -202,7 +206,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
 
   return (
     <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${heightClassName}`}>
-      <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full" ref={mapRef}>
+      <MapContainer center={center} zoom={zoom} scrollWheelZoom keyboard={keyboard} className="h-full w-full" ref={mapRef}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
