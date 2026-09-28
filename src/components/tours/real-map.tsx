@@ -105,6 +105,10 @@ type RealMapProps = {
   practice?: { lat: number; lng: number; label: string } | null;
   // Secteurs (lieu + rayon), tracés en pointillés avec leur nom.
   zoneCircles?: RealMapZoneCircle[];
+  // Panneau posé sur le bas de la carte (téléphone) : à côté de la carte dans
+  // le DOM, jamais dedans ; la mention OpenStreetMap remonte en haut pour
+  // rester visible.
+  bottomSheet?: ReactNode;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -472,7 +476,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [] }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -484,7 +488,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
   const [wheelHint, setWheelHint] = useState(false);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${heightClassName}`}>
+    <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${bottomSheet ? "map-with-sheet" : ""} ${heightClassName}`}>
       <MapContainer center={center} zoom={zoom} scrollWheelZoom={wheelZoom === "always"} keyboard={keyboard} className="h-full w-full" ref={mapRef}>
         {wheelZoom === "afterClick" ? <WheelActivation onHint={setWheelHint} /> : null}
         {onViewChange ? <ViewTracker onChange={onViewChange} /> : null}
@@ -539,6 +543,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
       </MapContainer>
 
       {overlay ? <div className="pointer-events-none absolute bottom-4 right-4 z-[500] w-[min(300px,calc(100%-2rem))]"><div className="pointer-events-auto">{overlay}</div></div> : null}
+      {bottomSheet}
       {wheelHint ? (
         <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-[500] mx-auto w-fit rounded-xl bg-animeo-dark/85 px-3 py-2 text-xs font-bold text-white">
           Cliquez sur la carte pour zoomer à la molette (ou Ctrl + molette)

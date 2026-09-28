@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarPlus, ChevronLeft, ChevronRight, Crosshair, LocateFixed, MapPin, Maximize2, Minimize2, Navigation, Phone, UserRound } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { Card } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import {
   parseZoneFilter, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
   type ActivityRange, type MapMode, type VisitFilter, type ZoneFilter,
 } from "@/lib/map-modes";
+import { MapBottomSheet, type SheetSnap } from "@/components/tours/map-bottom-sheet";
 import { APPOINTMENT_LEGEND, appointmentStatusColors, appointmentTitle, MapAppointmentCard, MapAppointmentList, MapModeSwitcher, Segmented, ToursPanel, type PlannedTour } from "@/components/tours/map-modes";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
@@ -207,6 +208,13 @@ const AROUND_ME_DEFAULT_KM = 10;
 // (tirer une poignée avec le doigt masque la carte sur mobile) : seuls les
 // paliers restent.
 const CIRCLE_HANDLE_MIN_WIDTH_QUERY = "(min-width: 640px)";
+// Téléphone : carte plein écran et panneau glissant (phase 8.4).
+const PHONE_QUERY = "(max-width: 639px)";
+function subscribePhone(onChange: () => void) {
+  const media = window.matchMedia(PHONE_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
 
 export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = "BOTH", zones = [], plannedTours = [], appointments = [], todayId: todayIdProp }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
@@ -224,6 +232,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const [visitFilter, setVisitFilter] = useState<VisitFilter>(initialUrl.visit);
   const [zoneFilter, setZoneFilter] = useState<ZoneFilter | null>(initialUrl.zone);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(initialUrl.appointment);
+  // Rendu serveur : mise en page grand écran ; le téléphone bascule au
+  // montage, sans écart d'hydratation.
+  const isPhone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
   const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>(initialUrl.species);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
   const [dueOnly, setDueOnly] = useState(initialUrl.due);
@@ -583,6 +595,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   function toggleAppointment(id: string) {
     setSelectedAppointmentId((current) => (current === id ? null : id));
+    setSheetSnap((current) => (current === "full" ? "mid" : current));
   }
 
   // Choisir une zone ou une tournée recadre sur leurs secteurs (quand elles
@@ -606,6 +619,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // client déjà choisi (marqueur ou ligne) referme sa fiche.
   function toggleSelection(id: string) {
     setSelectedId((current) => (current === id ? null : id));
+    setSheetSnap((current) => (current === "full" ? "mid" : current));
   }
 
   // Échap referme la fiche — sauf dans un champ, où Échap appartient au champ.
@@ -805,6 +819,128 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     ...selectedSpecies.map((species): FilterToken => ({ key: `species-${species}`, label: species, onRemove: () => toggleSpecies(species) })),
     ...(dueOnly && (mapMode === "clients" || mapMode === "tours") ? [{ key: "due", label: "À relancer", onRemove: () => setDueOnly(false) }] : []),
   ];
+
+  // Liste de la carte (clients ou rendez-vous) : dans la colonne de droite
+  // sur grand écran, dans le panneau glissant sur téléphone.
+  const listPanel = (
+    <>
+      {mapMode === "activity" ? (
+        <>
+          <div className="border-b border-animeo-border-soft px-5 py-4">
+            <h2 className="font-extrabold text-animeo-dark">Rendez-vous</h2>
+            <p className="mt-0.5 text-xs text-animeo-muted">
+              {homeAppointmentCount} à domicile · {activityAppointments.length - homeAppointmentCount} au cabinet{hasPerimeter ? " · dans le périmètre" : ""}
+            </p>
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-extrabold text-animeo-dark">
+              <input type="checkbox" checked={visibleOnly} onChange={(event) => setVisibleOnly(event.target.checked)} className="h-4 w-4 rounded border-animeo-border text-animeo focus:ring-animeo" />
+              Uniquement cette zone
+            </label>
+          </div>
+          <MapAppointmentList appointments={activityAppointments} todayId={todayId} selectedId={selectedAppointmentId} onSelect={toggleAppointment} hoveredId={hoveredId} onHover={setHoveredId} contained={!isPhone} />
+        </>
+      ) : (
+      <>
+      {mapMode === "tours" ? (
+        <ToursPanel zones={zones} plannedTours={plannedTours} zoneCounts={zoneCounts} unattachedCount={unattachedCount} totalCount={clients.length} filter={zoneFilter} onFilter={chooseZoneFilter} />
+      ) : null}
+      <div className="border-b border-animeo-border-soft px-5 py-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-extrabold text-animeo-dark">{mapMode === "reminders" ? "Clients à revoir" : mapMode === "tours" && zoneFilter ? "Clients de la sélection" : "Clients visibles"}</h2>
+            <p className="mt-0.5 text-xs text-animeo-muted">
+              {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : hasPerimeter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
+            </p>
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-extrabold text-animeo-dark">
+              <input type="checkbox" checked={visibleOnly} onChange={(event) => setVisibleOnly(event.target.checked)} className="h-4 w-4 rounded border-animeo-border text-animeo focus:ring-animeo" />
+              Uniquement cette zone
+            </label>
+          </div>
+          <div role="group" aria-label="Trier la liste" className="flex shrink-0 rounded-xl bg-animeo-bg p-1">
+            <button type="button" aria-pressed={sortMode === "name"} onClick={() => chooseSort("name")} className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition ${sortMode === "name" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}>Nom</button>
+            <button
+              type="button"
+              aria-pressed={sortMode === "distance"}
+              onClick={() => chooseSort("distance")}
+              disabled={!proximityCandidate}
+              title={proximityCandidate ? `Trier par distance depuis ${proximityCandidate.label}` : "Choisissez un client, ou renseignez l’adresse de votre lieu d’exercice"}
+              className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-40 ${sortMode === "distance" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
+            >
+              Proximité
+            </button>
+          </div>
+        </div>
+      </div>
+      {visibleClients.length > 0 ? (
+        <div ref={listRef} data-testid="map-client-list" className={`relative divide-y divide-animeo-border-soft ${isPhone ? "" : "max-h-[650px] overflow-y-auto"}`}>
+          {[...orderedLocated, ...orderedUnlocated].map((client, index) => {
+            const selected = selectedClient?.id === client.id;
+            const distance = distanceFrom(client);
+            return (
+            <Fragment key={client.id}>
+            {/* Les clients sans position forment une section à part : la
+                carte et « Précédent / Suivant » ne peuvent rien en montrer. */}
+            {index === orderedLocated.length && orderedUnlocated.length > 0 ? (
+              <p className="flex items-center justify-between gap-3 bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">
+                Sans position ({orderedUnlocated.length})
+                <LocateAllButton />
+              </p>
+            ) : null}
+            <div
+              data-client-row={client.id}
+              onMouseEnter={() => setHoveredId(client.id)}
+              onMouseLeave={() => setHoveredId((current) => (current === client.id ? null : current))}
+              className={selected ? "bg-animeo-soft" : hoveredId === client.id ? "bg-animeo-bg" : undefined}
+            >
+            <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
+              <ClientBadge client={client} species={selectedSpecies} tint={18} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
+                <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{animalsLine(client)}</span>
+                <span className="mt-1 block truncate text-[10px] text-animeo-muted">
+                  {client.city} · {mapMode === "reminders" ? `Dernière visite : ${client.lastConsultation}` : client.lastConsultation}
+                  {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
+                  {client.precision === "CITY" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
+                </span>
+              </span>
+              {distance !== null ? <span className="shrink-0 text-xs font-extrabold tabular-nums text-animeo-dark">{formatKm(distance)}</span> : null}
+              {client.dueForReminder ? <span className="shrink-0 rounded-full bg-animeo-warning-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-warning">À relancer</span> : null}
+            </button>
+            {perimeterCenter?.me && client.coordinates ? <ClientQuickActions client={client} homeVisits={visitsHomes(practiceMode)} /> : null}
+            {selected && !client.coordinates ? <UnlocatedClientActions client={client} /> : null}
+            </div>
+            </Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-8 text-center"><Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" /><p className="mt-3 text-sm font-bold text-animeo-muted">Aucun client ne correspond aux filtres.</p></div>
+      )}
+      </>
+      )}
+    </>
+  );
+
+  // Téléphone : une seule surface — le panneau montre la fiche choisie, ou
+  // la liste. Jamais fiche flottante + liste + fenêtre en même temps.
+  const sheetCard = !isPhone ? null
+    : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} docked />
+      : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked /> : null;
+  const effectiveSnap: SheetSnap = sheetCard && sheetSnap === "compact" ? "mid" : sheetSnap;
+  function changeSheetSnap(next: SheetSnap) {
+    // Rabattre le panneau sur une fiche la referme : retour à la liste.
+    if (sheetCard && next === "compact") {
+      setSelectedId(null);
+      setSelectedAppointmentId(null);
+    }
+    setSheetSnap(next);
+  }
+  const sheetSummary = sheetCard ? null : (
+    <p className="text-center text-sm font-extrabold text-animeo-dark" data-testid="map-sheet-summary">
+      {mapMode === "activity"
+        ? `${activityAppointments.length} rendez-vous · ${homeAppointmentCount} à domicile`
+        : `${visibleClients.length} client${visibleClients.length > 1 ? "s" : ""}${hasPerimeter || visibleOnly ? " dans cette zone" : " sur la carte"}`}
+    </p>
+  );
 
   return (
     <div className="space-y-6">
@@ -1068,10 +1204,15 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             // Fiche en bas à droite (large) : le point choisi s'affiche
             // au-dessus et à gauche, jamais dessous. Sur téléphone, la fiche
             // passe sous la carte : centrage exact.
-            selectedOffset={showCircleHandle ? { x: 160, y: 90 } : undefined}
+            selectedOffset={isPhone ? { x: 0, y: 170 } : showCircleHandle ? { x: 160, y: 90 } : undefined}
             // Hauteur suivant l'écran, jamais plus que la fenêtre : la page
             // reste lisible autour de la carte.
-            heightClassName={fullscreen ? "h-[calc(100dvh-11rem)] min-h-[340px]" : "h-[min(610px,70dvh)] min-h-[340px]"}
+            heightClassName={isPhone ? "h-[calc(100dvh-13rem)] min-h-[460px]" : fullscreen ? "h-[calc(100dvh-11rem)] min-h-[340px]" : "h-[min(610px,70dvh)] min-h-[340px]"}
+            bottomSheet={isPhone ? (
+              <MapBottomSheet snap={effectiveSnap} onSnapChange={changeSheetSnap} summary={sheetSummary} label={mapMode === "activity" ? "Rendez-vous" : "Clients"}>
+                {sheetCard ? <div className="px-3 pb-3">{sheetCard}</div> : listPanel}
+              </MapBottomSheet>
+            ) : undefined}
             cluster
             wheelZoom="afterClick"
             onViewChange={setMapBounds}
@@ -1099,111 +1240,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             defaultCenter={cabinetCoordinates ? [cabinetCoordinates.lat, cabinetCoordinates.lng] : null}
             liveLocation={perimeterCenter?.me ? myPosition : null}
           />
-          {/* Téléphone : la fiche du client choisi se range sous la carte. */}
-          {selectedClient?.coordinates && !showCircleHandle ? (
-            <div className="mt-3"><MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked /></div>
-          ) : null}
-          {selectedAppointment?.coordinates && !showCircleHandle ? (
-            <div className="mt-3"><MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} docked /></div>
-          ) : null}
         </Card>
         </div>
 
-        <Card className="overflow-hidden xl:sticky xl:top-6">
-          {mapMode === "activity" ? (
-            <>
-              <div className="border-b border-animeo-border-soft px-5 py-4">
-                <h2 className="font-extrabold text-animeo-dark">Rendez-vous</h2>
-                <p className="mt-0.5 text-xs text-animeo-muted">
-                  {homeAppointmentCount} à domicile · {activityAppointments.length - homeAppointmentCount} au cabinet{hasPerimeter ? " · dans le périmètre" : ""}
-                </p>
-                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-extrabold text-animeo-dark">
-                  <input type="checkbox" checked={visibleOnly} onChange={(event) => setVisibleOnly(event.target.checked)} className="h-4 w-4 rounded border-animeo-border text-animeo focus:ring-animeo" />
-                  Uniquement cette zone
-                </label>
-              </div>
-              <MapAppointmentList appointments={activityAppointments} todayId={todayId} selectedId={selectedAppointmentId} onSelect={toggleAppointment} hoveredId={hoveredId} onHover={setHoveredId} />
-            </>
-          ) : (
-          <>
-          {mapMode === "tours" ? (
-            <ToursPanel zones={zones} plannedTours={plannedTours} zoneCounts={zoneCounts} unattachedCount={unattachedCount} totalCount={clients.length} filter={zoneFilter} onFilter={chooseZoneFilter} />
-          ) : null}
-          <div className="border-b border-animeo-border-soft px-5 py-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="font-extrabold text-animeo-dark">{mapMode === "reminders" ? "Clients à revoir" : mapMode === "tours" && zoneFilter ? "Clients de la sélection" : "Clients visibles"}</h2>
-                <p className="mt-0.5 text-xs text-animeo-muted">
-                  {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : hasPerimeter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
-                </p>
-                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-extrabold text-animeo-dark">
-                  <input type="checkbox" checked={visibleOnly} onChange={(event) => setVisibleOnly(event.target.checked)} className="h-4 w-4 rounded border-animeo-border text-animeo focus:ring-animeo" />
-                  Uniquement cette zone
-                </label>
-              </div>
-              <div role="group" aria-label="Trier la liste" className="flex shrink-0 rounded-xl bg-animeo-bg p-1">
-                <button type="button" aria-pressed={sortMode === "name"} onClick={() => chooseSort("name")} className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition ${sortMode === "name" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}>Nom</button>
-                <button
-                  type="button"
-                  aria-pressed={sortMode === "distance"}
-                  onClick={() => chooseSort("distance")}
-                  disabled={!proximityCandidate}
-                  title={proximityCandidate ? `Trier par distance depuis ${proximityCandidate.label}` : "Choisissez un client, ou renseignez l’adresse de votre lieu d’exercice"}
-                  className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-40 ${sortMode === "distance" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
-                >
-                  Proximité
-                </button>
-              </div>
-            </div>
-          </div>
-          {visibleClients.length > 0 ? (
-            <div ref={listRef} data-testid="map-client-list" className="relative max-h-[650px] divide-y divide-animeo-border-soft overflow-y-auto">
-              {[...orderedLocated, ...orderedUnlocated].map((client, index) => {
-                const selected = selectedClient?.id === client.id;
-                const distance = distanceFrom(client);
-                return (
-                <Fragment key={client.id}>
-                {/* Les clients sans position forment une section à part : la
-                    carte et « Précédent / Suivant » ne peuvent rien en montrer. */}
-                {index === orderedLocated.length && orderedUnlocated.length > 0 ? (
-                  <p className="flex items-center justify-between gap-3 bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">
-                    Sans position ({orderedUnlocated.length})
-                    <LocateAllButton />
-                  </p>
-                ) : null}
-                <div
-                  data-client-row={client.id}
-                  onMouseEnter={() => setHoveredId(client.id)}
-                  onMouseLeave={() => setHoveredId((current) => (current === client.id ? null : current))}
-                  className={selected ? "bg-animeo-soft" : hoveredId === client.id ? "bg-animeo-bg" : undefined}
-                >
-                <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
-                  <ClientBadge client={client} species={selectedSpecies} tint={18} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
-                    <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{animalsLine(client)}</span>
-                    <span className="mt-1 block truncate text-[10px] text-animeo-muted">
-                      {client.city} · {mapMode === "reminders" ? `Dernière visite : ${client.lastConsultation}` : client.lastConsultation}
-                      {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
-                      {client.precision === "CITY" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
-                    </span>
-                  </span>
-                  {distance !== null ? <span className="shrink-0 text-xs font-extrabold tabular-nums text-animeo-dark">{formatKm(distance)}</span> : null}
-                  {client.dueForReminder ? <span className="shrink-0 rounded-full bg-animeo-warning-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-warning">À relancer</span> : null}
-                </button>
-                {perimeterCenter?.me && client.coordinates ? <ClientQuickActions client={client} homeVisits={visitsHomes(practiceMode)} /> : null}
-                {selected && !client.coordinates ? <UnlocatedClientActions client={client} /> : null}
-                </div>
-                </Fragment>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-8 text-center"><Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" /><p className="mt-3 text-sm font-bold text-animeo-muted">Aucun client ne correspond aux filtres.</p></div>
-          )}
-          </>
-          )}
-        </Card>
+        {isPhone ? null : <Card className="overflow-hidden xl:sticky xl:top-6">{listPanel}</Card>}
       </div>
 
     </div>

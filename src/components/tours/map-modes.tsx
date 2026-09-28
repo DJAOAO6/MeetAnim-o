@@ -115,8 +115,10 @@ export function MapAppointmentCard({ appointment, todayId, onClose, docked = fal
  * Liste du mode « Activité », jour par jour. Un rendez-vous sans point sur
  * la carte (cabinet, domicile non localisé) garde ses actions dans la liste.
  */
-export function MapAppointmentList({ appointments, todayId, selectedId, onSelect, hoveredId, onHover }: {
+export function MapAppointmentList({ appointments, todayId, selectedId, onSelect, hoveredId, onHover, contained = true }: {
   appointments: MapAppointment[];
+  /** Faux dans le panneau du téléphone, qui défile lui-même. */
+  contained?: boolean;
   todayId: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -144,7 +146,7 @@ export function MapAppointmentList({ appointments, todayId, selectedId, onSelect
   }
 
   return (
-    <div ref={listRef} data-testid="map-appointment-list" className="relative max-h-[650px] overflow-y-auto">
+    <div ref={listRef} data-testid="map-appointment-list" className={`relative ${contained ? "max-h-[650px] overflow-y-auto" : ""}`}>
       {appointments.map((appointment, index) => {
         const newDay = index === 0 || appointments[index - 1].dateId !== appointment.dateId;
         const selected = appointment.id === selectedId;

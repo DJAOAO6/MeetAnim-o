@@ -422,6 +422,12 @@ a:focus-visible {
   outline-offset: 1px;
   transform: scale(1.15);
 }
+/* Carte avec panneau glissant (téléphone) : la mention OpenStreetMap passe
+   en haut, le panneau couvrant le bas. */
+.map-with-sheet .leaflet-bottom.leaflet-right {
+  top: 0;
+  bottom: auto;
+}
 .leaflet-container path.map-zone {
   stroke: var(--theme-heading);
   stroke-width: 1.5;

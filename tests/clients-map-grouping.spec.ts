@@ -108,14 +108,49 @@ test.describe("Carte clients — regroupement et affichage", () => {
     await expect(page.getByText("Cliquez sur la carte pour zoomer à la molette")).toBeVisible();
   });
 
-  test("sur téléphone, la fiche se range sous la carte au lieu de la recouvrir", async ({ page }) => {
+  test("sur téléphone, une seule surface : la fiche s'ouvre dans le panneau, sur la carte", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    const sheet = page.getByTestId("map-sheet");
+    await expect(sheet).toHaveAttribute("data-snap", "compact");
+    await expect(page.getByTestId("map-sheet-summary")).toContainText(/clients sur la carte/);
+    // Pas de liste à part sous la carte : elle est dans le panneau.
+    await expect(page.getByTestId("map-client-list")).toHaveCount(1);
+    await expect(sheet.getByTestId("map-client-list")).toHaveCount(1);
+
     await row(page, "tmp-group-family").getByRole("button").first().click();
-    const close = page.getByRole("button", { name: "Fermer la fiche de Test FamilleE2E" });
+    const close = sheet.getByRole("button", { name: "Fermer la fiche de Test FamilleE2E" });
     await expect(close).toBeVisible();
+    await expect(page.getByRole("button", { name: "Fermer la fiche de Test FamilleE2E" }), "aucune fiche flottante en plus").toHaveCount(1);
+    await expect(sheet).toHaveAttribute("data-snap", "mid");
     const mapBox = (await page.locator(".leaflet-container").boundingBox())!;
     const closeBox = (await close.boundingBox())!;
-    expect(closeBox.y, "la fiche commence sous la carte").toBeGreaterThan(mapBox.y + mapBox.height);
+    expect(closeBox.y + closeBox.height, "la fiche est posée sur la carte").toBeLessThanOrEqual(mapBox.y + mapBox.height);
+
+    await close.click();
+    await expect(page.getByTestId("map-sheet-summary")).toBeVisible();
     await expect(page.getByRole("button", { name: /Autour de moi/ })).not.toContainText("📍");
+  });
+
+  test("sur téléphone, le panneau prend trois hauteurs, et le tirer ne déplace pas la carte", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const sheet = page.getByTestId("map-sheet");
+    await sheet.scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: "Agrandir le panneau" }).click();
+    await expect(sheet).toHaveAttribute("data-snap", "mid");
+    await page.getByRole("button", { name: "Agrandir le panneau" }).click();
+    await expect(sheet).toHaveAttribute("data-snap", "full");
+    const mapBox = (await page.locator(".leaflet-container").boundingBox())!;
+    await expect.poll(async () => (await sheet.boundingBox())!.height / mapBox.height, { message: "presque toute la carte" }).toBeGreaterThan(0.8);
+
+    const pane = page.locator(".leaflet-map-pane");
+    const before = await pane.getAttribute("style");
+    const handle = (await page.getByRole("button", { name: "Réduire le panneau" }).boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + 200, { steps: 8 });
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + mapBox.height * 0.7, { steps: 8 });
+    await page.mouse.up();
+    await expect(sheet).toHaveAttribute("data-snap", "compact");
+    expect(await pane.getAttribute("style"), "la carte n'a pas bougé").toBe(before);
   });
 });
