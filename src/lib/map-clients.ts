@@ -29,6 +29,7 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       address: true,
       latitude: true,
       longitude: true,
+      geocodePrecision: true,
       animals: {
         orderBy: { name: "asc" },
         select: {
@@ -85,6 +86,9 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       dueForReminder: animals.some((animal) => animal.dueForReminder),
       coordinates: fromAddress ?? fromAppointment,
       positionSource: fromAddress ? "address" : fromAppointment ? "appointment" : null,
+      // Précision connue pour une adresse géocodée ; pour un rendez-vous,
+      // on ne sait pas (souvent une ville saisie à la main).
+      precision: fromAddress ? client.geocodePrecision : null,
     };
   });
 }

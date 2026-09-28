@@ -31,4 +31,6 @@ export type MapClientSummary = {
   dueForReminder: boolean;
   coordinates: { lat: number; lng: number } | null;
   positionSource: MapPositionSource | null;
+  /** Précision d'une position d'adresse ; nulle si inconnue (rendez-vous, ancienne position). */
+  precision: "EXACT" | "STREET" | "CITY" | null;
 };

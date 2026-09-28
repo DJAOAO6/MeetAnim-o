@@ -9,7 +9,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { clientInclude, mapAnimal, mapClient } from "@/lib/clients";
 import { buildClientNameWordConditions, clientSearchQuerySchema, MAX_SEARCH_RESULTS_PER_GROUP } from "@/lib/client-search";
-import { geocodeAddress } from "@/lib/geocoding";
+import { geocodeClientAddress, type PreciseGeocode } from "@/lib/geocoding";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { Animal, Client } from "@/data/clients";
 import type { PublicAnimalType } from "@/data/public-booking";
@@ -28,14 +28,21 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * d'adresse, mieux vaut "position inconnue" qu'une ancienne position
  * devenue fausse.
  */
-async function geocodeClientInBackground(organizationId: string, clientId: string, address: string, city: string): Promise<void> {
-  const geocoded = await geocodeAddress(`${address}, ${city}`);
+async function geocodeClientInBackground(organizationId: string, clientId: string, address: string, city: string, postalCode: string | null): Promise<void> {
+  const geocoded = await geocodeClientAddress({ address, city, postalCode });
   // after() s'exécute une fois la réponse envoyée : la session n'est plus
   // lisible, l'espace est donc passé par l'appelant.
-  await dbFor(organizationId).client.update({
-    where: { id: clientId },
-    data: { latitude: geocoded?.latitude ?? null, longitude: geocoded?.longitude ?? null, geocodedAt: new Date() },
-  });
+  await dbFor(organizationId).client.update({ where: { id: clientId }, data: positionData(geocoded) });
+}
+
+/** Position à enregistrer : trouvée (avec sa précision), ou effacée. */
+function positionData(geocoded: PreciseGeocode | null) {
+  return {
+    latitude: geocoded?.latitude ?? null,
+    longitude: geocoded?.longitude ?? null,
+    geocodePrecision: geocoded?.precision ?? null,
+    geocodedAt: new Date(),
+  };
 }
 
 export type ClientActionResult = { ok: true } | { ok: false; error: string };
@@ -133,7 +140,7 @@ export async function createClientAction(input: ClientContactInput): Promise<Cli
   await logAudit({ userId: user.id, action: "CLIENT_CREATED", entityType: "Client", entityId: created.id });
 
   if (created.address && created.city) {
-    after(() => geocodeClientInBackground(created.organizationId, created.id, created.address, created.city).catch(() => {}));
+    after(() => geocodeClientInBackground(created.organizationId, created.id, created.address, created.city, created.postalCode).catch(() => {}));
   }
 
   revalidatePath("/dashboard/clients");
@@ -183,7 +190,7 @@ export async function updateClientAction(clientId: string, input: ClientContactI
   // position.
   if (updated.address !== existing.address || updated.city !== existing.city) {
     if (updated.address && updated.city) {
-      after(() => geocodeClientInBackground(updated.organizationId, clientId, updated.address, updated.city).catch(() => {}));
+      after(() => geocodeClientInBackground(updated.organizationId, clientId, updated.address, updated.city, updated.postalCode).catch(() => {}));
     }
   }
 
@@ -204,13 +211,13 @@ export async function geocodeClientAddressAction(clientId: string): Promise<Clie
   await requireUser();
   const db = await currentDb();
 
-  const client = await db.client.findUnique({ where: { id: clientId }, select: { id: true, address: true, city: true } });
+  const client = await db.client.findUnique({ where: { id: clientId }, select: { id: true, address: true, city: true, postalCode: true } });
   if (!client) return { ok: false, error: "Client introuvable." };
 
-  const geocoded = await geocodeAddress(`${client.address}, ${client.city}`);
+  const geocoded = await geocodeClientAddress(client);
   if (!geocoded) return { ok: false, error: "Adresse introuvable, vérifiez son orthographe." };
 
-  await db.client.update({ where: { id: clientId }, data: { latitude: geocoded.latitude, longitude: geocoded.longitude, geocodedAt: new Date() } });
+  await db.client.update({ where: { id: clientId }, data: positionData(geocoded) });
 
   revalidatePath("/dashboard/tournees");
   revalidatePath("/dashboard/carte");
@@ -362,4 +369,53 @@ export async function searchClientsAndAnimalsAction(rawQuery: string): Promise<C
       city: animal.client.city,
     })),
   };
+}
+
+const LOCATE_BATCH_SIZE = 5;
+const LOCATE_PAUSE_MS = 250;
+// Au plus par passage : le service IGN est limité (50 requêtes/s par IP),
+// et une page ne doit pas attendre des minutes. Un second passage reprend
+// là où le premier s'est arrêté.
+const LOCATE_MAX_PER_RUN = 150;
+
+export type LocateClientsResult = { ok: true; located: number; notFound: number; remaining: number } | { ok: false; error: string };
+
+/**
+ * « Localiser les clients sans position » : géocode par lots les fiches qui
+ * ont une adresse mais aucune position, dans l'espace du compte connecté
+ * seulement. Chaque échec est isolé (Promise.allSettled) — une adresse
+ * introuvable n'arrête pas les autres —, une courte pause sépare les lots,
+ * et le passage est tracé dans le journal d'audit.
+ */
+export async function locateUnlocatedClientsAction(): Promise<LocateClientsResult> {
+  const user = await requireUser();
+  const db = await currentDb();
+
+  const pending = await db.client.findMany({
+    where: { latitude: null, address: { not: "" } },
+    select: { id: true, address: true, city: true, postalCode: true },
+    orderBy: { lastName: "asc" },
+  });
+  const batch = pending.slice(0, LOCATE_MAX_PER_RUN);
+
+  let located = 0;
+  let notFound = 0;
+  for (let start = 0; start < batch.length; start += LOCATE_BATCH_SIZE) {
+    const slice = batch.slice(start, start + LOCATE_BATCH_SIZE);
+    const results = await Promise.allSettled(slice.map(async (client) => {
+      const geocoded = await geocodeClientAddress(client);
+      await db.client.update({ where: { id: client.id }, data: positionData(geocoded) });
+      return geocoded !== null;
+    }));
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value) located += 1;
+      else notFound += 1;
+    }
+    if (start + LOCATE_BATCH_SIZE < batch.length) await new Promise((resolve) => setTimeout(resolve, LOCATE_PAUSE_MS));
+  }
+
+  await logAudit({ userId: user.id, action: "CLIENTS_GEOCODED", entityType: "Client", metadata: { located, notFound, attempted: batch.length } });
+  revalidatePath("/dashboard/carte");
+  revalidatePath("/dashboard/tournees");
+  return { ok: true, located, notFound, remaining: pending.length - batch.length };
 }

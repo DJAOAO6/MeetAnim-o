@@ -137,7 +137,7 @@ test.describe("Carte clients — navigation entre clients", () => {
   });
 
   test("les clients sans position sont à part, et jamais parcourus", async ({ page }) => {
-    await expect(page.getByText(/^Sans position \(\d+\)$/)).toBeVisible();
+    await expect(page.getByText(/^Sans position \(\d+\)/)).toBeVisible();
     const order = await locatedOrder(page);
     expect(order).not.toContain(rowId("d"));
     // Précédent sans sélection : le dernier client localisé, montré dans la liste.

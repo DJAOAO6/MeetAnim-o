@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { GeocodeSuggestion, ReverseGeocodeResult } from "@/lib/maps/map-types";
+import { classifyGeocode, normalizeCityName, sameCity, type GeocodePrecision } from "@/lib/geocode-precision";
 
 // Service de géocodage actuel de la Géoplateforme IGN (successeur de l'ancien
 // api-adresse.data.gouv.fr, retiré). Gratuit, sans clé, ~50 req/s par IP —
@@ -144,6 +145,66 @@ export async function reverseGeocode(latitude: number, longitude: number): Promi
       latitude: best.latitude,
       longitude: best.longitude,
     };
+  } catch {
+    return null;
+  }
+}
+
+const preciseFeatureSchema = z.object({
+  properties: z.object({
+    label: z.string(),
+    city: z.string(),
+    postcode: z.string().optional(),
+    type: z.string().optional(),
+    score: z.number().optional(),
+  }),
+  geometry: z.object({ coordinates: z.tuple([z.number(), z.number()]) }),
+});
+
+export type PreciseGeocode = { latitude: number; longitude: number; precision: GeocodePrecision; label: string };
+
+/**
+ * Position définitive d'une adresse de client — pas l'autocomplétion (faite
+ * pour suggérer pendant la frappe, elle renvoie des scores bas et des
+ * homonymes lointains : « 12 rue de la République » sans code postal
+ * tombait à Toulouse). Ici : recherche complète, code postal en filtre quand
+ * il est connu, type et score lus pour dire la précision réelle, et le
+ * résultat doit être dans la commune de la fiche.
+ *
+ * Renvoie null si rien de fiable n'est trouvé (le client reste « sans
+ * position »), ou si le service ne répond pas.
+ */
+export async function geocodeClientAddress(input: { address: string; city: string; postalCode?: string | null }): Promise<PreciseGeocode | null> {
+  const address = input.address.trim();
+  const city = input.city.trim();
+  if (!address && !city) return null;
+  const postcode = input.postalCode?.match(/\d{5}/)?.[0] ?? address.match(/\b\d{5}\b/)?.[0];
+  // La ville n'est ajoutée que si l'adresse ne la contient pas déjà.
+  const query = city && !normalizeCityName(address).includes(normalizeCityName(city)) ? `${address} ${city}` : address;
+
+  const upstreamUrl = new URL(IGN_SEARCH_URL);
+  upstreamUrl.searchParams.set("q", query.slice(0, 200));
+  upstreamUrl.searchParams.set("index", "address");
+  upstreamUrl.searchParams.set("autocomplete", "0");
+  upstreamUrl.searchParams.set("limit", "5");
+  if (postcode) upstreamUrl.searchParams.set("postcode", postcode);
+
+  try {
+    const response = await fetch(upstreamUrl, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS * 2) });
+    if (!response.ok) return null;
+    const body = rawResponseSchema.safeParse(await response.json());
+    if (!body.success) return null;
+    for (const raw of body.data.features) {
+      const feature = preciseFeatureSchema.safeParse(raw);
+      if (!feature.success) continue;
+      const { properties, geometry } = feature.data;
+      // Sans code postal, la commune de la fiche tranche entre homonymes.
+      if (!postcode && city && !sameCity(city, properties.city)) continue;
+      const precision = classifyGeocode(properties.type, properties.score);
+      if (!precision) continue;
+      return { latitude: geometry.coordinates[1], longitude: geometry.coordinates[0], precision, label: properties.label };
+    }
+    return null;
   } catch {
     return null;
   }

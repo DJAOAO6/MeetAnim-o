@@ -141,6 +141,13 @@ enum OptimizationPreference {
   BALANCED
 }
 
+/// Précision d'une position géocodée (voir src/lib/geocode-precision.ts).
+enum GeocodePrecision {
+  EXACT
+  STREET
+  CITY
+}
+
 enum AuditAction {
   LOGIN_SUCCEEDED
   LOGIN_FAILED
@@ -173,6 +180,7 @@ enum AuditAction {
   CALENDAR_FEED_TOKEN_REGENERATED
   CLIENTS_IMPORTED
   CLIENT_IMPORT_UNDONE
+  CLIENTS_GEOCODED
   DOCUMENT_CREATED
   DOCUMENT_FINALIZED
   DOCUMENT_DELETED
@@ -391,13 +399,17 @@ model Client {
   // devinerait une position. `geocodedAt` distingue "jamais tenté" (null)
   // de "tenté et échoué" (adresse invalide, API indisponible) : sans lui,
   // un géocodage manuel via le bouton "localiser" ne pourrait pas savoir
-  // s'il retente une vraie nouveauté ou un échec déjà connu. Un
-  // rendez-vous à domicile géolocalisé reste prioritaire sur ces champs
-  // quand il existe (voir getMapClients) : c'est la position la plus
-  // récente et la plus fiable.
+  // s'il retente une vraie nouveauté ou un échec déjà connu. Carte
+  // clients : ces coordonnées passent en premier (getMapClientSummaries) ;
+  // les tournées, qui raisonnent par animal, privilégient encore le
+  // dernier rendez-vous à domicile (getMapClients).
   latitude   Float?
   longitude  Float?
   geocodedAt DateTime?
+  // Précision de la position : numéro trouvé, rue seule, ou commune
+  // seulement. Nulle sans position — ou pour une position enregistrée
+  // avant qu'elle soit mesurée.
+  geocodePrecision GeocodePrecision?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

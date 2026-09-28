@@ -12,7 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { useGeolocation } from "@/components/ui/use-geolocation";
 import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { circleBounds, haversineDistanceKm, pointInGeometry, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
-import { geocodeClientAddressAction } from "@/lib/clients-actions";
+import { geocodeClientAddressAction, locateUnlocatedClientsAction } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { AnimalSpecies } from "@/data/tours";
 import type { MapClientAnimal, MapClientSummary } from "@/data/map-clients";
@@ -62,6 +62,14 @@ function animalsLine(client: MapClient): string {
 }
 
 const positionSourceLabels = { address: "Adresse du client", appointment: "Dernier rendez-vous à domicile" } as const;
+const precisionLabels = { EXACT: "précise", STREET: "à la rue", CITY: "approximative (commune)" } as const;
+
+/** Origine et précision d'une position, dites en clair. */
+function positionLabel(client: MapClient): string | null {
+  if (!client.positionSource) return null;
+  const source = positionSourceLabels[client.positionSource];
+  return client.precision ? `${source} · ${precisionLabels[client.precision]}` : source;
+}
 
 const territoryTypeLabels: Record<TerritoryPerimeter["type"], string> = { departement: "Département", region: "Région" };
 
@@ -706,7 +714,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                 {/* Les clients sans position forment une section à part : la
                     carte et « Précédent / Suivant » ne peuvent rien en montrer. */}
                 {index === orderedLocated.length && orderedUnlocated.length > 0 ? (
-                  <p className="bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">Sans position ({orderedUnlocated.length})</p>
+                  <p className="flex items-center justify-between gap-3 bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">
+                    Sans position ({orderedUnlocated.length})
+                    <LocateAllButton />
+                  </p>
                 ) : null}
                 <div data-client-row={client.id} className={selected ? "bg-animeo-soft" : undefined}>
                 <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
@@ -717,6 +728,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
                     <span className="mt-1 block truncate text-[10px] text-animeo-muted">
                       {client.city} · {client.lastConsultation}
                       {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
+                      {client.precision === "CITY" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
                     </span>
                   </span>
                   {distance !== null ? <span className="shrink-0 text-xs font-extrabold tabular-nums text-animeo-dark">{formatKm(distance)}</span> : null}
@@ -735,6 +747,34 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
       </div>
 
     </div>
+  );
+}
+
+/**
+ * « Localiser tout » : géocode les fiches qui ont une adresse mais aucune
+ * position, par lots, puis recharge la carte avec le bilan.
+ */
+function LocateAllButton() {
+  const router = useRouter();
+  const [running, setRunning] = useState(false);
+
+  async function run() {
+    setRunning(true);
+    const result = await locateUnlocatedClientsAction();
+    setRunning(false);
+    if (!result.ok) { notify.error(result.error); return; }
+    const parts = [`${result.located} localisé${result.located > 1 ? "s" : ""}`];
+    if (result.notFound) parts.push(`${result.notFound} introuvable${result.notFound > 1 ? "s" : ""}`);
+    if (result.remaining) parts.push(`${result.remaining} restant${result.remaining > 1 ? "s" : ""} à traiter`);
+    notify.success(`${parts.join(", ")}.`);
+    router.refresh();
+  }
+
+  return (
+    <button type="button" onClick={run} disabled={running} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:opacity-60">
+      <Icon name="map" className="h-3.5 w-3.5" />
+      {running ? "Localisation…" : "Localiser tout"}
+    </button>
   );
 }
 
@@ -809,7 +849,7 @@ function MapClientPopup({ client, onClose, docked = false }: { client: MapClient
         <PopupLine label="Ville" value={client.city} />
         <PopupLine label="Dernière consultation" value={client.lastConsultation} />
         <PopupLine label="Prochain rappel" value={client.nextReminder} />
-        {client.positionSource ? <PopupLine label="Position" value={positionSourceLabels[client.positionSource]} /> : null}
+        {positionLabel(client) ? <PopupLine label="Position" value={positionLabel(client)!} /> : null}
       </dl>
       <Link href={`/dashboard/clients/${client.id}`} className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Voir la fiche client</Link>
     </div>

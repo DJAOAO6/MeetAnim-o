@@ -282,6 +282,10 @@ async function seedClient(input: { id: string; firstName: string; lastName: stri
   name: string; species: string; breed: string; age: string; weight: string; sex: string; avatar: string; avatarBackground: string;
   history: string; conditions: string; treatments: string; notes: string; reminderLabel: string; reminderDate: string;
 }>) {
+  // Adresses de démonstration (en partie inventées) : la position retenue
+  // est le centre de la commune, marquée comme telle (CITY) — jamais
+  // présentée comme une adresse exacte sur la carte.
+  const cityCentre = CITIES.find((city) => city.name === input.city);
   const client = await prisma.client.create({
     data: {
       id: input.id,
@@ -291,6 +295,11 @@ async function seedClient(input: { id: string; firstName: string; lastName: stri
       email: input.email,
       city: input.city,
       address: input.address,
+      postalCode: cityCentre?.postalCode,
+      latitude: cityCentre?.lat,
+      longitude: cityCentre?.lng,
+      geocodePrecision: cityCentre ? "CITY" : undefined,
+      geocodedAt: cityCentre ? new Date() : undefined,
       status: "ACTIF",
     },
   });
