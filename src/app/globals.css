@@ -408,6 +408,23 @@ a:focus-visible {
   isolation: isolate;
 }
 
+/* Périmètre (cercle) et contours de territoire de la carte clients : aux
+   couleurs du thème, portées par des classes pour que les jetons
+   s'appliquent (un attribut SVG n'accepte pas var()). */
+.leaflet-container path.map-perimeter {
+  stroke: var(--theme-brand);
+  stroke-width: 2;
+  fill: var(--theme-brand);
+  fill-opacity: 0.08;
+}
+.leaflet-container path.map-territory {
+  stroke: var(--theme-brand);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  fill: var(--theme-brand);
+  fill-opacity: 0.06;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-count-pulse {
     animation: none;

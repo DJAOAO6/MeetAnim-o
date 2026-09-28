@@ -61,12 +61,9 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
 
   function handleSectorSelect(selection: UnifiedSearchSelection) {
     if (selection.kind !== "place") return;
-    setSector((current) => ({
-      label: selection.place.label,
-      lat: selection.place.lat,
-      lng: selection.place.lng,
-      radiusKm: current?.radiusKm ?? DEFAULT_RADIUS_KM,
-    }));
+    const { lat, lng, label } = selection.place;
+    if (lat === undefined || lng === undefined) return;
+    setSector((current) => ({ label, lat, lng, radiusKm: current?.radiusKm ?? DEFAULT_RADIUS_KM }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -110,6 +107,9 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
               <span className="sr-only">Lieu au centre du secteur</span>
               <UnifiedSearch
                 sources={["place"]}
+                // Un secteur part d'un point : une commune, jamais un
+                // département ou une région.
+                placeTypes={["commune"]}
                 placeholder="Rechercher un lieu (ex. Rouen)"
                 defaultValue={sector?.label ?? ""}
                 onSelect={handleSectorSelect}

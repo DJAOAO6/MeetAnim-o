@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { useGeolocation } from "@/components/ui/use-geolocation";
 import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
-import { haversineDistanceKm } from "@/lib/geo";
+import { circleBounds, haversineDistanceKm, pointInGeometry, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 import { geocodeClientAddressAction } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { AnimalSpecies, MapClient } from "@/data/tours";
@@ -26,7 +26,32 @@ type ClientsMapProps = {
   cabinetCoordinates?: { lat: number; lng: number } | null;
 };
 
-type PerimeterCenter = { lat: number; lng: number; label: string };
+// Cercle autour d'un point : une adresse (épingle) ou une commune (contour
+// affiché en plus, code INSEE pour le charger).
+type PerimeterCenter = { lat: number; lng: number; label: string; pin?: boolean; communeCode?: string };
+// Département ou région : le vrai territoire, jamais un cercle autour de sa
+// préfecture. Le filtre attend son contour (chargé à la demande).
+type TerritoryPerimeter = {
+  type: "departement" | "region";
+  code: string;
+  label: string;
+  status: "loading" | "ready" | "error";
+  geometry?: TerritoryGeometry;
+  bounds?: GeoBounds;
+};
+type LoadedTerritory = { geometry: TerritoryGeometry; bounds: GeoBounds };
+
+const territoryTypeLabels: Record<TerritoryPerimeter["type"], string> = { departement: "Département", region: "Région" };
+
+async function fetchTerritory(type: "commune" | "departement" | "region", code: string): Promise<LoadedTerritory | null> {
+  try {
+    const response = await fetch(`/api/territory?type=${type}&code=${encodeURIComponent(code)}`);
+    if (!response.ok) return null;
+    return (await response.json()) as LoadedTerritory;
+  } catch {
+    return null;
+  }
+}
 type SortMode = "name" | "distance";
 type ProximityOrigin = { lat: number; lng: number; label: string };
 
@@ -66,8 +91,15 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   const [showLiveLocation, setShowLiveLocation] = useState(false);
   const { position: liveLocation, error: liveLocationError } = useGeolocation(showLiveLocation);
 
-  const [focus, setFocus] = useState<{ lat: number; lng: number; zoom: number; token: string } | null>(null);
   const [perimeterCenter, setPerimeterCenter] = useState<PerimeterCenter | null>(null);
+  const [territory, setTerritory] = useState<TerritoryPerimeter | null>(null);
+  // Contour de la commune choisie : affiché autour du cercle, sans filtrer.
+  const [communeArea, setCommuneArea] = useState<{ code: string; geometry: TerritoryGeometry } | null>(null);
+  // Chaque nouveau lieu invalide les chargements en cours du précédent.
+  const placeRequestRef = useRef(0);
+  // Recadrage demandé à la carte (cercle, territoire, tous les clients).
+  const [fitTarget, setFitTarget] = useState<(GeoBounds & { token: string }) | null>(null);
+  const fitTokenRef = useRef(0);
   const [perimeterRadiusKm, setPerimeterRadiusKm] = useState(DEFAULT_PERIMETER_RADIUS_KM);
   const [radiusPanelOpen, setRadiusPanelOpen] = useState(false);
   // Change uniquement pour un rayon fixé hors glisser (palier, nouveau
@@ -111,9 +143,40 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     setSelectedSpecies((current) => (current.includes(species) ? current.filter((item) => item !== species) : [...current, species]));
   }
 
-  function clearPerimeter() {
+  function fitTo(bounds: GeoBounds) {
+    fitTokenRef.current += 1;
+    setFitTarget({ ...bounds, token: String(fitTokenRef.current) });
+  }
+
+  function applyCirclePerimeter(center: PerimeterCenter) {
+    placeRequestRef.current += 1;
+    setTerritory(null);
+    setCommuneArea(null);
+    setPerimeterCenter(center);
+    setPerimeterRadiusKm(DEFAULT_PERIMETER_RADIUS_KM);
+    setCircleHandleResetKey((current) => current + 1);
+    fitTo(circleBounds(center, DEFAULT_PERIMETER_RADIUS_KM));
+    if (center.communeCode) {
+      const requestId = placeRequestRef.current;
+      const code = center.communeCode;
+      void fetchTerritory("commune", code).then((loaded) => {
+        if (loaded && requestId === placeRequestRef.current) setCommuneArea({ code, geometry: loaded.geometry });
+      });
+    }
+  }
+
+  function applyTerritoryPerimeter(next: Pick<TerritoryPerimeter, "type" | "code" | "label">) {
+    placeRequestRef.current += 1;
+    const requestId = placeRequestRef.current;
     setPerimeterCenter(null);
-    setRadiusPanelOpen(false);
+    setCommuneArea(null);
+    setTerritory({ ...next, status: "loading" });
+    void fetchTerritory(next.type, next.code).then((loaded) => {
+      if (requestId !== placeRequestRef.current) return;
+      if (!loaded) { setTerritory({ ...next, status: "error" }); return; }
+      setTerritory({ ...next, status: "ready", geometry: loaded.geometry, bounds: loaded.bounds });
+      fitTo(loaded.bounds);
+    });
   }
 
   function clearAllFilters() {
@@ -128,6 +191,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   function setPerimeterRadiusExternally(km: number) {
     setPerimeterRadiusKm(km);
     setCircleHandleResetKey((current) => current + 1);
+    // Toujours tout le cercle à l'écran : dézoome pour 50 km, rezoome pour 15.
+    if (perimeterCenter) fitTo(circleBounds(perimeterCenter, km));
   }
 
   // Pendant un glisser, seule la valeur en direct (pour le cercle, le jeton
@@ -135,8 +200,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   // arrondie à 5 km — jamais de nouvel appel réseau ici, le filtrage par
   // périmètre est déjà entièrement local (voir clientsInPerimeter).
   function handleCircleRadiusChange(radiusKm: number, phase: "drag" | "commit") {
-    if (phase === "commit") setPerimeterRadiusKm(Math.max(5, Math.round(radiusKm / 5) * 5));
-    else setPerimeterRadiusKm(radiusKm);
+    // Pendant le glisser, la carte ne bouge pas ; au relâchement, elle
+    // recadre sur le cercle retenu.
+    if (phase === "commit") {
+      const km = Math.max(5, Math.round(radiusKm / 5) * 5);
+      setPerimeterRadiusKm(km);
+      if (perimeterCenter) fitTo(circleBounds(perimeterCenter, km));
+    } else setPerimeterRadiusKm(radiusKm);
   }
 
   const filteredClients = useMemo(() => {
@@ -149,12 +219,38 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     });
   }, [clients, dueOnly, query, selectedSpecies]);
 
+  // Retirer le périmètre : cercle, épingle, contour et filtre partent, et la
+  // carte revient sur l'ensemble des clients.
+  function clearPerimeter() {
+    placeRequestRef.current += 1;
+    setPerimeterCenter(null);
+    setTerritory(null);
+    setCommuneArea(null);
+    setRadiusPanelOpen(false);
+    const located = filteredClients.filter((client) => client.coordinates).map((client) => client.coordinates!);
+    if (located.length > 0) {
+      fitTo({
+        south: Math.min(...located.map((point) => point.lat)),
+        north: Math.max(...located.map((point) => point.lat)),
+        west: Math.min(...located.map((point) => point.lng)),
+        east: Math.max(...located.map((point) => point.lng)),
+      });
+    }
+  }
+
   const clientsInPerimeter = useMemo(() => {
+    // Département / région : les clients situés dans le territoire, une fois
+    // son contour chargé (avant, rien n'est filtré plutôt que tout masqué).
+    if (territory) {
+      const geometry = territory.status === "ready" ? territory.geometry : undefined;
+      if (!geometry) return filteredClients;
+      return filteredClients.filter((client) => client.coordinates && pointInGeometry(client.coordinates, geometry));
+    }
     if (!perimeterCenter) return filteredClients;
     // Un client sans coordonnées ne peut pas être comparé à un centre de
     // périmètre : exclu plutôt que deviné.
     return filteredClients.filter((client) => client.coordinates && haversineDistanceKm(perimeterCenter, client.coordinates) <= perimeterRadiusKm);
-  }, [filteredClients, perimeterCenter, perimeterRadiusKm]);
+  }, [filteredClients, perimeterCenter, perimeterRadiusKm, territory]);
 
   // Nombre de clients par palier, calculé localement sur les clients déjà
   // chargés (jamais un aller-retour réseau) : affiché dans le panneau de
@@ -172,7 +268,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   // devinés — signalés explicitement plutôt que silencieusement absents.
   const unlocatedFilteredCount = useMemo(() => filteredClients.filter((client) => !client.coordinates).length, [filteredClients]);
 
-  const visibleClients = perimeterCenter ? clientsInPerimeter : filteredClients;
+  const hasPerimeter = Boolean(perimeterCenter || territory);
+  const visibleClients = hasPerimeter ? clientsInPerimeter : filteredClients;
   const locatedClients = visibleClients.filter((client) => client.coordinates);
   const selectedClient = selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
 
@@ -267,21 +364,29 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     if (rowTop < list.scrollTop) list.scrollTop = rowTop;
     else if (rowTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = rowTop + row.offsetHeight - list.clientHeight;
   }, [selectedId]);
-  const points = locatedClients.map((client) => ({
-    id: client.id,
-    lat: client.coordinates!.lat,
-    lng: client.coordinates!.lng,
-    label: client.avatar,
-    title: `${client.ownerName} · ${client.animalName} · ${client.city} · ${client.species}${client.dueForReminder ? " · À relancer" : ""}`,
-    color: resolveSpeciesColor(theme.speciesColors, client.species),
-    badge: client.dueForReminder,
-  }));
+  // Sur la carte : tous les clients filtrés. Ceux hors du périmètre restent
+  // visibles pour le contexte, atténués et non cliquables ; la liste, elle,
+  // ne montre que ceux du périmètre.
+  const insidePerimeter = new Set(visibleClients.map((client) => client.id));
+  const points = filteredClients.filter((client) => client.coordinates).map((client) => {
+    const outside = hasPerimeter && !insidePerimeter.has(client.id);
+    return {
+      id: client.id,
+      lat: client.coordinates!.lat,
+      lng: client.coordinates!.lng,
+      label: client.avatar,
+      title: `${client.ownerName} · ${client.animalName} · ${client.city} · ${client.species}${client.dueForReminder ? " · À relancer" : ""}${outside ? " · hors du périmètre" : ""}`,
+      color: resolveSpeciesColor(theme.speciesColors, client.species),
+      badge: client.dueForReminder,
+      dimmed: outside,
+    };
+  });
 
-  const focusTokenRef = useRef(0);
-  function focusOn(lat: number, lng: number, zoom: number, tokenSeed: string) {
-    focusTokenRef.current += 1;
-    setFocus({ lat, lng, zoom, token: `${tokenSeed}:${focusTokenRef.current}` });
-  }
+  // Marges du recadrage : la fiche ouverte occupe le bas à droite (large) ou
+  // le bas de la carte (étroit) — le cercle doit rester visible à côté.
+  const fitPadding = selectedClient?.coordinates
+    ? showCircleHandle ? { topLeft: [40, 40] as [number, number], bottomRight: [340, 40] as [number, number] } : { topLeft: [24, 24] as [number, number], bottomRight: [24, 300] as [number, number] }
+    : undefined;
 
   // Sélectionner un lieu dans la recherche unifiée applique directement un
   // périmètre : le seul moyen d'en définir un depuis la phase 2 (l'ancien
@@ -289,13 +394,18 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
   // sans coordonnées vérifiées, a été retiré).
   function handleUnifiedSelect(selection: UnifiedSearchSelection) {
     if (selection.kind === "place") {
-      focusOn(selection.place.lat, selection.place.lng, selection.place.zoom, selection.place.id);
-      setPerimeterCenter({ lat: selection.place.lat, lng: selection.place.lng, label: selection.place.label });
-      setPerimeterRadiusExternally(DEFAULT_PERIMETER_RADIUS_KM);
+      const { place } = selection;
+      const code = place.id.slice(place.id.indexOf("-") + 1);
+      if (place.type === "commune" && place.lat !== undefined && place.lng !== undefined) applyCirclePerimeter({ lat: place.lat, lng: place.lng, label: place.label, communeCode: code });
+      else if (place.type !== "commune") applyTerritoryPerimeter({ type: place.type, code, label: place.label });
       return;
     }
-    // "zone"/"address" jamais sélectionnables ici : cette carte n'active
-    // que client/animal/place (voir sources={...} sur <UnifiedSearch>).
+    if (selection.kind === "address") {
+      const { address } = selection;
+      applyCirclePerimeter({ lat: address.latitude, lng: address.longitude, label: address.label, pin: true });
+      return;
+    }
+    // "zone" jamais sélectionnable ici (voir sources={...} sur <UnifiedSearch>).
     if (selection.kind !== "client" && selection.kind !== "animal") return;
     const target = selection.kind === "client"
       ? clients.find((client) => client.clientId === selection.client.id)
@@ -318,7 +428,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
     <div className="space-y-6">
       <Card className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="min-w-0 sm:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} sources={["client", "animal", "place"]} /></div>
+          <div className="min-w-0 sm:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} sources={["client", "animal", "place", "address"]} /></div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div ref={speciesPanelRef} className="relative">
@@ -361,7 +471,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
           </div>
         </div>
 
-        {activeFilterTokens.length > 0 || perimeterCenter ? (
+        {activeFilterTokens.length > 0 || hasPerimeter ? (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-animeo-border-soft pt-3">
             {activeFilterTokens.map((token) => (
               <button key={token.key} type="button" onClick={token.onRemove} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
@@ -408,6 +518,14 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               </div>
             ) : null}
 
+            {/* Département / région : pas de rayon, le territoire lui-même. */}
+            {territory ? (
+              <div className="inline-flex min-h-11 items-stretch overflow-hidden rounded-xl bg-animeo-soft text-xs font-extrabold text-animeo-dark">
+                <span className="inline-flex items-center px-3">{territoryTypeLabels[territory.type]} · {territory.label}</span>
+                <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de territoire" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-animeo-soft-strong hover:text-animeo-dark">×</button>
+              </div>
+            ) : null}
+
             <button type="button" onClick={clearAllFilters} className="inline-flex min-h-11 items-center px-2 text-xs font-extrabold text-animeo-muted underline decoration-dotted underline-offset-4 transition hover:text-animeo-dark">
               Tout effacer
             </button>
@@ -421,6 +539,25 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               <strong>{clientsInPerimeter.length} client{clientsInPerimeter.length > 1 ? "s" : ""}</strong> dans un rayon de <strong>{Math.round(perimeterRadiusKm)} km</strong> autour de <strong>{perimeterCenter.label}</strong>.
               {unlocatedFilteredCount > 0 ? ` ${unlocatedFilteredCount} client${unlocatedFilteredCount > 1 ? "s" : ""} non localisé${unlocatedFilteredCount > 1 ? "s" : ""}, exclu${unlocatedFilteredCount > 1 ? "s" : ""} de ce calcul.` : " Utile pour évaluer la création d’une nouvelle tournée."}
             </p>
+          </div>
+        ) : null}
+
+        {territory ? (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark" role="status">
+            <Icon name="map" className="h-5 w-5 shrink-0 text-animeo" />
+            {territory.status === "ready" ? (
+              <p>
+                <strong>{clientsInPerimeter.length} client{clientsInPerimeter.length > 1 ? "s" : ""}</strong> dans le territoire <strong>{territory.label}</strong> ({territoryTypeLabels[territory.type].toLowerCase()}).
+                {unlocatedFilteredCount > 0 ? ` ${unlocatedFilteredCount} client${unlocatedFilteredCount > 1 ? "s" : ""} non localisé${unlocatedFilteredCount > 1 ? "s" : ""}, exclu${unlocatedFilteredCount > 1 ? "s" : ""} de ce calcul.` : ""}
+              </p>
+            ) : territory.status === "loading" ? (
+              <p>Chargement du contour de <strong>{territory.label}</strong>…</p>
+            ) : (
+              <p className="flex flex-wrap items-center gap-x-2">
+                Le contour de <strong>{territory.label}</strong> n’a pas pu être chargé.
+                <button type="button" onClick={() => applyTerritoryPerimeter(territory)} className="font-extrabold text-animeo underline underline-offset-2">Réessayer</button>
+              </p>
+            )}
           </div>
         ) : null}
       </Card>
@@ -484,10 +621,16 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
             // la carte ne lui correspond. Il se traite depuis la liste.
             overlay={selectedClient?.coordinates ? <MapClientPopup client={selectedClient} onClose={() => setSelectedId(null)} /> : undefined}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
+            pin={perimeterCenter?.pin ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, label: perimeterCenter.label } : null}
+            areas={[
+              ...(communeArea ? [{ id: `commune-${communeArea.code}`, geometry: communeArea.geometry }] : []),
+              ...(territory?.status === "ready" && territory.geometry ? [{ id: `${territory.type}-${territory.code}`, geometry: territory.geometry }] : []),
+            ]}
+            fitBounds={fitTarget}
+            fitPadding={fitPadding}
             circleHandle={showCircleHandle}
             onCircleRadiusChange={handleCircleRadiusChange}
             circleHandleResetKey={circleHandleResetKey}
-            focus={focus}
             defaultCenter={cabinetCoordinates ? [cabinetCoordinates.lat, cabinetCoordinates.lng] : null}
             liveLocation={liveLocation}
           />
@@ -499,7 +642,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null }: ClientsMapPro
               <div className="min-w-0">
                 <h2 className="font-extrabold text-animeo-dark">Clients visibles</h2>
                 <p className="mt-0.5 text-xs text-animeo-muted">
-                  {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : perimeterCenter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
+                  {sortMode === "distance" && proximityOrigin ? `À vol d’oiseau depuis ${proximityOrigin.label}` : hasPerimeter ? "Filtrés par périmètre" : "Sélection synchronisée avec la carte"}
                 </p>
               </div>
               <div role="group" aria-label="Trier la liste" className="flex shrink-0 rounded-xl bg-animeo-bg p-1">

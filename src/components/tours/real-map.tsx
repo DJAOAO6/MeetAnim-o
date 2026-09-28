@@ -3,9 +3,10 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import type { ReactNode } from "react";
+import type { GeoJsonObject } from "geojson";
 import { useEffect, useMemo, useRef } from "react";
-import { Circle, MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
-import { destinationPoint, haversineDistanceKm } from "@/lib/geo";
+import { Circle, GeoJSON, MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { destinationPoint, haversineDistanceKm, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 
 export type RealMapPoint = {
   id: string;
@@ -15,7 +16,15 @@ export type RealMapPoint = {
   title: string;
   color: string;
   badge?: boolean;
+  // Hors du périmètre choisi : gardé pour le contexte, atténué et non
+  // cliquable. Absent = marqueur normal.
+  dimmed?: boolean;
 };
+
+export type RealMapArea = { id: string; geometry: TerritoryGeometry };
+export type RealMapPin = { lat: number; lng: number; label: string };
+export type RealMapFitBounds = GeoBounds & { token: string };
+export type RealMapPadding = { topLeft: [number, number]; bottomRight: [number, number] };
 
 export type RealMapCircle = {
   lat: number;
@@ -68,6 +77,15 @@ type RealMapProps = {
   // quand la page s'en sert pour autre chose (passer d'un client à l'autre).
   // Absent = comportement Leaflet par défaut, comme avant.
   keyboard?: boolean;
+  // Contours de territoires (commune, département, région) : un trait et un
+  // remplissage léger, aux couleurs du thème.
+  areas?: RealMapArea[];
+  // Épingle d'un lieu recherché (une adresse), distincte des clients.
+  pin?: RealMapPin | null;
+  // Recadrage sur une emprise (cercle, territoire, ensemble des clients) à
+  // chaque nouveau jeton, avec les marges demandées.
+  fitBounds?: RealMapFitBounds | null;
+  fitPadding?: RealMapPadding;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -76,7 +94,7 @@ const NEUTRAL_DEFAULT_CENTER: [number, number] = [46.6, 2.5];
 
 const circleHandleIcon = L.divIcon({
   className: "",
-  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#fff;border:3px solid #4FAF9F;box-shadow:0 2px 8px rgb(var(--theme-shadow-rgb)/0.35);cursor:ew-resize;"></span>',
+  html: '<span style="display:block;width:18px;height:18px;border-radius:9999px;background:#fff;border:3px solid var(--theme-brand);box-shadow:0 2px 8px rgb(var(--theme-shadow-rgb)/0.35);cursor:ew-resize;"></span>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
@@ -128,12 +146,21 @@ const liveLocationIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
+// Épingle d'un lieu recherché : forme de repère, couleur du thème, jamais
+// confondue avec un client (rond coloré par espèce).
+const pinIcon = L.divIcon({
+  className: "",
+  html: '<svg width="30" height="40" viewBox="0 0 30 40" aria-hidden="true" style="display:block;filter:drop-shadow(0 4px 6px rgb(var(--theme-shadow-rgb)/0.35))"><path d="M15 1C7.3 1 1 7.1 1 14.7 1 25 15 39 15 39s14-14 14-24.3C29 7.1 22.7 1 15 1z" fill="var(--theme-brand)" stroke="white" stroke-width="2"/><circle cx="15" cy="14.5" r="5" fill="white"/></svg>',
+  iconSize: [30, 40],
+  iconAnchor: [15, 39],
+});
+
 function markerIcon(point: RealMapPoint, selected: boolean) {
   const size = selected ? 42 : 34;
   const badge = point.badge ? `<span style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:9999px;background:#f4b860;border:2px solid white;"></span>` : "";
   return L.divIcon({
     className: "",
-    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;">${point.label}${badge}</span>`,
+    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;${point.dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${point.label}${badge}</span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -175,6 +202,23 @@ function FlyToSelected({ point, offset }: { point?: RealMapPoint; offset?: { x: 
   return null;
 }
 
+function FitToBounds({ target, padding }: { target?: RealMapFitBounds | null; padding?: RealMapPadding }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!target) return;
+    // flyToBounds, jamais un zoom fixe : 15 km → 50 km dézoome jusqu'à voir
+    // tout le cercle, 50 km → 15 km rezoome.
+    map.flyToBounds(
+      [[target.south, target.west], [target.north, target.east]],
+      { paddingTopLeft: padding?.topLeft ?? [40, 40], paddingBottomRight: padding?.bottomRight ?? [40, 40], duration: 0.6, maxZoom: 15 },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.token]);
+
+  return null;
+}
+
 function BackgroundClick({ onClick }: { onClick: () => void }) {
   // Les clics sur un marqueur ne remontent pas jusqu'à la carte (Leaflet) :
   // seul un clic sur le fond arrive ici.
@@ -194,7 +238,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -215,13 +259,20 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         <FlyToSelected point={selectedPoint} offset={selectedOffset} />
         {onBackgroundClick ? <BackgroundClick onClick={onBackgroundClick} /> : null}
         <FlyToFocus focus={focus} />
+        <FitToBounds target={fitBounds} padding={fitPadding} />
+        {areas.map((area) => (
+          // Couleurs portées par la classe (globals.css) : les jetons du
+          // thème s'appliquent, y compris en mode sombre.
+          <GeoJSON key={area.id} data={area.geometry as GeoJsonObject} style={{ className: "map-territory" }} interactive={false} />
+        ))}
         {circle ? (
           <Circle
             center={[circle.lat, circle.lng]}
             radius={circle.radiusKm * 1000}
-            pathOptions={{ color: "#4FAF9F", fillColor: "#4FAF9F", fillOpacity: 0.12, weight: 2 }}
+            pathOptions={{ className: "map-perimeter" }}
           />
         ) : null}
+        {pin ? <Marker position={[pin.lat, pin.lng]} icon={pinIcon} title={pin.label} interactive={false} zIndexOffset={900} /> : null}
         {liveLocation ? (
           <Marker position={[liveLocation.lat, liveLocation.lng]} icon={liveLocationIcon} title="Ma position" zIndexOffset={1000} />
         ) : null}
@@ -230,11 +281,16 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         ) : null}
         {points.map((point) => (
           <Marker
-            key={point.id}
+            // react-leaflet ne met à jour ni `title` ni `interactive` d'un
+            // marqueur existant : un point qui passe hors du périmètre est
+            // recréé, sinon il resterait cliquable avec son ancien titre.
+            key={`${point.id}:${point.dimmed ? "hors" : "dans"}`}
             position={[point.lat, point.lng]}
             icon={markerIcon(point, point.id === selectedId)}
             title={point.title}
-            eventHandlers={{ click: () => onSelect?.(point.id) }}
+            interactive={!point.dimmed}
+            keyboard={!point.dimmed}
+            eventHandlers={point.dimmed ? {} : { click: () => onSelect?.(point.id) }}
           />
         ))}
       </MapContainer>

@@ -139,7 +139,7 @@ test.describe("Carte clients — recherche unifiée (Phase 1)", () => {
     // Scopée au conteneur de la liste : un marqueur Leaflet porte aussi un
     // role="button" avec le même nom dans son title, et la fiche
     // récapitulative peut aussi afficher ce nom.
-    const clientsList = page.getByRole("heading", { name: "Clients visibles" }).locator("xpath=../following-sibling::div[1]");
+    const clientsList = page.getByTestId("map-client-list");
     await expect(clientsList.getByRole("button", { name: new RegExp(`Camille ${sharedLastName}`) })).toBeVisible();
     await expect(clientsList.getByText(`Julien ${sharedLastName}`)).toHaveCount(0);
   });

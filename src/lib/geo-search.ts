@@ -5,8 +5,11 @@ export type PlaceResult = {
   label: string;
   type: PlaceType;
   context: string;
-  lat: number;
-  lng: number;
+  // Centre d'une commune. Absent pour un département ou une région : la
+  // carte se cadre sur leur vrai contour (/api/territory), jamais sur leur
+  // préfecture — ce qui évite aussi un second aller-retour réseau.
+  lat?: number;
+  lng?: number;
   zoom: number;
   // Phase 3 quater : premier code postal de la commune (une commune peut en
   // avoir plusieurs — celui-ci suffit pour "ville d'une zone", qui n'en
@@ -67,29 +70,16 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
       postalCode: commune.codesPostaux?.[0],
     }));
 
-  const zones: Array<DepartementOrRegionApiResult & { type: Exclude<PlaceType, "commune"> }> = [
+  const zoneResults: PlaceResult[] = [
     ...(departements ?? []).map((item) => ({ ...item, type: "departement" as const })),
     ...(regions ?? []).map((item) => ({ ...item, type: "region" as const })),
-  ].filter((item) => item.chefLieu);
+  ].map((zone) => ({
+    id: `${zone.type}-${zone.code}`,
+    label: zone.nom,
+    type: zone.type,
+    context: zone.type === "departement" ? `Département ${zone.code}` : "Région",
+    zoom: zone.type === "departement" ? 9 : 8,
+  }));
 
-  const zoneResults = await Promise.all(
-    zones.map(async (zone) => {
-      const commune = await fetchJson<CommuneApiResult>(`https://geo.api.gouv.fr/communes/${zone.chefLieu}?fields=nom,centre`);
-      if (!commune?.centre) return null;
-      const result: PlaceResult = {
-        id: `${zone.type}-${zone.code}`,
-        label: zone.nom,
-        type: zone.type,
-        context: zone.type === "departement" ? `Département ${zone.code}` : "Région",
-        lat: commune.centre.coordinates[1],
-        lng: commune.centre.coordinates[0],
-        zoom: zone.type === "departement" ? 9 : 8,
-      };
-      return result;
-    }),
-  );
-
-  if (signal?.aborted) return [];
-
-  return [...communeResults, ...zoneResults.filter((item): item is PlaceResult => item !== null)];
+  return [...communeResults, ...zoneResults];
 }
