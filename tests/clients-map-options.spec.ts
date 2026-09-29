@@ -138,6 +138,18 @@ test.describe("Carte clients — options avancées", () => {
     await expect(row(page, "OptionsBrestE2E")).toBeVisible();
   });
 
+  test("le lieu d'exercice a sa fiche : clients autour, centrer, créer un périmètre", async ({ page }) => {
+    await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
+    await page.locator(".leaflet-marker-icon").filter({ has: page.locator("svg") }).and(page.locator('[title^="Mon "]')).click();
+    const card = page.getByTestId("practice-card");
+    await expect(card).toContainText(/Mon (cabinet|lieu d’exercice)/);
+    for (const km of [15, 30, 50]) await expect(card).toContainText(new RegExp(`\\d+ clients? à moins de ${km} km`));
+
+    await card.getByRole("button", { name: "Créer un périmètre" }).click();
+    await expect(card).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^15 km autour de votre (cabinet|lieu d’exercice)/ })).toBeVisible();
+  });
+
   test("Plein écran puis retour", async ({ page }) => {
     await page.goto(quimper, { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Plein écran" }).click();

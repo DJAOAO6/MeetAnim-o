@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BellRing, Bookmark, CalendarClock, CalendarPlus, History, ChevronLeft, ChevronRight, CircleCheck, Crosshair, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound } from "lucide-react";
+import { BellRing, Bookmark, CalendarClock, CalendarPlus, History, ChevronLeft, ChevronRight, CircleCheck, Crosshair, House, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -301,6 +301,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
   // Liste par pages : des milliers de lignes ne s'affichent pas d'un coup.
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
+  // Fiche du lieu d'exercice (phase 8.12), ouverte depuis son repère.
+  const [practiceOpen, setPracticeOpen] = useState(false);
   // Sélection multiple (phase 8.5) : des clients choisis ensemble pour une
   // action groupée — distincte de la fiche ouverte (un seul client).
   const [marked, setMarked] = useState<string[]>([]);
@@ -733,6 +735,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   }
 
   function toggleAppointment(id: string) {
+    setPracticeOpen(false);
     setSelectedAppointmentId((current) => (current === id ? null : id));
     setSheetSnap((current) => (current === "full" ? "mid" : current));
   }
@@ -757,6 +760,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Même geste pour sélectionner et désélectionner : un second clic sur le
   // client déjà choisi (marqueur ou ligne) referme sa fiche.
   function toggleSelection(id: string) {
+    setPracticeOpen(false);
     setSelectedId((current) => (current === id ? null : id));
     setSheetSnap((current) => (current === "full" ? "mid" : current));
   }
@@ -772,17 +776,18 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   // Échap referme la fiche — sauf dans un champ, où Échap appartient au champ.
   useEffect(() => {
-    if (!selectedId && !selectedAppointmentId) return;
+    if (!selectedId && !selectedAppointmentId && !practiceOpen) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
       if (target && (target.closest("input, textarea, select, [contenteditable='true']"))) return;
       setSelectedId(null);
       setSelectedAppointmentId(null);
+      setPracticeOpen(false);
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, selectedAppointmentId]);
+  }, [selectedId, selectedAppointmentId, practiceOpen]);
 
   // La ligne du client choisi sur la carte se montre dans la liste. Seule la
   // liste défile (jamais la page) : sur téléphone, la liste est sous la
@@ -849,7 +854,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Marges du recadrage : la fiche ouverte occupe le bas à droite (large) ou
   // le bas de la carte (étroit) — le cercle doit rester visible à côté.
   // (Sur téléphone, la fiche passe sous la carte : aucune marge à prévoir.)
-  const fitPadding = selectedClient?.coordinates && showCircleHandle
+  const fitPadding = (selectedClient?.coordinates || practiceOpen) && showCircleHandle
     ? { topLeft: [40, 40] as [number, number], bottomRight: [340, 40] as [number, number] }
     : undefined;
   const animalCount = visibleClients.reduce((sum, client) => sum + client.animals.length, 0);
@@ -872,6 +877,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     territory, selectedId: null, mode: mapMode, range: activityRange, appointmentId: null, visit: visitFilter, zone: zoneFilter,
   }));
   const activeView = views.find((view) => view.query === viewQuery) ?? null;
+  // Clients autour du lieu d'exercice, par palier : toute la clientèle
+  // localisée, à vol d'oiseau.
+  const practiceTierCounts = useMemo(() => {
+    if (!cabinetCoordinates) return [];
+    return PERIMETER_RADIUS_TIERS.map((km) => ({ km, count: clients.filter((client) => client.coordinates && haversineDistanceKm(cabinetCoordinates, client.coordinates) <= km).length }));
+  }, [clients, cabinetCoordinates]);
+  const practicePerimeterLabel = hasCabinet(practiceMode) ? "votre cabinet" : "votre lieu d’exercice";
   const practiceDistanceOrigin = cabinetCoordinates ? { ...cabinetCoordinates, from: hasCabinet(practiceMode) ? "du cabinet" : "du lieu d’exercice" } : null;
 
   function boundsOf(list: MapClientSummary[]): GeoBounds | null {
@@ -1140,17 +1152,30 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     </>
   );
 
+  const practiceCard = practiceOpen && cabinetCoordinates ? (
+    <PracticeCard
+      label={practiceLabel}
+      tiers={practiceTierCounts}
+      docked={isPhone}
+      onClose={() => setPracticeOpen(false)}
+      onCenter={() => fitTo(circleBounds(cabinetCoordinates, 15))}
+      onPerimeter={() => { setPracticeOpen(false); applyCirclePerimeter({ ...cabinetCoordinates, label: practicePerimeterLabel }); }}
+    />
+  ) : null;
+
   // Téléphone : une seule surface — le panneau montre la fiche choisie, ou
   // la liste. Jamais fiche flottante + liste + fenêtre en même temps.
   const sheetCard = !isPhone ? null
     : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} docked />
-      : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked /> : null;
+      : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked />
+        : practiceCard;
   const effectiveSnap: SheetSnap = sheetCard && sheetSnap === "compact" ? "mid" : sheetSnap;
   function changeSheetSnap(next: SheetSnap) {
     // Rabattre le panneau sur une fiche la referme : retour à la liste.
     if (sheetCard && next === "compact") {
       setSelectedId(null);
       setSelectedAppointmentId(null);
+      setPracticeOpen(false);
     }
     setSheetSnap(next);
   }
@@ -1612,7 +1637,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             onAreaSelect={selectArea}
             autoFit={!hasPerimeter}
             clusterKind={mapMode === "activity" ? "appointments" : mapMode === "reminders" ? "reminders" : "clients"}
-            onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); }}
+            onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); setPracticeOpen(false); }}
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.
             keyboard={false}
@@ -1640,7 +1665,16 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             // moitié de la carte).
             overlay={!showCircleHandle ? undefined
               : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} />
-                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} /> : undefined}
+                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} />
+                  : practiceCard ?? undefined}
+            onPracticeClick={() => {
+              setSelectedId(null);
+              setSelectedAppointmentId(null);
+              // À l'ouverture, la carte montre les 15 km autour, le repère
+              // à gauche de la fiche (voir fitPadding).
+              if (!practiceOpen && cabinetCoordinates) fitTo(circleBounds(cabinetCoordinates, 15));
+              setPracticeOpen((current) => !current);
+            }}
             circle={perimeterCenter ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, radiusKm: perimeterRadiusKm } : null}
             pin={perimeterCenter?.pin ? { lat: perimeterCenter.lat, lng: perimeterCenter.lng, label: perimeterCenter.label } : null}
             areas={[
@@ -1670,6 +1704,43 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
  * de ses clients, avec le système de rappels existant (même message que
  * l'envoi groupé de la page Rappels), après confirmation.
  */
+/**
+ * Fiche du lieu d'exercice : combien de clients autour, par palier, et de
+ * quoi centrer la carte ou poser un périmètre. Le nom suit le mode
+ * d'exercice (« Mon cabinet » / « Mon lieu d'exercice »).
+ */
+function PracticeCard({ label, tiers, docked, onClose, onCenter, onPerimeter }: {
+  label: string;
+  tiers: Array<{ km: number; count: number }>;
+  docked: boolean;
+  onClose: () => void;
+  onCenter: () => void;
+  onPerimeter: () => void;
+}) {
+  const action = "flex min-h-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 py-1.5 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
+  return (
+    <div className={`rounded-2xl border p-4 ${docked ? "border-animeo-border bg-white" : "border-white/70 bg-white/95 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm"}`} data-testid="practice-card">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-dark text-white"><House aria-hidden="true" className="h-5 w-5" /></span>
+        <h3 className="min-w-0 flex-1 pt-2 font-black text-animeo-dark">{label}</h3>
+        <button type="button" onClick={onClose} aria-label={`Fermer la fiche ${label.toLowerCase()}`} className="-mr-1.5 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <ul className="mt-3 space-y-1.5 text-sm text-animeo-dark">
+        {tiers.map((tier) => (
+          <li key={tier.km}><strong className="tabular-nums">{tier.count}</strong> client{tier.count > 1 ? "s" : ""} à moins de {tier.km} km</li>
+        ))}
+      </ul>
+      <p className="mt-1 text-[11px] text-animeo-muted">À vol d’oiseau, clients localisés seulement.</p>
+      <div className="mt-3 flex gap-1.5">
+        <button type="button" onClick={onCenter} className={action}><Crosshair aria-hidden="true" className="h-4 w-4" />Centrer</button>
+        <button type="button" onClick={onPerimeter} className={action}><MapPin aria-hidden="true" className="h-4 w-4" />Créer un périmètre</button>
+      </div>
+    </div>
+  );
+}
+
 /** « Enregistrer cette vue » : seul le nom est demandé. */
 function SaveViewModal({ existingNames, onSave, onClose }: { existingNames: string[]; onSave: (name: string) => Promise<boolean>; onClose: () => void }) {
   const [name, setName] = useState("");

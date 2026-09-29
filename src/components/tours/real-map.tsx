@@ -115,6 +115,8 @@ type RealMapProps = {
   onHover?: (id: string | null) => void;
   // Repère du lieu d'exercice (cabinet ou point de départ).
   practice?: { lat: number; lng: number; label: string } | null;
+  // Clic sur le repère du lieu d'exercice (sa fiche).
+  onPracticeClick?: () => void;
   // Secteurs (lieu + rayon), tracés en pointillés avec leur nom.
   zoneCircles?: RealMapZoneCircle[];
   // Panneau posé sur le bas de la carte (téléphone) : à côté de la carte dans
@@ -568,7 +570,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients" }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients", onPracticeClick }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -612,7 +614,17 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
             <Tooltip permanent direction="center" className="map-zone-label">{zone.label}</Tooltip>
           </Circle>
         ))}
-        {practice ? <Marker position={[practice.lat, practice.lng]} icon={practiceIcon} title={practice.label} zIndexOffset={700} keyboard={false} /> : null}
+        {practice ? (
+          <Marker
+            position={[practice.lat, practice.lng]}
+            icon={practiceIcon}
+            title={practice.label}
+            zIndexOffset={700}
+            keyboard={Boolean(onPracticeClick)}
+            interactive={Boolean(onPracticeClick)}
+            eventHandlers={onPracticeClick ? { click: () => onPracticeClick() } : {}}
+          />
+        ) : null}
         {liveLocation ? (
           <Marker position={[liveLocation.lat, liveLocation.lng]} icon={liveLocationIcon} title="Ma position" zIndexOffset={1000} />
         ) : null}
