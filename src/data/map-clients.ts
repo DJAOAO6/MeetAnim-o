@@ -24,7 +24,6 @@ export type MapClientSummary = {
   city: string;
   /** Code postal de la fiche (vide si inconnu) — sert à rattacher le client à une zone. */
   postalCode: string;
-  address: string;
   /** Téléphone de la fiche, vide si aucun (l'action « Appeler » disparaît). */
   phone: string;
   animals: MapClientAnimal[];

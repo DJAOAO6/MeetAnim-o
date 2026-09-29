@@ -269,6 +269,8 @@ const AROUND_ME_DEFAULT_KM = 10;
 // (tirer une poignée avec le doigt masque la carte sur mobile) : seuls les
 // paliers restent.
 const CIRCLE_HANDLE_MIN_WIDTH_QUERY = "(min-width: 640px)";
+// Lignes de la liste affichées d'un coup ; la suite à la demande (phase 8.10).
+const LIST_PAGE_SIZE = 150;
 // Téléphone : carte plein écran et panneau glissant (phase 8.4).
 const PHONE_QUERY = "(max-width: 639px)";
 function subscribePhone(onChange: () => void) {
@@ -297,6 +299,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // montage, sans écart d'hydratation.
   const isPhone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
+  // Liste par pages : des milliers de lignes ne s'affichent pas d'un coup.
+  const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
   // Sélection multiple (phase 8.5) : des clients choisis ensemble pour une
   // action groupée — distincte de la fiche ouverte (un seul client).
   const [marked, setMarked] = useState<string[]>([]);
@@ -633,6 +637,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   });
   const orderedUnlocated = visibleClients.filter((client) => !client.coordinates).sort(byName);
   const navIndex = selectedClient?.coordinates ? orderedLocated.findIndex((client) => client.id === selectedClient.id) : -1;
+  const orderedClients = [...orderedLocated, ...orderedUnlocated];
+  // Le client choisi (marqueur, recherche, Suivant) est toujours affiché.
+  const selectedListIndex = selectedClient ? orderedClients.findIndex((client) => client.id === selectedClient.id) : -1;
+  const shownCount = Math.max(listLimit, selectedListIndex + 1);
 
   // Précédent / Suivant ne parcourent que les clients localisés (la carte
   // n'a rien à montrer pour les autres). Sans sélection : Suivant part du
@@ -794,15 +802,17 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Sur la carte : tous les clients filtrés. Ceux hors du périmètre restent
   // visibles pour le contexte, atténués et non cliquables ; la liste, elle,
   // ne montre que ceux du périmètre.
-  const insidePerimeter = new Set(perimeterClients.map((client) => client.id));
-  const markedSet = new Set(marked);
+  const insidePerimeter = useMemo(() => new Set(perimeterClients.map((client) => client.id)), [perimeterClients]);
+  const markedSet = useMemo(() => new Set(marked), [marked]);
   const markedClients = clients.filter((client) => markedSet.has(client.id));
   const markedLocatedCount = markedClients.filter((client) => client.coordinates).length;
   const markedDue = markedClients.filter((client) => client.dueReminderIds.length > 0);
   // Couleur des points : au choix en mode Clients ; imposée par la question
   // posée dans les autres modes.
   const effectiveColor = mapMode === "reminders" ? "visit" : colorMode;
-  const clientPoints = filteredClients.filter((client) => client.coordinates).map((client) => {
+  // Mis en cache : un survol ou une saisie ne doit pas recalculer des
+  // milliers de points ni reconstruire l'index des pastilles (phase 8.10).
+  const clientPoints = useMemo(() => filteredClients.filter((client) => client.coordinates).map((client) => {
     const outside = hasPerimeter && !insidePerimeter.has(client.id);
     const lead = leadAnimal(client, selectedSpecies);
     const clientZones = zoneIdsByClient.get(client.id) ?? [];
@@ -824,7 +834,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
       marked: markedSet.has(client.id),
       approximate: effectiveColor === "quality" && mapMode !== "tours" && quality === "approximate",
     };
-  });
+  }), [filteredClients, hasPerimeter, insidePerimeter, selectedSpecies, zoneIdsByClient, zones, effectiveColor, mapMode, todayId, theme.speciesColors, markedSet]);
   const appointmentPoints = activityAppointments.filter((appointment) => appointment.coordinates).map((appointment) => ({
     id: appointment.id,
     lat: appointment.coordinates!.lat,
@@ -1073,7 +1083,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
       </div>
       {visibleClients.length > 0 ? (
         <div ref={listRef} data-testid="map-client-list" className={`relative divide-y divide-animeo-border-soft ${isPhone ? "" : "max-h-[650px] overflow-y-auto"}`}>
-          {[...orderedLocated, ...orderedUnlocated].map((client, index) => {
+          {orderedClients.slice(0, shownCount).map((client, index) => {
             const selected = selectedClient?.id === client.id;
             const distance = distanceFrom(client);
             return (
@@ -1113,6 +1123,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             </Fragment>
             );
           })}
+          {orderedClients.length > shownCount ? (
+            <div className="p-3 text-center">
+              <button type="button" onClick={() => setListLimit(shownCount + LIST_PAGE_SIZE)} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-bg px-4 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
+                Afficher {Math.min(LIST_PAGE_SIZE, orderedClients.length - shownCount)} de plus ({orderedClients.length - shownCount} restants)
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="p-8 text-center"><Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" /><p className="mt-3 text-sm font-bold text-animeo-muted">Aucun client ne correspond aux filtres.</p></div>
