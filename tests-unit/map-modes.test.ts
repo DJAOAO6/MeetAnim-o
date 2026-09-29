@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysToDateId, appointmentsInRange, dayHeading, mapModeParam, matchesVisitFilter, monthsBetween, parseMapMode,
-  parseZoneFilter, sanitizeMapQuery, visitTier, zoneFilterParam, zoneIdsOf,
+  parseZoneFilter, positionQuality, positionQualitySummary, sanitizeMapQuery, visitTier, zoneFilterParam, zoneIdsOf,
 } from "../src/lib/map-modes";
 import type { MapAppointment } from "../src/data/map-clients";
 import type { PublicZone } from "../src/data/public-booking";
@@ -67,4 +67,21 @@ test("vue enregistrée : seuls les réglages de la carte, jamais la sélection n
   assert.equal(sanitizeMapQuery("?mode=relances&suivi=old&client=abc&rdv=x&pirate=1"), "mode=relances&suivi=old");
   assert.equal(sanitizeMapQuery("lieu=49.1,1.2&nom=Caen&rayon=15"), "lieu=49.1%2C1.2&nom=Caen&rayon=15");
   assert.equal(sanitizeMapQuery(""), "");
+});
+
+test("qualité des positions : précise au numéro ou à la rue, approximative sinon, inconnue sans position", () => {
+  const at = { lat: 49, lng: 1 };
+  assert.equal(positionQuality({ coordinates: at, positionSource: "address", precision: "EXACT" }), "precise");
+  assert.equal(positionQuality({ coordinates: at, positionSource: "address", precision: "STREET" }), "precise");
+  assert.equal(positionQuality({ coordinates: at, positionSource: "address", precision: "CITY" }), "approximate");
+  assert.equal(positionQuality({ coordinates: at, positionSource: "address", precision: null }), "approximate");
+  assert.equal(positionQuality({ coordinates: at, positionSource: "appointment", precision: null }), "approximate");
+  assert.equal(positionQuality({ coordinates: null, positionSource: null, precision: null }), "unknown");
+  const summary = positionQualitySummary([
+    { coordinates: at, positionSource: "address", precision: "EXACT" },
+    { coordinates: at, positionSource: "address", precision: "CITY" },
+    { coordinates: null, positionSource: null, precision: null },
+  ]);
+  assert.deepEqual(summary, { precise: 1, approximate: 1, unknown: 1, total: 3, reliablePercent: 33 });
+  assert.equal(positionQualitySummary([]).reliablePercent, 100);
 });

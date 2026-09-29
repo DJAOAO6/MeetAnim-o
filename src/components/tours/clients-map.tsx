@@ -29,8 +29,8 @@ import type { MapAppointment, MapClientAnimal, MapClientSummary } from "@/data/m
 import type { PublicZone } from "@/data/public-booking";
 import {
   ACTIVITY_RANGES, addDaysToDateId, appointmentsInRange, mapModeParam, matchesVisitFilter, MAP_MODES, parseActivityRange, parseMapMode, parseVisitFilter,
-  parseZoneFilter, sanitizeMapQuery, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
-  type ActivityRange, type MapMode, type VisitFilter, type ZoneFilter,
+  parseZoneFilter, positionQuality, positionQualitySummary, sanitizeMapQuery, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
+  type ActivityRange, type MapMode, type PositionQuality, type VisitFilter, type ZoneFilter,
 } from "@/lib/map-modes";
 import { MapBottomSheet, type SheetSnap } from "@/components/tours/map-bottom-sheet";
 import { PrepareTourModal } from "@/components/tours/prepare-tour-modal";
@@ -58,8 +58,11 @@ type ClientsMapProps = {
   savedViews?: MapViewSummary[];
 };
 
-type ColorMode = "species" | "visit" | "due";
-const colorModeLabels: Record<ColorMode, string> = { species: "Espèce", visit: "Dernière visite", due: "À relancer" };
+type ColorMode = "species" | "visit" | "due" | "quality";
+const colorModeLabels: Record<ColorMode, string> = { species: "Espèce", visit: "Dernière visite", due: "À relancer", quality: "Qualité des positions" };
+
+const qualityColors: Record<Exclude<PositionQuality, "unknown">, string> = { precise: "var(--theme-success)", approximate: "var(--theme-warning)" };
+const qualityFilterLabels: Record<PositionQuality, string> = { precise: "Positions précises", approximate: "Positions approximatives", unknown: "Positions inconnues" };
 
 /** Ancienneté de la dernière visite, en trois paliers (jamais la couleur seule : le libellé suit). */
 function visitBucket(client: MapClientSummary, todayId: string): { color: string; label: string } {
@@ -117,7 +120,7 @@ function parseMapUrl(params: URLSearchParams): MapUrlState {
   return {
     species: (params.get("especes")?.split(",").filter((item) => (animalSpeciesList as readonly string[]).includes(item)) ?? []) as AnimalSpecies[],
     due: params.get("relance") === "1",
-    color: color === "visit" || color === "due" ? color : "species",
+    color: color === "visit" || color === "due" || color === "quality" ? color : "species",
     visibleOnly: params.get("vue") === "visible",
     showZones: params.get("zones") === "1",
     center: Number.isFinite(lat) && Number.isFinite(lng) && params.get("lieu")
@@ -307,6 +310,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const [viewsOpen, setViewsOpen] = useState(false);
   const [savingView, setSavingView] = useState(false);
   const [viewToDelete, setViewToDelete] = useState<MapViewSummary | null>(null);
+  // Qualité des positions (phase 8.7) : filtre et détail de l'indicateur.
+  const [qualityFilter, setQualityFilter] = useState<PositionQuality | null>(null);
+  const [qualityOpen, setQualityOpen] = useState(false);
+  const qualityRef = useRef<HTMLDivElement>(null);
   const viewsRef = useRef<HTMLDivElement>(null);
   const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>(initialUrl.species);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
@@ -373,6 +380,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     function handlePointerDown(event: MouseEvent) {
       if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) setToolsOpen(false);
       if (viewsRef.current && !viewsRef.current.contains(event.target as Node)) setViewsOpen(false);
+      if (qualityRef.current && !qualityRef.current.contains(event.target as Node)) setQualityOpen(false);
     }
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
@@ -465,6 +473,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   }
 
   function clearAllFilters() {
+    setQualityFilter(null);
     setSelectedSpecies([]);
     setDueOnly(false);
     setQuery("");
@@ -518,9 +527,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
       const clientZones = zoneIdsByClient.get(client.id) ?? [];
       const matchesZone = mapMode !== "tours" || !zoneFilter
         || (zoneFilter.kind === "none" ? clientZones.length === 0 : clientZones.some((id) => zoneFilterIds.includes(id)));
-      return matchesSpecies && matchesReminder && matchesQuery && matchesZone;
+      const matchesQuality = !qualityFilter || positionQuality(client) === qualityFilter;
+      return matchesSpecies && matchesReminder && matchesQuery && matchesZone && matchesQuality;
     });
-  }, [clients, dueOnly, query, selectedSpecies, mapMode, visitFilter, todayId, zoneIdsByClient, zoneFilter, plannedTours]);
+  }, [clients, dueOnly, query, selectedSpecies, mapMode, visitFilter, todayId, zoneIdsByClient, zoneFilter, plannedTours, qualityFilter]);
+  // Toute la clientèle, pas seulement ce qui est filtré : l'indicateur dit
+  // la fiabilité de la carte elle-même.
+  const qualitySummary = useMemo(() => positionQualitySummary(clients), [clients]);
 
   // Retirer le périmètre : cercle, épingle, contour et filtre partent, et la
   // carte revient sur l'ensemble des clients.
@@ -792,20 +805,23 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     const outside = hasPerimeter && !insidePerimeter.has(client.id);
     const lead = leadAnimal(client, selectedSpecies);
     const clientZones = zoneIdsByClient.get(client.id) ?? [];
+    const quality = positionQuality(client);
     const zoneLabel = clientZones.length ? ` · ${clientZones.map((id) => zones.find((zone) => zone.id === id)?.name).join(", ")}` : " · non rattaché";
     return {
       id: client.id,
       lat: client.coordinates!.lat,
       lng: client.coordinates!.lng,
       label: lead?.avatar || initialsOf(client.ownerName),
-      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${effectiveColor === "visit" && mapMode !== "tours" ? ` · ${visitBucket(client, todayId).label.toLowerCase()}` : ""}${mapMode === "tours" ? zoneLabel : ""}${outside ? " · hors du périmètre" : ""}`,
+      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${effectiveColor === "visit" && mapMode !== "tours" ? ` · ${visitBucket(client, todayId).label.toLowerCase()}` : ""}${mapMode === "tours" ? zoneLabel : ""}${effectiveColor === "quality" && mapMode !== "tours" ? ` · position ${quality === "precise" ? "précise" : "approximative"}` : ""}${outside ? " · hors du périmètre" : ""}`,
       color: mapMode === "tours" ? (clientZones.length ? "var(--theme-brand)" : "var(--theme-subtle)")
+        : effectiveColor === "quality" ? qualityColors[quality === "precise" ? "precise" : "approximate"]
         : effectiveColor === "visit" ? visitBucket(client, todayId).color
           : effectiveColor === "due" ? (client.dueForReminder ? "var(--theme-brand)" : "var(--theme-subtle)")
             : lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
       badge: client.dueForReminder,
       dimmed: outside,
       marked: markedSet.has(client.id),
+      approximate: effectiveColor === "quality" && mapMode !== "tours" && quality === "approximate",
     };
   });
   const appointmentPoints = activityAppointments.filter((appointment) => appointment.coordinates).map((appointment) => ({
@@ -992,6 +1008,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const activeFilterTokens: FilterToken[] = [
     ...selectedSpecies.map((species): FilterToken => ({ key: `species-${species}`, label: species, onRemove: () => toggleSpecies(species) })),
     ...(dueOnly && (mapMode === "clients" || mapMode === "tours") ? [{ key: "due", label: "À relancer", onRemove: () => setDueOnly(false) }] : []),
+    ...(qualityFilter ? [{ key: "quality", label: qualityFilterLabels[qualityFilter], onRemove: () => setQualityFilter(null) }] : []),
   ];
 
   // Liste de la carte (clients ou rendez-vous) : dans la colonne de droite
@@ -1073,7 +1090,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 <span className="mt-1 block truncate text-[10px] text-animeo-muted">
                   {client.city} · {mapMode === "reminders" ? `Dernière visite : ${client.lastConsultation}` : client.lastConsultation}
                   {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
-                  {client.precision === "CITY" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
+                  {client.coordinates && positionQuality(client) === "approximate" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
                 </span>
               </span>
               {markedSet.has(client.id) ? <CircleCheck role="img" aria-label="Dans la sélection" className="h-5 w-5 shrink-0 text-animeo-dark" /> : null}
@@ -1348,6 +1365,50 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             <div>
               <h2 className="font-extrabold text-animeo-dark">{mapTitles[mapMode]}</h2>
               <p className="mt-0.5 text-xs text-animeo-muted">{mapMode === "activity" ? "Rendez-vous à domicile localisés ; ceux du cabinet sont dans la liste" : "Cliquez sur un point pour afficher sa fiche"}</p>
+              {mapMode !== "activity" && qualitySummary.total > 0 ? (
+                <div ref={qualityRef} className="relative mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setQualityOpen((current) => !current)}
+                    aria-haspopup="true"
+                    aria-expanded={qualityOpen}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+                  >
+                    <MapPin aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" />
+                    Localisation : {qualitySummary.reliablePercent} % fiable
+                  </button>
+                  {qualityOpen ? (
+                    <div role="group" aria-label="Qualité des positions" className="absolute left-0 z-30 mt-1.5 w-80 rounded-xl border border-animeo-border bg-white p-3 text-sm shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
+                      <p className="text-xs text-animeo-muted">Sur {qualitySummary.total} client{qualitySummary.total > 1 ? "s" : ""} :</p>
+                      <ul className="mt-1.5 space-y-1">
+                        {(["precise", "approximate", "unknown"] as const).map((quality) => (
+                          <li key={quality}>
+                            <button
+                              type="button"
+                              aria-pressed={qualityFilter === quality}
+                              disabled={qualitySummary[quality] === 0}
+                              onClick={() => { setQualityFilter((current) => (current === quality ? null : quality)); setQualityOpen(false); }}
+                              className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2 text-left font-bold text-animeo-dark transition hover:bg-animeo-bg disabled:cursor-default disabled:hover:bg-transparent aria-[pressed=true]:bg-animeo-soft"
+                            >
+                              <span><strong className="tabular-nums">{qualitySummary[quality]}</strong> {quality === "precise" ? "précise" : quality === "approximate" ? "approximative" : "inconnue"}{qualitySummary[quality] > 1 ? "s" : ""}</span>
+                              {qualitySummary[quality] > 0 ? <span className="text-[11px] font-extrabold text-animeo">{qualityFilter === quality ? "Tout afficher" : "Voir"}</span> : null}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      {qualitySummary.approximate > 0 ? <p className="mt-2 text-[11px] text-animeo-muted">Une position approximative se précise en complétant l’adresse (numéro et rue) sur la fiche du client.</p> : null}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {qualitySummary.unknown > 0 ? <LocateAllButton label={`Localiser les ${qualitySummary.unknown} sans position`} /> : null}
+                        {mapMode === "clients" && colorMode !== "quality" ? (
+                          <button type="button" onClick={() => { setColorMode("quality"); setQualityOpen(false); }} className="inline-flex min-h-9 items-center rounded-lg bg-animeo-bg px-2.5 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
+                            Colorer par qualité
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
               {mapMode === "clients" ? <label className="inline-flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
@@ -1363,7 +1424,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                   <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
                 )) : effectiveColor === "species" ? animalSpeciesList.map((item) => (
                   <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item}</span>
-                )) : effectiveColor === "visit" ? VISIT_LEGEND.map((item) => (
+                )) : effectiveColor === "quality" ? (
+                  <>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: qualityColors.precise }} />Précise</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border border-dashed border-animeo-dark" style={{ backgroundColor: qualityColors.approximate }} />Approximative (contour en pointillés)</span>
+                  </>
+                ) : effectiveColor === "visit" ? VISIT_LEGEND.map((item) => (
                   <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
                 )) : (
                   <>
@@ -1371,7 +1437,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-animeo-subtle" />À jour</span>
                   </>
                 )}
-                {mapMode !== "activity" && mapMode !== "tours" && effectiveColor !== "due" ? <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span> : null}
+                {mapMode !== "activity" && mapMode !== "tours" && effectiveColor !== "due" && effectiveColor !== "quality" ? <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border-2 border-white bg-animeo-accent shadow-sm" />À relancer</span> : null}
               </div>
             </div>
           </div>
@@ -1477,6 +1543,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             onSelect={mapMode === "activity" ? toggleAppointment : (id, options) => handleClientPick(id, options?.additive ?? false)}
             areaSelect={areaTool}
             onAreaSelect={selectArea}
+            autoFit={!hasPerimeter}
             onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); }}
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.
@@ -1629,7 +1696,7 @@ function SendRemindersButton({ clients, scope, onDone, label }: { clients: MapCl
  * « Localiser tout » : géocode les fiches qui ont une adresse mais aucune
  * position, par lots, puis recharge la carte avec le bilan.
  */
-function LocateAllButton() {
+function LocateAllButton({ label = "Localiser tout" }: { label?: string }) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
 
@@ -1646,9 +1713,9 @@ function LocateAllButton() {
   }
 
   return (
-    <button type="button" onClick={run} disabled={running} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:opacity-60">
+    <button type="button" onClick={run} disabled={running} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-[11px] font-extrabold text-animeo-dark ring-1 ring-animeo-border transition hover:bg-animeo-soft disabled:opacity-60">
       <Icon name="map" className="h-3.5 w-3.5" />
-      {running ? "Localisation…" : "Localiser tout"}
+      {running ? "Localisation…" : label}
     </button>
   );
 }

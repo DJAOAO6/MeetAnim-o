@@ -22,6 +22,8 @@ export type RealMapPoint = {
   dimmed?: boolean;
   // Dans la sélection multiple : anneau foncé autour du point.
   marked?: boolean;
+  // Position approximative : contour en pointillés (jamais la couleur seule).
+  approximate?: boolean;
 };
 
 export type RealMapArea = { id: string; geometry: TerritoryGeometry };
@@ -115,6 +117,10 @@ type RealMapProps = {
   // déplace plus pendant ce temps) ; l'emprise est rendue au relâchement.
   areaSelect?: boolean;
   onAreaSelect?: (bounds: GeoBounds) => void;
+  // Recadrer sur tous les points quand ils changent (défaut). Faux quand
+  // l'appelant cadre lui-même (un périmètre choisi) : filtrer ne doit pas
+  // faire quitter la zone regardée.
+  autoFit?: boolean;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -189,7 +195,7 @@ const pinIcon = L.divIcon({
 const iconCache = new Map<string, L.DivIcon>();
 
 function markerIcon(point: RealMapPoint, selected: boolean) {
-  const key = `${point.color}|${point.label}|${selected}|${point.badge ?? false}|${point.dimmed ?? false}|${point.marked ?? false}`;
+  const key = `${point.color}|${point.label}|${selected}|${point.badge ?? false}|${point.dimmed ?? false}|${point.marked ?? false}|${point.approximate ?? false}`;
   const cached = iconCache.get(key);
   if (cached) return cached;
   const icon = buildMarkerIcon(point, selected);
@@ -211,7 +217,7 @@ function buildMarkerIcon(point: RealMapPoint, selected: boolean) {
   const badge = point.badge ? `<span style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:9999px;background:#f4b860;border:2px solid white;"></span>` : "";
   return L.divIcon({
     className: "",
-    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:${point.marked ? "0 0 0 3px white,0 0 0 6px var(--theme-heading)," : ""}0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;${point.dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${point.label}${badge}</span>`,
+    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px ${point.approximate ? "dashed" : "solid"} white;box-shadow:${point.marked ? "0 0 0 3px white,0 0 0 6px var(--theme-heading)," : ""}0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;${point.dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${point.label}${badge}</span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -515,7 +521,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -536,7 +542,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <FitToPoints points={points} />
+        {autoFit ? <FitToPoints points={points} /> : null}
         <FlyToSelected point={selectedPoint} offset={selectedOffset} />
         {onBackgroundClick ? <BackgroundClick onClick={onBackgroundClick} /> : null}
         <FlyToFocus focus={focus} />

@@ -123,6 +123,32 @@ export function zoneFilterParam(filter: ZoneFilter): string {
 }
 
 /**
+ * Qualité d'une position sur la carte (phase 8.7) :
+ * - précise : l'adresse de la fiche, trouvée au numéro ou à la rue ;
+ * - approximative : l'adresse trouvée seulement à la commune, une adresse
+ *   dont la précision n'a pas été vérifiée, ou le dernier rendez-vous à
+ *   domicile (souvent une ville saisie à la main) ;
+ * - inconnue : pas de position du tout.
+ */
+export type PositionQuality = "precise" | "approximate" | "unknown";
+
+export function positionQuality(client: Pick<MapClientSummary, "coordinates" | "positionSource" | "precision">): PositionQuality {
+  if (!client.coordinates) return "unknown";
+  if (client.positionSource === "address" && (client.precision === "EXACT" || client.precision === "STREET")) return "precise";
+  return "approximate";
+}
+
+export type PositionQualitySummary = Record<PositionQuality, number> & { total: number; reliablePercent: number };
+
+/** Répartition, et part des positions précises (arrondie ; 100 % sans client). */
+export function positionQualitySummary(clients: Array<Pick<MapClientSummary, "coordinates" | "positionSource" | "precision">>): PositionQualitySummary {
+  const summary = { precise: 0, approximate: 0, unknown: 0 };
+  for (const client of clients) summary[positionQuality(client)] += 1;
+  const total = clients.length;
+  return { ...summary, total, reliablePercent: total ? Math.round((summary.precise / total) * 100) : 100 };
+}
+
+/**
  * Réglages de la carte qu'une vue enregistrée peut contenir : ceux de
  * l'adresse de la page, sauf le client ou le rendez-vous ouvert (une vue est
  * un cadrage, pas une sélection). La position de l'appareil n'y figure
