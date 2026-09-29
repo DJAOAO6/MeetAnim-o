@@ -88,4 +88,19 @@ test.describe("Carte clients — informations d'un secteur", () => {
     await expect(modeButton(page, "Relances")).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("group", { name: "Suivi des visites" }).getByRole("button", { name: "Plus de 12 mois ou jamais" })).toHaveAttribute("aria-pressed", "true");
   });
+
+  test("les groupes de points disent ce qu'ils contiennent, selon le mode", async ({ page }) => {
+    await login(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // Vue d'ensemble : les trois clients du secteur forment un groupe.
+    await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
+    const group = page.locator('.leaflet-marker-icon[title="3 clients ici, dont 3 à relancer — afficher le détail"]');
+    await expect(group).toBeVisible({ timeout: 15000 });
+    await expect(group, "pastille des clients à relancer").toContainText("3");
+
+    await modeButton(page, "Relances").click();
+    const reminders = page.locator('.leaflet-marker-icon[title="3 clients ici, dont 3 à relancer — afficher le détail"]');
+    await expect(reminders).toBeVisible();
+    await expect(reminders.locator("svg"), "la cloche des relances").toHaveCount(1);
+  });
 });

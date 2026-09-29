@@ -830,6 +830,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           : effectiveColor === "due" ? (client.dueForReminder ? "var(--theme-brand)" : "var(--theme-subtle)")
             : lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
       badge: client.dueForReminder,
+      flagged: client.dueForReminder,
       dimmed: outside,
       marked: markedSet.has(client.id),
       approximate: effectiveColor === "quality" && mapMode !== "tours" && quality === "approximate",
@@ -1610,6 +1611,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             areaSelect={areaTool}
             onAreaSelect={selectArea}
             autoFit={!hasPerimeter}
+            clusterKind={mapMode === "activity" ? "appointments" : mapMode === "reminders" ? "reminders" : "clients"}
             onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); }}
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.

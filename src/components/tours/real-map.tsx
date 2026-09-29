@@ -24,7 +24,15 @@ export type RealMapPoint = {
   marked?: boolean;
   // Position approximative : contour en pointillés (jamais la couleur seule).
   approximate?: boolean;
+  // Compté à part dans les groupes (clients à relancer).
+  flagged?: boolean;
 };
+
+/**
+ * Ce que dit un groupe de points : des clients (avec ceux à relancer en
+ * pastille), des rendez-vous (« 7 RDV »), ou des relances (« 8 à relancer »).
+ */
+export type RealMapClusterKind = "clients" | "appointments" | "reminders";
 
 export type RealMapArea = { id: string; geometry: TerritoryGeometry };
 export type RealMapPin = { lat: number; lng: number; label: string };
@@ -121,6 +129,7 @@ type RealMapProps = {
   // l'appelant cadre lui-même (un périmètre choisi) : filtrer ne doit pas
   // faire quitter la zone regardée.
   autoFit?: boolean;
+  clusterKind?: RealMapClusterKind;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -226,23 +235,55 @@ function buildMarkerIcon(point: RealMapPoint, selected: boolean) {
 const clusterIconCache = new Map<string, L.DivIcon>();
 
 /** Groupe de marqueurs : un disque aux couleurs du thème, avec son effectif. */
-function clusterIcon(count: number, dimmed: boolean) {
-  const label = count >= 1000 ? `${Math.round(count / 100) / 10}k` : String(count);
-  const key = `${label}|${dimmed}`;
+const clusterShadow = "box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.3);";
+
+function clusterIcon(count: number, flagged: number, kind: RealMapClusterKind, dimmed: boolean) {
+  const key = `${count}|${flagged}|${kind}|${dimmed}`;
   const cached = clusterIconCache.get(key);
   if (cached) return cached;
-  const size = count < 10 ? 36 : count < 100 ? 42 : 50;
-  const icon = L.divIcon({
-    className: "",
-    html: `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:var(--theme-brand);color:#fff;font-weight:800;font-size:13px;border:3px solid white;box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.3);${dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${label}</span>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
+  const fade = dimmed ? "opacity:.35;filter:grayscale(.6);" : "";
+  const short = (value: number) => (value >= 1000 ? `${Math.round(value / 100) / 10}k` : String(value));
+  // Rendez-vous : « 7 RDV ». Relances : une cloche (le symbole « à relancer »
+  // des filtres) et le nombre à relancer — compact, pour que deux groupes
+  // voisins ne se recouvrent pas ; le titre le dit en toutes lettres.
+  const bell = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+  const pill = kind === "appointments" ? { html: `${short(count)} RDV`, chars: `${short(count)} RDV`.length }
+    : kind === "reminders" && flagged > 0 ? { html: `${bell}${short(flagged)}`, chars: short(flagged).length + 2 } : null;
+  let icon: L.DivIcon;
+  if (pill) {
+    const width = 20 + pill.chars * 7;
+    icon = L.divIcon({
+      className: "",
+      html: `<span style="display:flex;align-items:center;justify-content:center;gap:3px;width:${width}px;height:32px;border-radius:9999px;background:var(--theme-brand);color:#fff;font-weight:800;font-size:12px;white-space:nowrap;border:3px solid white;${clusterShadow}${fade}">${pill.html}</span>`,
+      iconSize: [width, 32],
+      iconAnchor: [width / 2, 16],
+    });
+  } else {
+    const size = count < 10 ? 36 : count < 100 ? 42 : 50;
+    // Relances sans client à relancer : groupe en retrait (rien à faire là).
+    const background = kind === "reminders" ? "var(--theme-subtle)" : "var(--theme-brand)";
+    const badge = kind === "clients" && flagged > 0
+      ? `<span style="position:absolute;top:-6px;right:-8px;min-width:20px;height:20px;padding:0 5px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:#f4b860;color:#3b2a1a;font-size:11px;font-weight:800;border:2px solid white;">${short(flagged)}</span>`
+      : "";
+    icon = L.divIcon({
+      className: "",
+      html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${background};color:#fff;font-weight:800;font-size:13px;border:3px solid white;${clusterShadow}${fade}">${short(count)}${badge}</span>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  }
   clusterIconCache.set(key, icon);
   return icon;
 }
 
-type ClusterPointProps = { id: string };
+/** Titre d'un groupe : ce qu'il contient, en toutes lettres. */
+function clusterTitle(count: number, flagged: number, kind: RealMapClusterKind) {
+  if (kind === "appointments") return `${count} rendez-vous ici — afficher le détail`;
+  return `${count} clients ici${flagged > 0 ? `, dont ${flagged} à relancer` : ""} — afficher le détail`;
+}
+
+type ClusterPointProps = { id: string; flagged: number };
+type ClusterAggregate = { flagged: number };
 
 /**
  * Marqueurs regroupés selon le zoom. Un clic sur un groupe zoome jusqu'à
@@ -251,7 +292,7 @@ type ClusterPointProps = { id: string };
  * seulement, jamais les coordonnées. Le point choisi n'est jamais caché
  * dans un groupe.
  */
-function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover }: { points: RealMapPoint[]; selectedId?: string; onSelect?: (id: string, options?: { additive: boolean }) => void; highlightedId?: string | null; onHover?: (id: string | null) => void }) {
+function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover, kind }: { points: RealMapPoint[]; selectedId?: string; onSelect?: (id: string, options?: { additive: boolean }) => void; highlightedId?: string | null; onHover?: (id: string | null) => void; kind: RealMapClusterKind }) {
   const map = useMap();
   const [view, setView] = useState(() => ({ bounds: map.getBounds(), zoom: map.getZoom() }));
   const [spider, setSpider] = useState<{ center: L.LatLng; ids: string[] } | null>(null);
@@ -263,8 +304,14 @@ function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover
   const byId = useMemo(() => new Map(points.map((point) => [point.id, point])), [points]);
   const indexes = useMemo(() => {
     const build = (list: RealMapPoint[]) => {
-      const index = new Supercluster<ClusterPointProps, Record<string, never>>({ radius: 48, maxZoom: map.getMaxZoom() });
-      index.load(list.map((point) => ({ type: "Feature", properties: { id: point.id }, geometry: { type: "Point", coordinates: [point.lng, point.lat] } })));
+      // Chaque groupe compte aussi ses points signalés (clients à relancer).
+      const index = new Supercluster<ClusterPointProps, ClusterAggregate>({
+        radius: 48,
+        maxZoom: map.getMaxZoom(),
+        map: (properties) => ({ flagged: properties.flagged }),
+        reduce: (accumulated, properties) => { accumulated.flagged += properties.flagged; },
+      });
+      index.load(list.map((point) => ({ type: "Feature", properties: { id: point.id, flagged: point.flagged ? 1 : 0 }, geometry: { type: "Point", coordinates: [point.lng, point.lat] } })));
       return index;
     };
     const free = points.filter((point) => point.id !== selectedId);
@@ -276,7 +323,7 @@ function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover
   const zoom = Math.round(view.zoom);
   const spiderIds = new Set(spider?.ids ?? []);
 
-  function openCluster(index: Supercluster<ClusterPointProps, Record<string, never>>, clusterId: number, center: L.LatLng) {
+  function openCluster(index: Supercluster<ClusterPointProps, ClusterAggregate>, clusterId: number, center: L.LatLng) {
     const expansion = index.getClusterExpansionZoom(clusterId);
     if (expansion <= map.getMaxZoom() && expansion > map.getZoom()) {
       map.flyTo(center, expansion, { duration: 0.5 });
@@ -303,14 +350,14 @@ function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover
         indexes[group].getClusters(bbox, zoom).map((feature) => {
           const [lng, lat] = feature.geometry.coordinates;
           if ("cluster" in feature.properties && feature.properties.cluster) {
-            const { cluster_id: clusterId, point_count: count } = feature.properties;
+            const { cluster_id: clusterId, point_count: count, flagged } = feature.properties;
             const center = L.latLng(lat, lng);
             return (
               <Marker
                 key={`${group}-cluster-${clusterId}`}
                 position={center}
-                icon={clusterIcon(count, group === "dimmed")}
-                title={`${count} clients ici — afficher le détail`}
+                icon={clusterIcon(count, flagged, kind, group === "dimmed")}
+                title={clusterTitle(count, flagged, kind)}
                 interactive={group === "normal"}
                 keyboard={group === "normal"}
                 eventHandlers={group === "normal" ? { click: () => openCluster(indexes.normal, clusterId, center) } : {}}
@@ -521,7 +568,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients" }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -572,7 +619,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         {circle && circleHandle && onCircleRadiusChange ? (
           <CircleResizeHandle key={`${circle.lat}:${circle.lng}:${circleHandleResetKey}`} circle={circle} onRadiusChange={onCircleRadiusChange} />
         ) : null}
-        {cluster ? <ClusteredMarkers points={points} selectedId={selectedId} onSelect={onSelect} highlightedId={highlightedId} onHover={onHover} /> : points.map((point) => (
+        {cluster ? <ClusteredMarkers points={points} selectedId={selectedId} onSelect={onSelect} highlightedId={highlightedId} onHover={onHover} kind={clusterKind} /> : points.map((point) => (
           <Marker
             // react-leaflet ne met à jour ni `title` ni `interactive` d'un
             // marqueur existant : un point qui passe hors du périmètre est
