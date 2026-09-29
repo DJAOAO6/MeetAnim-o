@@ -34,6 +34,28 @@ export type RealMapPoint = {
  */
 export type RealMapClusterKind = "clients" | "appointments" | "reminders";
 
+/**
+ * Fond de carte. Plan : OpenStreetMap (le fond habituel). Aérien : les
+ * photographies aériennes de l'IGN (Géoplateforme, WMTS public — vérifié
+ * le 29/09/2026 : sans clé, Licence Ouverte Etalab, « non soumis à limite
+ * d'usage » selon les CGU, art. 3.2 ; zooms 0 à 19). Utile pour les haras,
+ * fermes et chemins ruraux.
+ */
+export type RealMapBasemap = "plan" | "aerial";
+
+const BASEMAPS: Record<RealMapBasemap, { url: string; attribution: string; maxNativeZoom: number }> = {
+  plan: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxNativeZoom: 19,
+  },
+  aerial: {
+    url: "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM_0_19&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+    attribution: '&copy; <a href="https://www.ign.fr/">IGN</a> – Géoplateforme',
+    maxNativeZoom: 19,
+  },
+};
+
 export type RealMapArea = { id: string; geometry: TerritoryGeometry };
 export type RealMapPin = { lat: number; lng: number; label: string };
 export type RealMapFitBounds = GeoBounds & { token: string };
@@ -132,6 +154,9 @@ type RealMapProps = {
   // faire quitter la zone regardée.
   autoFit?: boolean;
   clusterKind?: RealMapClusterKind;
+  // Fond de carte, et bascule Plan / Aérien (affichée si onBasemapChange).
+  basemap?: RealMapBasemap;
+  onBasemapChange?: (basemap: RealMapBasemap) => void;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -570,7 +595,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients", onPracticeClick }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients", onPracticeClick, basemap = "plan", onBasemapChange }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -587,10 +612,9 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
         {wheelZoom === "afterClick" ? <WheelActivation onHint={setWheelHint} /> : null}
         {onViewChange ? <ViewTracker onChange={onViewChange} /> : null}
         {areaSelect && onAreaSelect ? <AreaSelector onSelect={onAreaSelect} /> : null}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        {/* Changer de fond remplace seulement les tuiles : zoom, centre,
+            points et contours restent en place. */}
+        <TileLayer key={basemap} attribution={BASEMAPS[basemap].attribution} url={BASEMAPS[basemap].url} maxNativeZoom={BASEMAPS[basemap].maxNativeZoom} />
         {autoFit ? <FitToPoints points={points} /> : null}
         <FlyToSelected point={selectedPoint} offset={selectedOffset} />
         {onBackgroundClick ? <BackgroundClick onClick={onBackgroundClick} /> : null}
@@ -648,6 +672,21 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
       </MapContainer>
 
       {overlay ? <div className="pointer-events-none absolute bottom-4 right-4 z-[500] w-[min(300px,calc(100%-2rem))]"><div className="pointer-events-auto">{overlay}</div></div> : null}
+      {onBasemapChange ? (
+        <div role="group" aria-label="Fond de carte" className="absolute left-14 top-2.5 z-[500] flex rounded-lg border border-animeo-border bg-white p-0.5 shadow-sm">
+          {(["plan", "aerial"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={basemap === option}
+              onClick={() => onBasemapChange(option)}
+              className={`min-h-8 rounded-md px-2.5 text-[11px] font-extrabold transition ${basemap === option ? "bg-animeo-dark text-white" : "text-animeo-muted hover:text-animeo-dark"}`}
+            >
+              {option === "plan" ? "Plan" : "Aérien"}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {bottomSheet}
       {wheelHint ? (
         <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-[500] mx-auto w-fit rounded-xl bg-animeo-dark/85 px-3 py-2 text-xs font-bold text-white">

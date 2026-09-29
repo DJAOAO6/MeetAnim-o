@@ -33,6 +33,7 @@ import {
   type ActivityRange, type MapMode, type PositionQuality, type VisitFilter, type ZoneFilter,
 } from "@/lib/map-modes";
 import { MapBottomSheet, type SheetSnap } from "@/components/tours/map-bottom-sheet";
+import type { RealMapBasemap } from "@/components/tours/real-map";
 import { PrepareTourModal } from "@/components/tours/prepare-tour-modal";
 import { APPOINTMENT_LEGEND, appointmentStatusColors, appointmentTitle, MapAppointmentCard, MapAppointmentList, MapModeSwitcher, Segmented, ToursPanel, type PlannedTour } from "@/components/tours/map-modes";
 
@@ -110,6 +111,7 @@ type MapUrlState = {
   visit: VisitFilter;
   zone: ZoneFilter | null;
   appointment: string | null;
+  basemap: RealMapBasemap;
 };
 
 function parseMapUrl(params: URLSearchParams): MapUrlState {
@@ -136,6 +138,7 @@ function parseMapUrl(params: URLSearchParams): MapUrlState {
     visit: parseVisitFilter(params.get("suivi")),
     zone: parseZoneFilter(params.get("zone")),
     appointment: params.get("rdv"),
+    basemap: params.get("fond") === "aerien" ? "aerial" : "plan",
   };
 }
 
@@ -159,6 +162,7 @@ function buildMapQuery(state: {
   appointmentId: string | null;
   visit: VisitFilter;
   zone: ZoneFilter | null;
+  basemap: RealMapBasemap;
 }): string {
   const params = new URLSearchParams();
   if (state.species.length) params.set("especes", state.species.join(","));
@@ -187,6 +191,7 @@ function buildMapQuery(state: {
   }
   if (state.mode === "reminders" && state.visit !== "all") params.set("suivi", state.visit);
   if (state.mode === "tours" && state.zone) params.set("zone", zoneFilterParam(state.zone));
+  if (state.basemap === "aerial") params.set("fond", "aerien");
   return params.toString();
 }
 
@@ -301,6 +306,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
   // Liste par pages : des milliers de lignes ne s'affichent pas d'un coup.
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
+  const [basemap, setBasemap] = useState<RealMapBasemap>(initialUrl.basemap);
   // Fiche du lieu d'exercice (phase 8.12), ouverte depuis son repère.
   const [practiceOpen, setPracticeOpen] = useState(false);
   // Sélection multiple (phase 8.5) : des clients choisis ensemble pour une
@@ -874,7 +880,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // client ni le rendez-vous ouverts.
   const viewQuery = sanitizeMapQuery(buildMapQuery({
     species: selectedSpecies, due: dueOnly, color: colorMode, visibleOnly, showZones, center: perimeterCenter, radius: perimeterRadiusKm,
-    territory, selectedId: null, mode: mapMode, range: activityRange, appointmentId: null, visit: visitFilter, zone: zoneFilter,
+    territory, selectedId: null, mode: mapMode, range: activityRange, appointmentId: null, visit: visitFilter, zone: zoneFilter, basemap,
   }));
   const activeView = views.find((view) => view.query === viewQuery) ?? null;
   // Clients autour du lieu d'exercice, par palier : toute la clientèle
@@ -952,6 +958,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     setActivityRange(state.range);
     setVisitFilter(state.visit);
     setZoneFilter(state.zone);
+    setBasemap(state.basemap);
     setSelectedId(null);
     setSelectedAppointmentId(null);
     clearMarked();
@@ -999,12 +1006,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     const timer = window.setTimeout(() => {
       const next = buildMapQuery({
         species: selectedSpecies, due: dueOnly, color: colorMode, visibleOnly, showZones, center: perimeterCenter, radius: perimeterRadiusKm,
-        territory, selectedId, mode: mapMode, range: activityRange, appointmentId: selectedAppointmentId, visit: visitFilter, zone: zoneFilter,
+        territory, selectedId, mode: mapMode, range: activityRange, appointmentId: selectedAppointmentId, visit: visitFilter, zone: zoneFilter, basemap,
       });
       if (next !== window.location.search.replace(/^\?/, "")) window.history.replaceState(window.history.state, "", next ? `${pathname}?${next}` : pathname);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [selectedSpecies, dueOnly, colorMode, visibleOnly, showZones, perimeterCenter, perimeterRadiusKm, territory, selectedId, pathname, mapMode, activityRange, selectedAppointmentId, visitFilter, zoneFilter]);
+  }, [selectedSpecies, dueOnly, colorMode, visibleOnly, showZones, perimeterCenter, perimeterRadiusKm, territory, selectedId, pathname, mapMode, activityRange, selectedAppointmentId, visitFilter, zoneFilter, basemap]);
 
   // Sélectionner un lieu dans la recherche unifiée applique directement un
   // périmètre : le seul moyen d'en définir un depuis la phase 2 (l'ancien
@@ -1637,6 +1644,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             onAreaSelect={selectArea}
             autoFit={!hasPerimeter}
             clusterKind={mapMode === "activity" ? "appointments" : mapMode === "reminders" ? "reminders" : "clients"}
+            basemap={basemap}
+            onBasemapChange={setBasemap}
             onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); setPracticeOpen(false); }}
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.

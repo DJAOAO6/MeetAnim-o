@@ -150,6 +150,36 @@ test.describe("Carte clients — options avancées", () => {
     await expect(page.getByRole("button", { name: /^15 km autour de votre (cabinet|lieu d’exercice)/ })).toBeVisible();
   });
 
+  test("Plan / Aérien : les photos IGN remplacent le plan, au même zoom, filtres gardés", async ({ page }) => {
+    await page.goto(quimper, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1500); // fin du cadrage sur le périmètre
+    // Zoom affiché : le plus fin des niveaux de tuiles chargés.
+    const shownZoom = (source: string) => page.evaluate((pattern) => {
+      const expression = new RegExp(pattern);
+      const levels = [...document.querySelectorAll<HTMLImageElement>(".leaflet-tile-pane img.leaflet-tile")]
+        .map((image) => image.src.match(expression)?.[1])
+        .filter((level): level is string => Boolean(level))
+        .map(Number);
+      return levels.length ? Math.max(...levels) : null;
+    }, source);
+    const planZoom = await shownZoom("openstreetmap\\.org/(\\d+)/");
+    expect(planZoom).not.toBeNull();
+
+    const basemap = page.getByRole("group", { name: "Fond de carte" });
+    await basemap.getByRole("button", { name: "Aérien" }).click();
+    await expect(basemap.getByRole("button", { name: "Aérien" })).toHaveAttribute("aria-pressed", "true");
+    const tile = page.locator(".leaflet-tile-pane img.leaflet-tile").first();
+    await expect(tile).toHaveAttribute("src", /data\.geopf\.fr\/wmts.*ORTHOIMAGERY\.ORTHOPHOTOS/);
+    await expect.poll(() => shownZoom("ORTHOPHOTOS.*TILEMATRIX=(\\d+)&"), { message: "même zoom" }).toBe(planZoom);
+    await expect(page.locator(".leaflet-control-attribution")).toContainText("IGN");
+    await expect(row(page, "OptionsQuimperE2E"), "le périmètre et la liste restent").toBeVisible();
+    await expect(row(page, "OptionsBrestE2E")).toHaveCount(0);
+    await expect.poll(() => page.url()).toContain("fond=aerien");
+
+    await basemap.getByRole("button", { name: "Plan" }).click();
+    await expect(tile).toHaveAttribute("src", /openstreetmap\.org/);
+  });
+
   test("Plein écran puis retour", async ({ page }) => {
     await page.goto(quimper, { waitUntil: "networkidle" });
     await page.getByRole("button", { name: "Plein écran" }).click();

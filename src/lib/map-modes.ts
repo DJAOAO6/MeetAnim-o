@@ -154,7 +154,7 @@ export function positionQualitySummary(clients: Array<Pick<MapClientSummary, "co
  * un cadrage, pas une sélection). La position de l'appareil n'y figure
  * jamais : « Autour de moi » ne s'écrit pas dans l'adresse.
  */
-const MAP_VIEW_KEYS = ["mode", "periode", "suivi", "zone", "especes", "relance", "couleur", "vue", "zones", "lieu", "nom", "rayon", "commune", "adresse", "territoire"];
+const MAP_VIEW_KEYS = ["mode", "periode", "suivi", "zone", "especes", "relance", "couleur", "vue", "zones", "lieu", "nom", "rayon", "commune", "adresse", "territoire", "fond"];
 
 export function sanitizeMapQuery(query: string): string {
   const source = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
