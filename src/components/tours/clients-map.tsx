@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Bookmark, CalendarPlus, ChevronLeft, ChevronRight, CircleCheck, Crosshair, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { BellRing, Bookmark, CalendarClock, CalendarPlus, History, ChevronLeft, ChevronRight, CircleCheck, Crosshair, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { Card } from "@/components/ui/card";
@@ -303,7 +303,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const [areaTool, setAreaTool] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [preparingTour, setPreparingTour] = useState(false);
+  // Clients d'une journée à préparer (sélection, ou suggestion d'un secteur).
+  const [preparingTourIds, setPreparingTourIds] = useState<string[] | null>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   // Mes vues (phase 8.6) : cadrages enregistrés du compte.
   const [views, setViews] = useState<MapViewSummary[]>(savedViews);
@@ -843,6 +844,15 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const animalCount = visibleClients.reduce((sum, client) => sum + client.animals.length, 0);
   // Clients à relancer dans le périmètre (action groupée, 7.9).
   const dueInPerimeter = hasPerimeter ? perimeterClients.filter((client) => client.dueReminderIds.length > 0) : [];
+  // Informations d'un secteur (phase 8.8) : des comptes, des règles dites en
+  // clair, jamais un score. Au plus trois, plus une suggestion de tournée.
+  const notSeenInPerimeter = hasPerimeter ? perimeterClients.filter((client) => visitTier(client.lastConsultationAt, todayId) === "old") : [];
+  const dueReminderCount = dueInPerimeter.reduce((sum, client) => sum + client.dueReminderIds.length, 0);
+  const homeAppointmentsInPerimeter = hasPerimeter
+    ? appointmentsInRange(appointments, todayId, "7").filter((appointment) => appointment.place === "home" && appointment.coordinates && inPerimeter(appointment.coordinates))
+    : [];
+  // Regroupés : au moins trois clients à relancer dans le même périmètre.
+  const tourSuggestion = dueInPerimeter.filter((client) => client.coordinates).length >= 3 ? dueInPerimeter.filter((client) => client.coordinates) : [];
   const practiceLabel = hasCabinet(practiceMode) ? "Mon cabinet" : "Mon lieu d’exercice";
   // Ce qu'enregistrerait « Enregistrer cette vue » : l'adresse, sans le
   // client ni le rendez-vous ouverts.
@@ -1333,7 +1343,41 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           </div>
         ) : null}
 
-        {hasPerimeter && dueInPerimeter.length > 0 ? <ZoneReminders clients={dueInPerimeter} onDone={() => router.refresh()} /> : null}
+        {hasPerimeter && mapMode !== "activity" && (notSeenInPerimeter.length > 0 || dueInPerimeter.length > 0 || homeAppointmentsInPerimeter.length > 0) ? (
+          <section aria-label="Dans cette zone" data-testid="map-insights" className="mt-3 rounded-2xl border border-animeo-border bg-white px-4 py-1">
+            <ul className="divide-y divide-animeo-border-soft">
+              {notSeenInPerimeter.length > 0 ? (
+                <InsightLine icon={<History aria-hidden="true" className="h-4 w-4" />}>
+                  <p className="min-w-0 flex-1"><strong>{notSeenInPerimeter.length} client{notSeenInPerimeter.length > 1 ? "s" : ""}</strong> {notSeenInPerimeter.length > 1 ? "n’ont" : "n’a"} pas été vu{notSeenInPerimeter.length > 1 ? "s" : ""} depuis plus de 12 mois (ou jamais).</p>
+                  {mapMode === "reminders" && visitFilter === "old" ? null : (
+                    <button type="button" onClick={() => { changeMode("reminders"); setVisitFilter("old"); }} className={insightAction}>Voir {notSeenInPerimeter.length > 1 ? `les ${notSeenInPerimeter.length}` : "ce client"}</button>
+                  )}
+                </InsightLine>
+              ) : null}
+              {dueInPerimeter.length > 0 ? (
+                <InsightLine icon={<BellRing aria-hidden="true" className="h-4 w-4" />}>
+                  <p className="min-w-0 flex-1"><strong>{dueInPerimeter.length} client{dueInPerimeter.length > 1 ? "s" : ""} à relancer</strong> dans cette zone : {dueReminderCount} rappel{dueReminderCount > 1 ? "s" : ""} à envoyer.</p>
+                  {!dueOnly || mapMode !== "clients" ? (
+                    <button type="button" onClick={() => { if (mapMode !== "clients") changeMode("clients"); setDueOnly(true); }} className={insightAction}>Voir les rappels</button>
+                  ) : null}
+                  <SendRemindersButton clients={dueInPerimeter} scope="de cette zone" onDone={() => router.refresh()} label="Envoyer les rappels" />
+                </InsightLine>
+              ) : null}
+              {homeAppointmentsInPerimeter.length > 0 ? (
+                <InsightLine icon={<CalendarClock aria-hidden="true" className="h-4 w-4" />}>
+                  <p className="min-w-0 flex-1"><strong>{homeAppointmentsInPerimeter.length} rendez-vous à domicile</strong> {homeAppointmentsInPerimeter.length > 1 ? "sont" : "est"} déjà programmé{homeAppointmentsInPerimeter.length > 1 ? "s" : ""} ici dans les 7 prochains jours.</p>
+                  <button type="button" onClick={() => { changeMode("activity"); setActivityRange("7"); }} className={insightAction}>Voir les RDV</button>
+                </InsightLine>
+              ) : null}
+              {tourSuggestion.length > 0 ? (
+                <InsightLine icon={<Route aria-hidden="true" className="h-4 w-4" />}>
+                  <p className="min-w-0 flex-1">{tourSuggestion.length} clients à relancer sont regroupés dans cette zone.</p>
+                  <button type="button" onClick={() => setPreparingTourIds(tourSuggestion.map((client) => client.id))} className={insightAction}>Préparer une tournée</button>
+                </InsightLine>
+              ) : null}
+            </ul>
+          </section>
+        ) : null}
 
         {territory ? (
           <div className="mt-4 flex items-center gap-3 rounded-2xl bg-animeo-soft px-4 py-3 text-sm text-animeo-dark" role="status">
@@ -1527,15 +1571,20 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           {marked.length > 0 && mapMode !== "activity" ? (
             <div role="region" aria-label="Sélection" data-testid="map-selection-bar" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-animeo-border bg-animeo-soft px-3 py-2.5">
               <p className="mr-auto text-sm font-extrabold text-animeo-dark">{marked.length} client{marked.length > 1 ? "s" : ""} sélectionné{marked.length > 1 ? "s" : ""}</p>
-              <button type="button" onClick={() => setPreparingTour(true)} disabled={markedLocatedCount === 0} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-50">
+              <button type="button" onClick={() => setPreparingTourIds(marked)} disabled={markedLocatedCount === 0} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-50">
                 <Route aria-hidden="true" className="h-4 w-4" />Préparer une tournée
               </button>
               {markedDue.length > 0 ? <SendRemindersButton clients={markedDue} scope="de la sélection" onDone={() => router.refresh()} /> : null}
               <button type="button" onClick={clearMarked} className="inline-flex min-h-11 items-center px-2 text-xs font-extrabold text-animeo-muted underline decoration-dotted underline-offset-4 hover:text-animeo-dark">Tout désélectionner</button>
             </div>
           ) : null}
-          {preparingTour ? (
-            <PrepareTourModal clientIds={marked} locatedCount={markedLocatedCount} defaultDateId={addDaysToDateId(todayId, 1)} onClose={() => setPreparingTour(false)} />
+          {preparingTourIds ? (
+            <PrepareTourModal
+              clientIds={preparingTourIds}
+              locatedCount={clients.filter((client) => preparingTourIds.includes(client.id) && client.coordinates).length}
+              defaultDateId={addDaysToDateId(todayId, 1)}
+              onClose={() => setPreparingTourIds(null)}
+            />
           ) : null}
           <RealMap
             points={points}
@@ -1638,14 +1687,14 @@ function SaveViewModal({ existingNames, onSave, onClose }: { existingNames: stri
   );
 }
 
-function ZoneReminders({ clients, onDone }: { clients: MapClient[]; onDone: () => void }) {
-  const modules = useCurrentUser()?.modules ?? [];
-  if (!hasModule(modules, "REMINDERS")) return null;
+const insightAction = "inline-flex min-h-9 shrink-0 items-center rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft";
+
+function InsightLine({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm text-animeo-dark">
-      <p className="min-w-0 flex-1"><strong>{clients.length} client{clients.length > 1 ? "s" : ""} à relancer</strong> dans cette zone.</p>
-      <SendRemindersButton clients={clients} scope="de cette zone" onDone={onDone} label="Envoyer les rappels" />
-    </div>
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 text-sm text-animeo-dark">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-animeo-soft text-animeo">{icon}</span>
+      {children}
+    </li>
   );
 }
 
