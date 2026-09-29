@@ -69,9 +69,12 @@ async function openMap(page: Page) {
   await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
 }
 
-/** Bouton Espèce : seul élément de la barre portant aria-haspopup. */
+/**
+ * Bouton Espèce : premier élément de la page portant aria-haspopup (la
+ * barre de filtres précède la carte et son menu « Outils de carte »).
+ */
 function speciesButtonLocator(page: Page) {
-  return page.locator('button[aria-haspopup="true"]');
+  return page.locator('button[aria-haspopup="true"]').first();
 }
 
 /** Bouton « À relancer » : seul bouton de bascule portant aria-pressed dans la barre de filtres (hors jetons, qui n'en portent pas). */

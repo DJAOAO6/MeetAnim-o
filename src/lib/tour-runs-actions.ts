@@ -19,6 +19,8 @@ import { Prisma } from "@/generated/prisma/client";
 import type { TourEndpointType, TourStopType, TourRun as DbTourRun, TourStop as DbTourStop, Appointment as DbAppointment } from "@/generated/prisma/client";
 
 const TOURS_PATH = "/dashboard/tournees";
+// Au-delà, une journée n'est plus réaliste : la sélection est à réduire.
+const MAX_TOUR_FROM_CLIENTS = 25;
 const AGENDA_PATH = "/dashboard/agenda";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -323,6 +325,74 @@ export async function createTourRunAction(input: z.infer<typeof createTourRunSch
 
   revalidatePath(TOURS_PATH);
   return { ok: true, id: tourRun.id };
+}
+
+const createTourFromClientsSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  dateId: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  departureTime: z.string().regex(/^\d{2}:\d{2}$/),
+  clientIds: z.array(z.string().min(1).max(64)).min(1).max(MAX_TOUR_FROM_CLIENTS),
+});
+
+export type CreateTourFromClientsResult = { ok: true; id: string; added: number; skipped: number } | { ok: false; error: string };
+
+/**
+ * « Préparer une tournée » depuis la carte (sélection de clients) : une
+ * journée au départ du cabinet, un arrêt « domicile » par client localisé,
+ * dans l'ordre de la sélection — l'organisation (ordre, horaires,
+ * rendez-vous) se fait ensuite dans le module Tournées. Les positions sont
+ * relues ici, jamais reçues du navigateur ; un client sans position est
+ * compté, pas deviné.
+ */
+export async function createTourFromClientsAction(input: z.infer<typeof createTourFromClientsSchema>): Promise<CreateTourFromClientsResult> {
+  await requireModule("TOURS");
+  const user = await requireUser();
+  const db = await currentDb();
+  const parsed = createTourFromClientsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_ERROR };
+  const data = parsed.data;
+
+  const date = new Date(`${data.dateId}T00:00:00.000Z`);
+  const existing = await db.tourRun.findFirst({ where: { userId: user.id, date, cancelledAt: null }, select: { id: true } });
+  if (existing) return { ok: false, error: "Une journée existe déjà pour cette date : ajoutez-y ces clients depuis Tournées, ou choisissez une autre date." };
+
+  const found = await db.client.findMany({
+    where: { id: { in: data.clientIds } },
+    select: { id: true, firstName: true, lastName: true, address: true, postalCode: true, city: true, latitude: true, longitude: true },
+  });
+  const byId = new Map(found.map((client) => [client.id, client]));
+  const located = data.clientIds
+    .map((id) => byId.get(id))
+    .filter((client): client is NonNullable<typeof client> => Boolean(client && client.latitude != null && client.longitude != null));
+  if (located.length === 0) return { ok: false, error: "Aucun des clients choisis n’a de position sur la carte." };
+
+  const tourRun = await db.tourRun.create({
+    data: {
+      userId: user.id,
+      name: data.name,
+      date,
+      departureTime: data.departureTime,
+      startType: "CABINET",
+      endType: "SAME_AS_START",
+    },
+  });
+  await db.tourStop.createMany({
+    data: located.map((client, order) => ({
+      tourRunId: tourRun.id,
+      order,
+      type: "HOME" as TourStopType,
+      label: `${client.firstName} ${client.lastName}`.trim().slice(0, 100),
+      address: [client.address, [client.postalCode, client.city].filter(Boolean).join(" ")].filter(Boolean).join(", ").slice(0, 300) || null,
+      latitude: client.latitude,
+      longitude: client.longitude,
+      flexible: true,
+      locked: false,
+    })),
+  });
+
+  await recomputeAndPersistRoute(tourRun.id);
+  revalidatePath(TOURS_PATH);
+  return { ok: true, id: tourRun.id, added: located.length, skipped: data.clientIds.length - located.length };
 }
 
 const updateEndpointsSchema = z.object({

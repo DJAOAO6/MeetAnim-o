@@ -428,6 +428,17 @@ a:focus-visible {
   top: 0;
   bottom: auto;
 }
+.leaflet-container path.map-selection {
+  stroke: var(--theme-heading);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  fill: var(--theme-heading);
+  fill-opacity: 0.08;
+}
+.leaflet-container.map-area-select,
+.leaflet-container.map-area-select .leaflet-interactive {
+  cursor: crosshair;
+}
 .leaflet-container path.map-zone {
   stroke: var(--theme-heading);
   stroke-width: 1.5;

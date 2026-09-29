@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarPlus, ChevronLeft, ChevronRight, Crosshair, LocateFixed, MapPin, Maximize2, Minimize2, Navigation, Phone, UserRound } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, CircleCheck, Crosshair, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, UserRound } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -24,11 +24,12 @@ import type { AnimalSpecies } from "@/data/tours";
 import type { MapAppointment, MapClientAnimal, MapClientSummary } from "@/data/map-clients";
 import type { PublicZone } from "@/data/public-booking";
 import {
-  ACTIVITY_RANGES, appointmentsInRange, mapModeParam, matchesVisitFilter, MAP_MODES, parseActivityRange, parseMapMode, parseVisitFilter,
+  ACTIVITY_RANGES, addDaysToDateId, appointmentsInRange, mapModeParam, matchesVisitFilter, MAP_MODES, parseActivityRange, parseMapMode, parseVisitFilter,
   parseZoneFilter, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
   type ActivityRange, type MapMode, type VisitFilter, type ZoneFilter,
 } from "@/lib/map-modes";
 import { MapBottomSheet, type SheetSnap } from "@/components/tours/map-bottom-sheet";
+import { PrepareTourModal } from "@/components/tours/prepare-tour-modal";
 import { APPOINTMENT_LEGEND, appointmentStatusColors, appointmentTitle, MapAppointmentCard, MapAppointmentList, MapModeSwitcher, Segmented, ToursPanel, type PlannedTour } from "@/components/tours/map-modes";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
@@ -236,6 +237,14 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // montage, sans écart d'hydratation.
   const isPhone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE_QUERY).matches, () => false);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
+  // Sélection multiple (phase 8.5) : des clients choisis ensemble pour une
+  // action groupée — distincte de la fiche ouverte (un seul client).
+  const [marked, setMarked] = useState<string[]>([]);
+  const [areaTool, setAreaTool] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [preparingTour, setPreparingTour] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
   const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>(initialUrl.species);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
   const [dueOnly, setDueOnly] = useState(initialUrl.due);
@@ -292,6 +301,14 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (speciesPanelRef.current && !speciesPanelRef.current.contains(event.target as Node)) setSpeciesPanelOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) setToolsOpen(false);
     }
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
@@ -591,6 +608,42 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     setSelectedId(null);
     setSelectedAppointmentId(null);
     setHoveredId(null);
+    clearMarked();
+  }
+
+  function clearMarked() {
+    setMarked([]);
+    setAreaTool(false);
+    setSelectMode(false);
+  }
+
+  function toggleMarked(id: string) {
+    setMarked((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  }
+
+  function addMarked(ids: string[]) {
+    setMarked((current) => [...current, ...ids.filter((id) => !current.includes(id))]);
+  }
+
+  // Ctrl / ⌘ + clic, ou le mode sélection, ajoutent à la sélection au lieu
+  // d'ouvrir la fiche.
+  function handleClientPick(id: string, additive: boolean) {
+    if (additive || selectMode) toggleMarked(id);
+    else toggleSelection(id);
+  }
+
+  function selectVisibleClients() {
+    const inside = (point: { lat: number; lng: number }) => !mapBounds
+      || (point.lat >= mapBounds.south && point.lat <= mapBounds.north && point.lng >= mapBounds.west && point.lng <= mapBounds.east);
+    addMarked(perimeterClients.filter((client) => client.coordinates && inside(client.coordinates)).map((client) => client.id));
+    setToolsOpen(false);
+  }
+
+  function selectArea(bounds: GeoBounds) {
+    addMarked(perimeterClients.filter((client) => client.coordinates
+      && client.coordinates.lat >= bounds.south && client.coordinates.lat <= bounds.north
+      && client.coordinates.lng >= bounds.west && client.coordinates.lng <= bounds.east).map((client) => client.id));
+    setAreaTool(false);
   }
 
   function toggleAppointment(id: string) {
@@ -621,6 +674,15 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     setSelectedId((current) => (current === id ? null : id));
     setSheetSnap((current) => (current === "full" ? "mid" : current));
   }
+
+  useEffect(() => {
+    if (!areaTool) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setAreaTool(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [areaTool]);
 
   // Échap referme la fiche — sauf dans un champ, où Échap appartient au champ.
   useEffect(() => {
@@ -655,6 +717,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // visibles pour le contexte, atténués et non cliquables ; la liste, elle,
   // ne montre que ceux du périmètre.
   const insidePerimeter = new Set(perimeterClients.map((client) => client.id));
+  const markedSet = new Set(marked);
+  const markedClients = clients.filter((client) => markedSet.has(client.id));
+  const markedLocatedCount = markedClients.filter((client) => client.coordinates).length;
+  const markedDue = markedClients.filter((client) => client.dueReminderIds.length > 0);
   // Couleur des points : au choix en mode Clients ; imposée par la question
   // posée dans les autres modes.
   const effectiveColor = mapMode === "reminders" ? "visit" : colorMode;
@@ -675,6 +741,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             : lead ? resolveSpeciesColor(theme.speciesColors, lead.species) : "var(--theme-brand)",
       badge: client.dueForReminder,
       dimmed: outside,
+      marked: markedSet.has(client.id),
     };
   });
   const appointmentPoints = activityAppointments.filter((appointment) => appointment.coordinates).map((appointment) => ({
@@ -891,7 +958,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               onMouseLeave={() => setHoveredId((current) => (current === client.id ? null : current))}
               className={selected ? "bg-animeo-soft" : hoveredId === client.id ? "bg-animeo-bg" : undefined}
             >
-            <button type="button" onClick={() => toggleSelection(client.id)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
+            <button type="button" onClick={(event) => handleClientPick(client.id, event.ctrlKey || event.metaKey)} aria-current={selected ? "true" : undefined} className={`flex w-full items-center gap-3 p-4 text-left transition ${selected ? "" : "hover:bg-animeo-bg"}`}>
               <ClientBadge client={client} species={selectedSpecies} tint={18} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
@@ -902,6 +969,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                   {client.precision === "CITY" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
                 </span>
               </span>
+              {markedSet.has(client.id) ? <CircleCheck role="img" aria-label="Dans la sélection" className="h-5 w-5 shrink-0 text-animeo-dark" /> : null}
               {distance !== null ? <span className="shrink-0 text-xs font-extrabold tabular-nums text-animeo-dark">{formatKm(distance)}</span> : null}
               {client.dueForReminder ? <span className="shrink-0 rounded-full bg-animeo-warning-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-warning">À relancer</span> : null}
             </button>
@@ -1169,6 +1237,37 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 Zones de tournée
               </button>
             ) : null}
+            {mapMode !== "activity" ? (
+              <div ref={toolsRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setToolsOpen((current) => !current)}
+                  aria-haspopup="true"
+                  aria-expanded={toolsOpen}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${areaTool || selectMode ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+                >
+                  <SquareDashedMousePointer aria-hidden="true" className="h-3.5 w-3.5" />
+                  Outils de carte
+                </button>
+                {toolsOpen ? (
+                  <div role="group" aria-label="Outils de carte" className="absolute left-0 z-30 mt-1.5 w-72 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
+                    {/* Tracer au doigt est peu fiable : sur téléphone, les clients visibles et le mode sélection suffisent. */}
+                    {!isPhone ? (
+                      <button type="button" onClick={() => { setAreaTool(true); setSelectedId(null); setToolsOpen(false); }} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
+                        <SquareDashedMousePointer aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />Sélectionner une zone
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={selectVisibleClients} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
+                      <ListChecks aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />Sélectionner les clients visibles
+                    </button>
+                    <button type="button" aria-pressed={selectMode} onClick={() => { setSelectMode((current) => !current); setSelectedId(null); setToolsOpen(false); }} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
+                      <MousePointerClick aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />{selectMode ? "Quitter le mode sélection" : "Choisir des clients un par un"}
+                    </button>
+                    {!isPhone ? <p className="px-2.5 pb-1.5 pt-1 text-[11px] text-animeo-muted">Astuce : Ctrl + clic (⌘ + clic sur Mac) ajoute un client à la sélection.</p> : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <button type="button" onClick={recenter} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark">
               <Crosshair aria-hidden="true" className="h-3.5 w-3.5" />
               Recentrer
@@ -1193,10 +1292,38 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               </button>
             </div>
           </div>
+          {areaTool ? (
+            <p role="status" className="mb-3 flex items-center gap-2 rounded-xl bg-animeo-dark px-3 py-2 text-xs font-bold text-white">
+              <SquareDashedMousePointer aria-hidden="true" className="h-4 w-4 shrink-0" />
+              Tracez un rectangle sur la carte pour sélectionner les clients qu’il contient.
+              <button type="button" onClick={() => setAreaTool(false)} className="ml-auto inline-flex min-h-9 items-center rounded-lg px-2 underline underline-offset-4">Annuler</button>
+            </p>
+          ) : selectMode ? (
+            <p role="status" className="mb-3 flex items-center gap-2 rounded-xl bg-animeo-dark px-3 py-2 text-xs font-bold text-white">
+              <MousePointerClick aria-hidden="true" className="h-4 w-4 shrink-0" />
+              Touchez des clients (carte ou liste) pour les ajouter à la sélection.
+              <button type="button" onClick={() => setSelectMode(false)} className="ml-auto inline-flex min-h-9 items-center rounded-lg px-2 underline underline-offset-4">Terminer</button>
+            </p>
+          ) : null}
+          {marked.length > 0 && mapMode !== "activity" ? (
+            <div role="region" aria-label="Sélection" data-testid="map-selection-bar" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-animeo-border bg-animeo-soft px-3 py-2.5">
+              <p className="mr-auto text-sm font-extrabold text-animeo-dark">{marked.length} client{marked.length > 1 ? "s" : ""} sélectionné{marked.length > 1 ? "s" : ""}</p>
+              <button type="button" onClick={() => setPreparingTour(true)} disabled={markedLocatedCount === 0} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-50">
+                <Route aria-hidden="true" className="h-4 w-4" />Préparer une tournée
+              </button>
+              {markedDue.length > 0 ? <SendRemindersButton clients={markedDue} scope="de la sélection" onDone={() => router.refresh()} /> : null}
+              <button type="button" onClick={clearMarked} className="inline-flex min-h-11 items-center px-2 text-xs font-extrabold text-animeo-muted underline decoration-dotted underline-offset-4 hover:text-animeo-dark">Tout désélectionner</button>
+            </div>
+          ) : null}
+          {preparingTour ? (
+            <PrepareTourModal clientIds={marked} locatedCount={markedLocatedCount} defaultDateId={addDaysToDateId(todayId, 1)} onClose={() => setPreparingTour(false)} />
+          ) : null}
           <RealMap
             points={points}
             selectedId={mapMode === "activity" ? (selectedAppointment?.coordinates ? selectedAppointment.id : undefined) : selectedClient?.coordinates ? selectedClient.id : undefined}
-            onSelect={mapMode === "activity" ? toggleAppointment : toggleSelection}
+            onSelect={mapMode === "activity" ? toggleAppointment : (id, options) => handleClientPick(id, options?.additive ?? false)}
+            areaSelect={areaTool}
+            onAreaSelect={selectArea}
             onBackgroundClick={() => { setSelectedId(null); setSelectedAppointmentId(null); }}
             // ← → passent d'un client à l'autre (voir handleNavigationKeys) ;
             // la carte se déplace à la souris, au doigt, ou par les boutons.
@@ -1257,6 +1384,22 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
  */
 function ZoneReminders({ clients, onDone }: { clients: MapClient[]; onDone: () => void }) {
   const modules = useCurrentUser()?.modules ?? [];
+  if (!hasModule(modules, "REMINDERS")) return null;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm text-animeo-dark">
+      <p className="min-w-0 flex-1"><strong>{clients.length} client{clients.length > 1 ? "s" : ""} à relancer</strong> dans cette zone.</p>
+      <SendRemindersButton clients={clients} scope="de cette zone" onDone={onDone} label="Envoyer les rappels" />
+    </div>
+  );
+}
+
+/**
+ * Envoi groupé des rappels « à relancer » de quelques clients (zone,
+ * sélection), avec le système de rappels existant, après confirmation.
+ * Absent sans le module Rappels.
+ */
+function SendRemindersButton({ clients, scope, onDone, label }: { clients: MapClient[]; scope: string; onDone: () => void; label?: string }) {
+  const modules = useCurrentUser()?.modules ?? [];
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
   if (!hasModule(modules, "REMINDERS")) return null;
@@ -1274,15 +1417,14 @@ function ZoneReminders({ clients, onDone }: { clients: MapClient[]; onDone: () =
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm text-animeo-dark">
-      <p className="min-w-0 flex-1"><strong>{clients.length} client{clients.length > 1 ? "s" : ""} à relancer</strong> dans cette zone.</p>
+    <>
       <button type="button" onClick={() => setConfirming(true)} disabled={sending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
-        {sending ? "Envoi…" : "Envoyer les rappels"}
+        {sending ? "Envoi…" : label ?? `Envoyer les rappels (${clients.length})`}
       </button>
       {confirming ? (
         <ConfirmModal
           title={`Envoyer ${ids.length} rappel${ids.length > 1 ? "s" : ""} ?`}
-          message={`Un e-mail de relance part vers ${clients.length} client${clients.length > 1 ? "s" : ""} de cette zone (${clients.map((client) => client.ownerName).slice(0, 4).join(", ")}${clients.length > 4 ? "…" : ""}), avec le lien de prise de rendez-vous.`}
+          message={`Un e-mail de relance part vers ${clients.length} client${clients.length > 1 ? "s" : ""} ${scope} (${clients.map((client) => client.ownerName).slice(0, 4).join(", ")}${clients.length > 4 ? "…" : ""}), avec le lien de prise de rendez-vous.`}
           confirmLabel="Envoyer"
           cancelLabel="Annuler"
           destructive={false}
@@ -1290,7 +1432,7 @@ function ZoneReminders({ clients, onDone }: { clients: MapClient[]; onDone: () =
           onClose={() => setConfirming(false)}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 

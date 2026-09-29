@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import type { GeoJsonObject } from "geojson";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Supercluster from "supercluster";
-import { Circle, GeoJSON, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { Circle, GeoJSON, MapContainer, Marker, Polyline, Rectangle, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { destinationPoint, haversineDistanceKm, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 
 export type RealMapPoint = {
@@ -20,6 +20,8 @@ export type RealMapPoint = {
   // Hors du périmètre choisi : gardé pour le contexte, atténué et non
   // cliquable. Absent = marqueur normal.
   dimmed?: boolean;
+  // Dans la sélection multiple : anneau foncé autour du point.
+  marked?: boolean;
 };
 
 export type RealMapArea = { id: string; geometry: TerritoryGeometry };
@@ -44,7 +46,7 @@ export type RealMapFocus = {
 type RealMapProps = {
   points: RealMapPoint[];
   selectedId?: string;
-  onSelect?: (id: string) => void;
+  onSelect?: (id: string, options?: { additive: boolean }) => void;
   heightClassName?: string;
   overlay?: ReactNode;
   circle?: RealMapCircle | null;
@@ -109,6 +111,10 @@ type RealMapProps = {
   // le DOM, jamais dedans ; la mention OpenStreetMap remonte en haut pour
   // rester visible.
   bottomSheet?: ReactNode;
+  // Sélection d'une zone : tracer un rectangle à la souris (la carte ne se
+  // déplace plus pendant ce temps) ; l'emprise est rendue au relâchement.
+  areaSelect?: boolean;
+  onAreaSelect?: (bounds: GeoBounds) => void;
 };
 
 // Repli neutre (aucun point, aucun cabinet géocodé) : vue centrée sur la
@@ -183,7 +189,7 @@ const pinIcon = L.divIcon({
 const iconCache = new Map<string, L.DivIcon>();
 
 function markerIcon(point: RealMapPoint, selected: boolean) {
-  const key = `${point.color}|${point.label}|${selected}|${point.badge ?? false}|${point.dimmed ?? false}`;
+  const key = `${point.color}|${point.label}|${selected}|${point.badge ?? false}|${point.dimmed ?? false}|${point.marked ?? false}`;
   const cached = iconCache.get(key);
   if (cached) return cached;
   const icon = buildMarkerIcon(point, selected);
@@ -205,7 +211,7 @@ function buildMarkerIcon(point: RealMapPoint, selected: boolean) {
   const badge = point.badge ? `<span style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:9999px;background:#f4b860;border:2px solid white;"></span>` : "";
   return L.divIcon({
     className: "",
-    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;${point.dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${point.label}${badge}</span>`,
+    html: `<span style="position:relative;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:9999px;background:${point.color};border:2px solid white;box-shadow:${point.marked ? "0 0 0 3px white,0 0 0 6px var(--theme-heading)," : ""}0 6px 15px rgb(var(--theme-shadow-rgb)/0.28);font-size:${selected ? 18 : 15}px;transition:all .15s ease;${point.dimmed ? "opacity:.35;filter:grayscale(.6);" : ""}">${point.label}${badge}</span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -239,7 +245,7 @@ type ClusterPointProps = { id: string };
  * seulement, jamais les coordonnées. Le point choisi n'est jamais caché
  * dans un groupe.
  */
-function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover }: { points: RealMapPoint[]; selectedId?: string; onSelect?: (id: string) => void; highlightedId?: string | null; onHover?: (id: string | null) => void }) {
+function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover }: { points: RealMapPoint[]; selectedId?: string; onSelect?: (id: string, options?: { additive: boolean }) => void; highlightedId?: string | null; onHover?: (id: string | null) => void }) {
   const map = useMap();
   const [view, setView] = useState(() => ({ bounds: map.getBounds(), zoom: map.getZoom() }));
   const [spider, setSpider] = useState<{ center: L.LatLng; ids: string[] } | null>(null);
@@ -322,7 +328,7 @@ function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover
   );
 }
 
-function PointMarker({ point, selected, highlighted = false, onSelect, onHover, position }: { point: RealMapPoint; selected: boolean; highlighted?: boolean; onSelect?: (id: string) => void; onHover?: (id: string | null) => void; position?: L.LatLng }) {
+function PointMarker({ point, selected, highlighted = false, onSelect, onHover, position }: { point: RealMapPoint; selected: boolean; highlighted?: boolean; onSelect?: (id: string, options?: { additive: boolean }) => void; onHover?: (id: string | null) => void; position?: L.LatLng }) {
   const markerRef = useRef<L.Marker>(null);
   // Halo de survol posé sur l'élément existant (classe CSS) : changer l'icône
   // remplacerait l'élément sous la souris et un clic en cours serait perdu.
@@ -341,7 +347,7 @@ function PointMarker({ point, selected, highlighted = false, onSelect, onHover, 
       keyboard={!point.dimmed}
       zIndexOffset={selected ? 800 : 0}
       eventHandlers={point.dimmed ? {} : {
-        click: () => onSelect?.(point.id),
+        click: (event: L.LeafletMouseEvent) => onSelect?.(point.id, { additive: event.originalEvent.ctrlKey || event.originalEvent.metaKey }),
         mouseover: () => onHover?.(point.id),
         mouseout: () => onHover?.(null),
       }}
@@ -349,13 +355,46 @@ function PointMarker({ point, selected, highlighted = false, onSelect, onHover, 
   );
 }
 
-function PointMarkerWithLeg({ point, position, origin, onSelect, onHover, highlighted }: { point: RealMapPoint; position: L.LatLng; origin: L.LatLng; onSelect?: (id: string) => void; onHover?: (id: string | null) => void; highlighted?: boolean }) {
+function PointMarkerWithLeg({ point, position, origin, onSelect, onHover, highlighted }: { point: RealMapPoint; position: L.LatLng; origin: L.LatLng; onSelect?: (id: string, options?: { additive: boolean }) => void; onHover?: (id: string | null) => void; highlighted?: boolean }) {
   return (
     <>
       <Polyline positions={[origin, position]} pathOptions={{ className: "map-spider-leg" }} interactive={false} />
       <PointMarker point={point} selected={false} highlighted={highlighted} onSelect={onSelect} onHover={onHover} position={position} />
     </>
   );
+}
+
+/**
+ * Tracé d'un rectangle de sélection. Pendant l'outil, glisser trace au lieu
+ * de déplacer la carte ; un simple clic (moins de quelques pixels) ne
+ * sélectionne rien.
+ */
+function AreaSelector({ onSelect }: { onSelect: (bounds: GeoBounds) => void }) {
+  const map = useMap();
+  const startRef = useRef<L.LatLng | null>(null);
+  const [box, setBox] = useState<L.LatLngBounds | null>(null);
+  useEffect(() => {
+    map.dragging.disable();
+    map.getContainer().classList.add("map-area-select");
+    return () => {
+      map.dragging.enable();
+      map.getContainer().classList.remove("map-area-select");
+    };
+  }, [map]);
+  useMapEvents({
+    mousedown: (event) => { startRef.current = event.latlng; setBox(L.latLngBounds(event.latlng, event.latlng)); },
+    mousemove: (event) => { if (startRef.current) setBox(L.latLngBounds(startRef.current, event.latlng)); },
+    mouseup: (event) => {
+      const start = startRef.current;
+      startRef.current = null;
+      setBox(null);
+      if (!start) return;
+      if (map.latLngToContainerPoint(start).distanceTo(map.latLngToContainerPoint(event.latlng)) < 8) return;
+      const bounds = L.latLngBounds(start, event.latlng);
+      onSelect({ south: bounds.getSouth(), west: bounds.getWest(), north: bounds.getNorth(), east: bounds.getEast() });
+    },
+  });
+  return box ? <Rectangle bounds={box} pathOptions={{ className: "map-selection" }} interactive={false} /> : null;
 }
 
 /** Emprise affichée : au départ, puis à chaque fin de déplacement ou de zoom. */
@@ -476,7 +515,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -492,6 +531,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
       <MapContainer center={center} zoom={zoom} scrollWheelZoom={wheelZoom === "always"} keyboard={keyboard} className="h-full w-full" ref={mapRef}>
         {wheelZoom === "afterClick" ? <WheelActivation onHint={setWheelHint} /> : null}
         {onViewChange ? <ViewTracker onChange={onViewChange} /> : null}
+        {areaSelect && onAreaSelect ? <AreaSelector onSelect={onAreaSelect} /> : null}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -537,7 +577,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
             title={point.title}
             interactive={!point.dimmed}
             keyboard={!point.dimmed}
-            eventHandlers={point.dimmed ? {} : { click: () => onSelect?.(point.id) }}
+            eventHandlers={point.dimmed ? {} : { click: (event) => onSelect?.(point.id, { additive: event.originalEvent.ctrlKey || event.originalEvent.metaKey }) }}
           />
         ))}
       </MapContainer>
