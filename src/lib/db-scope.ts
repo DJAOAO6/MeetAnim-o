@@ -55,6 +55,7 @@ export const TENANT_MODELS = new Set([
   "TourStop",
   "SavedPlace",
   "ClientImport",
+  "MapView",
 ]);
 
 /**

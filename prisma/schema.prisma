@@ -194,28 +194,28 @@ enum AuditAction {
 }
 
 model User {
-  id                String          @id @default(cuid())
-  email             String          @unique
-  passwordHash      String
-  firstName         String
-  lastName          String
-  role              UserRole        @default(PRACTITIONER)
-  permissions       String[]        @default([])
-  active            Boolean         @default(true)
-  twoFactorEnabled  Boolean         @default(false)
-  twoFactorMethod   TwoFactorMethod @default(EMAIL)
+  id                  String          @id @default(cuid())
+  email               String          @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                UserRole        @default(PRACTITIONER)
+  permissions         String[]        @default([])
+  active              Boolean         @default(true)
+  twoFactorEnabled    Boolean         @default(false)
+  twoFactorMethod     TwoFactorMethod @default(EMAIL)
   // Super-administration : peut voir tous les cabinets et assister un
   // professionnel. Indépendant du rôle dans un cabinet. **Jamais modifié par
   // un écran** : il est synchronisé au démarrage depuis la variable
   // d'environnement PLATFORM_ADMIN_EMAILS (voir src/lib/platform/grants.ts).
-  platformAdmin     Boolean         @default(false)
+  platformAdmin       Boolean         @default(false)
   // Annonce des nouvelles demandes de rendez-vous par le teckel animé.
   // Préférence personnelle, réglée dans Paramètres › Personnalisation.
-  newRequestAnimation Boolean       @default(true)
-  passwordChangedAt DateTime        @default(now())
-  lastLoginAt       DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  newRequestAnimation Boolean         @default(true)
+  passwordChangedAt   DateTime        @default(now())
+  lastLoginAt         DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   // Abonnement ICS privé (Apple Calendar et assimilés) : un jeton par
   // utilisateur, jamais l'id utilisateur directement dans l'URL du flux
@@ -237,6 +237,7 @@ model User {
   tourPreferences         TourPreferences?
   dashboardPreferences    DashboardPreferences?
   agendaPreferences       AgendaPreferences?
+  mapViews                MapView[]
   clientImports           ClientImport[]
   studioDocuments         StudioDocument[]
   studioDocumentTemplates StudioDocumentTemplate[]
@@ -403,9 +404,9 @@ model Client {
   // clients : ces coordonnées passent en premier (getMapClientSummaries) ;
   // les tournées, qui raisonnent par animal, privilégient encore le
   // dernier rendez-vous à domicile (getMapClients).
-  latitude   Float?
-  longitude  Float?
-  geocodedAt DateTime?
+  latitude         Float?
+  longitude        Float?
+  geocodedAt       DateTime?
   // Précision de la position : numéro trouvé, rue seule, ou commune
   // seulement. Nulle sans position — ou pour une position enregistrée
   // avant qu'elle soit mesurée.
@@ -1282,6 +1283,7 @@ model Organization {
   tours                     Tour[]
   services                  Service[]
   tourRuns                  TourRun[]
+  mapViews                  MapView[]
   tourStops                 TourStop[]
   savedPlaces               SavedPlace[]
   clientImports             ClientImport[]
@@ -1324,4 +1326,27 @@ model Invitation {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([email])
+}
+
+/// Vue enregistrée de la carte clients (phase 8.6) : un nom et l'état de la
+/// carte (mode, filtres, lieu, rayon, couleur, zone…), sous la forme de
+/// l'adresse de la page. Propre à un compte, dans son espace professionnel
+/// (les zones et tournées qu'elle cite n'existent que là). Jamais de
+/// position GPS de l'appareil : « Autour de moi » ne s'écrit pas dans
+/// l'adresse.
+model MapView {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  query  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, name])
+  @@index([organizationId])
 }

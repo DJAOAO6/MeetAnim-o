@@ -3,6 +3,7 @@ import { ClientsMap } from "@/components/tours/clients-map";
 import { PageHeader } from "@/components/layout/page-header";
 import { getMapAppointments, getMapClientSummaries } from "@/lib/map-clients";
 import { parisDateId } from "@/lib/paris-time";
+import { getMapViews } from "@/lib/map-views";
 import { getPublicZones, getTours } from "@/lib/tours";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { requireUser } from "@/lib/auth/dal";
@@ -20,7 +21,7 @@ export const metadata: Metadata = { title: "Carte clients" };
 export default async function CartePage() {
   const moduleUser = await requireUser();
   if (!hasModule(moduleUser.modules, "TOURS")) return <ModuleClosed moduleKey="TOURS" />;
-  const [mapClients, profile, zones, tours, appointments] = await Promise.all([getMapClientSummaries(), getBusinessProfile(), getPublicZones(), getTours(), getMapAppointments()]);
+  const [mapClients, profile, zones, tours, appointments, savedViews] = await Promise.all([getMapClientSummaries(), getBusinessProfile(), getPublicZones(), getTours(), getMapAppointments(), getMapViews()]);
   const cabinetCoordinates = profile.latitude != null && profile.longitude != null ? { lat: profile.latitude, lng: profile.longitude } : null;
 
   return (
@@ -37,6 +38,7 @@ export default async function CartePage() {
           : []))}
         appointments={appointments}
         todayId={parisDateId()}
+        savedViews={savedViews}
       />
     </>
   );

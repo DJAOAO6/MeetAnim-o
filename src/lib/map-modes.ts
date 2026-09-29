@@ -121,3 +121,21 @@ export function parseZoneFilter(value: string | null): ZoneFilter | null {
 export function zoneFilterParam(filter: ZoneFilter): string {
   return filter.kind === "none" ? "aucune" : filter.kind === "tour" ? `tournee:${filter.id}` : filter.id;
 }
+
+/**
+ * Réglages de la carte qu'une vue enregistrée peut contenir : ceux de
+ * l'adresse de la page, sauf le client ou le rendez-vous ouvert (une vue est
+ * un cadrage, pas une sélection). La position de l'appareil n'y figure
+ * jamais : « Autour de moi » ne s'écrit pas dans l'adresse.
+ */
+const MAP_VIEW_KEYS = ["mode", "periode", "suivi", "zone", "especes", "relance", "couleur", "vue", "zones", "lieu", "nom", "rayon", "commune", "adresse", "territoire"];
+
+export function sanitizeMapQuery(query: string): string {
+  const source = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
+  const kept = new URLSearchParams();
+  for (const key of MAP_VIEW_KEYS) {
+    const value = source.get(key);
+    if (value !== null && value.length <= 200) kept.set(key, value);
+  }
+  return kept.toString();
+}

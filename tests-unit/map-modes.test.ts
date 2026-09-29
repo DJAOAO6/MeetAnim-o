@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   addDaysToDateId, appointmentsInRange, dayHeading, mapModeParam, matchesVisitFilter, monthsBetween, parseMapMode,
-  parseZoneFilter, visitTier, zoneFilterParam, zoneIdsOf,
+  parseZoneFilter, sanitizeMapQuery, visitTier, zoneFilterParam, zoneIdsOf,
 } from "../src/lib/map-modes";
 import type { MapAppointment } from "../src/data/map-clients";
 import type { PublicZone } from "../src/data/public-booking";
@@ -61,4 +61,10 @@ test("filtre de zone : aller-retour par l'adresse", () => {
     assert.deepEqual(parseZoneFilter(zoneFilterParam(filter)), filter);
   }
   assert.equal(parseZoneFilter(null), null);
+});
+
+test("vue enregistrée : seuls les réglages de la carte, jamais la sélection ni l'inconnu", () => {
+  assert.equal(sanitizeMapQuery("?mode=relances&suivi=old&client=abc&rdv=x&pirate=1"), "mode=relances&suivi=old");
+  assert.equal(sanitizeMapQuery("lieu=49.1,1.2&nom=Caen&rayon=15"), "lieu=49.1%2C1.2&nom=Caen&rayon=15");
+  assert.equal(sanitizeMapQuery(""), "");
 });

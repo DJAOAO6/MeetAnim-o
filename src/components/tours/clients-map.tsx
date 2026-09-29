@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarPlus, ChevronLeft, ChevronRight, CircleCheck, Crosshair, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, UserRound } from "lucide-react";
+import { Bookmark, CalendarPlus, ChevronLeft, ChevronRight, CircleCheck, Crosshair, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -20,12 +20,16 @@ import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode"
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
+import { deleteMapViewAction, saveMapViewAction } from "@/lib/map-views-actions";
+import type { MapViewSummary } from "@/lib/map-views";
 import type { AnimalSpecies } from "@/data/tours";
 import type { MapAppointment, MapClientAnimal, MapClientSummary } from "@/data/map-clients";
 import type { PublicZone } from "@/data/public-booking";
 import {
   ACTIVITY_RANGES, addDaysToDateId, appointmentsInRange, mapModeParam, matchesVisitFilter, MAP_MODES, parseActivityRange, parseMapMode, parseVisitFilter,
-  parseZoneFilter, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
+  parseZoneFilter, sanitizeMapQuery, VISIT_FILTERS, visitTier, zoneFilterParam, zoneIdsOf,
   type ActivityRange, type MapMode, type VisitFilter, type ZoneFilter,
 } from "@/lib/map-modes";
 import { MapBottomSheet, type SheetSnap } from "@/components/tours/map-bottom-sheet";
@@ -50,6 +54,8 @@ type ClientsMapProps = {
   appointments?: MapAppointment[];
   /** Jour de référence (AAAA-MM-JJ, heure de Paris), fixé par le serveur. */
   todayId?: string;
+  /** Vues enregistrées du compte (phase 8.6). */
+  savedViews?: MapViewSummary[];
 };
 
 type ColorMode = "species" | "visit" | "due";
@@ -128,6 +134,57 @@ function parseMapUrl(params: URLSearchParams): MapUrlState {
     zone: parseZoneFilter(params.get("zone")),
     appointment: params.get("rdv"),
   };
+}
+
+/**
+ * L'inverse de parseMapUrl : l'état de la carte écrit dans l'adresse. Sert à
+ * l'adresse de la page et aux vues enregistrées — une seule écriture, pour
+ * qu'une vue rouverte soit exactement la carte enregistrée.
+ */
+function buildMapQuery(state: {
+  species: AnimalSpecies[];
+  due: boolean;
+  color: ColorMode;
+  visibleOnly: boolean;
+  showZones: boolean;
+  center: PerimeterCenter | null;
+  radius: number;
+  territory: { type: "departement" | "region"; code: string; label: string } | null;
+  selectedId: string | null;
+  mode: MapMode;
+  range: ActivityRange;
+  appointmentId: string | null;
+  visit: VisitFilter;
+  zone: ZoneFilter | null;
+}): string {
+  const params = new URLSearchParams();
+  if (state.species.length) params.set("especes", state.species.join(","));
+  if (state.due) params.set("relance", "1");
+  if (state.color !== "species") params.set("couleur", state.color);
+  if (state.visibleOnly) params.set("vue", "visible");
+  if (state.showZones) params.set("zones", "1");
+  // « Autour de moi » ne s'écrit jamais : la position de l'appareil reste privée.
+  if (state.center && !state.center.me) {
+    params.set("lieu", `${state.center.lat.toFixed(5)},${state.center.lng.toFixed(5)}`);
+    params.set("nom", state.center.label);
+    params.set("rayon", String(Math.round(state.radius)));
+    if (state.center.communeCode) params.set("commune", state.center.communeCode);
+    if (state.center.pin) params.set("adresse", "1");
+  }
+  if (state.territory) {
+    params.set("territoire", `${state.territory.type}:${state.territory.code}`);
+    params.set("nom", state.territory.label);
+  }
+  if (state.selectedId) params.set("client", state.selectedId);
+  const modeParam = mapModeParam(state.mode);
+  if (modeParam) params.set("mode", modeParam);
+  if (state.mode === "activity") {
+    if (state.range !== "7") params.set("periode", state.range);
+    if (state.appointmentId) params.set("rdv", state.appointmentId);
+  }
+  if (state.mode === "reminders" && state.visit !== "all") params.set("suivi", state.visit);
+  if (state.mode === "tours" && state.zone) params.set("zone", zoneFilterParam(state.zone));
+  return params.toString();
 }
 
 // Cercle autour d'un point : une adresse (épingle) ou une commune (contour
@@ -217,7 +274,7 @@ function subscribePhone(onChange: () => void) {
   return () => media.removeEventListener("change", onChange);
 }
 
-export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = "BOTH", zones = [], plannedTours = [], appointments = [], todayId: todayIdProp }: ClientsMapProps) {
+export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = "BOTH", zones = [], plannedTours = [], appointments = [], todayId: todayIdProp, savedViews = [] }: ClientsMapProps) {
   const { theme } = useDashboardTheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -245,6 +302,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const [toolsOpen, setToolsOpen] = useState(false);
   const [preparingTour, setPreparingTour] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
+  // Mes vues (phase 8.6) : cadrages enregistrés du compte.
+  const [views, setViews] = useState<MapViewSummary[]>(savedViews);
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [savingView, setSavingView] = useState(false);
+  const [viewToDelete, setViewToDelete] = useState<MapViewSummary | null>(null);
+  const viewsRef = useRef<HTMLDivElement>(null);
   const [selectedSpecies, setSelectedSpecies] = useState<AnimalSpecies[]>(initialUrl.species);
   const [speciesPanelOpen, setSpeciesPanelOpen] = useState(false);
   const [dueOnly, setDueOnly] = useState(initialUrl.due);
@@ -309,6 +372,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
       if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) setToolsOpen(false);
+      if (viewsRef.current && !viewsRef.current.contains(event.target as Node)) setViewsOpen(false);
     }
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
@@ -764,6 +828,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Clients à relancer dans le périmètre (action groupée, 7.9).
   const dueInPerimeter = hasPerimeter ? perimeterClients.filter((client) => client.dueReminderIds.length > 0) : [];
   const practiceLabel = hasCabinet(practiceMode) ? "Mon cabinet" : "Mon lieu d’exercice";
+  // Ce qu'enregistrerait « Enregistrer cette vue » : l'adresse, sans le
+  // client ni le rendez-vous ouverts.
+  const viewQuery = sanitizeMapQuery(buildMapQuery({
+    species: selectedSpecies, due: dueOnly, color: colorMode, visibleOnly, showZones, center: perimeterCenter, radius: perimeterRadiusKm,
+    territory, selectedId: null, mode: mapMode, range: activityRange, appointmentId: null, visit: visitFilter, zone: zoneFilter,
+  }));
+  const activeView = views.find((view) => view.query === viewQuery) ?? null;
   const practiceDistanceOrigin = cabinetCoordinates ? { ...cabinetCoordinates, from: hasCabinet(practiceMode) ? "du cabinet" : "du lieu d’exercice" } : null;
 
   function boundsOf(list: MapClientSummary[]): GeoBounds | null {
@@ -797,54 +868,90 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   // Lieu ou territoire venus de l'adresse : leurs contours se chargent au
   // départ (un nouveau lieu choisi ensuite annule ces chargements).
-  useEffect(() => {
-    const code = initialUrl.center?.communeCode;
+  function loadPlaceContours(state: MapUrlState, requestId: number) {
+    const code = state.center?.communeCode;
     if (code) void fetchTerritory("commune", code).then((loaded) => {
-      if (loaded && placeRequestRef.current === 0) setCommuneArea({ code, geometry: loaded.geometry });
+      if (loaded && placeRequestRef.current === requestId) setCommuneArea({ code, geometry: loaded.geometry });
     });
-    const fromUrl = initialUrl.territory;
-    if (fromUrl) void fetchTerritory(fromUrl.type, fromUrl.code).then((loaded) => {
-      if (placeRequestRef.current !== 0) return;
-      if (!loaded) { setTerritory({ ...fromUrl, status: "error" }); return; }
-      setTerritory({ ...fromUrl, status: "ready", geometry: loaded.geometry, bounds: loaded.bounds });
+    const fromState = state.territory;
+    if (fromState) void fetchTerritory(fromState.type, fromState.code).then((loaded) => {
+      if (placeRequestRef.current !== requestId) return;
+      if (!loaded) { setTerritory({ ...fromState, status: "error" }); return; }
+      setTerritory({ ...fromState, status: "ready", geometry: loaded.geometry, bounds: loaded.bounds });
       fitTo(loaded.bounds);
     });
+  }
+
+  useEffect(() => {
+    loadPlaceContours(initialUrl, 0);
     // Une seule fois, au départ.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Rouvrir une vue enregistrée (ou « Tous mes clients », la vue vide) :
+  // tout l'état de la carte est remplacé, rien ne reste de la précédente.
+  function applyMapQuery(query: string) {
+    const state = parseMapUrl(new URLSearchParams(query));
+    placeRequestRef.current += 1;
+    const requestId = placeRequestRef.current;
+    setSelectedSpecies(state.species);
+    setDueOnly(state.due);
+    setColorMode(state.color);
+    setVisibleOnly(state.visibleOnly);
+    setShowZones(state.showZones);
+    setMapMode(state.mode);
+    setActivityRange(state.range);
+    setVisitFilter(state.visit);
+    setZoneFilter(state.zone);
+    setSelectedId(null);
+    setSelectedAppointmentId(null);
+    clearMarked();
+    setMyPosition(null);
+    setPositionError(null);
+    setSortMode("name");
+    setQuery("");
+    setCommuneArea(null);
+    setPerimeterCenter(state.center);
+    setPerimeterRadiusKm(state.radius);
+    setCircleHandleResetKey((current) => current + 1);
+    setTerritory(state.territory ? { ...state.territory, status: "loading" } : null);
+    if (state.center) fitTo(circleBounds(state.center, state.radius));
+    else if (!state.territory) {
+      const bounds = boundsOf(clients);
+      if (bounds) fitTo(bounds);
+    }
+    loadPlaceContours(state, requestId);
+    setViewsOpen(false);
+  }
+
+  async function saveView(name: string): Promise<boolean> {
+    const result = await saveMapViewAction({ name, query: viewQuery });
+    if (!result.ok) {
+      notify.error(result.error);
+      return false;
+    }
+    setViews((current) => [...current.filter((view) => view.id !== result.view.id), result.view].sort((a, b) => nameCollator.compare(a.name, b.name)));
+    notify.success(result.replaced ? `Vue « ${result.view.name} » mise à jour.` : `Vue « ${result.view.name} » enregistrée.`);
+    return true;
+  }
+
+  async function deleteView(view: MapViewSummary) {
+    setViewToDelete(null);
+    const result = await deleteMapViewAction(view.id);
+    if (!result.ok) { notify.error("La vue n’a pas pu être supprimée."); return; }
+    setViews((current) => current.filter((item) => item.id !== view.id));
+    notify.success(`Vue « ${view.name} » supprimée.`);
+  }
 
   // L'adresse suit la carte : history.replaceState (pas d'entrée d'historique
   // par clic, et surtout pas de rechargement serveur qui reconstruirait les
   // marqueurs), avec un court délai pour ne pas réécrire pendant un glisser.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const params = new URLSearchParams();
-      if (selectedSpecies.length) params.set("especes", selectedSpecies.join(","));
-      if (dueOnly) params.set("relance", "1");
-      if (colorMode !== "species") params.set("couleur", colorMode);
-      if (visibleOnly) params.set("vue", "visible");
-      if (showZones) params.set("zones", "1");
-      if (perimeterCenter && !perimeterCenter.me) {
-        params.set("lieu", `${perimeterCenter.lat.toFixed(5)},${perimeterCenter.lng.toFixed(5)}`);
-        params.set("nom", perimeterCenter.label);
-        params.set("rayon", String(Math.round(perimeterRadiusKm)));
-        if (perimeterCenter.communeCode) params.set("commune", perimeterCenter.communeCode);
-        if (perimeterCenter.pin) params.set("adresse", "1");
-      }
-      if (territory) {
-        params.set("territoire", `${territory.type}:${territory.code}`);
-        params.set("nom", territory.label);
-      }
-      if (selectedId) params.set("client", selectedId);
-      const modeParam = mapModeParam(mapMode);
-      if (modeParam) params.set("mode", modeParam);
-      if (mapMode === "activity") {
-        if (activityRange !== "7") params.set("periode", activityRange);
-        if (selectedAppointmentId) params.set("rdv", selectedAppointmentId);
-      }
-      if (mapMode === "reminders" && visitFilter !== "all") params.set("suivi", visitFilter);
-      if (mapMode === "tours" && zoneFilter) params.set("zone", zoneFilterParam(zoneFilter));
-      const next = params.toString();
+      const next = buildMapQuery({
+        species: selectedSpecies, due: dueOnly, color: colorMode, visibleOnly, showZones, center: perimeterCenter, radius: perimeterRadiusKm,
+        territory, selectedId, mode: mapMode, range: activityRange, appointmentId: selectedAppointmentId, visit: visitFilter, zone: zoneFilter,
+      });
       if (next !== window.location.search.replace(/^\?/, "")) window.history.replaceState(window.history.state, "", next ? `${pathname}?${next}` : pathname);
     }, 300);
     return () => window.clearTimeout(timer);
@@ -1018,7 +1125,52 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           <div className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
             <MapModeSwitcher mode={mapMode} onChange={changeMode} />
             <p className="text-xs font-semibold text-animeo-muted" data-testid="map-mode-question">{MAP_MODES.find((mode) => mode.id === mapMode)!.question}</p>
+            <div ref={viewsRef} className="relative ml-auto">
+              <button
+                type="button"
+                onClick={() => setViewsOpen((current) => !current)}
+                aria-haspopup="true"
+                aria-expanded={viewsOpen}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-bg px-3.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+              >
+                <Bookmark aria-hidden="true" className="h-3.5 w-3.5" />
+                {activeView ? activeView.name : !viewQuery ? "Tous mes clients" : "Mes vues"}
+                <ChevronIcon />
+              </button>
+              {viewsOpen ? (
+                <div role="group" aria-label="Mes vues" className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
+                  <button type="button" onClick={() => applyMapQuery("")} aria-current={!viewQuery ? "true" : undefined} className="flex min-h-11 w-full items-center rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg aria-[current=true]:bg-animeo-soft">
+                    Tous mes clients
+                  </button>
+                  {views.map((view) => (
+                    <div key={view.id} className="flex items-center">
+                      <button type="button" onClick={() => applyMapQuery(view.query)} aria-current={activeView?.id === view.id ? "true" : undefined} className="flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg aria-[current=true]:bg-animeo-soft">
+                        <span className="truncate">{view.name}</span>
+                      </button>
+                      <button type="button" onClick={() => { setViewToDelete(view); setViewsOpen(false); }} aria-label={`Supprimer la vue ${view.name}`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-danger">
+                        <Trash2 aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="my-1 border-t border-animeo-border-soft" />
+                  <button type="button" onClick={() => { setSavingView(true); setViewsOpen(false); }} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm font-extrabold text-animeo transition hover:bg-animeo-bg">
+                    <Star aria-hidden="true" className="h-4 w-4" />Enregistrer cette vue
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
+          {savingView ? <SaveViewModal existingNames={views.map((view) => view.name)} onSave={saveView} onClose={() => setSavingView(false)} /> : null}
+          {viewToDelete ? (
+            <ConfirmModal
+              title={`Supprimer la vue « ${viewToDelete.name} » ?`}
+              message="La carte n’est pas modifiée : seul ce raccourci disparaît."
+              confirmLabel="Supprimer"
+              cancelLabel="Annuler"
+              onConfirm={() => deleteView(viewToDelete)}
+              onClose={() => setViewToDelete(null)}
+            />
+          ) : null}
           {mapMode === "activity" ? <Segmented label="Période" options={ACTIVITY_RANGES} value={activityRange} onChange={(range) => { setActivityRange(range); setSelectedAppointmentId(null); }} size="sm" /> : null}
           {mapMode === "reminders" ? <Segmented label="Suivi des visites" options={VISIT_FILTERS} value={visitFilter} onChange={setVisitFilter} size="sm" /> : null}
         </div>
@@ -1030,6 +1182,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               <button
                 type="button"
                 onClick={() => setSpeciesPanelOpen((current) => !current)}
+                data-testid="map-species-button"
                 aria-haspopup="true"
                 aria-expanded={speciesPanelOpen}
                 className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-xs font-extrabold transition ${selectedSpecies.length > 0 ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}
@@ -1382,6 +1535,42 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
  * de ses clients, avec le système de rappels existant (même message que
  * l'envoi groupé de la page Rappels), après confirmation.
  */
+/** « Enregistrer cette vue » : seul le nom est demandé. */
+function SaveViewModal({ existingNames, onSave, onClose }: { existingNames: string[]; onSave: (name: string) => Promise<boolean>; onClose: () => void }) {
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const trimmed = name.trim();
+  const replaces = existingNames.some((existing) => existing === trimmed);
+
+  async function submit() {
+    if (!trimmed) return;
+    setSaving(true);
+    const saved = await onSave(trimmed);
+    setSaving(false);
+    if (saved) onClose();
+  }
+
+  return (
+    <Modal
+      title="Enregistrer cette vue"
+      description="Mode, filtres, lieu et rayon : la carte telle qu’elle est affichée."
+      size="sm"
+      onClose={onClose}
+      onSubmit={(event) => { event.preventDefault(); void submit(); }}
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>Annuler</Button>
+          <Button type="submit" disabled={saving || !trimmed}>{saving ? "Enregistrement…" : replaces ? "Mettre à jour" : "Enregistrer"}</Button>
+        </>
+      }
+    >
+      <label htmlFor="map-view-name" className="mb-1.5 block text-xs font-medium uppercase tracking-[0.08em] text-animeo-muted">Nom</label>
+      <input id="map-view-name" autoFocus maxLength={60} value={name} onChange={(event) => setName(event.target.value)} placeholder="Chevaux à relancer, Autour de Caen…" className="min-h-11 w-full rounded-xl border border-animeo-border bg-white px-3 text-sm text-animeo-dark" />
+      {replaces ? <p className="mt-2 text-xs text-animeo-muted">Une vue porte déjà ce nom : elle sera mise à jour.</p> : null}
+    </Modal>
+  );
+}
+
 function ZoneReminders({ clients, onDone }: { clients: MapClient[]; onDone: () => void }) {
   const modules = useCurrentUser()?.modules ?? [];
   if (!hasModule(modules, "REMINDERS")) return null;
