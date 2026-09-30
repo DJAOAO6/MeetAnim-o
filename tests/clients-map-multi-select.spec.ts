@@ -115,7 +115,7 @@ test.describe("Carte clients — sélection multiple", () => {
 
     await bar(page).getByRole("button", { name: "Préparer une tournée" }).click();
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toContainText("3 clients deviendront des arrêts");
+    await expect(dialog).toContainText("3 clients choisis");
     await dialog.getByLabel("Date").fill(TOUR_DATE);
     await dialog.getByLabel("Nom").fill(TOUR_NAME);
     await dialog.getByRole("button", { name: "Créer la journée" }).click();

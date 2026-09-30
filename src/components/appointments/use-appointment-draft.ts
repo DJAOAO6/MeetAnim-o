@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { AppointmentPrefill } from "@/components/appointments/appointments-context";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
-import type { ClientPickerOption } from "@/data/clients";
+import type { ClientPickerAnimal, ClientPickerOption } from "@/data/clients";
 import type { ServiceSettings } from "@/data/settings";
 import type { AnimalSpecies } from "@/data/species";
 import { toLocalDateId } from "@/lib/booking-validation";
@@ -55,6 +55,24 @@ export const recurrenceLabels: Record<RecurrenceFrequency, string> = {
   biweekly: "Toutes les deux semaines",
   monthly: "Tous les mois",
 };
+
+/**
+ * Adresse d'un rendez-vous à domicile, tirée du lieu où vit l'animal (haras,
+ * pension… — phase 8.9) : l'adresse du lieu, son nom en complément, sa
+ * position. Nulle si l'animal vit chez son propriétaire.
+ */
+function placeAddress(animal: ClientPickerAnimal | undefined): Partial<AppointmentDraft> | null {
+  const place = animal?.place;
+  if (!place) return null;
+  return {
+    addressLine: place.address,
+    addressExtra: place.name,
+    postalCode: place.postalCode,
+    city: place.city,
+    latitude: place.latitude ?? undefined,
+    longitude: place.longitude ?? undefined,
+  };
+}
 
 export function modeOf(place: AppointmentPlace): AppointmentMode {
   return place === "cabinet" ? "cabinet" : "home";
@@ -164,6 +182,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       city: client?.city ?? "",
       latitude: undefined,
       longitude: undefined,
+      ...placeAddress(firstAnimal),
       repeat: null,
       repeatCount: 4,
     };
@@ -189,6 +208,8 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       // elle reste modifiable, et n'écrase pas une adresse déjà saisie.
       addressLine: current.addressLine || client.address,
       city: current.city || client.city,
+      // Un animal qui vit ailleurs (haras…) : c'est là qu'on se rend.
+      ...(current.addressLine ? null : placeAddress(firstAnimal)),
     }));
   }, []);
 
@@ -236,13 +257,16 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
     }));
   }, []);
 
-  const selectAnimal = useCallback((animal: { id: string; name: string; species: string; breed?: string; age?: string }) => {
+  const selectAnimal = useCallback((animal: { id: string; name: string; species: string; breed?: string; age?: string; place?: ClientPickerAnimal["place"] }) => {
     setDraft((current) => ({
       ...current,
       animalId: animal.id,
       animalName: animal.name,
       animalSpecies: animal.species as AnimalSpecies,
       animalDetail: animalDetailOf(animal),
+      // Choisir un animal qui vit dans un lieu y place le rendez-vous
+      // (adresse toujours modifiable ensuite).
+      ...placeAddress(animal as ClientPickerAnimal),
     }));
   }, []);
 

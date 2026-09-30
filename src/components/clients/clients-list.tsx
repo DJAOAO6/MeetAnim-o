@@ -164,6 +164,12 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         description="Retrouvez vos propriétaires, leurs coordonnées et tous leurs animaux."
         action={
           <>
+            <Link
+              href="/dashboard/clients/lieux"
+              className="inline-flex items-center rounded-2xl border border-animeo-border bg-white px-5 py-3 font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
+            >
+              Lieux des animaux
+            </Link>
             {hasModule(currentUser?.modules, "CLIENT_IMPORT") ? (
             <button
               type="button"

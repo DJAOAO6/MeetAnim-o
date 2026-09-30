@@ -56,6 +56,7 @@ export const TENANT_MODELS = new Set([
   "SavedPlace",
   "ClientImport",
   "MapView",
+  "AnimalPlace",
 ]);
 
 /**

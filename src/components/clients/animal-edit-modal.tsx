@@ -7,6 +7,9 @@ import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { animalSpeciesList } from "@/data/species";
 import { createAnimalAction, updateAnimalAction, type UpdateAnimalInput } from "@/lib/clients-actions";
+import { savePlaceAction } from "@/lib/places-actions";
+import { AnimalPlacePicker, type AnimalPlaceChoice } from "@/components/clients/animal-place-picker";
+import type { AnimalPlaceRef } from "@/data/places";
 import type { Animal } from "@/data/clients";
 
 const emptyDraft: UpdateAnimalInput = {
@@ -43,10 +46,11 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
     treatments: animal.treatments,
     notes: animal.notes,
   } : emptyDraft);
+  const [placeChoice, setPlaceChoice] = useState<AnimalPlaceChoice>(animal?.place ? { choice: "existing", placeId: animal.place.id, place: animal.place } : { choice: "home" });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [initialSnapshot] = useState(() => JSON.stringify(draft));
-  const isDirty = JSON.stringify(draft) !== initialSnapshot;
+  const [initialSnapshot] = useState(() => JSON.stringify({ draft, placeChoice }));
+  const isDirty = JSON.stringify({ draft, placeChoice }) !== initialSnapshot;
   const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
     if (confirmDiscard()) onClose();
@@ -61,15 +65,28 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
     setError(null);
     setSaving(true);
 
+    // Nouveau lieu : créé d'abord (et localisé), puis l'animal y est rattaché.
+    let place: AnimalPlaceRef | null = null;
+    if (placeChoice.choice === "new") {
+      const created = await savePlaceAction({ ...placeChoice.draft, notes: "" });
+      if (!created.ok) { setSaving(false); setError(created.error); return; }
+      place = created.place;
+      setPlaceChoice({ choice: "existing", placeId: created.place.id, place: created.place });
+    } else if (placeChoice.choice === "existing") {
+      place = placeChoice.place ?? (animal?.place?.id === placeChoice.placeId ? animal.place : null);
+      if (!place) { setSaving(false); setError("Choisissez le lieu où vit l’animal."); return; }
+    }
+    const input = { ...draft, placeId: place?.id ?? null };
+
     if (animal) {
-      const result = await updateAnimalAction(animal.id, draft);
+      const result = await updateAnimalAction(animal.id, input);
       setSaving(false);
       if (!result.ok) { setError(result.error); return; }
-      onSaved({ ...animal, ...draft });
+      onSaved({ ...animal, ...draft, place });
       return;
     }
 
-    const result = await createAnimalAction(clientId!, draft);
+    const result = await createAnimalAction(clientId!, input);
     setSaving(false);
     if (!result.ok) { setError(result.error); return; }
     onSaved(result.animal);
@@ -116,6 +133,8 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
           <Field label="Traitements"><textarea value={draft.treatments} onChange={(event) => update("treatments", event.target.value)} className={textareaClassName} /></Field>
           <Field label="Notes"><textarea value={draft.notes} onChange={(event) => update("notes", event.target.value)} className={textareaClassName} /></Field>
         </div>
+
+        <AnimalPlacePicker value={placeChoice} onChange={setPlaceChoice} currentPlace={animal?.place} />
       </div>
     </Modal>
   );

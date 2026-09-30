@@ -358,13 +358,39 @@ export async function createTourFromClientsAction(input: z.infer<typeof createTo
 
   const found = await db.client.findMany({
     where: { id: { in: data.clientIds } },
-    select: { id: true, firstName: true, lastName: true, address: true, postalCode: true, city: true, latitude: true, longitude: true },
+    select: {
+      id: true, firstName: true, lastName: true, address: true, postalCode: true, city: true, latitude: true, longitude: true,
+      animals: { select: { place: { select: { id: true, name: true, address: true, postalCode: true, city: true, latitude: true, longitude: true } } } },
+    },
   });
   const byId = new Map(found.map((client) => [client.id, client]));
-  const located = data.clientIds
-    .map((id) => byId.get(id))
-    .filter((client): client is NonNullable<typeof client> => Boolean(client && client.latitude != null && client.longitude != null));
-  if (located.length === 0) return { ok: false, error: "Aucun des clients choisis n’a de position sur la carte." };
+  // Un arrêt par endroit où se trouvent les animaux (phase 8.9) : le
+  // domicile du client, ou le lieu où vivent ses animaux (haras…). Un lieu
+  // partagé par plusieurs clients choisis ne fait qu'un arrêt.
+  type Stop = { key: string; label: string; address: string | null; latitude: number; longitude: number };
+  const stops: Stop[] = [];
+  const seen = new Set<string>();
+  let skippedClients = 0;
+  for (const id of data.clientIds) {
+    const client = byId.get(id);
+    if (!client) { skippedClients += 1; continue; }
+    const places = client.animals.map((animal) => animal.place).filter((place): place is NonNullable<typeof place> => Boolean(place && place.latitude != null && place.longitude != null));
+    const livesAtHome = client.animals.length === 0 || client.animals.some((animal) => !animal.place || animal.place.latitude == null);
+    const clientStops: Stop[] = [
+      ...(livesAtHome && client.latitude != null && client.longitude != null
+        ? [{ key: client.id, label: `${client.firstName} ${client.lastName}`.trim(), address: [client.address, [client.postalCode, client.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null, latitude: client.latitude, longitude: client.longitude }]
+        : []),
+      ...places.map((place) => ({ key: `place:${place.id}`, label: place.name, address: [place.address, [place.postalCode, place.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null, latitude: place.latitude!, longitude: place.longitude! })),
+    ];
+    if (clientStops.length === 0) skippedClients += 1;
+    for (const stop of clientStops) {
+      if (seen.has(stop.key)) continue;
+      seen.add(stop.key);
+      stops.push(stop);
+    }
+  }
+  if (stops.length === 0) return { ok: false, error: "Aucun des clients choisis n’a de position sur la carte." };
+  if (stops.length > MAX_TOUR_FROM_CLIENTS) return { ok: false, error: `Une journée compte au plus ${MAX_TOUR_FROM_CLIENTS} arrêts : réduisez la sélection.` };
 
   const tourRun = await db.tourRun.create({
     data: {
@@ -377,14 +403,15 @@ export async function createTourFromClientsAction(input: z.infer<typeof createTo
     },
   });
   await db.tourStop.createMany({
-    data: located.map((client, order) => ({
+    data: stops.map((stop, order) => ({
       tourRunId: tourRun.id,
       order,
-      type: "HOME" as TourStopType,
-      label: `${client.firstName} ${client.lastName}`.trim().slice(0, 100),
-      address: [client.address, [client.postalCode, client.city].filter(Boolean).join(" ")].filter(Boolean).join(", ").slice(0, 300) || null,
-      latitude: client.latitude,
-      longitude: client.longitude,
+      // Un lieu d’animaux (haras…) est un arrêt « écurie », le domicile d’un client un arrêt « domicile ».
+      type: (stop.key.startsWith("place:") ? "STABLE" : "HOME") as TourStopType,
+      label: stop.label.slice(0, 100),
+      address: stop.address?.slice(0, 300) ?? null,
+      latitude: stop.latitude,
+      longitude: stop.longitude,
       flexible: true,
       locked: false,
     })),
@@ -392,7 +419,7 @@ export async function createTourFromClientsAction(input: z.infer<typeof createTo
 
   await recomputeAndPersistRoute(tourRun.id);
   revalidatePath(TOURS_PATH);
-  return { ok: true, id: tourRun.id, added: located.length, skipped: data.clientIds.length - located.length };
+  return { ok: true, id: tourRun.id, added: stops.length, skipped: skippedClients };
 }
 
 const updateEndpointsSchema = z.object({

@@ -13,10 +13,28 @@ export type MapClientAnimal = {
   breed: string;
   avatar: string;
   dueForReminder: boolean;
+  /** Lieu où vit l'animal, s'il ne vit pas chez son propriétaire (phase 8.9). */
+  placeName: string | null;
+};
+
+/**
+ * Un endroit où se trouvent des animaux du client : son domicile, ou un lieu
+ * (haras, pension…). Un client dont le chien vit chez lui et le cheval au
+ * haras a deux emplacements, donc deux points sur la carte.
+ */
+export type MapClientLocation = {
+  /** Identifiant du point : l'id du client pour son domicile, « client@lieu » sinon. */
+  key: string;
+  placeId: string | null;
+  placeName: string | null;
+  city: string;
+  postalCode: string;
+  coordinates: { lat: number; lng: number };
+  animalIds: string[];
 };
 
 /** D'où vient la position affichée : l'adresse de la fiche, ou un rendez-vous à domicile. */
-export type MapPositionSource = "address" | "appointment";
+export type MapPositionSource = "address" | "appointment" | "place";
 
 export type MapClientSummary = {
   id: string;
@@ -38,7 +56,10 @@ export type MapClientSummary = {
   dueForReminder: boolean;
   /** Rappels à envoyer (statut « à relancer ») — pour l'envoi groupé d'une zone. */
   dueReminderIds: string[];
+  /** Position principale : le domicile s'il a des animaux, sinon le premier lieu. */
   coordinates: { lat: number; lng: number } | null;
+  /** Tous les emplacements localisés du client (domicile et lieux de ses animaux). */
+  locations: MapClientLocation[];
   positionSource: MapPositionSource | null;
   /** Précision d'une position d'adresse ; nulle si inconnue (rendez-vous, ancienne position). */
   precision: "EXACT" | "STREET" | "CITY" | null;

@@ -1,3 +1,5 @@
+import type { AnimalPlaceAddress, AnimalPlaceRef } from "@/data/places";
+
 export type Consultation = {
   id: string;
   date: string;
@@ -36,6 +38,8 @@ export type Animal = {
   };
   consultations: Consultation[];
   documents: AnimalDocument[];
+  /** Lieu où vit l'animal s'il ne vit pas chez son propriétaire (phase 8.9). */
+  place: AnimalPlaceRef | null;
 };
 
 export type Client = {
@@ -62,6 +66,8 @@ export type ClientPickerAnimal = {
       quand un client en a plusieurs de la même espèce. */
   breed: string;
   age: string;
+  /** Lieu de l'animal : l'adresse d'un rendez-vous à domicile s'y prérempli. */
+  place?: AnimalPlaceAddress | null;
 };
 
 export type ClientPickerOption = {

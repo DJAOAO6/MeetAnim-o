@@ -181,6 +181,8 @@ enum AuditAction {
   CLIENTS_IMPORTED
   CLIENT_IMPORT_UNDONE
   CLIENTS_GEOCODED
+  PLACE_UPDATED
+  PLACE_DELETED
   DOCUMENT_CREATED
   DOCUMENT_FINALIZED
   DOCUMENT_DELETED
@@ -469,6 +471,11 @@ model Animal {
   importId String?
   import   ClientImport? @relation(fields: [importId], references: [id], onDelete: SetNull)
 
+  /// Lieu habituel de l'animal quand il ne vit pas chez son propriétaire
+  /// (haras, pension, élevage…). Absent = chez le propriétaire.
+  placeId String?
+  place   AnimalPlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
   consultations   Consultation[]
   documents       AnimalDocument[]
   appointments    Appointment[]
@@ -480,6 +487,7 @@ model Animal {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([clientId])
+  @@index([placeId])
   @@index([importId])
   @@index([organizationId])
 }
@@ -1284,6 +1292,7 @@ model Organization {
   services                  Service[]
   tourRuns                  TourRun[]
   mapViews                  MapView[]
+  animalPlaces              AnimalPlace[]
   tourStops                 TourStop[]
   savedPlaces               SavedPlace[]
   clientImports             ClientImport[]
@@ -1348,5 +1357,42 @@ model MapView {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([userId, name])
+  @@index([organizationId])
+}
+
+enum AnimalPlaceKind {
+  HARAS
+  ELEVAGE
+  EXPLOITATION
+  CENTRE_EQUESTRE
+  REFUGE
+  AUTRE
+}
+
+/// Lieu où vivent des animaux, distinct de l'adresse de leurs propriétaires
+/// (phase 8.9) : haras, élevage, exploitation, centre équestre, refuge…
+/// Partagé par plusieurs animaux, éventuellement de propriétaires
+/// différents : saisi et géocodé une seule fois.
+model AnimalPlace {
+  id               String            @id @default(cuid())
+  name             String
+  kind             AnimalPlaceKind   @default(AUTRE)
+  address          String
+  postalCode       String?
+  city             String
+  latitude         Float?
+  longitude        Float?
+  geocodePrecision GeocodePrecision?
+  geocodedAt       DateTime?
+  /// Accès, portail, contact sur place : du texte libre.
+  notes            String            @default("") @db.Text
+  animals          Animal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
   @@index([organizationId])
 }

@@ -57,7 +57,7 @@ export function PrepareTourModal({ clientIds, locatedCount, defaultDateId, onClo
   return (
     <Modal
       title="Préparer une tournée"
-      description={`${locatedCount > 1 ? `${locatedCount} clients deviendront des arrêts, dans l’ordre de la sélection` : "1 client deviendra un arrêt"}. Vous organisez ensuite la journée dans Tournées.`}
+      description={`${locatedCount} client${locatedCount > 1 ? "s choisis" : " choisi"} : un arrêt par domicile ou par lieu (haras, pension…), dans l’ordre de la sélection. Vous organisez ensuite la journée dans Tournées.`}
       onClose={onClose}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}
       footer={

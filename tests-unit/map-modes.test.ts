@@ -85,3 +85,11 @@ test("qualité des positions : précise au numéro ou à la rue, approximative s
   assert.deepEqual(summary, { precise: 1, approximate: 1, unknown: 1, total: 3, reliablePercent: 33 });
   assert.equal(positionQualitySummary([]).reliablePercent, 100);
 });
+
+test("zones d'un client : son domicile et les lieux de ses animaux comptent", () => {
+  const zones: PublicZone[] = [{ id: "caux", name: "Caux", cities: [], postalCodes: [], tourDays: [], sector: { lat: 49.57, lng: 0.57, radiusKm: 3 } }];
+  const home = { key: "c", placeId: null, placeName: null, city: "Paris", postalCode: "75001", coordinates: { lat: 48.86, lng: 2.35 }, animalIds: ["dog"] };
+  const haras = { key: "c@p", placeId: "p", placeName: "Haras", city: "Yerville", postalCode: "76760", coordinates: { lat: 49.57, lng: 0.57 }, animalIds: ["horse"] };
+  assert.deepEqual(zoneIdsOf({ city: "Paris", postalCode: "75001", coordinates: home.coordinates, locations: [home] }, zones), []);
+  assert.deepEqual(zoneIdsOf({ city: "Paris", postalCode: "75001", coordinates: home.coordinates, locations: [home, haras] }, zones), ["caux"]);
+});

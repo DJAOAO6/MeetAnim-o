@@ -75,7 +75,7 @@ test.describe("Carte clients — informations d'un secteur", () => {
     await expect(insights, "jamais de promesse d'optimisation").not.toContainText(/optimal/i);
 
     await insights.getByRole("button", { name: "Préparer une tournée" }).click();
-    await expect(page.getByRole("dialog")).toContainText("3 clients deviendront des arrêts");
+    await expect(page.getByRole("dialog")).toContainText("3 clients choisis");
     await page.getByRole("dialog").getByRole("button", { name: "Annuler" }).click();
 
     await insights.getByRole("button", { name: "Voir les RDV" }).click();

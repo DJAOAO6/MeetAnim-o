@@ -342,6 +342,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-extrabold text-animeo-dark">{animal.name}</span>
                   <span className="mt-0.5 block truncate text-xs font-semibold text-animeo-muted">{animal.species} · {animal.breed}</span>
+                  {animal.place ? <span className="mt-0.5 block truncate text-xs font-bold text-animeo">Vit au {animal.place.name}, {animal.place.city}</span> : null}
                 </span>
               </button>
               {canDelete ? (

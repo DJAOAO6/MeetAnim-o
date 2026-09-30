@@ -3,7 +3,7 @@ import { readDb } from "@/lib/organization";
 import { formatFrenchDate } from "@/lib/format";
 import { parisDateId } from "@/lib/paris-time";
 import type { AnimalSpecies } from "@/data/species";
-import type { MapAppointment, MapClientSummary } from "@/data/map-clients";
+import type { MapAppointment, MapClientLocation, MapClientSummary } from "@/data/map-clients";
 
 /**
  * Clients de la carte, un par propriétaire (et non plus un par animal : le
@@ -59,6 +59,7 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
           reminderDate: true,
           consultations: { orderBy: { date: "desc" }, take: 1, select: { date: true } },
           reminders: { where: { status: "DUE" }, select: { id: true } },
+          place: { select: { id: true, name: true, city: true, postalCode: true, latitude: true, longitude: true, geocodePrecision: true } },
         },
       },
       appointments: {
@@ -91,7 +92,39 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       breed: animal.breed,
       avatar: animal.avatar,
       dueForReminder: animal.reminders.length > 0,
+      placeName: animal.place?.name ?? null,
     }));
+
+    // Emplacements (phase 8.9) : le domicile pour les animaux qui y vivent
+    // (ou pour un client sans animal), un par lieu localisé pour les autres.
+    // Un animal dont le lieu n'est pas localisé reste compté au domicile.
+    const home = fromAddress ?? fromAppointment;
+    const homeAnimalIds: string[] = [];
+    const placeLocations = new Map<string, MapClientLocation>();
+    for (const animal of client.animals) {
+      const place = animal.place;
+      if (place && place.latitude != null && place.longitude != null) {
+        const location = placeLocations.get(place.id) ?? {
+          key: `${client.id}@${place.id}`,
+          placeId: place.id,
+          placeName: place.name,
+          city: place.city,
+          postalCode: place.postalCode ?? "",
+          coordinates: { lat: place.latitude, lng: place.longitude },
+          animalIds: [],
+        };
+        location.animalIds.push(animal.id);
+        placeLocations.set(place.id, location);
+      } else homeAnimalIds.push(animal.id);
+    }
+    const locations: MapClientLocation[] = [
+      ...(home && (homeAnimalIds.length > 0 || client.animals.length === 0)
+        ? [{ key: client.id, placeId: null, placeName: null, city: client.city, postalCode: client.postalCode ?? "", coordinates: home, animalIds: homeAnimalIds }]
+        : []),
+      ...placeLocations.values(),
+    ];
+    const primary = locations[0] ?? null;
+    const primaryPlace = primary?.placeId ? client.animals.find((animal) => animal.place?.id === primary.placeId)?.place : null;
 
     return {
       id: client.id,
@@ -106,11 +139,12 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
       nextReminder: nextReminder ? formatFrenchDate(nextReminder) : "-",
       dueForReminder: animals.some((animal) => animal.dueForReminder),
       dueReminderIds: client.animals.flatMap((animal) => animal.reminders.map((reminder) => reminder.id)),
-      coordinates: fromAddress ?? fromAppointment,
-      positionSource: fromAddress ? "address" : fromAppointment ? "appointment" : null,
-      // Précision connue pour une adresse géocodée ; pour un rendez-vous,
-      // on ne sait pas (souvent une ville saisie à la main).
-      precision: fromAddress ? client.geocodePrecision : null,
+      coordinates: primary?.coordinates ?? null,
+      locations,
+      positionSource: primaryPlace ? "place" : fromAddress ? "address" : fromAppointment ? "appointment" : null,
+      // Précision connue pour une adresse géocodée (client ou lieu) ; pour un
+      // rendez-vous, on ne sait pas (souvent une ville saisie à la main).
+      precision: primaryPlace ? primaryPlace.geocodePrecision : fromAddress ? client.geocodePrecision : null,
     };
   });
 }

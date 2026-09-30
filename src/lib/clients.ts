@@ -5,6 +5,7 @@ import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
 import type { Animal, AnimalDocument, Client, ClientPickerOption, Consultation } from "@/data/clients";
+import type { AnimalPlaceKind } from "@/data/places";
 import type {
   Animal as DbAnimal,
   AnimalDocument as DbAnimalDocument,
@@ -17,12 +18,15 @@ export const clientInclude = {
     include: {
       consultations: { orderBy: { date: "desc" as const } },
       documents: { orderBy: { createdAt: "desc" as const } },
+      place: { select: { id: true, name: true, kind: true, city: true } },
     },
   },
 };
 
+type DbPlaceRef = { id: string; name: string; kind: string; city: string } | null;
+
 type DbClientWithAnimals = DbClient & {
-  animals: Array<DbAnimal & { consultations: DbConsultation[]; documents: DbAnimalDocument[] }>;
+  animals: Array<DbAnimal & { consultations: DbConsultation[]; documents: DbAnimalDocument[]; place?: DbPlaceRef }>;
 };
 
 function mapConsultation(consultation: DbConsultation): Consultation {
@@ -46,7 +50,7 @@ function mapDocument(document: DbAnimalDocument): AnimalDocument {
   };
 }
 
-export function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; documents: DbAnimalDocument[] }): Animal {
+export function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; documents: DbAnimalDocument[]; place?: DbPlaceRef }): Animal {
   return {
     id: animal.id,
     name: animal.name,
@@ -68,6 +72,7 @@ export function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; 
     },
     consultations: animal.consultations.map(mapConsultation),
     documents: animal.documents.map(mapDocument),
+    place: animal.place ? { id: animal.place.id, name: animal.place.name, kind: animal.place.kind as AnimalPlaceKind, city: animal.place.city } : null,
   };
 }
 
@@ -121,11 +126,23 @@ export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption
       city: true,
       phone: true,
       email: true,
-      animals: { select: { id: true, name: true, species: true, breed: true, age: true }, orderBy: { name: "asc" } },
+      animals: {
+        select: {
+          id: true, name: true, species: true, breed: true, age: true,
+          place: { select: { id: true, name: true, kind: true, city: true, address: true, postalCode: true, latitude: true, longitude: true } },
+        },
+        orderBy: { name: "asc" },
+      },
     },
   });
 
-  return clients;
+  return clients.map((client) => ({
+    ...client,
+    animals: client.animals.map((animal) => ({
+      ...animal,
+      place: animal.place ? { ...animal.place, kind: animal.place.kind as AnimalPlaceKind, postalCode: animal.place.postalCode ?? "" } : null,
+    })),
+  }));
 });
 
 export async function getClientById(id: string): Promise<Client | undefined> {

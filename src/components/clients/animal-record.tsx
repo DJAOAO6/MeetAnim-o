@@ -70,6 +70,11 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
               <p className="text-xs font-extrabold uppercase tracking-[0.15em] text-animeo">Fiche animal</p>
               <h2 className="mt-1 text-3xl font-black text-animeo-dark">{animal.name}</h2>
               <p className="mt-1 font-bold text-animeo-muted">{animal.species} · {animal.breed}</p>
+              {animal.place ? (
+                <p className="mt-1 text-sm font-bold text-animeo">
+                  Vit au <Link href="/dashboard/clients/lieux" className="underline underline-offset-4">{animal.place.name}</Link>, {animal.place.city}
+                </p>
+              ) : null}
               <div className="mt-4 flex flex-wrap gap-2">
                 <AnimalInfo label="Âge" value={animal.age} />
                 <AnimalInfo label="Poids" value={animal.weight} />
@@ -80,6 +85,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
             <button
               type="button"
               onClick={() => setEditing(true)}
+              aria-label={`Modifier la fiche de ${animal.name}`}
               className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft"
             >
               <EditIcon />

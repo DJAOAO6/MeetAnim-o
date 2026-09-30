@@ -236,7 +236,19 @@ export type UpdateAnimalInput = {
   conditions: string;
   treatments: string;
   notes: string;
+  /**
+   * Lieu où vit l'animal (phase 8.9) : un lieu de l'espace, ou null pour
+   * « chez son propriétaire ». Absent = inchangé.
+   */
+  placeId?: string | null;
 };
+
+/** Un lieu cité par le navigateur doit exister dans l'espace courant. */
+async function checkedPlaceId(db: Awaited<ReturnType<typeof currentDb>>, placeId: string | null | undefined): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!placeId) return { ok: true };
+  const place = await db.animalPlace.findUnique({ where: { id: placeId }, select: { id: true } });
+  return place ? { ok: true } : { ok: false, error: "Ce lieu n’existe plus." };
+}
 
 export async function updateAnimalAction(animalId: string, input: UpdateAnimalInput): Promise<ClientActionResult> {
   const user = await requireUser();
@@ -247,6 +259,8 @@ export async function updateAnimalAction(animalId: string, input: UpdateAnimalIn
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Le nom de l’animal est obligatoire." };
+  const placeCheck = await checkedPlaceId(db, input.placeId);
+  if (!placeCheck.ok) return placeCheck;
 
   await db.$transaction([
     db.animal.update({ where: { id: animalId }, data: { ...input, name } }),
@@ -258,6 +272,7 @@ export async function updateAnimalAction(animalId: string, input: UpdateAnimalIn
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/rappels");
   revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard/carte");
   revalidatePath("/dashboard");
 
   return { ok: true };
@@ -275,6 +290,8 @@ export async function createAnimalAction(clientId: string, input: UpdateAnimalIn
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Le nom de l’animal est obligatoire." };
   const species = input.species.trim() || "Chien";
+  const placeCheck = await checkedPlaceId(db, input.placeId);
+  if (!placeCheck.ok) return placeCheck;
 
   const created = await db.animal.create({
     data: {
@@ -288,7 +305,7 @@ export async function createAnimalAction(clientId: string, input: UpdateAnimalIn
       avatar: avatarForSpecies(species as PublicAnimalType),
       avatarBackground: avatarBackgroundFor(`${clientId}-${name}`),
     },
-    include: { consultations: { orderBy: { date: "desc" } }, documents: { orderBy: { createdAt: "desc" } } },
+    include: { consultations: { orderBy: { date: "desc" } }, documents: { orderBy: { createdAt: "desc" } }, place: { select: { id: true, name: true, kind: true, city: true } } },
   });
   // Pas de valeur d'audit dédiée à la création d'un animal (schéma existant) :
   // ANIMAL_UPDATED reste la valeur la plus proche disponible sans migration.

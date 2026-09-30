@@ -104,8 +104,15 @@ export function matchesVisitFilter(client: Pick<MapClientSummary, "dueForReminde
  * (commune, code postal, ou secteur lieu + rayon), pour qu'un client
  * « dans la zone » ici le soit aussi partout ailleurs.
  */
-export function zoneIdsOf(client: Pick<MapClientSummary, "city" | "postalCode" | "coordinates">, zones: PublicZone[]): string[] {
-  return zones.filter((zone) => findMatchingZone([zone], client.postalCode || undefined, client.city || undefined, client.coordinates)).map((zone) => zone.id);
+export function zoneIdsOf(client: Pick<MapClientSummary, "city" | "postalCode" | "coordinates"> & { locations?: MapClientSummary["locations"] }, zones: PublicZone[]): string[] {
+  // Chaque emplacement compte (domicile, haras…) : un client dont le cheval
+  // vit dans le secteur d'une tournée en fait partie.
+  const places = client.locations?.length
+    ? client.locations.map((location) => ({ city: location.city, postalCode: location.postalCode, coordinates: location.coordinates }))
+    : [{ city: client.city, postalCode: client.postalCode, coordinates: client.coordinates }];
+  return zones
+    .filter((zone) => places.some((place) => findMatchingZone([zone], place.postalCode || undefined, place.city || undefined, place.coordinates)))
+    .map((zone) => zone.id);
 }
 
 /** Filtre de zone du mode « Tournées » : une zone, les zones d'une tournée, ou les clients non rattachés. */
@@ -134,7 +141,7 @@ export type PositionQuality = "precise" | "approximate" | "unknown";
 
 export function positionQuality(client: Pick<MapClientSummary, "coordinates" | "positionSource" | "precision">): PositionQuality {
   if (!client.coordinates) return "unknown";
-  if (client.positionSource === "address" && (client.precision === "EXACT" || client.precision === "STREET")) return "precise";
+  if ((client.positionSource === "address" || client.positionSource === "place") && (client.precision === "EXACT" || client.precision === "STREET")) return "precise";
   return "approximate";
 }
 

@@ -231,7 +231,19 @@ function animalsLine(client: MapClient): string {
   return client.animals.length ? client.animals.map((animal) => `${animal.name} · ${animal.species}`).join(", ") : "Aucun animal";
 }
 
-const positionSourceLabels = { address: "Adresse du client", appointment: "Dernier rendez-vous à domicile" } as const;
+const positionSourceLabels = { address: "Adresse du client", appointment: "Dernier rendez-vous à domicile", place: "Lieu de l’animal" } as const;
+
+/** Tous les emplacements localisés d'un client (domicile, lieux de ses animaux). */
+function positionsOf(client: MapClientSummary): Array<{ lat: number; lng: number }> {
+  return client.locations.map((location) => location.coordinates);
+}
+
+function inBounds(point: { lat: number; lng: number }, bounds: GeoBounds) {
+  return point.lat >= bounds.south && point.lat <= bounds.north && point.lng >= bounds.west && point.lng <= bounds.east;
+}
+
+/** Client d'un point de la carte : « client » ou « client@lieu ». */
+const clientIdOfPoint = (pointId: string) => pointId.split("@")[0];
 const precisionLabels = { EXACT: "précise", STREET: "à la rue", CITY: "approximative (commune)" } as const;
 
 /** Origine et précision d'une position, dites en clair. */
@@ -345,6 +357,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Aucune sélection à l'arrivée : la carte montre d'abord toute la
   // clientèle. Une fiche ne s'ouvre qu'à un geste (marqueur, liste, recherche).
   const [selectedId, setSelectedId] = useState<string | null>(initialUrl.selected);
+  // Emplacement choisi du client (domicile ou lieu d'un animal) : c'est lui
+  // que la carte montre et dont la fiche donne l'itinéraire.
+  const [selectedLocationKey, setSelectedLocationKey] = useState<string | null>(null);
   // Tri de la liste et ordre de « Précédent / Suivant ». Proximité : depuis
   // le client choisi au moment du tri, sinon le lieu d'exercice — un point
   // fixe, pour que l'ordre ne bouge pas à chaque client parcouru.
@@ -560,7 +575,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     setTerritory(null);
     setCommuneArea(null);
     setRadiusPanelOpen(false);
-    const located = filteredClients.filter((client) => client.coordinates).map((client) => client.coordinates!);
+    const located = filteredClients.flatMap(positionsOf);
     if (located.length > 0) {
       fitTo({
         south: Math.min(...located.map((point) => point.lat)),
@@ -577,12 +592,12 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     if (territory) {
       const geometry = territory.status === "ready" ? territory.geometry : undefined;
       if (!geometry) return filteredClients;
-      return filteredClients.filter((client) => client.coordinates && pointInGeometry(client.coordinates, geometry));
+      return filteredClients.filter((client) => positionsOf(client).some((point) => pointInGeometry(point, geometry)));
     }
     if (!perimeterCenter) return filteredClients;
     // Un client sans coordonnées ne peut pas être comparé à un centre de
     // périmètre : exclu plutôt que deviné.
-    return filteredClients.filter((client) => client.coordinates && haversineDistanceKm(perimeterCenter, client.coordinates) <= perimeterRadiusKm);
+    return filteredClients.filter((client) => positionsOf(client).some((point) => haversineDistanceKm(perimeterCenter, point) <= perimeterRadiusKm));
   }, [filteredClients, perimeterCenter, perimeterRadiusKm, territory]);
 
   // Nombre de clients par palier, calculé localement sur les clients déjà
@@ -593,7 +608,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     if (!perimeterCenter) return {} as Record<number, number>;
     const counts: Record<number, number> = {};
     for (const km of perimeterCenter.me ? AROUND_ME_TIERS : PERIMETER_RADIUS_TIERS) {
-      counts[km] = filteredClients.filter((client) => client.coordinates && haversineDistanceKm(perimeterCenter, client.coordinates) <= km).length;
+      counts[km] = filteredClients.filter((client) => positionsOf(client).some((point) => haversineDistanceKm(perimeterCenter, point) <= km)).length;
     }
     return counts;
   }, [filteredClients, perimeterCenter]);
@@ -606,12 +621,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const perimeterClients = hasPerimeter ? clientsInPerimeter : filteredClients;
   // « Uniquement cette zone » : la liste suit l'emprise de la carte.
   const visibleClients = visibleOnly && mapBounds
-    ? perimeterClients.filter((client) => client.coordinates
-      && client.coordinates.lat >= mapBounds.south && client.coordinates.lat <= mapBounds.north
-      && client.coordinates.lng >= mapBounds.west && client.coordinates.lng <= mapBounds.east)
+    ? perimeterClients.filter((client) => positionsOf(client).some((point) => inBounds(point, mapBounds)))
     : perimeterClients;
   const locatedClients = visibleClients.filter((client) => client.coordinates);
   const selectedClient = mapMode !== "activity" && selectedId ? visibleClients.find((client) => client.id === selectedId) ?? null : null;
+  const selectedLocation = selectedClient
+    ? selectedClient.locations.find((location) => location.key === selectedLocationKey) ?? selectedClient.locations[0] ?? null
+    : null;
 
   // Mode « Activité » : les rendez-vous de la période, avec les mêmes filtres
   // (espèce, recherche, périmètre, zone affichée).
@@ -721,22 +737,20 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   // Ctrl / ⌘ + clic, ou le mode sélection, ajoutent à la sélection au lieu
   // d'ouvrir la fiche.
-  function handleClientPick(id: string, additive: boolean) {
-    if (additive || selectMode) toggleMarked(id);
-    else toggleSelection(id);
+  function handleClientPick(pointId: string, additive: boolean) {
+    if (additive || selectMode) toggleMarked(clientIdOfPoint(pointId));
+    else toggleSelection(pointId);
   }
 
   function selectVisibleClients() {
     const inside = (point: { lat: number; lng: number }) => !mapBounds
       || (point.lat >= mapBounds.south && point.lat <= mapBounds.north && point.lng >= mapBounds.west && point.lng <= mapBounds.east);
-    addMarked(perimeterClients.filter((client) => client.coordinates && inside(client.coordinates)).map((client) => client.id));
+    addMarked(perimeterClients.filter((client) => positionsOf(client).some(inside)).map((client) => client.id));
     setToolsOpen(false);
   }
 
   function selectArea(bounds: GeoBounds) {
-    addMarked(perimeterClients.filter((client) => client.coordinates
-      && client.coordinates.lat >= bounds.south && client.coordinates.lat <= bounds.north
-      && client.coordinates.lng >= bounds.west && client.coordinates.lng <= bounds.east).map((client) => client.id));
+    addMarked(perimeterClients.filter((client) => positionsOf(client).some((point) => inBounds(point, bounds))).map((client) => client.id));
     setAreaTool(false);
   }
 
@@ -765,9 +779,15 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   // Même geste pour sélectionner et désélectionner : un second clic sur le
   // client déjà choisi (marqueur ou ligne) referme sa fiche.
-  function toggleSelection(id: string) {
+  function toggleSelection(pointId: string) {
     setPracticeOpen(false);
-    setSelectedId((current) => (current === id ? null : id));
+    const id = clientIdOfPoint(pointId);
+    // Un point du même client mais à un autre endroit : on passe à cet
+    // endroit ; le même point : on referme.
+    const sameClient = selectedId === id;
+    const samePoint = sameClient && (selectedLocationKey ?? id) === pointId;
+    setSelectedLocationKey(pointId);
+    setSelectedId(samePoint ? null : id);
     setSheetSnap((current) => (current === "full" ? "mid" : current));
   }
 
@@ -823,18 +843,21 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   const effectiveColor = mapMode === "reminders" ? "visit" : colorMode;
   // Mis en cache : un survol ou une saisie ne doit pas recalculer des
   // milliers de points ni reconstruire l'index des pastilles (phase 8.10).
-  const clientPoints = useMemo(() => filteredClients.filter((client) => client.coordinates).map((client) => {
+  const clientPoints = useMemo(() => filteredClients.flatMap((client) => client.locations.map((location) => ({ client, location }))).map(({ client, location }) => {
     const outside = hasPerimeter && !insidePerimeter.has(client.id);
-    const lead = leadAnimal(client, selectedSpecies);
+    // Chaque point montre les animaux qui vivent à cet endroit (domicile ou
+    // lieu) ; un client sans animal garde son point au domicile.
+    const here = location.animalIds.length ? { ...client, animals: client.animals.filter((animal) => location.animalIds.includes(animal.id)) } : client;
+    const lead = leadAnimal(here, selectedSpecies) ?? leadAnimal(client, selectedSpecies);
     const clientZones = zoneIdsByClient.get(client.id) ?? [];
     const quality = positionQuality(client);
     const zoneLabel = clientZones.length ? ` · ${clientZones.map((id) => zones.find((zone) => zone.id === id)?.name).join(", ")}` : " · non rattaché";
     return {
-      id: client.id,
-      lat: client.coordinates!.lat,
-      lng: client.coordinates!.lng,
+      id: location.key,
+      lat: location.coordinates.lat,
+      lng: location.coordinates.lng,
       label: lead?.avatar || initialsOf(client.ownerName),
-      title: `${client.ownerName} · ${animalsLine(client)} · ${client.city}${client.dueForReminder ? " · À relancer" : ""}${effectiveColor === "visit" && mapMode !== "tours" ? ` · ${visitBucket(client, todayId).label.toLowerCase()}` : ""}${mapMode === "tours" ? zoneLabel : ""}${effectiveColor === "quality" && mapMode !== "tours" ? ` · position ${quality === "precise" ? "précise" : "approximative"}` : ""}${outside ? " · hors du périmètre" : ""}`,
+      title: `${client.ownerName} · ${animalsLine(here)} · ${location.placeName ? `au ${location.placeName}, ${location.city}` : client.city}${client.dueForReminder ? " · À relancer" : ""}${effectiveColor === "visit" && mapMode !== "tours" ? ` · ${visitBucket(client, todayId).label.toLowerCase()}` : ""}${mapMode === "tours" ? zoneLabel : ""}${effectiveColor === "quality" && mapMode !== "tours" ? ` · position ${quality === "precise" ? "précise" : "approximative"}` : ""}${outside ? " · hors du périmètre" : ""}`,
       color: mapMode === "tours" ? (clientZones.length ? "var(--theme-brand)" : "var(--theme-subtle)")
         : effectiveColor === "quality" ? qualityColors[quality === "precise" ? "precise" : "approximate"]
         : effectiveColor === "visit" ? visitBucket(client, todayId).color
@@ -899,13 +922,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // localisée, à vol d'oiseau.
   const practiceTierCounts = useMemo(() => {
     if (!cabinetCoordinates) return [];
-    return PERIMETER_RADIUS_TIERS.map((km) => ({ km, count: clients.filter((client) => client.coordinates && haversineDistanceKm(cabinetCoordinates, client.coordinates) <= km).length }));
+    return PERIMETER_RADIUS_TIERS.map((km) => ({ km, count: clients.filter((client) => positionsOf(client).some((point) => haversineDistanceKm(cabinetCoordinates, point) <= km)).length }));
   }, [clients, cabinetCoordinates]);
   const practicePerimeterLabel = hasCabinet(practiceMode) ? "votre cabinet" : "votre lieu d’exercice";
   const practiceDistanceOrigin = cabinetCoordinates ? { ...cabinetCoordinates, from: hasCabinet(practiceMode) ? "du cabinet" : "du lieu d’exercice" } : null;
 
   function boundsOf(list: MapClientSummary[]): GeoBounds | null {
-    const located = list.filter((client) => client.coordinates).map((client) => client.coordinates!);
+    const located = list.flatMap(positionsOf);
     if (located.length === 0) return null;
     return {
       south: Math.min(...located.map((point) => point.lat)),
@@ -1205,7 +1228,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // la liste. Jamais fiche flottante + liste + fenêtre en même temps.
   const sheetCard = !isPhone ? null
     : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} docked />
-      : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked />
+      : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} location={selectedLocation} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} docked />
         : practiceCard;
   const effectiveSnap: SheetSnap = sheetCard && sheetSnap === "compact" ? "mid" : sheetSnap;
   function changeSheetSnap(next: SheetSnap) {
@@ -1700,7 +1723,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           ) : null}
           <RealMap
             points={points}
-            selectedId={mapMode === "activity" ? (selectedAppointment?.coordinates ? selectedAppointment.id : undefined) : selectedClient?.coordinates ? selectedClient.id : undefined}
+            selectedId={mapMode === "activity" ? (selectedAppointment?.coordinates ? selectedAppointment.id : undefined) : selectedLocation?.key}
             onSelect={mapMode === "activity" ? toggleAppointment : (id, options) => handleClientPick(id, options?.additive ?? false)}
             areaSelect={areaTool}
             onAreaSelect={selectArea}
@@ -1736,7 +1759,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             // moitié de la carte).
             overlay={!showCircleHandle ? undefined
               : selectedAppointment?.coordinates ? <MapAppointmentCard appointment={selectedAppointment} todayId={todayId} onClose={() => setSelectedAppointmentId(null)} />
-                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} />
+                : selectedClient?.coordinates ? <MapClientPopup client={selectedClient} location={selectedLocation} homeVisits={visitsHomes(practiceMode)} practice={practiceDistanceOrigin} onClose={() => setSelectedId(null)} />
                   : practiceCard ?? undefined}
             onPracticeClick={() => {
               setSelectedId(null);
@@ -2011,8 +2034,10 @@ function ClientQuickActions({ client, homeVisits }: { client: MapClient; homeVis
   );
 }
 
-function MapClientPopup({ client, onClose, docked = false, homeVisits = true, practice = null }: {
+function MapClientPopup({ client, location = null, onClose, docked = false, homeVisits = true, practice = null }: {
   client: MapClient;
+  /** Emplacement montré (domicile ou lieu d'un animal) : ville, distance, itinéraire. */
+  location?: MapClient["locations"][number] | null;
   onClose: () => void;
   docked?: boolean;
   homeVisits?: boolean;
@@ -2021,7 +2046,8 @@ function MapClientPopup({ client, onClose, docked = false, homeVisits = true, pr
 }) {
   const { openNewAppointment } = useAppointments();
   // À vol d'oiseau, dit comme tel (jamais un temps de trajet).
-  const distance = practice && client.coordinates ? haversineDistanceKm(practice, client.coordinates) : null;
+  const target = location?.coordinates ?? client.coordinates;
+  const distance = practice && target ? haversineDistanceKm(practice, target) : null;
   const tel = toTelHref(client.phone);
   const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
@@ -2035,7 +2061,7 @@ function MapClientPopup({ client, onClose, docked = false, homeVisits = true, pr
               {client.animals.slice(0, 4).map((animal) => (
                 <li key={animal.id} className="truncate text-xs">
                   <span className="font-extrabold text-animeo">{animal.name}</span>
-                  <span className="font-semibold text-animeo-muted"> · {animal.species}{animal.breed ? ` · ${animal.breed}` : ""}</span>
+                  <span className="font-semibold text-animeo-muted"> · {animal.species}{animal.breed ? ` · ${animal.breed}` : ""}{animal.placeName ? ` · au ${animal.placeName}` : ""}</span>
                 </li>
               ))}
               {client.animals.length > 4 ? <li className="text-[11px] font-semibold text-animeo-muted">et {client.animals.length - 4} autre{client.animals.length - 4 > 1 ? "s" : ""}</li> : null}
@@ -2048,7 +2074,7 @@ function MapClientPopup({ client, onClose, docked = false, homeVisits = true, pr
       </div>
       <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-animeo-dark">
         <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-animeo-muted" />
-        <span className="truncate">{client.city || "Commune inconnue"}</span>
+        <span className="truncate">{location?.placeName ? `Au ${location.placeName}, ${location.city}` : client.city || "Commune inconnue"}</span>
         {distance !== null ? <span className="shrink-0 font-semibold text-animeo-muted">· {formatKm(distance)} {practice!.from}</span> : null}
       </p>
       <dl className="mt-2 space-y-1.5 text-[11px]">
@@ -2064,8 +2090,8 @@ function MapClientPopup({ client, onClose, docked = false, homeVisits = true, pr
         {tel ? (
           <a href={tel} className={action}><Phone aria-hidden="true" className="h-4 w-4" />Appeler</a>
         ) : null}
-        {client.coordinates ? (
-          <a href={`https://www.google.com/maps/dir/?api=1&destination=${client.coordinates.lat},${client.coordinates.lng}`} target="_blank" rel="noopener noreferrer" className={action}>
+        {target ? (
+          <a href={`https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}`} target="_blank" rel="noopener noreferrer" className={action}>
             <Navigation aria-hidden="true" className="h-4 w-4" />Itinéraire
           </a>
         ) : null}
