@@ -163,7 +163,7 @@ test("un professionnel invité ouvre son espace, le configure et reçoit sa prem
     await expect(page.getByRole("heading", { name: "Votre lien de réservation" })).toBeVisible({ timeout: 15000 });
     await page.getByLabel("Votre lien").fill(SLUG);
     await page.getByRole("button", { name: "Ouvrir ma page de réservation" }).click();
-    await expect(page.getByRole("heading", { name: "Votre page de réservation est ouverte" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Félicitations, la première étape est faite/ })).toBeVisible({ timeout: 15000 });
 
     const [profile] = await sql`SELECT p."practiceMode", p.slug, p.profession, o."onboardedAt" FROM "BusinessProfile" p JOIN "Organization" o ON o.id = p."organizationId" WHERE p."organizationId" = ${created.organizationId}`;
     expect(profile.practiceMode).toBe("OFFICE_ONLY");
@@ -174,7 +174,7 @@ test("un professionnel invité ouvre son espace, le configure et reçoit sa prem
     expect([service.cabinetEnabled, service.homeEnabled, service.cabinetPrice]).toEqual([true, false, 55]);
 
     // Le tableau de bord ne réclame plus la configuration.
-    await page.getByRole("link", { name: "Aller au tableau de bord" }).click();
+    await page.getByRole("link", { name: "Découvrir mon tableau de bord" }).click();
     await page.waitForURL("**/dashboard", { timeout: 15000 });
     await expect(page.getByRole("region", { name: "Configuration à terminer" })).toHaveCount(0);
   } finally {

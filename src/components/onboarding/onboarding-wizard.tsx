@@ -186,15 +186,17 @@ export function OnboardingDone({ slug }: { slug: string }) {
 
   return (
     <Card className="mx-auto max-w-2xl p-5 sm:p-8">
-      <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-black text-animeo-dark outline-none">Votre page de réservation est ouverte</h1>
-      <p className="mt-2 text-sm text-animeo-muted">Vos clients peuvent prendre rendez-vous à cette adresse. Partagez-la sur votre site, vos réseaux, votre signature d’e-mail.</p>
+      <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-black text-animeo-dark outline-none">Félicitations, la première étape est faite !</h1>
+      <p className="mt-2 text-sm text-animeo-muted">Votre page de rendez-vous est en ligne. Vous pouvez la consulter, puis découvrir votre tableau de bord.</p>
       <div className="mt-4 flex flex-col gap-2 rounded-xl border border-animeo-border-soft bg-animeo-bg p-3 sm:flex-row sm:items-center">
         <p className="min-w-0 flex-1 break-all px-1 text-sm font-bold text-animeo-dark">{url}</p>
         <Button type="button" variant="secondary" size="sm" onClick={copy} className="shrink-0">{copied ? "Lien copié" : "Copier le lien"}</Button>
       </div>
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <Link href="/dashboard" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white hover:bg-animeo-hover sm:w-auto">Aller au tableau de bord</Link>
-        <Link href={`/reserver/${slug}`} target="_blank" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg sm:w-auto">Voir ma page</Link>
+      {/* Même taille pour les deux : on consulte sa page d'abord, puis on
+          entre dans le tableau de bord (l'action principale). */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <Link href={`/reserver/${slug}`} target="_blank" rel="noopener" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg">Voir ma page de rendez-vous</Link>
+        <Link href="/dashboard" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white hover:bg-animeo-hover">Découvrir mon tableau de bord</Link>
       </div>
       <p className="mt-6 text-sm text-animeo-muted">
         Tout se modifie ensuite dans <Link href="/dashboard/parametres" className="font-bold text-animeo-dark underline">Paramètres</Link> : profil, horaires, pauses et fermetures, rappels de rendez-vous.

@@ -77,7 +77,7 @@ test.describe("Lieux des animaux", () => {
     await expect(card).toContainText("Portail vert, code 1234");
 
     await card.getByRole("button", { name: `Supprimer ${PLACE_NAME}` }).click();
-    await expect(page.getByRole("dialog")).toContainText("redeviendront « chez leur propriétaire »");
+    await expect(page.getByRole("dialog")).toContainText(/Son animal redeviendra «\s?chez son propriétaire\s?»/);
     await page.getByRole("dialog").getByRole("button", { name: "Supprimer" }).click();
     await expect(card).toHaveCount(0);
     const [animal] = await sql`SELECT "placeId" FROM "Animal" WHERE id = ${ANIMAL_ID}`;

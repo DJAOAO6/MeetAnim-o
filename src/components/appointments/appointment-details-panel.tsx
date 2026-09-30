@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, CalendarClock, Car, Check, CheckCircle, Clock, FileText, MapPin, Navigation, PawPrint, Pencil, Phone, Scissors, User, X } from "lucide-react";
+import { Building2, CalendarClock, Car, Check, CheckCircle, Clock, FileText, MapPin, HandHeart, Navigation, PawPrint, Pencil, Phone, User, X } from "lucide-react";
 import type { AppointmentAction } from "@/components/appointments/appointment-actions-menu";
 import { appointmentStatusLabels, type Appointment } from "@/data/appointments";
 import { statusTone } from "@/components/appointments/appointment-status";
@@ -56,7 +56,7 @@ export function AppointmentDetailsPanel({ appointment, onEdit, onAction, actions
           <span className="block text-xs text-animeo-muted">{appointment.start} → {end} · {appointment.duration} min</span>
         </DetailRow>
 
-        <DetailRow icon={<Scissors aria-hidden="true" className="h-4 w-4" />} label="Prestation">
+        <DetailRow icon={<HandHeart aria-hidden="true" className="h-4 w-4" />} label="Prestation">
           <span className="block font-extrabold text-animeo-dark">{appointment.serviceName}</span>
           <span className="block text-xs text-animeo-muted">{formatEuros(appointment.price)}</span>
         </DetailRow>

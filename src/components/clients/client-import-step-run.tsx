@@ -1,6 +1,7 @@
 "use client";
 
 import type { RunState } from "@/components/clients/client-import-types";
+import { pluralizeAnimals } from "@/lib/format";
 
 export function ClientImportStepRun({
   runState,
@@ -57,7 +58,7 @@ export function ClientImportStepRun({
         <p className="font-extrabold text-animeo-dark">Import annulé</p>
         <p className="text-sm text-animeo-muted">
           {runState.deletedClients} fiche{runState.deletedClients > 1 ? "s" : ""} supprimée{runState.deletedClients > 1 ? "s" : ""}
-          {runState.deletedAnimals > 0 ? `, ${runState.deletedAnimals} animal${runState.deletedAnimals > 1 ? "aux" : ""}` : ""}.
+          {runState.deletedAnimals > 0 ? `, ${pluralizeAnimals(runState.deletedAnimals)}` : ""}.
           {runState.preservedClients > 0 ? ` ${runState.preservedClients} fiche${runState.preservedClients > 1 ? "s" : ""} conservée${runState.preservedClients > 1 ? "s" : ""} car un rendez-vous, une consultation ou un rappel y a été rattaché depuis.` : ""}
         </p>
         <button type="button" onClick={onViewClients} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">

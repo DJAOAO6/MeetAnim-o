@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Clock, MapPin, PawPrint, Scissors, User } from "lucide-react";
+import { CalendarDays, Clock, HandHeart, MapPin, PawPrint, User } from "lucide-react";
 import { appointmentStatusLabels } from "@/data/appointments";
 import { formatEuros } from "@/lib/format";
 import { minutesToTime, timeToMinutes } from "@/lib/booking-validation";
@@ -52,7 +52,7 @@ export function AppointmentSummaryPanel({ draft, cabinetAddress }: { draft: Appo
           ) : <Missing>Aucun client choisi</Missing>}
         </SummaryRow>
 
-        <SummaryRow icon={<Scissors aria-hidden="true" className="h-4 w-4" />} label="Prestation">
+        <SummaryRow icon={<HandHeart aria-hidden="true" className="h-4 w-4" />} label="Prestation">
           {draft.serviceName ? (
             <>
               <span className="block font-extrabold text-animeo-dark">{draft.serviceName}</span>

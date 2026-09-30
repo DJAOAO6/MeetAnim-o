@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/modal";
 import { deletePlaceAction, savePlaceAction } from "@/lib/places-actions";
 import { notify } from "@/lib/notify";
 import { animalPlaceKindLabels, animalPlaceKinds, type AnimalPlaceKind, type AnimalPlaceSummary, type SavePlaceInput } from "@/data/places";
+import { pluralizeAnimals } from "@/lib/format";
 
 const precisionLabels = { EXACT: "position précise", STREET: "position à la rue", CITY: "position approximative (commune)" } as const;
 
@@ -70,7 +71,7 @@ export function PlacesManager({ places }: { places: AnimalPlaceSummary[] }) {
                   </div>
                 </div>
                 <p className="mt-3 text-sm font-extrabold text-animeo-dark">
-                  {owners} propriétaire{owners > 1 ? "s" : ""} · {place.animals.length} anima{place.animals.length > 1 ? "ux" : "l"}
+                  {owners} propriétaire{owners > 1 ? "s" : ""} · {pluralizeAnimals(place.animals.length)}
                 </p>
                 {place.animals.length ? (
                   <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -95,7 +96,7 @@ export function PlacesManager({ places }: { places: AnimalPlaceSummary[] }) {
         <ConfirmModal
           title={`Supprimer « ${deleting.name} » ?`}
           message={deleting.animals.length
-            ? `Ses ${deleting.animals.length} anima${deleting.animals.length > 1 ? "ux" : "l"} redeviendront « chez leur propriétaire ». Les rendez-vous passés ne changent pas.`
+            ? `${deleting.animals.length > 1 ? `Ses ${pluralizeAnimals(deleting.animals.length)} redeviendront « chez leur propriétaire »` : "Son animal redeviendra « chez son propriétaire »"}. Les rendez-vous passés ne changent pas.`
             : "Aucun animal n’y est rattaché."}
           confirmLabel="Supprimer"
           cancelLabel="Annuler"

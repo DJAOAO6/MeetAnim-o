@@ -15,10 +15,13 @@
  */
 export type PracticeMode = "HOME_ONLY" | "OFFICE_ONLY" | "BOTH";
 
+// Ordre d'affichage : les deux choix simples d'abord, leur combinaison
+// ensuite. La valeur par défaut d'un nouvel espace n'en dépend pas (défaut
+// Prisma : BOTH).
 export const PRACTICE_MODES: { value: PracticeMode; label: string; description: string }[] = [
-  { value: "BOTH", label: "Les deux", description: "Vous recevez au cabinet et vous vous déplacez." },
   { value: "HOME_ONLY", label: "À domicile uniquement", description: "Vous vous déplacez chez vos clients, sans cabinet." },
   { value: "OFFICE_ONLY", label: "Au cabinet uniquement", description: "Vos clients viennent à vous, vous ne vous déplacez pas." },
+  { value: "BOTH", label: "Les deux (cabinet et domicile)", description: "Vous recevez au cabinet et vous vous déplacez." },
 ];
 
 /** Reçoit-il au cabinet ? Faux quand il n'en a pas. */

@@ -16,6 +16,7 @@ import { createClientAction, deleteClientsAction, type ClientContactInput } from
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 import { hasModule } from "@/lib/modules";
+import { pluralizeAnimals } from "@/lib/format";
 
 type ClientsListProps = {
   clients: Client[];
@@ -393,7 +394,7 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
           </span>
           <div>
             <p className="text-sm font-extrabold text-animeo-dark">
-              {client.animals.length} animal{client.animals.length > 1 ? "aux" : ""}
+              {pluralizeAnimals(client.animals.length)}
             </p>
             <p className="mt-0.5 max-w-40 truncate text-xs font-semibold text-animeo-muted">
               {animalNames(client)}

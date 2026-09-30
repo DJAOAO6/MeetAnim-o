@@ -21,6 +21,7 @@ import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 import { hasModule } from "@/lib/modules";
+import { pluralizeAnimals } from "@/lib/format";
 
 type ClientProfileProps = {
   client: Client;
@@ -180,7 +181,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
 
       <PageHeader
         title={`${clientInfo.firstName} ${clientInfo.lastName}`}
-        description={`${animals.length} animal${animals.length > 1 ? "aux" : ""} associé${animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
+        description={`${capitalizeFirst(pluralizeAnimals(animals.length))} associé${animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
       />
 
       <Card className="mb-6 p-5 sm:p-6">
@@ -402,4 +403,8 @@ function MailIcon() {
 
 function LocationIcon() {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>;
+}
+
+function capitalizeFirst(text: string): string {
+  return text.charAt(0).toLocaleUpperCase("fr-FR") + text.slice(1);
 }

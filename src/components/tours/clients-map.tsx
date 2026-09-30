@@ -13,6 +13,7 @@ import { animalSpeciesList, resolveSpeciesColor } from "@/data/species";
 import { circleBounds, haversineDistanceKm, pointInGeometry, type GeoBounds, type TerritoryGeometry } from "@/lib/geo";
 import { geocodeClientAddressAction, locateUnlocatedClientsAction } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
+import { pluralizeAnimals } from "@/lib/format";
 import { toTelHref } from "@/lib/phone";
 import { sendRemindersBulkAction } from "@/lib/reminders-actions";
 import { hasModule } from "@/lib/modules";
@@ -1374,7 +1375,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               </span>
             ) : (
               <span key={visibleClients.length} role="status" className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
-                {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""} · {animalCount} anima{animalCount > 1 ? "ux" : "l"}
+                {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""} · {pluralizeAnimals(animalCount)}
               </span>
             )}
           </div>

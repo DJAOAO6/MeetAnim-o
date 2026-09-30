@@ -14,6 +14,12 @@ export function initialsFor(firstName: string, lastName: string): string {
 }
 
 /** Plafonne l'affichage du badge de notifications au-delà de 99 (PROMPT-NOTIFICATIONS.md §B2). */
+/** « aucun animal », « 1 animal », « 3 animaux ». */
+export function pluralizeAnimals(count: number): string {
+  if (count <= 0) return "aucun animal";
+  return count === 1 ? "1 animal" : `${count} animaux`;
+}
+
 export function formatNotificationBadge(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
