@@ -876,6 +876,18 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
   // Regroupés : au moins trois clients à relancer dans le même périmètre.
   const tourSuggestion = dueInPerimeter.filter((client) => client.coordinates).length >= 3 ? dueInPerimeter.filter((client) => client.coordinates) : [];
   const practiceLabel = hasCabinet(practiceMode) ? "Mon cabinet" : "Mon lieu d’exercice";
+  // Légende des espèces : seulement celles des points affichés, avec leur
+  // nombre (la couleur d'un point est celle de l'espèce de son animal
+  // principal). Les plus nombreuses d'abord, les autres regroupées.
+  const speciesLegend = useMemo(() => {
+    const counts = new Map<AnimalSpecies, number>();
+    for (const client of perimeterClients) {
+      if (!client.coordinates) continue;
+      const lead = leadAnimal(client, selectedSpecies);
+      if (lead) counts.set(lead.species, (counts.get(lead.species) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [perimeterClients, selectedSpecies]);
   // Ce qu'enregistrerait « Enregistrer cette vue » : l'adresse, sans le
   // client ni le rendez-vous ouverts.
   const viewQuery = sanitizeMapQuery(buildMapQuery({
@@ -1051,6 +1063,19 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     ...(qualityFilter ? [{ key: "quality", label: qualityFilterLabels[qualityFilter], onRemove: () => setQualityFilter(null) }] : []),
   ];
 
+  // Liste vide : dire pourquoi, et proposer le geste utile (élargir).
+  const tierAbove = (perimeterCenter?.me ? AROUND_ME_TIERS : PERIMETER_RADIUS_TIERS).filter((km) => km > perimeterRadiusKm);
+  const emptyList: { title: string; detail?: string; widen?: number[] } =
+    perimeterCenter && clientsInPerimeter.length === 0
+      ? {
+        title: `Aucun client à moins de ${Math.round(perimeterRadiusKm)} km ${perimeterCenter.me ? "de vous" : `de ${perimeterCenter.label}`}`,
+        detail: tierAbove.length ? "Essayez d’élargir la zone." : undefined,
+        widen: tierAbove.slice(0, 2),
+      }
+      : (mapMode === "reminders" && visitFilter === "due") || (mapMode !== "reminders" && dueOnly)
+        ? { title: hasPerimeter ? "Aucun client à relancer dans cette zone" : "Aucun client à relancer" }
+        : { title: "Aucun client ne correspond aux filtres." };
+
   // Liste de la carte (clients ou rendez-vous) : dans la colonne de droite
   // sur grand écran, dans le panneau glissant sur téléphone.
   const listPanel = (
@@ -1152,7 +1177,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           ) : null}
         </div>
       ) : (
-        <div className="p-8 text-center"><Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" /><p className="mt-3 text-sm font-bold text-animeo-muted">Aucun client ne correspond aux filtres.</p></div>
+        <MapEmptyState
+          title={emptyList.title}
+          detail={emptyList.detail}
+          actions={emptyList.widen?.length ? emptyList.widen.map((km) => (
+            <button key={km} type="button" onClick={() => setPerimeterRadiusExternally(km)} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-bg px-3.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">{km} km</button>
+          )) : null}
+        />
       )}
       </>
       )}
@@ -1194,8 +1225,30 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
     </p>
   );
 
+  if (clients.length === 0) {
+    return (
+      <Card className="p-4 sm:p-5">
+        <MapEmptyState
+          title="Votre carte est encore vide"
+          detail="Ajoutez votre premier client pour commencer à visualiser votre secteur."
+          actions={<Link href="/dashboard/clients?nouveau=1" className="inline-flex min-h-11 items-center rounded-xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-animeo-hover">Ajouter un client</Link>}
+        />
+      </Card>
+    );
+  }
+  const noClientLocated = clients.every((client) => !client.coordinates);
+
   return (
     <div className="space-y-6">
+      {noClientLocated ? (
+        <Card className="p-4 sm:p-5">
+          <MapEmptyState
+            title="Vos clients doivent être localisés"
+            detail={`${clients.length} client${clients.length > 1 ? "s n’ont" : " n’a"} pas encore de position exploitable sur la carte.`}
+            actions={<LocateAllButton label="Localiser les clients" />}
+          />
+        </Card>
+      ) : null}
       <Card className="p-4 sm:p-5">
         {/* Mode de la carte, et l'option propre à ce mode. */}
         <div className="mb-3 flex flex-col items-start gap-2 border-b border-animeo-border-soft pb-3">
@@ -1251,8 +1304,10 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           {mapMode === "activity" ? <Segmented label="Période" options={ACTIVITY_RANGES} value={activityRange} onChange={(range) => { setActivityRange(range); setSelectedAppointmentId(null); }} size="sm" /> : null}
           {mapMode === "reminders" ? <Segmented label="Suivi des visites" options={VISIT_FILTERS} value={visitFilter} onChange={setVisitFilter} size="sm" /> : null}
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="min-w-0 sm:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} sources={["client", "animal", "place", "address"]} /></div>
+        {/* Une seule ligne seulement quand la recherche garde une largeur
+            utile (menu latéral ouvert à 800 px : deux lignes). */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="min-w-0 lg:flex-1"><UnifiedSearch onSelect={handleUnifiedSelect} onSubmitFreeText={setQuery} sources={["client", "animal", "place", "address"]} /></div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div ref={speciesPanelRef} className="relative">
@@ -1291,11 +1346,11 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             </button> : null}
 
             {mapMode === "activity" ? (
-              <span key={`rdv-${activityAppointments.length}`} className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
+              <span key={`rdv-${activityAppointments.length}`} role="status" className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
                 {activityAppointments.length} rendez-vous · {homeAppointmentCount} à domicile
               </span>
             ) : (
-              <span key={visibleClients.length} className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
+              <span key={visibleClients.length} role="status" className="animate-count-pulse inline-block text-xs font-bold text-animeo-muted">
                 {visibleClients.length} client{visibleClients.length > 1 ? "s" : ""} · {animalCount} anima{animalCount > 1 ? "ux" : "l"}
               </span>
             )}
@@ -1466,7 +1521,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     onClick={() => setQualityOpen((current) => !current)}
                     aria-haspopup="true"
                     aria-expanded={qualityOpen}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+                    className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
                   >
                     <MapPin aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" />
                     Localisation : {qualitySummary.reliablePercent} % fiable
@@ -1516,9 +1571,16 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                   <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
                 )) : mapMode === "tours" ? ZONE_LEGEND.map((item) => (
                   <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
-                )) : effectiveColor === "species" ? animalSpeciesList.map((item) => (
-                  <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item}</span>
-                )) : effectiveColor === "quality" ? (
+                )) : effectiveColor === "species" ? (
+                  <>
+                    {speciesLegend.slice(0, 4).map(([item, count]) => (
+                      <span key={item} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: resolveSpeciesColor(theme.speciesColors, item) }} />{item} <span className="tabular-nums text-animeo-dark">{count}</span></span>
+                    ))}
+                    {speciesLegend.length > 4 ? (
+                      <span title={speciesLegend.slice(4).map(([item, count]) => `${item} ${count}`).join(", ")}>+{speciesLegend.length - 4}</span>
+                    ) : null}
+                  </>
+                ) : effectiveColor === "quality" ? (
                   <>
                     <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: qualityColors.precise }} />Précise</span>
                     <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full border border-dashed border-animeo-dark" style={{ backgroundColor: qualityColors.approximate }} />Approximative (contour en pointillés)</span>
@@ -1746,6 +1808,18 @@ function PracticeCard({ label, tiers, docked, onClose, onCenter, onPerimeter }: 
         <button type="button" onClick={onCenter} className={action}><Crosshair aria-hidden="true" className="h-4 w-4" />Centrer</button>
         <button type="button" onClick={onPerimeter} className={action}><MapPin aria-hidden="true" className="h-4 w-4" />Créer un périmètre</button>
       </div>
+    </div>
+  );
+}
+
+/** État vide : ce qui se passe, et le geste utile — jamais une impasse. */
+function MapEmptyState({ title, detail, actions }: { title: string; detail?: string; actions?: ReactNode }) {
+  return (
+    <div className="px-6 py-8 text-center" role="status">
+      <Icon name="map" className="mx-auto h-8 w-8 text-animeo-muted" />
+      <p className="mt-3 text-sm font-extrabold text-animeo-dark">{title}</p>
+      {detail ? <p className="mx-auto mt-1 max-w-sm text-sm text-animeo-muted">{detail}</p> : null}
+      {actions ? <div className="mt-4 flex flex-wrap justify-center gap-2">{actions}</div> : null}
     </div>
   );
 }

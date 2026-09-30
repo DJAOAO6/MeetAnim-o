@@ -265,6 +265,12 @@ html {
   background-color: var(--theme-surface);
 }
 
+/* Fiches flottantes de la carte (fond translucide) : même surface que le
+   reste du tableau de bord, y compris en mode sombre. */
+[data-dashboard-theme] .bg-white\/95 {
+  background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+}
+
 [data-dashboard-theme] button.bg-animeo,
 [data-dashboard-theme] a.bg-animeo {
   background-color: var(--theme-action);
@@ -428,6 +434,13 @@ a:focus-visible {
   top: 0;
   bottom: auto;
 }
+/* Mouvement réduit : pas de transition sur les points ni les groupes. */
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-marker-icon > span {
+    transition: none !important;
+  }
+}
+
 .leaflet-container path.map-selection {
   stroke: var(--theme-heading);
   stroke-width: 2;

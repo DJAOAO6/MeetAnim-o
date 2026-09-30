@@ -353,7 +353,8 @@ function ClusteredMarkers({ points, selectedId, onSelect, highlightedId, onHover
   function openCluster(index: Supercluster<ClusterPointProps, ClusterAggregate>, clusterId: number, center: L.LatLng) {
     const expansion = index.getClusterExpansionZoom(clusterId);
     if (expansion <= map.getMaxZoom() && expansion > map.getZoom()) {
-      map.flyTo(center, expansion, { duration: 0.5 });
+      if (prefersReducedMotion()) map.setView(center, expansion, { animate: false });
+      else map.flyTo(center, expansion, { duration: 0.5 });
       return;
     }
     setSpider({ center, ids: index.getLeaves(clusterId, Infinity).map((leaf) => leaf.properties.id) });
@@ -541,6 +542,11 @@ function FitToPoints({ points }: { points: RealMapPoint[] }) {
   return null;
 }
 
+/** Mouvement réduit demandé : la carte saute au lieu de voler. */
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 function FlyToSelected({ point, offset }: { point?: RealMapPoint; offset?: { x: number; y: number } }) {
   const map = useMap();
 
@@ -552,7 +558,8 @@ function FlyToSelected({ point, offset }: { point?: RealMapPoint; offset?: { x: 
     const target = offset
       ? map.unproject(map.project([point.lat, point.lng], zoom).add([offset.x, offset.y]), zoom)
       : L.latLng(point.lat, point.lng);
-    map.flyTo(target, zoom, { duration: 0.6 });
+    if (prefersReducedMotion()) map.setView(target, zoom, { animate: false });
+    else map.flyTo(target, zoom, { duration: 0.6 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [point?.id]);
 
@@ -566,10 +573,10 @@ function FitToBounds({ target, padding }: { target?: RealMapFitBounds | null; pa
     if (!target) return;
     // flyToBounds, jamais un zoom fixe : 15 km → 50 km dézoome jusqu'à voir
     // tout le cercle, 50 km → 15 km rezoome.
-    map.flyToBounds(
-      [[target.south, target.west], [target.north, target.east]],
-      { paddingTopLeft: padding?.topLeft ?? [40, 40], paddingBottomRight: padding?.bottomRight ?? [40, 40], duration: 0.6, maxZoom: 15 },
-    );
+    const options = { paddingTopLeft: padding?.topLeft ?? [40, 40], paddingBottomRight: padding?.bottomRight ?? [40, 40], maxZoom: 15 } as const;
+    const bounds: L.LatLngBoundsExpression = [[target.south, target.west], [target.north, target.east]];
+    if (prefersReducedMotion()) map.fitBounds(bounds, { ...options, animate: false });
+    else map.flyToBounds(bounds, { ...options, duration: 0.6 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.token]);
 

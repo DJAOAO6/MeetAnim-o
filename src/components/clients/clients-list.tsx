@@ -20,6 +20,8 @@ import { hasModule } from "@/lib/modules";
 type ClientsListProps = {
   clients: Client[];
   initialQuery?: string;
+  /** Ouvre le formulaire « Nouveau client » à l'arrivée. */
+  initialCreating?: boolean;
 };
 
 type SpeciesFilter = "Tous" | AnimalSpecies;
@@ -28,7 +30,7 @@ type SortOption = "name" | "recent";
 
 const sortLabels: Record<SortOption, string> = { name: "Nom (A → Z)", recent: "Ajout récent" };
 
-export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
+export function ClientsList({ clients, initialQuery = "", initialCreating = false }: ClientsListProps) {
   const currentUser = useCurrentUser();
   const canDelete = hasPermission(currentUser, "DELETE_CLIENTS");
   const router = useRouter();
@@ -51,7 +53,7 @@ export function ClientsList({ clients, initialQuery = "" }: ClientsListProps) {
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("Tous");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Tous les statuts");
   const [sortBy, setSortBy] = useState<SortOption>("name");
-  const [creatingClient, setCreatingClient] = useState(false);
+  const [creatingClient, setCreatingClient] = useState(initialCreating);
   const [savingClient, setSavingClient] = useState(false);
   const [importingClients, setImportingClients] = useState(false);
   // Suppression façon Gmail : jamais de bouton visible sur une fiche. Les
