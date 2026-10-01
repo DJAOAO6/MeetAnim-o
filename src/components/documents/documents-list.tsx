@@ -143,7 +143,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                 </div>
                 <div className="p-4">
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
                       {document.status}
                     </span>
                   </div>
@@ -233,7 +233,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                         <div className="px-2.5 py-2">
                           <p className="truncate text-xs font-extrabold text-animeo-dark">{template.name}</p>
                           {template.species ? (
-                            <span className="mt-1 inline-block rounded-full bg-animeo-bg px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-animeo-muted">{template.species}</span>
+                            <span className="mt-1 inline-block rounded-full bg-animeo-bg px-1.5 py-0.5 text-xs font-bold uppercase tracking-wide text-animeo-muted">{template.species}</span>
                           ) : null}
                         </div>
                       </button>

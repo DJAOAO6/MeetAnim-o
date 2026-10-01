@@ -711,7 +711,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
         <Card className={`${mobileView === "list" ? "block" : "hidden lg:block"} overflow-hidden lg:sticky lg:top-6`}>
           <div className="flex items-center justify-between border-b border-animeo-border-soft p-4">
             <h3 className="text-sm font-black uppercase tracking-[0.08em] text-animeo-dark">Ma tournée</h3>
-            {busy ? <span className="text-[11px] font-bold text-animeo-muted">Recalcul…</span> : null}
+            {busy ? <span className="text-xs font-bold text-animeo-muted">Recalcul…</span> : null}
           </div>
           {/* Reste utilisable pendant un recalcul (phase 3 ter, correctif) :
               les distances affichées sont les précédentes jusqu'au prochain
@@ -763,7 +763,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             overlay={selectedClient ? (
               <Card className="p-3">
                 <p className="text-xs font-black text-animeo-dark">{selectedClient.animalName} — {selectedClient.ownerName}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-animeo-muted">
+                <p className="mt-0.5 text-xs font-semibold text-animeo-muted">
                   {selectedClient.city} · {selectedClient.lastConsultation}
                   {selectedClient.dueForReminder ? " · À relancer" : ""}
                 </p>
@@ -787,7 +787,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                       type="button"
                       onClick={() => handleGeocodeClient(client.clientId)}
                       disabled={geocodingClientId === client.clientId}
-                      className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-[11px] font-extrabold text-animeo-warning shadow-sm transition hover:bg-animeo-warning-soft disabled:opacity-60"
+                      className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-xs font-extrabold text-animeo-warning shadow-sm transition hover:bg-animeo-warning-soft disabled:opacity-60"
                     >
                       {geocodingClientId === client.clientId ? "Localisation…" : "Localiser"}
                     </button>

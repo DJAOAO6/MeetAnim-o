@@ -59,7 +59,7 @@ export function TemplatesPanel({ readOnly }: { readOnly: boolean }) {
                 className="overflow-hidden rounded-md border border-neutral-200 text-left transition hover:border-animeo disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <TemplateThumbnailSketch layoutSketch={template.layoutSketch} />
-                <p className="truncate px-2 py-1.5 text-[11px] font-semibold text-neutral-700">
+                <p className="truncate px-2 py-1.5 text-xs font-semibold text-neutral-700">
                   {insertingId === template.id ? "Insertion…" : template.name}
                 </p>
               </button>

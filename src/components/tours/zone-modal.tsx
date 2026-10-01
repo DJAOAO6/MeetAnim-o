@@ -149,7 +149,7 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
           <div>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-medium uppercase tracking-[0.11em] text-animeo-muted">Communes</p>
-              <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-medium text-animeo-dark">{cities.length} ligne{cities.length > 1 ? "s" : ""}</span>
+              <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-xs font-medium text-animeo-dark">{cities.length} ligne{cities.length > 1 ? "s" : ""}</span>
             </div>
             <div className="space-y-2">
               {cities.map((city, index) => (

@@ -96,7 +96,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
   return (
     <div className="space-y-5 p-4">
       {element.locked ? (
-        <p className="rounded-lg bg-animeo-bg px-2.5 py-2 text-[11px] font-bold text-animeo-muted">Élément verrouillé — déverrouillez-le depuis Calques ou le cadenas sur le canevas pour le modifier.</p>
+        <p className="rounded-lg bg-animeo-bg px-2.5 py-2 text-xs font-bold text-animeo-muted">Élément verrouillé — déverrouillez-le depuis Calques ou le cadenas sur le canevas pour le modifier.</p>
       ) : null}
 
       <div>
@@ -125,11 +125,11 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Style</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Remplissage</span>
+              <span className="mb-1 block text-xs font-bold text-animeo-muted">Remplissage</span>
               <ColorPicker label="Remplissage" value={element.fill} onChange={(value) => updateElement(element.id, { fill: value })} documentColors={documentColors} disabled={fieldsDisabled} />
             </div>
             <div>
-              <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Contour</span>
+              <span className="mb-1 block text-xs font-bold text-animeo-muted">Contour</span>
               <ColorPicker label="Contour" value={element.stroke} onChange={(value) => updateElement(element.id, { stroke: value })} documentColors={documentColors} disabled={fieldsDisabled} />
             </div>
             <NumberField
@@ -181,7 +181,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Style</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <span className="mb-1 block text-[10px] font-bold text-animeo-muted">Couleur</span>
+              <span className="mb-1 block text-xs font-bold text-animeo-muted">Couleur</span>
               <ColorPicker label="Couleur de l'icône" value={element.color} onChange={(value) => updateElement(element.id, { color: value })} documentColors={documentColors} disabled={fieldsDisabled} />
             </div>
             <NumberField
@@ -233,7 +233,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
 function NumberField({ label, ariaLabel, value, onChange, disabled }: { label: string; ariaLabel: string; value: number; onChange: (value: number) => void; disabled: boolean }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-bold text-animeo-muted" aria-hidden="true">{label}</span>
+      <span className="mb-1 block text-xs font-bold text-animeo-muted" aria-hidden="true">{label}</span>
       <input
         aria-label={ariaLabel}
         type="number"
@@ -277,7 +277,7 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
       <div>
         <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Repères</p>
         {placingMarkerPresetId ? (
-          <p className="mb-2 rounded-lg bg-animeo-soft px-2.5 py-2 text-[11px] font-bold text-animeo-dark">Cliquez sur le schéma pour poser le repère…</p>
+          <p className="mb-2 rounded-lg bg-animeo-soft px-2.5 py-2 text-xs font-bold text-animeo-dark">Cliquez sur le schéma pour poser le repère…</p>
         ) : null}
         <div className="flex flex-wrap gap-1.5">
           {markerPresets.map((preset) => (
@@ -286,7 +286,7 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
               type="button"
               disabled={readOnly}
               onClick={() => setPlacingMarkerPreset(placingMarkerPresetId === preset.id ? null : preset.id)}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                 placingMarkerPresetId === preset.id ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"
               }`}
             >
@@ -302,7 +302,7 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">Repères posés</p>
           <ul className="space-y-1">
             {element.markers.map((marker, index) => (
-              <li key={marker.id} className="flex items-center justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-semibold text-animeo-dark">
+              <li key={marker.id} className="flex items-center justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-semibold text-animeo-dark">
                 <span className="truncate">{index + 1}. {marker.label}</span>
                 {!readOnly ? (
                   <button type="button" onClick={() => removeMarker(marker.id)} aria-label={`Supprimer le repère ${index + 1}`} className="shrink-0 text-animeo-error">
@@ -334,7 +334,7 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
                   const value = event.target.value.trim();
                   if (value && value !== preset.label) renamePreset(preset.id, value);
                 }}
-                className="h-8 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
+                className="h-8 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2 text-xs font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
               />
             </label>
           ))}

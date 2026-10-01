@@ -298,7 +298,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
             className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-base font-bold text-neutral-800 outline-none transition hover:border-neutral-200 focus:border-animeo focus:bg-neutral-50 disabled:hover:border-transparent"
           />
 
-          <span className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
+          <span className={`inline-flex rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wide ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
             {document.status}
           </span>
 

@@ -687,7 +687,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
               type="button"
               aria-pressed={basemap === option}
               onClick={() => onBasemapChange(option)}
-              className={`min-h-8 rounded-md px-2.5 text-[11px] font-extrabold transition ${basemap === option ? "bg-animeo-dark text-white" : "text-animeo-muted hover:text-animeo-dark"}`}
+              className={`min-h-8 rounded-md px-2.5 text-xs font-extrabold transition ${basemap === option ? "bg-animeo-dark text-white" : "text-animeo-muted hover:text-animeo-dark"}`}
             >
               {option === "plan" ? "Plan" : "Aérien"}
             </button>

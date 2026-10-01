@@ -50,7 +50,7 @@ export function BookingHeader({ professional }: { professional: PublicProfession
                   <Image src={professional.logo} alt="" width={80} height={80} unoptimized className="h-full w-full object-cover" />
                 ) : professional.logo}
               </div>
-              <div className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-animeo-soft text-[10px] font-black text-animeo-dark sm:h-11 sm:w-11">
+              <div className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-animeo-soft text-[11px] font-black text-animeo-dark sm:h-11 sm:w-11">
                 {isImageValue(professional.photo) ? (
                   <Image src={professional.photo} alt="" width={44} height={44} unoptimized className="h-full w-full object-cover" />
                 ) : professional.photo}

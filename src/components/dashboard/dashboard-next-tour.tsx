@@ -108,7 +108,7 @@ function TourFigure({ value, label }: { value: string; label: string }) {
     <div className="min-w-0">
       <dt className="sr-only">{label}</dt>
       <dd className="truncate text-base font-black text-animeo-dark">{value}</dd>
-      <p aria-hidden="true" className="truncate text-[11px] font-bold text-animeo-muted">{label}</p>
+      <p aria-hidden="true" className="truncate text-xs font-bold text-animeo-muted">{label}</p>
     </div>
   );
 }

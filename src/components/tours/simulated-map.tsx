@@ -47,7 +47,7 @@ export function SimulatedMap({ points, selectedId, onSelect, heightClassName = "
         </>
       ) : null}
 
-      <div className="absolute left-3 top-3 z-20 rounded-xl border border-white/70 bg-white/90 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted shadow-sm backdrop-blur-sm">
+      <div className="absolute left-3 top-3 z-20 rounded-xl border border-white/70 bg-white/90 px-3 py-2 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted shadow-sm backdrop-blur-sm">
         Carte simulée · aucune donnée Mapbox
       </div>
 
@@ -74,5 +74,5 @@ export function SimulatedMap({ points, selectedId, onSelect, heightClassName = "
 }
 
 function MapLabel({ label, x, y }: { label: string; x: string; y: string }) {
-  return <span className="absolute text-[10px] font-black uppercase tracking-[0.12em] text-[#8da09a]" style={{ left: x, top: y }}>{label}</span>;
+  return <span className="absolute text-[11px] font-black uppercase tracking-[0.12em] text-[#8da09a]" style={{ left: x, top: y }}>{label}</span>;
 }

@@ -68,7 +68,7 @@ export function StatsFilters({ period, serviceId, species, startDate, endDate, s
 }
 
 function FilterField({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="block"><span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">{label}</span>{children}</label>;
+  return <label className="block"><span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">{label}</span>{children}</label>;
 }
 
 export function MetricStrip({ children }: { children: ReactNode }) {
@@ -82,7 +82,7 @@ export function StatMetric({ label, value, detail, icon, positive = false }: { l
       <span className="min-w-0">
         <span className="block text-xs font-bold text-animeo-muted">{label}</span>
         <span className="mt-1 block text-2xl font-black text-animeo-dark">{value}</span>
-        {detail ? <span className={`mt-1 block text-[11px] font-bold ${positive ? "text-animeo-success" : "text-animeo-muted"}`}>{detail}</span> : null}
+        {detail ? <span className={`mt-1 block text-xs font-bold ${positive ? "text-animeo-success" : "text-animeo-muted"}`}>{detail}</span> : null}
       </span>
     </div>
   );

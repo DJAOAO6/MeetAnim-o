@@ -49,7 +49,7 @@ function sameDay(first: Date, second: Date) {
 
 export function CompactAppointment({ item }: { item: DayItem }) {
   return (
-    <div className={`truncate rounded-[4px] border-l-2 px-1.5 py-0.5 text-[10px] font-bold leading-tight ${compactEventStyles[item.kind]}`}>
+    <div className={`truncate rounded-[4px] border-l-2 px-1.5 py-0.5 text-[11px] font-bold leading-tight ${compactEventStyles[item.kind]}`}>
       <span className="font-black">{item.start}</span> {item.title}
     </div>
   );
@@ -87,15 +87,15 @@ export function MonthDayCell({ date, monthDate, appointments, tours, availabilit
         <span className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-black ${isToday ? "bg-animeo text-white" : "text-animeo-dark"}`}>
           {date.getDate()}
         </span>
-        {agenda.count > 0 ? <span className="text-[10px] font-extrabold text-animeo-muted">{agenda.count}</span> : null}
+        {agenda.count > 0 ? <span className="text-[11px] font-extrabold text-animeo-muted">{agenda.count}</span> : null}
       </div>
 
       {agenda.isClosed ? (
-        <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.06em] text-animeo-subtle">Fermé</span>
+        <span className="mt-1 text-[11px] font-bold uppercase tracking-[0.06em] text-animeo-subtle">Fermé</span>
       ) : (
         <div className="flex flex-col gap-0.5">
           {visibleItems.map((item) => <CompactAppointment key={item.id} item={item} />)}
-          {hiddenCount > 0 ? <span className="px-1.5 text-[10px] font-extrabold text-animeo">+ {hiddenCount} autre{hiddenCount > 1 ? "s" : ""}</span> : null}
+          {hiddenCount > 0 ? <span className="px-1.5 text-[11px] font-extrabold text-animeo">+ {hiddenCount} autre{hiddenCount > 1 ? "s" : ""}</span> : null}
         </div>
       )}
     </button>
@@ -119,7 +119,7 @@ export function MonthCalendarView({ monthDate, appointments, tours, availability
     <div className="overflow-hidden rounded-2xl border border-animeo-border-soft">
       <div className="grid grid-cols-7 border-b border-animeo-border-soft bg-animeo-surface-alt">
         {weekDayLabels.map((label) => (
-          <span key={label} className="border-r border-animeo-border-soft px-2 py-2 text-center text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted last:border-r-0">
+          <span key={label} className="border-r border-animeo-border-soft px-2 py-2 text-center text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted last:border-r-0">
             {label}
           </span>
         ))}

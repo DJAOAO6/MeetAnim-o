@@ -73,7 +73,7 @@ export function IconsPanel({ readOnly }: { readOnly: boolean }) {
                     type="button"
                     onClick={() => insert(icon)}
                     disabled={readOnly}
-                    className="flex flex-col items-center gap-1.5 rounded-md border border-neutral-200 px-2 py-3 text-[11px] font-semibold text-neutral-700 transition hover:border-animeo hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex flex-col items-center gap-1.5 rounded-md border border-neutral-200 px-2 py-3 text-xs font-semibold text-neutral-700 transition hover:border-animeo hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
                       <path d={icon.path} />

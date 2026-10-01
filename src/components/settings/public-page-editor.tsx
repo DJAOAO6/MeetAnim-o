@@ -235,7 +235,7 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
                           Régler
                         </button>
                         {definition.alwaysVisible ? (
-                          <span className="text-[11px] font-bold text-animeo-muted" title="Cette section ne peut pas être masquée">Toujours visible</span>
+                          <span className="text-xs font-bold text-animeo-muted" title="Cette section ne peut pas être masquée">Toujours visible</span>
                         ) : (
                           <button
                             type="button"

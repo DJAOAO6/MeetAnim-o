@@ -50,8 +50,8 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${service.active ? "bg-animeo-positive-soft text-animeo-positive" : "bg-animeo-border-soft text-animeo-muted"}`}>{service.active ? "Active" : "Inactive"}</span>
-                    <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-[10px] font-black text-animeo-muted">{service.duration} min</span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${service.active ? "bg-animeo-positive-soft text-animeo-positive" : "bg-animeo-border-soft text-animeo-muted"}`}>{service.active ? "Active" : "Inactive"}</span>
+                    <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-xs font-black text-animeo-muted">{service.duration} min</span>
                   </div>
                   <h3 className="text-xl font-black text-animeo-dark">{service.name}</h3>
                   <p className="mt-1 text-sm text-animeo-muted">{service.description}</p>

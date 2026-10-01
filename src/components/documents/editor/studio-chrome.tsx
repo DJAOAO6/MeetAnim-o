@@ -19,5 +19,5 @@ export function StudioPanel({ id, title, children }: { id: string; title: string
 }
 
 export function StudioSectionLabel({ children }: { children: ReactNode }) {
-  return <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-neutral-500">{children}</p>;
+  return <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">{children}</p>;
 }

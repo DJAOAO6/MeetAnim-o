@@ -41,12 +41,12 @@ function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (messag
               onClick={() => onAction(`L’ouverture de ${document.name} sera ajoutée ici`)}
               className="flex w-full items-center gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-3 text-left transition hover:border-animeo"
             >
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[10px] font-black ${document.type === "PDF" ? "bg-animeo-danger-soft text-animeo-danger" : "bg-animeo-info-soft text-animeo-dark"}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ${document.type === "PDF" ? "bg-animeo-danger-soft text-animeo-danger" : "bg-animeo-info-soft text-animeo-dark"}`}>
                 {document.type === "PDF" ? "PDF" : "IMG"}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-extrabold text-animeo-dark">{document.name}</span>
-                <span className="mt-0.5 block truncate text-[10px] font-semibold text-animeo-muted">{document.linkedTo}</span>
+                <span className="mt-0.5 block truncate text-xs font-semibold text-animeo-muted">{document.linkedTo}</span>
               </span>
             </button>
           ))}

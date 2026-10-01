@@ -202,6 +202,15 @@
   --theme-shadow-rgb: 0 0 0;
 }
 
+/* Taille minimale des petits textes : 13 px au lieu des 12 px de Tailwind
+   (retour de la praticienne, illisibles). Syntaxe de tailwindcss/theme.css :
+   la taille et sa hauteur de ligne. Les exceptions à 11 px (place contrainte)
+   sont écrites en dur là où elles se trouvent. */
+@theme {
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: calc(1.125 / 0.8125);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -164,17 +164,17 @@ function ConsultationHistory({ animal }: { animal: Animal }) {
                 <p className="text-sm font-extrabold text-animeo-dark">{consultation.date}</p>
                 <p className="mt-1 font-extrabold text-animeo-dark">{consultation.service}</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-animeo-positive-soft px-2.5 py-1 text-[10px] font-black text-animeo-hover">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-animeo-positive-soft px-2.5 py-1 text-xs font-black text-animeo-hover">
                 <span className="h-1.5 w-1.5 rounded-full bg-animeo" />
                 {consultation.status}
               </span>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${consultation.mode === "Cabinet" ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-info-soft text-animeo-dark"}`}>
+              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${consultation.mode === "Cabinet" ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-info-soft text-animeo-dark"}`}>
                 {consultation.mode}
               </span>
-              <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-[10px] font-black text-animeo-dark">{consultation.price}</span>
+              <span className="rounded-full bg-animeo-bg px-2.5 py-1 text-xs font-black text-animeo-dark">{consultation.price}</span>
             </div>
 
             <p className="mt-3 text-xs font-semibold leading-relaxed text-animeo-muted">{consultation.summary}</p>
@@ -263,7 +263,7 @@ function DocumentsHistory({ animal, clientId }: { animal: Animal; clientId: stri
                 <span className="block truncate font-extrabold text-animeo-dark">{document.title}</span>
                 <span className="mt-0.5 block text-xs font-semibold text-animeo-muted">{document.updatedAt}</span>
               </span>
-              <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
+              <span className={`inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-[0.06em] ${document.status === "Finalisé" ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-warning-soft text-animeo-warning"}`}>
                 {document.status}
               </span>
             </Link>

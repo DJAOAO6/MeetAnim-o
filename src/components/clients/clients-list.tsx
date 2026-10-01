@@ -293,7 +293,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
                 largeur. */}
             <div className="hidden overflow-x-auto xl:block">
               <table className="w-full min-w-[880px] border-collapse text-left">
-                <thead className="bg-animeo-surface-alt text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+                <thead className="bg-animeo-surface-alt text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
                   <tr>
                     {canDelete && selectionMode ? (
                       <th className="w-12 px-6 py-3.5">
@@ -311,7 +311,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
                     <th className="px-4 py-3.5">Ville</th>
                     <th className="px-4 py-3.5">Animaux</th>
                     <th className="px-4 py-3.5">Dernière consultation</th>
-                    <th className="px-6 py-3.5 text-right"><span className="sr-only">Action</span></th>
+                    <th className="hidden px-6 py-3.5 text-right 2xl:table-cell"><span className="sr-only">Action</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-animeo-border-soft">
@@ -416,7 +416,8 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
         </div>
       </td>
       <td className="px-4 py-4 text-sm font-semibold text-animeo-muted">{client.lastConsultation}</td>
-      <td className="px-6 py-4">
+      {/* Sous 1536 px, la colonne déborderait : toute la ligne ouvre déjà la fiche. */}
+      <td className="hidden px-6 py-4 2xl:table-cell">
         <div className="flex items-center justify-end">
           <ClientLink id={client.id} />
         </div>
@@ -502,9 +503,11 @@ function ClientLink({ id, fullWidth = false }: { id: string; fullWidth?: boolean
       // Le nom est déjà le lien de la ligne au clavier : pas de second arrêt.
       tabIndex={-1}
       onClick={(event) => event.stopPropagation()}
-      className={`relative z-10 ${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
+      className={`relative z-10 whitespace-nowrap ${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
     >
-      Voir la fiche
+      {/* « Voir » suffit à l'œil (toute la ligne ouvre la fiche) ; le nom
+          complet reste celui du lien. */}
+      Voir<span className="sr-only"> la fiche</span>
       <Icon name="arrow" className="ml-1 h-4 w-4" />
     </Link>
   );

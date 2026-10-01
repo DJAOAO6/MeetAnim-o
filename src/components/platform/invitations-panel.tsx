@@ -23,7 +23,7 @@ const statusLabels: Record<PlatformInvitationView["status"], string> = {
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" });
 const inputClassName = "h-11 w-full rounded-[12px] border border-animeo-border bg-white px-3 text-sm text-animeo-dark outline-none focus:border-animeo";
-const labelClassName = "mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted";
+const labelClassName = "mb-1 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted";
 
 /**
  * Inviter un professionnel à ouvrir son cabinet. L'inscription n'est pas

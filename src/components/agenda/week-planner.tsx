@@ -634,7 +634,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
 
                 return (
                   <div key={date.toISOString()} className="border-r border-animeo-border px-2 py-3 text-center last:border-r-0" data-testid="agenda-day-heading">
-                    <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
+                    <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
                       {dayFormatter.format(date).replace(".", "")}
                     </p>
                     <span className={`mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${active ? "bg-animeo text-white" : "text-animeo-dark"}`}>
@@ -913,7 +913,7 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           style={{ top: (range.start - startHour) * 60 * pxPerMinute, height: (range.end - range.start) * 60 * pxPerMinute }}
         >
           {showClosedZones && !dayAvailability.open && range.start === startHour && range.end === endHour ? (
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-animeo-muted">
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-animeo-muted">
               Fermé
             </span>
           ) : null}
@@ -989,7 +989,7 @@ function OutsideRangeMarker({ position, items, hour, onSelectEvent }: {
       aria-label={`${items.length} rendez-vous ${position === "before" ? "avant" : "après"} ${time}, hors des horaires affichés : ouvrir ${name} à ${first.start}`}
       title={sorted.map((item) => `${item.start} ${item.animal ?? item.title ?? ""}`).join("\n")}
       data-testid="agenda-outside-range"
-      className={`absolute inset-x-1 z-[25] flex min-h-6 items-center justify-center gap-1 rounded-md border border-animeo-border bg-white/95 px-1 text-[10px] font-extrabold text-animeo-dark shadow-sm transition hover:border-animeo ${position === "before" ? "top-1" : "bottom-1"}`}
+      className={`absolute inset-x-1 z-[25] flex min-h-6 items-center justify-center gap-1 rounded-md border border-animeo-border bg-white/95 px-1 text-[11px] font-extrabold text-animeo-dark shadow-sm transition hover:border-animeo ${position === "before" ? "top-1" : "bottom-1"}`}
     >
       <MarkerIcon aria-hidden="true" className="h-3 w-3 shrink-0" strokeWidth={2.5} />
       <span className="truncate">{items.length} RDV {position === "before" ? "avant" : "après"} {time}</span>
@@ -1123,14 +1123,14 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
       }}
     >
       {size === "tiny" ? (
-        <p className="flex h-full items-center gap-1 truncate text-[10px] font-extrabold">
+        <p className="flex h-full items-center gap-1 truncate text-[11px] font-extrabold">
           {/* Carte étroite : le nom d'abord, l'heure se lit sur la grille. */}
           <span className="hidden font-black tabular-nums @min-[5.5rem]:inline">{event.start}</span>
           <span className="truncate">{name}</span>
         </p>
       ) : size === "medium" ? (
         <div className={visualHeight >= STACKED_EVENT_HEIGHT ? "" : "flex items-baseline gap-1.5"}>
-          <p className={`text-[10px] font-black tabular-nums ${visualHeight >= STACKED_EVENT_HEIGHT ? "hidden @min-[3rem]:block" : "hidden @min-[5.5rem]:block"}`}>{event.start}</p>
+          <p className={`text-[11px] font-black tabular-nums ${visualHeight >= STACKED_EVENT_HEIGHT ? "hidden @min-[3rem]:block" : "hidden @min-[5.5rem]:block"}`}>{event.start}</p>
           <p className="truncate text-xs font-extrabold">{name}</p>
         </div>
       ) : (
@@ -1138,7 +1138,7 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
           <div className="flex items-center gap-1.5">
             {/* Largeur de la carte, pas de l'écran : l'heure de fin et l'icône
                 n'apparaissent que si elles tiennent sans être coupées. */}
-            <p className="hidden min-w-0 flex-1 truncate text-[10px] font-black tabular-nums @min-[3rem]:block">
+            <p className="hidden min-w-0 flex-1 truncate text-[11px] font-black tabular-nums @min-[3rem]:block">
               {event.start}<span className="hidden @min-[8.5rem]:inline"> – {end}</span>
             </p>
             <ModeIcon aria-hidden="true" className="hidden h-3.5 w-3.5 shrink-0 @min-[4.5rem]:block" strokeWidth={2.25} />
@@ -1147,8 +1147,8 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
           {/* Sans opacité sur ces lignes : appliquée à un texte de 10 px sur
               une pastille colorée, elle les faisait passer sous le seuil de
               contraste AA. Elles héritent de la couleur de la pastille. */}
-          {event.client && showClient ? <p className="truncate text-[10px] font-bold">{event.client}</p> : null}
-          {showLocation ? <p className="mt-0.5 truncate text-[10px] font-semibold">{event.location ?? mode.label}</p> : null}
+          {event.client && showClient ? <p className="truncate text-[11px] font-bold">{event.client}</p> : null}
+          {showLocation ? <p className="mt-0.5 truncate text-[11px] font-semibold">{event.location ?? mode.label}</p> : null}
         </>
       )}
 

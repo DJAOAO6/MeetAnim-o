@@ -58,7 +58,7 @@ export function MobileBottomNav() {
                 aria-current={active ? "page" : undefined}
                 // min-h-14 : la cible dépasse les 44 px recommandés sur toute
                 // la largeur de la colonne, pas seulement sur l'icône.
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-extrabold transition ${
+                className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-xs font-extrabold transition ${
                   active ? "text-animeo" : "text-animeo-muted"
                 }`}
               >
@@ -73,7 +73,7 @@ export function MobileBottomNav() {
             type="button"
             onClick={() => window.dispatchEvent(new Event(OPEN_MENU_EVENT))}
             aria-label="Ouvrir le menu complet"
-            className="flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-extrabold text-animeo-muted transition"
+            className="flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 py-2 text-xs font-extrabold text-animeo-muted transition"
           >
             <span aria-hidden="true" className="text-lg leading-none">☰</span>
             <span>Menu</span>

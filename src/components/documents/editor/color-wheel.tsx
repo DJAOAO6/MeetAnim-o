@@ -112,7 +112,7 @@ export function ColorWheel({
       </div>
 
       <label className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-[10px] font-bold uppercase tracking-wide text-neutral-500">Luminosité</span>
+        <span className="w-16 shrink-0 text-xs font-bold uppercase tracking-wide text-neutral-500">Luminosité</span>
         <input
           type="range"
           min={0}

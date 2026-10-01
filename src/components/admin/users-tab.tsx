@@ -47,19 +47,19 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
         {showForm && canAddAccounts ? (
           <form action={action} className="mb-6 grid gap-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4 sm:grid-cols-2 xl:grid-cols-5">
             <label className="block">
-              <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Prénom</span>
+              <span className="mb-1 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Prénom</span>
               <input name="firstName" required className={inputClassName} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Nom</span>
+              <span className="mb-1 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Nom</span>
               <input name="lastName" required className={inputClassName} />
             </label>
             <label className="block xl:col-span-2">
-              <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Email</span>
+              <span className="mb-1 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Email</span>
               <input type="email" name="email" required className={inputClassName} />
             </label>
             <label className="block">
-              <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Rôle</span>
+              <span className="mb-1 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Rôle</span>
               <select name="role" defaultValue="PRACTITIONER" className={inputClassName}>
                 <option value="ADMIN">Administrateur</option>
                 <option value="PRACTITIONER">Praticien</option>
@@ -85,7 +85,7 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse text-left">
-            <thead className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+            <thead className="text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
               <tr>
                 <th className="px-3 py-2.5">Compte</th>
                 <th className="px-3 py-2.5">Rôle</th>
@@ -161,7 +161,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             </div>
           ) : (
             <>
-              <p className="font-extrabold text-animeo-dark">{user.firstName} {user.lastName}{isSelf ? <span className="ml-1.5 text-[10px] font-black uppercase text-animeo-muted">(vous)</span> : null}</p>
+              <p className="font-extrabold text-animeo-dark">{user.firstName} {user.lastName}{isSelf ? <span className="ml-1.5 text-xs font-black uppercase text-animeo-muted">(vous)</span> : null}</p>
               <p className="text-xs text-animeo-muted">{user.email}</p>
             </>
           )}
@@ -181,7 +181,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             type="button"
             disabled={pending}
             onClick={() => startTransition(() => setUserTwoFactor(user.id, !user.twoFactorEnabled))}
-            className={`rounded-full px-3 py-1 text-[11px] font-black ${user.twoFactorEnabled ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-bg text-animeo-muted"}`}
+            className={`rounded-full px-3 py-1 text-xs font-black ${user.twoFactorEnabled ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-bg text-animeo-muted"}`}
           >
             {user.twoFactorEnabled ? "Activée" : "Désactivée"}
           </button>
@@ -192,7 +192,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             disabled={pending || isSelf}
             title={isSelf ? "Vous ne pouvez pas désactiver votre propre compte" : undefined}
             onClick={() => startTransition(() => setUserActive(user.id, !user.active))}
-            className={`rounded-full px-3 py-1 text-[11px] font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-danger-soft text-animeo-error"}`}
+            className={`rounded-full px-3 py-1 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-danger-soft text-animeo-error"}`}
           >
             {user.active ? "Actif" : "Désactivé"}
           </button>
@@ -204,14 +204,14 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             {editing ? (
               <>
-                <button type="button" disabled={pending} onClick={saveEdit} className="rounded-lg bg-animeo px-2.5 py-1.5 text-[11px] font-extrabold text-white">Enregistrer</button>
-                <button type="button" disabled={pending} onClick={cancelEdit} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-muted">Annuler</button>
+                <button type="button" disabled={pending} onClick={saveEdit} className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white">Enregistrer</button>
+                <button type="button" disabled={pending} onClick={cancelEdit} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-muted">Annuler</button>
               </>
             ) : (
-              <button type="button" onClick={() => setEditing(true)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-dark hover:bg-animeo-soft">Modifier</button>
+              <button type="button" onClick={() => setEditing(true)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft">Modifier</button>
             )}
-            <button type="button" onClick={() => setManagingPermissions((current) => !current)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-dark hover:bg-animeo-soft">Permissions</button>
-            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-[11px] font-extrabold text-animeo-error disabled:cursor-not-allowed disabled:opacity-60 hover:bg-animeo-danger-soft">Supprimer</button>
+            <button type="button" onClick={() => setManagingPermissions((current) => !current)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft">Permissions</button>
+            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-xs font-extrabold text-animeo-error disabled:cursor-not-allowed disabled:opacity-60 hover:bg-animeo-danger-soft">Supprimer</button>
           </div>
         </td>
       </tr>
@@ -229,7 +229,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
                 <p className="text-xs font-bold text-animeo-muted">Ce compte est administrateur : il dispose déjà de toutes les permissions.</p>
               ) : (
                 <>
-                  <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Permissions supplémentaires</p>
+                  <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Permissions supplémentaires</p>
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {permissionKeys.map((key) => (
                       <label key={key} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-animeo-dark">

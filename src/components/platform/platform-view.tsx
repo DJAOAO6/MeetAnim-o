@@ -145,7 +145,7 @@ function AccountRow({ account }: { account: PlatformAccountView }) {
 
       {open ? (
         <div className="mt-3 rounded-2xl border border-animeo-border-soft bg-animeo-bg p-4">
-          <label htmlFor={reasonId} className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+          <label htmlFor={reasonId} className="mb-1 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
             Motif de l’assistance
           </label>
           <textarea

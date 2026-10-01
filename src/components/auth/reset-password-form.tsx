@@ -17,11 +17,11 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <form action={action} className="mt-6 space-y-4">
         <input type="hidden" name="token" value={token} />
         <label className="block">
-          <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Nouveau mot de passe</span>
+          <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Nouveau mot de passe</span>
           <input type="password" name="password" required autoComplete="new-password" className={inputClassName} />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Confirmer le mot de passe</span>
+          <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Confirmer le mot de passe</span>
           <input type="password" name="confirmPassword" required autoComplete="new-password" className={inputClassName} />
         </label>
 

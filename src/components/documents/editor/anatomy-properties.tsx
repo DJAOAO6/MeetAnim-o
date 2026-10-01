@@ -72,7 +72,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
               disabled={readOnly}
               aria-pressed={element.viewId === candidate.id}
               onClick={() => updateElement(element.id, { viewId: candidate.id as AnatomyViewId })}
-              className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                 element.viewId === candidate.id ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"
               }`}
             >
@@ -85,7 +85,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
       <div>
         <p className="mb-2 text-xs font-extrabold tracking-[0.08em] text-animeo-muted uppercase">Type d’observation</p>
         {placingMarkerPresetId ? (
-          <p className="mb-2 rounded-lg bg-animeo-soft px-2.5 py-2 text-[11px] font-bold text-animeo-dark">
+          <p className="mb-2 rounded-lg bg-animeo-soft px-2.5 py-2 text-xs font-bold text-animeo-dark">
             Choisissez une zone : sur le schéma, par la recherche ou dans la liste.
           </p>
         ) : null}
@@ -97,7 +97,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
               disabled={readOnly}
               aria-pressed={placingMarkerPresetId === preset.id}
               onClick={() => setPlacingMarkerPreset(placingMarkerPresetId === preset.id ? null : preset.id)}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                 placingMarkerPresetId === preset.id ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"
               }`}
             >
@@ -119,7 +119,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
           disabled={readOnly}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Genou, grasset, C7…"
-          className="h-9 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2.5 text-[11px] font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
+          className="h-9 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2.5 text-xs font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white"
         />
         {searchResults.length > 0 ? (
           <ul className="mt-1.5 space-y-1">
@@ -128,10 +128,10 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                 <button
                   type="button"
                   onClick={() => pickZone(node.id)}
-                  className="flex w-full items-baseline justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-left text-[11px] font-semibold text-animeo-dark transition hover:bg-animeo-soft"
+                  className="flex w-full items-baseline justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-left text-xs font-semibold text-animeo-dark transition hover:bg-animeo-soft"
                 >
                   <span className="truncate">{node.label}</span>
-                  <span className="shrink-0 text-[10px] font-normal text-animeo-muted">
+                  <span className="shrink-0 text-xs font-normal text-animeo-muted">
                     {anatomyPath(node.id).slice(1, -1).map((step) => step.label).join(" › ")}
                   </span>
                 </button>
@@ -140,7 +140,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
           </ul>
         ) : null}
         {query.trim().length >= 2 && searchResults.length === 0 ? (
-          <p className="mt-1.5 text-[11px] text-animeo-muted">Aucune zone de cette vue ne correspond.</p>
+          <p className="mt-1.5 text-xs text-animeo-muted">Aucune zone de cette vue ne correspond.</p>
         ) : null}
       </div>
 
@@ -164,7 +164,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                     type="button"
                     onClick={() => pickZone(node.id)}
                     aria-pressed={selectedZoneId === node.id}
-                    className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px] font-semibold transition ${
+                    className={`flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-xs font-semibold transition ${
                       selectedZoneId === node.id ? "bg-animeo-soft text-animeo-dark" : "text-animeo-dark hover:bg-animeo-bg"
                     }`}
                   >
@@ -194,7 +194,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
               return (
                 <li key={observation.id} className="rounded-lg bg-animeo-bg px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-animeo-dark">
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold text-animeo-dark">
                       <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                       <span className="truncate">{node?.label ?? observation.zoneId}</span>
                     </span>
@@ -210,7 +210,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                     ) : null}
                   </div>
                   {/* Le type est écrit, pas seulement couleuré. */}
-                  <p className="mt-0.5 text-[10px] font-semibold" style={{ color }}>
+                  <p className="mt-0.5 text-xs font-semibold" style={{ color }}>
                     {labelForPreset(observation.presetId, markerPresets)}
                   </p>
                   <input
@@ -221,7 +221,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                     onBlur={(event) => {
                       if (event.target.value.trim() !== (observation.note ?? "")) updateNote(observation.id, event.target.value);
                     }}
-                    className="mt-1 h-7 w-full rounded border border-animeo-border bg-white px-1.5 text-[11px] text-animeo-dark outline-none focus:border-animeo"
+                    className="mt-1 h-7 w-full rounded border border-animeo-border bg-white px-1.5 text-xs text-animeo-dark outline-none focus:border-animeo"
                   />
                 </li>
               );

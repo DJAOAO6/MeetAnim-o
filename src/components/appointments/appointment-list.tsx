@@ -74,7 +74,7 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
       >
         <span className="w-14 shrink-0">
           <span className={`block text-sm font-black tabular-nums text-animeo-dark ${cancelled ? "line-through decoration-animeo-muted" : ""}`}>{appointment.start}</span>
-          <span className="block text-[11px] tabular-nums text-animeo-muted">{end}</span>
+          <span className="block text-xs tabular-nums text-animeo-muted">{end}</span>
         </span>
 
         <span className="min-w-0 flex-[2]">
@@ -92,7 +92,7 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
           <span className="truncate">{appointment.mode === "cabinet" ? "Cabinet" : "Domicile"}</span>
         </span>
 
-        <span className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold sm:inline-flex ${tone.chip}`}>
+        <span className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-extrabold sm:inline-flex ${tone.chip}`}>
           <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
           {appointmentStatusLabels[appointment.status]}
         </span>

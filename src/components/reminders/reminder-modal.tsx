@@ -82,7 +82,7 @@ export function ReminderModal({ reminder, professionalSlug, messageTemplate, sen
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-animeo-bg p-4">
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{label}</p>
+      <p className="text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{label}</p>
       <p className="mt-1 font-extrabold text-animeo-dark">{value}</p>
     </div>
   );

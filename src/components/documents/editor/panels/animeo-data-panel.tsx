@@ -57,7 +57,7 @@ export function AnimeoDataPanel({ readOnly }: { readOnly: boolean }) {
                     onClick={() => insertVariable(variable.token)}
                     disabled={readOnly}
                     title={`Insérer ${variable.label}`}
-                    className="rounded-md bg-neutral-100 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 transition hover:bg-animeo-soft hover:text-animeo-dark disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-md bg-neutral-100 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-animeo-soft hover:text-animeo-dark disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {variable.label}
                   </button>

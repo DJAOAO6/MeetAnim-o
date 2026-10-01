@@ -258,7 +258,7 @@ function DateBadge({ dateId, dimmed }: { dateId: string; dimmed: boolean }) {
 
   return (
     <span className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-2xl ${dimmed ? "bg-animeo-bg text-animeo-muted" : "bg-animeo-soft text-animeo-dark"}`}>
-      <span className="text-[9px] font-extrabold uppercase leading-none tracking-[0.06em]">{weekday}</span>
+      <span className="text-[11px] font-extrabold uppercase leading-none tracking-[0.06em]">{weekday}</span>
       <span className="text-sm font-black leading-none">{day}</span>
     </span>
   );

@@ -183,8 +183,8 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                   {stop.label}
                 </p>
                 {stop.appointmentId ? <span title={stop.locked ? "Horaire fixe" : "Horaire flexible"}><LockIcon locked={stop.locked} /></span> : null}
-                {stop.outOfZone ? <span className="rounded-full bg-animeo-warning-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-danger">Hors zone</span> : null}
-                {stop.completedAt ? <span className="rounded-full bg-animeo-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-positive">Terminé à {stop.completedAt}</span> : null}
+                {stop.outOfZone ? <span className="rounded-full bg-animeo-warning-soft px-2 py-0.5 text-xs font-extrabold text-animeo-danger">Hors zone</span> : null}
+                {stop.completedAt ? <span className="rounded-full bg-animeo-soft px-2 py-0.5 text-xs font-extrabold text-animeo-positive">Terminé à {stop.completedAt}</span> : null}
               </div>
               {stop.address ? <p className="mt-0.5 truncate pl-8 text-xs font-semibold text-animeo-muted">{stop.address}</p> : null}
               {stop.price != null ? <p className="mt-0.5 pl-8 text-xs font-bold text-animeo-muted">{formatEuros(stop.price)}</p> : null}
@@ -195,7 +195,7 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                 <button
                   type="button"
                   onClick={() => onToggleFlexible(stop.id, !stop.flexible)}
-                  className={`rounded-lg px-2 py-1 text-[10px] font-extrabold ${stop.flexible ? "bg-animeo-warning-soft text-animeo-warning" : "bg-animeo-bg text-animeo-muted"}`}
+                  className={`rounded-lg px-2 py-1 text-xs font-extrabold ${stop.flexible ? "bg-animeo-warning-soft text-animeo-warning" : "bg-animeo-bg text-animeo-muted"}`}
                   title={stop.flexible ? "Rendre fixe" : "Rendre flexible"}
                 >
                   {stop.flexible ? "Flexible" : "Fixe"}
@@ -301,16 +301,16 @@ function StopDetailPanel({ stop, onEditSchedule, onEditTimeWindow }: {
     <div className="mx-2 mb-3 space-y-2 rounded-xl bg-animeo-bg p-3">
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label htmlFor={`stop-start-${stop.id}`} className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Heure</label>
+          <label htmlFor={`stop-start-${stop.id}`} className="mb-1 block text-xs font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Heure</label>
           <input id={`stop-start-${stop.id}`} type="time" value={start} onChange={(event) => setStart(event.target.value)} onBlur={commitStart} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
         </div>
         <div>
-          <label htmlFor={`stop-duration-${stop.id}`} className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Durée (min)</label>
+          <label htmlFor={`stop-duration-${stop.id}`} className="mb-1 block text-xs font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Durée (min)</label>
           <input id={`stop-duration-${stop.id}`} type="number" min={5} step={5} value={duration} onChange={(event) => setDuration(event.target.value)} onBlur={commitDuration} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
         </div>
       </div>
       <div>
-        <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Créneau imposé (optionnel — utilisé par « Optimiser »)</p>
+        <p className="mb-1 text-xs font-extrabold uppercase tracking-[0.06em] text-animeo-muted">Créneau imposé (optionnel — utilisé par « Optimiser »)</p>
         <div className="grid grid-cols-2 gap-2">
           <input aria-label={`Créneau imposé, début, ${stop.label}`} type="time" value={windowStart} onChange={(event) => setWindowStart(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />
           <input aria-label={`Créneau imposé, fin, ${stop.label}`} type="time" value={windowEnd} onChange={(event) => setWindowEnd(event.target.value)} onBlur={commitWindow} className="min-h-9 w-full rounded-lg border border-animeo-border bg-white px-2 text-xs font-bold text-animeo-dark" />

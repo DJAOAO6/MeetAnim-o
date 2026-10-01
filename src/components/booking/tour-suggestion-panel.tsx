@@ -94,7 +94,7 @@ export function TourSuggestionPanel({ slug, zoneId, durationMinutes, dateId, tim
       // que c'est une recommandation, pas un champ à remplir.
       className="mt-4 rounded-2xl border border-animeo-positive/35 bg-animeo-positive-soft/60 p-4 sm:p-5"
     >
-      <p className="inline-flex items-center gap-2 rounded-full bg-animeo-positive px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-white">
+      <p className="inline-flex items-center gap-2 rounded-full bg-animeo-positive px-3 py-1.5 text-xs font-black uppercase tracking-[0.1em] text-white">
         <PawPrint aria-hidden="true" className="h-3.5 w-3.5" />
         Créneaux recommandés
       </p>

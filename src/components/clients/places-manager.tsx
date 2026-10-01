@@ -54,7 +54,7 @@ export function PlacesManager({ places }: { places: AnimalPlaceSummary[] }) {
               <Card key={place.id} className="p-5" data-testid="place-card">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-extrabold uppercase tracking-wide text-animeo">{animalPlaceKindLabels[place.kind]}</p>
+                    <p className="text-xs font-extrabold uppercase tracking-wide text-animeo">{animalPlaceKindLabels[place.kind]}</p>
                     <h2 className="mt-0.5 truncate text-lg font-black text-animeo-dark">{place.name}</h2>
                     <p className="mt-1 text-sm text-animeo-muted">{[place.address, [place.postalCode, place.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>
                     <p className="mt-1 text-xs font-bold text-animeo-muted">

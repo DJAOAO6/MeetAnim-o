@@ -18,12 +18,12 @@ export function LoginForm() {
 
       <form action={action} className="mt-6 space-y-4">
         <label className="block">
-          <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Email</span>
+          <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Email</span>
           <input type="email" name="email" required autoComplete="email" placeholder="vous@exemple.fr" className={inputClassName} />
         </label>
 
         <label className="block">
-          <span className="mb-1.5 flex items-center justify-between text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
+          <span className="mb-1.5 flex items-center justify-between text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">
             Mot de passe
             <Link href="/mot-de-passe-oublie" className="normal-case tracking-normal text-animeo hover:underline">Mot de passe oublié ?</Link>
           </span>

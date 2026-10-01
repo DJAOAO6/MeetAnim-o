@@ -140,7 +140,7 @@ function NavigationGroupRow({ group, pathname, open, onToggle, onHover, onNaviga
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={`sidebar-group-${group.id}`}
-        className={`flex min-h-11 w-full items-center gap-3 rounded-[14px] px-3 text-left text-[11px] font-black uppercase tracking-[0.1em] transition ${
+        className={`flex min-h-11 w-full items-center gap-3 rounded-[14px] px-3 text-left text-xs font-black uppercase tracking-[0.1em] transition ${
           hasActive ? "text-[var(--theme-sidebar-text-strong)]" : "text-[var(--theme-sidebar-text)]"
         } hover:bg-[var(--theme-sidebar-hover)] hover:text-[var(--theme-sidebar-text-strong)]`}
       >

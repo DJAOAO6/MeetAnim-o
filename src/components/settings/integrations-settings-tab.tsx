@@ -259,6 +259,6 @@ function AppleCalendarCard({ icsFeed }: { icsFeed: IcsFeedState }) {
 
 function GoogleBadge() {
   return (
-    <span aria-hidden="true" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black text-animeo">G</span>
+    <span aria-hidden="true" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-black text-animeo">G</span>
   );
 }

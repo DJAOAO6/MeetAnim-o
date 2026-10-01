@@ -18,7 +18,7 @@ export function TwoFactorForm() {
 
       <form action={action} className="mt-6 space-y-4">
         <label className="block">
-          <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Code de vérification</span>
+          <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Code de vérification</span>
           <input type="text" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required placeholder="000000" className={inputClassName} />
         </label>
 

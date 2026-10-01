@@ -1160,7 +1160,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             {/* Les clients sans position forment une section à part : la
                 carte et « Précédent / Suivant » ne peuvent rien en montrer. */}
             {index === orderedLocated.length && orderedUnlocated.length > 0 ? (
-              <p className="flex items-center justify-between gap-3 bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">
+              <p className="flex items-center justify-between gap-3 bg-animeo-bg px-5 py-2 text-xs font-extrabold text-animeo-muted">
                 Sans position ({orderedUnlocated.length})
                 <LocateAllButton />
               </p>
@@ -1176,7 +1176,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-extrabold text-animeo-dark">{client.ownerName}</span>
                 <span className="mt-0.5 block truncate text-xs font-bold text-animeo-muted">{animalsLine(client)}</span>
-                <span className="mt-1 block truncate text-[10px] text-animeo-muted">
+                <span className="mt-1 block truncate text-xs text-animeo-muted">
                   {client.city} · {mapMode === "reminders" ? `Dernière visite : ${client.lastConsultation}` : client.lastConsultation}
                   {!client.coordinates ? <span className="ml-1.5 font-bold text-animeo-danger">· Position inconnue</span> : null}
                   {client.coordinates && positionQuality(client) === "approximate" ? <span className="ml-1.5 font-bold text-animeo-warning">· Position approximative</span> : null}
@@ -1184,7 +1184,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               </span>
               {markedSet.has(client.id) ? <CircleCheck role="img" aria-label="Dans la sélection" className="h-5 w-5 shrink-0 text-animeo-dark" /> : null}
               {distance !== null ? <span className="shrink-0 text-xs font-extrabold tabular-nums text-animeo-dark">{formatKm(distance)}</span> : null}
-              {client.dueForReminder ? <span className="shrink-0 rounded-full bg-animeo-warning-soft px-2 py-0.5 text-[10px] font-extrabold text-animeo-warning">À relancer</span> : null}
+              {client.dueForReminder ? <span className="shrink-0 rounded-full bg-animeo-warning-soft px-2 py-0.5 text-xs font-extrabold text-animeo-warning">À relancer</span> : null}
             </button>
             {perimeterCenter?.me && client.coordinates ? <ClientQuickActions client={client} homeVisits={visitsHomes(practiceMode)} /> : null}
             {selected && !client.coordinates ? <UnlocatedClientActions client={client} /> : null}
@@ -1564,16 +1564,16 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                               className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2 text-left font-bold text-animeo-dark transition hover:bg-animeo-bg disabled:cursor-default disabled:hover:bg-transparent aria-[pressed=true]:bg-animeo-soft"
                             >
                               <span><strong className="tabular-nums">{qualitySummary[quality]}</strong> {quality === "precise" ? "précise" : quality === "approximate" ? "approximative" : "inconnue"}{qualitySummary[quality] > 1 ? "s" : ""}</span>
-                              {qualitySummary[quality] > 0 ? <span className="text-[11px] font-extrabold text-animeo">{qualityFilter === quality ? "Tout afficher" : "Voir"}</span> : null}
+                              {qualitySummary[quality] > 0 ? <span className="text-xs font-extrabold text-animeo">{qualityFilter === quality ? "Tout afficher" : "Voir"}</span> : null}
                             </button>
                           </li>
                         ))}
                       </ul>
-                      {qualitySummary.approximate > 0 ? <p className="mt-2 text-[11px] text-animeo-muted">Une position approximative se précise en complétant l’adresse (numéro et rue) sur la fiche du client.</p> : null}
+                      {qualitySummary.approximate > 0 ? <p className="mt-2 text-xs text-animeo-muted">Une position approximative se précise en complétant l’adresse (numéro et rue) sur la fiche du client.</p> : null}
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {qualitySummary.unknown > 0 ? <LocateAllButton label={`Localiser les ${qualitySummary.unknown} sans position`} /> : null}
                         {mapMode === "clients" && colorMode !== "quality" ? (
-                          <button type="button" onClick={() => { setColorMode("quality"); setQualityOpen(false); }} className="inline-flex min-h-9 items-center rounded-lg bg-animeo-bg px-2.5 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
+                          <button type="button" onClick={() => { setColorMode("quality"); setQualityOpen(false); }} className="inline-flex min-h-9 items-center rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
                             Colorer par qualité
                           </button>
                         ) : null}
@@ -1590,7 +1590,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                   {(Object.keys(colorModeLabels) as ColorMode[]).map((mode) => <option key={mode} value={mode}>{colorModeLabels[mode]}</option>)}
                 </select>
               </label> : null}
-              <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-animeo-muted" aria-label="Légende">
+              <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-animeo-muted" aria-label="Légende">
                 {mapMode === "activity" ? APPOINTMENT_LEGEND.map((item) => (
                   <span key={item.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span>
                 )) : mapMode === "tours" ? ZONE_LEGEND.map((item) => (
@@ -1662,7 +1662,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     <button type="button" aria-pressed={selectMode} onClick={() => { setSelectMode((current) => !current); setSelectedId(null); setToolsOpen(false); }} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
                       <MousePointerClick aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />{selectMode ? "Quitter le mode sélection" : "Choisir des clients un par un"}
                     </button>
-                    {!isPhone ? <p className="px-2.5 pb-1.5 pt-1 text-[11px] text-animeo-muted">Astuce : Ctrl + clic (⌘ + clic sur Mac) ajoute un client à la sélection.</p> : null}
+                    {!isPhone ? <p className="px-2.5 pb-1.5 pt-1 text-xs text-animeo-muted">Astuce : Ctrl + clic (⌘ + clic sur Mac) ajoute un client à la sélection.</p> : null}
                   </div>
                 ) : null}
               </div>
@@ -1812,7 +1812,7 @@ function PracticeCard({ label, tiers, docked, onClose, onCenter, onPerimeter }: 
   onCenter: () => void;
   onPerimeter: () => void;
 }) {
-  const action = "flex min-h-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 py-1.5 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
+  const action = "flex min-h-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
     <div className={`rounded-2xl border p-4 ${docked ? "border-animeo-border bg-white" : "border-white/70 bg-white/95 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm"}`} data-testid="practice-card">
       <div className="flex items-start gap-3">
@@ -1827,7 +1827,7 @@ function PracticeCard({ label, tiers, docked, onClose, onCenter, onPerimeter }: 
           <li key={tier.km}><strong className="tabular-nums">{tier.count}</strong> client{tier.count > 1 ? "s" : ""} à moins de {tier.km} km</li>
         ))}
       </ul>
-      <p className="mt-1 text-[11px] text-animeo-muted">À vol d’oiseau, clients localisés seulement.</p>
+      <p className="mt-1 text-xs text-animeo-muted">À vol d’oiseau, clients localisés seulement.</p>
       <div className="mt-3 flex gap-1.5">
         <button type="button" onClick={onCenter} className={action}><Crosshair aria-hidden="true" className="h-4 w-4" />Centrer</button>
         <button type="button" onClick={onPerimeter} className={action}><MapPin aria-hidden="true" className="h-4 w-4" />Créer un périmètre</button>
@@ -1959,7 +1959,7 @@ function LocateAllButton({ label = "Localiser tout" }: { label?: string }) {
   }
 
   return (
-    <button type="button" onClick={run} disabled={running} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-[11px] font-extrabold text-animeo-dark ring-1 ring-animeo-border transition hover:bg-animeo-soft disabled:opacity-60">
+    <button type="button" onClick={run} disabled={running} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-extrabold text-animeo-dark ring-1 ring-animeo-border transition hover:bg-animeo-soft disabled:opacity-60">
       <Icon name="map" className="h-3.5 w-3.5" />
       {running ? "Localisation…" : label}
     </button>
@@ -2018,7 +2018,7 @@ function ClientBadge({ client, species, tint }: { client: MapClient; species: An
 function ClientQuickActions({ client, homeVisits }: { client: MapClient; homeVisits: boolean }) {
   const { openNewAppointment } = useAppointments();
   const tel = toTelHref(client.phone);
-  const action = "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border border-animeo-border bg-white px-1 text-[10px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
+  const action = "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg border border-animeo-border bg-white px-1 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
     <div className="grid grid-cols-4 gap-1.5 px-4 pb-3" role="group" aria-label={`Actions pour ${client.ownerName}`}>
       {tel ? <a href={tel} className={action}><Phone aria-hidden="true" className="h-3.5 w-3.5" />Appeler</a> : null}
@@ -2050,7 +2050,7 @@ function MapClientPopup({ client, location = null, onClose, docked = false, home
   const target = location?.coordinates ?? client.coordinates;
   const distance = practice && target ? haversineDistanceKm(practice, target) : null;
   const tel = toTelHref(client.phone);
-  const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
+  const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
     <div className={`rounded-2xl border p-4 ${docked ? "border-animeo-border bg-white" : "border-white/70 bg-white/95 shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.18)] backdrop-blur-sm"}`}>
       <div className="flex items-start gap-3">
@@ -2065,7 +2065,7 @@ function MapClientPopup({ client, location = null, onClose, docked = false, home
                   <span className="font-semibold text-animeo-muted"> · {animal.species}{animal.breed ? ` · ${animal.breed}` : ""}{animal.placeName ? ` · au ${animal.placeName}` : ""}</span>
                 </li>
               ))}
-              {client.animals.length > 4 ? <li className="text-[11px] font-semibold text-animeo-muted">et {client.animals.length - 4} autre{client.animals.length - 4 > 1 ? "s" : ""}</li> : null}
+              {client.animals.length > 4 ? <li className="text-xs font-semibold text-animeo-muted">et {client.animals.length - 4} autre{client.animals.length - 4 > 1 ? "s" : ""}</li> : null}
             </ul>
           ) : <p className="mt-0.5 text-xs font-semibold text-animeo-muted">Aucun animal</p>}
         </div>
@@ -2078,7 +2078,7 @@ function MapClientPopup({ client, location = null, onClose, docked = false, home
         <span className="truncate">{location?.placeName ? `Au ${location.placeName}, ${location.city}` : client.city || "Commune inconnue"}</span>
         {distance !== null ? <span className="shrink-0 font-semibold text-animeo-muted">· {formatKm(distance)} {practice!.from}</span> : null}
       </p>
-      <dl className="mt-2 space-y-1.5 text-[11px]">
+      <dl className="mt-2 space-y-1.5 text-xs">
         <PopupLine label="Dernière consultation" value={client.lastConsultation} />
         <PopupLine label="Prochain rendez-vous" value={client.nextAppointment ?? "Aucun"} />
         <PopupLine label="Prochain rappel" value={client.nextReminder} />

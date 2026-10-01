@@ -84,7 +84,7 @@ export function BlockedSlotPopover({ slot, anchorRect, onDelete, onClose }: Bloc
       >
         <div className="flex items-start justify-between gap-3 border-b border-animeo-border-soft p-4">
           <div className="min-w-0">
-            <span className="inline-flex rounded-full bg-animeo-surface-alt px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-animeo-muted">Créneau bloqué</span>
+            <span className="inline-flex rounded-full bg-animeo-surface-alt px-2.5 py-1 text-xs font-black uppercase tracking-[0.06em] text-animeo-muted">Créneau bloqué</span>
             <h3 className="mt-2 truncate text-sm font-black text-animeo-dark">{formatDate(slot.date)}</h3>
             <p className="text-sm font-bold text-animeo-muted">{slot.startTime} – {slot.endTime}</p>
           </div>

@@ -82,7 +82,7 @@ export function AppointmentSummaryPanel({ draft, cabinetAddress }: { draft: Appo
 
       {draft.notes.trim() ? (
         <div className="mt-4 rounded-xl border border-animeo-border bg-white p-3">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Notes</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">Notes</p>
           <p className="mt-1 whitespace-pre-line text-xs text-animeo-dark">{draft.notes}</p>
         </div>
       ) : null}

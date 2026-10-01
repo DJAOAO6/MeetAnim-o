@@ -5,7 +5,7 @@ import { acceptInvitationAction, type AcceptInvitationState } from "@/lib/platfo
 import { Card } from "@/components/ui/card";
 
 const inputClassName = "h-12 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
-const labelClassName = "mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted";
+const labelClassName = "mb-1.5 block text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted";
 
 /**
  * Création du compte à partir d'une invitation. L'adresse est celle de

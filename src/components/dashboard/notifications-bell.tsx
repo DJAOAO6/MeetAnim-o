@@ -209,7 +209,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
             <>
               {pendingAppointments.length > 0 ? (
                 <div className="mb-1">
-                  <p className="px-3 pb-1 pt-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Demandes de rendez-vous</p>
+                  <p className="px-3 pb-1 pt-2 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Demandes de rendez-vous</p>
                   {pendingAppointments.map((appointment) => {
                     const key = `pending:${appointment.id}`;
                     const unread = !readIds.has(key);
@@ -271,7 +271,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
 
               {dueReminders.length > 0 ? (
                 <div>
-                  <p className="px-3 pb-1 pt-2 text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Rappels à relancer</p>
+                  <p className="px-3 pb-1 pt-2 text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">Rappels à relancer</p>
                   {dueReminders.map((reminder) => {
                     const key = `reminder:${reminder.id}`;
                     const unread = !readIds.has(key);

@@ -208,7 +208,7 @@ function Run({ request, onOpen, onFinished }: { request: DogNotification; onOpen
                 </span>
                 {details ? <span className="mt-0.5 hidden max-w-[17rem] truncate text-xs font-semibold text-animeo-muted md:block">{details}</span> : null}
               </span>
-              <span className="shrink-0 whitespace-nowrap rounded-full bg-animeo-warning-soft px-2.5 py-1 text-[11px] font-extrabold text-animeo-dark">À confirmer</span>
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-animeo-warning-soft px-2.5 py-1 text-xs font-extrabold text-animeo-dark">À confirmer</span>
             </span>
           </span>
         </button>
@@ -254,7 +254,7 @@ function DevTrigger({ onTest }: { onTest: (count: number) => void }) {
   }, []);
   if (!visible) return null;
   return (
-    <div className="fixed bottom-24 left-3 z-[35] flex items-center gap-1 rounded-full border border-animeo-border bg-white/95 p-1 text-[11px] font-bold text-animeo-dark shadow-sm md:bottom-4 md:left-[calc(var(--sidebar-width,260px)+0.75rem)]">
+    <div className="fixed bottom-24 left-3 z-[35] flex items-center gap-1 rounded-full border border-animeo-border bg-white/95 p-1 text-xs font-bold text-animeo-dark shadow-sm md:bottom-4 md:left-[calc(var(--sidebar-width,260px)+0.75rem)]">
       <span className="px-2 text-animeo-muted">Dév.</span>
       <button type="button" onClick={() => onTest(1)} className="rounded-full px-2.5 py-1 hover:bg-animeo-soft">Tester notification chien</button>
       <button type="button" onClick={() => onTest(3)} className="rounded-full px-2.5 py-1 hover:bg-animeo-soft">× 3</button>

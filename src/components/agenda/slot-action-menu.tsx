@@ -95,7 +95,7 @@ export function SlotActionMenu({ selection, date, closed, anchorRect, canClose =
           style={{ top: position?.top ?? -9999, left: position?.left ?? -9999, visibility: position ? "visible" : "hidden" }}
         >
           <div className="px-2.5 pb-2 pt-1.5">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+            <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
               <span className="capitalize">{dateFormatter.format(date)}</span>
             </p>
             <p className="mt-1 text-sm font-black text-animeo-dark">
@@ -104,7 +104,7 @@ export function SlotActionMenu({ selection, date, closed, anchorRect, canClose =
             <p className="text-xs text-animeo-muted">{formatDuration(duration)}</p>
 
             {closed ? (
-              <p className="mt-2 rounded-lg bg-animeo-border-soft px-2 py-1.5 text-[11px] font-bold text-animeo-muted">
+              <p className="mt-2 rounded-lg bg-animeo-border-soft px-2 py-1.5 text-xs font-bold text-animeo-muted">
                 Cette période est fermée aux réservations.
               </p>
             ) : null}
@@ -159,7 +159,7 @@ function MenuItem({ icon: ItemIcon, label, tone = "neutral", muted = false, disa
       <ItemIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
       <span className="min-w-0">
         {label}
-        {disabledReason ? <span className="block text-[11px] font-semibold">{disabledReason}</span> : null}
+        {disabledReason ? <span className="block text-xs font-semibold">{disabledReason}</span> : null}
       </span>
     </button>
   );

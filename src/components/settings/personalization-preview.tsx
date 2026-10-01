@@ -56,7 +56,7 @@ export function PersonalizationPreview({ profile, services, primaryColor, second
                   <span>Lundi 26 mai · 14:00 – 15:00</span>
                 </p>
               </div>
-              <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black text-white" style={{ backgroundColor: accentColor }}>À domicile</span>
+              <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-black text-white" style={{ backgroundColor: accentColor }}>À domicile</span>
             </div>
           </div>
 

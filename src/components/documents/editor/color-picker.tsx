@@ -137,7 +137,7 @@ export function ColorPicker({
 
           <div className="flex items-center gap-2">
             <label className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Hex</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-neutral-500">Hex</span>
               <input
                 key={value}
                 type="text"
@@ -184,7 +184,7 @@ function ColorSwatchRow({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-500">{label}</p>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-neutral-500">{label}</p>
       <div className="flex flex-wrap gap-1.5">
         {colors.map((color) => {
           const isFavorite = favorites.includes(color);
@@ -203,7 +203,7 @@ function ColorSwatchRow({
                 aria-label={isFavorite ? `Retirer ${color} des favoris` : `Ajouter ${color} aux favoris`}
                 aria-pressed={isFavorite}
                 onClick={() => onToggleFavorite(color)}
-                className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[9px] leading-none text-amber-500 shadow-sm"
+                className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[11px] leading-none text-amber-500 shadow-sm"
               >
                 {isFavorite ? "★" : "☆"}
               </button>

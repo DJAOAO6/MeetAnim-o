@@ -182,7 +182,7 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
             annonce redondante pour un lecteur d'écran. */}
         <div aria-hidden="true" className="mb-1 grid grid-cols-7 gap-0.5 sm:gap-1">
           {weekdayHeaders.map((label) => (
-            <span key={label} className="block text-center text-[10px] font-black uppercase text-animeo-muted sm:text-xs">
+            <span key={label} className="block text-center text-[11px] font-black uppercase text-animeo-muted sm:text-xs">
               {label}
             </span>
           ))}
@@ -231,7 +231,7 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
                   }`}
                 >
                   <span aria-hidden="true" className={`text-sm font-black sm:text-base ${isSelected ? "text-white" : isSelectable ? "text-animeo-dark" : ""}`}>{dayNumber}</span>
-                  <span aria-hidden="true" className={`text-[9px] font-bold uppercase sm:text-[10px] ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>
+                  <span aria-hidden="true" className={`text-[11px] font-bold uppercase ${isSelected ? "text-white/75" : "text-animeo-muted"}`}>
                     {status === "full" ? "Complet" : monthAbbrev}
                   </span>
                   {/* Le repère ne tient pas qu'à la couleur : un point le dit

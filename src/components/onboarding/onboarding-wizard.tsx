@@ -45,7 +45,7 @@ const TRAVEL_BUFFERS = [0, 15, 30, 45, 60];
 
 const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
-const labelClassName = "mb-1.5 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted";
+const labelClassName = "mb-1.5 block text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted";
 
 /**
  * Pendant la frappe : minuscules sans accent, et tout le reste devient un

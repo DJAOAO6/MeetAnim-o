@@ -57,7 +57,7 @@ export function DashboardCardHeader({ title, eyebrow, subtitle, icon, tone = "ne
           </span>
         ) : null}
         <div className="min-w-0">
-          {eyebrow ? <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-animeo-muted">{eyebrow}</p> : null}
+          {eyebrow ? <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-animeo-muted">{eyebrow}</p> : null}
           {/* Deux lignes plutôt qu'une troncature : un titre coupé à
               « Ouvert aujo… » ne dit plus rien, alors qu'un titre sur deux
               lignes reste lisible et garde une hauteur bornée. */}

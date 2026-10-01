@@ -50,7 +50,7 @@ export function StudioSidebar({ readOnly }: { readOnly: boolean }) {
             aria-expanded={openSidebarCategory === category.id}
             aria-controls={`studio-panel-${category.id}`}
             onClick={() => toggle(category.id)}
-            className={`flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-md text-[9px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-animeo focus-visible:ring-offset-2 ${
+            className={`flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-md text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-animeo focus-visible:ring-offset-2 ${
               openSidebarCategory === category.id ? "bg-animeo-soft text-animeo-dark" : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
             }`}
           >

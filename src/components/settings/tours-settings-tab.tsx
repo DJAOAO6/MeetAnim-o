@@ -145,9 +145,9 @@ export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlace
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${tour.status === "Active" ? "bg-animeo-positive-soft text-animeo-positive" : "bg-animeo-border-soft text-animeo-muted"}`}>{tour.status === "Active" ? "Active" : "Inactive"}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-black ${tour.status === "Active" ? "bg-animeo-positive-soft text-animeo-positive" : "bg-animeo-border-soft text-animeo-muted"}`}>{tour.status === "Active" ? "Active" : "Inactive"}</span>
                         {generatedCount > 0 ? (
-                          <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-[10px] font-black text-animeo-dark">
+                          <span className="rounded-full bg-animeo-soft px-2.5 py-1 text-xs font-black text-animeo-dark">
                             {generatedCount} journée{generatedCount > 1 ? "s" : ""} déjà générée{generatedCount > 1 ? "s" : ""}
                           </span>
                         ) : null}
@@ -275,7 +275,7 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
           {savedPlaces.map((place) => (
             <Card key={place.id} className="flex items-center justify-between gap-3 p-4">
               <div className="min-w-0">
-                <p className="text-sm font-black text-animeo-dark">{place.label} <span className="ml-1 rounded-full bg-animeo-bg px-2 py-0.5 text-[10px] font-black text-animeo-muted">{(placeTypeLabels as Record<string, string>)[place.type] ?? place.type}</span></p>
+                <p className="text-sm font-black text-animeo-dark">{place.label} <span className="ml-1 rounded-full bg-animeo-bg px-2 py-0.5 text-xs font-black text-animeo-muted">{(placeTypeLabels as Record<string, string>)[place.type] ?? place.type}</span></p>
                 <p className="truncate text-xs font-semibold text-animeo-muted">{place.address}</p>
               </div>
               <button type="button" onClick={() => handleDelete(place.id)} className="shrink-0 rounded-lg px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">Supprimer</button>

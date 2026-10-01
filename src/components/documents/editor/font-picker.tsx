@@ -150,7 +150,7 @@ function FontGroup({
 }) {
   return (
     <div className="mb-2">
-      <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wide text-neutral-500">{label}</p>
+      <p className="mb-1 px-1 text-xs font-bold uppercase tracking-wide text-neutral-500">{label}</p>
       <ul>
         {fonts.map((font) => {
           const isFavorite = favorites.includes(font.name);

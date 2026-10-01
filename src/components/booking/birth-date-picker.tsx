@@ -224,7 +224,7 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
             </div>
           ) : (
             <div className="grid grid-cols-7 gap-1 text-center">
-              {weekdayLetters.map((letter, index) => <span key={index} className="text-[10px] font-black text-animeo-muted">{letter}</span>)}
+              {weekdayLetters.map((letter, index) => <span key={index} className="text-xs font-black text-animeo-muted">{letter}</span>)}
               {Array.from({ length: firstWeekday }, (_, index) => <span key={`empty-${index}`} />)}
               {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => {
                 const iso = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;

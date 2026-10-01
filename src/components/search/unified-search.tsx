@@ -415,7 +415,7 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
                     >
                       <span className="flex w-full items-center justify-between gap-2 text-sm font-extrabold text-animeo-dark">
                         {place.label}
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.08em] text-animeo-muted">{placeTypeLabels[place.type]}</span>
+                        <span className="shrink-0 text-xs font-bold uppercase tracking-[0.08em] text-animeo-muted">{placeTypeLabels[place.type]}</span>
                       </span>
                       <span className="text-xs font-semibold text-animeo-muted">
                         {wantsClients ? `Clients à moins de ${DEFAULT_PERIMETER_RADIUS_KM} km` : place.postalCode ? `${place.postalCode} · ${place.context}` : place.context}
@@ -460,7 +460,7 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
 }
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
-  return <p role="presentation" className="px-4 pb-1.5 pt-2 text-[10px] font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{children}</p>;
+  return <p role="presentation" className="px-4 pb-1.5 pt-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{children}</p>;
 }
 
 function SearchIcon() {

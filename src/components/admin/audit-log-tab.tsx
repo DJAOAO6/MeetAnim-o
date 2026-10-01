@@ -12,7 +12,7 @@ export function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
       {entries.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-left">
-            <thead className="bg-animeo-surface-alt text-[11px] font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
+            <thead className="bg-animeo-surface-alt text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
               <tr>
                 <th className="px-5 py-3">Date</th>
                 <th className="px-5 py-3">Compte</th>

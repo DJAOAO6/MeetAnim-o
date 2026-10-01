@@ -47,7 +47,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
               <span aria-hidden="true">←</span> {backLabel}
             </button>
           ) : null}
-          <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.06em] ${statusStyles[appointment.status]}`}>
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-[0.06em] ${statusStyles[appointment.status]}`}>
             {appointmentStatusLabels[appointment.status]}
           </span>
           <h3 className="mt-2 truncate text-lg font-black text-animeo-dark">
@@ -122,7 +122,7 @@ function SummaryRow({ icon, label, value }: { icon: IconName; label: string; val
     <div className="flex items-start gap-3 rounded-xl bg-white px-3 py-2.5">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-animeo-soft text-animeo-dark"><Icon name={icon} className="h-4 w-4" /></span>
       <span className="min-w-0">
-        <span className="block text-[11px] font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{label}</span>
+        <span className="block text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{label}</span>
         <span className="mt-0.5 block whitespace-pre-line text-sm font-bold text-animeo-dark">{value}</span>
       </span>
     </div>

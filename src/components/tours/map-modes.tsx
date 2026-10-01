@@ -49,7 +49,7 @@ export function Segmented<T extends string>({ label, options, value, onChange, s
             type="button"
             aria-pressed={active}
             onClick={() => onChange(option.id)}
-            className={`shrink-0 rounded-lg font-extrabold transition ${size === "md" ? "min-h-9 px-3 text-xs" : "min-h-8 px-2.5 text-[11px]"} ${active ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
+            className={`shrink-0 rounded-lg font-extrabold transition ${size === "md" ? "min-h-9 px-3 text-xs" : "min-h-8 px-2.5 text-xs"} ${active ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
           >
             {option.label}
           </button>
@@ -66,7 +66,7 @@ export function MapModeSwitcher({ mode, onChange }: { mode: MapMode; onChange: (
 /** Actions d'un rendez-vous : l'ouvrir, la fiche du client, l'itinéraire (seulement celles possibles). */
 function AppointmentActions({ appointment }: { appointment: MapAppointment }) {
   const { openManager } = useAppointments();
-  const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-[11px] font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
+  const action = "flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl border border-animeo-border bg-white px-1 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg";
   return (
     <div className="grid grid-cols-3 gap-1.5">
       <button type="button" onClick={() => openManager(appointment.id)} className={action}>
@@ -101,7 +101,7 @@ export function MapAppointmentCard({ appointment, todayId, onClose, docked = fal
       <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-animeo-dark">
         {appointment.place === "home" ? <House aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" /> : <Building2 aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" />}
         {appointment.place === "home" ? "Domicile" : "Cabinet"}{appointment.city ? ` · ${appointment.city}` : ""}
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-animeo-muted">
+        <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-animeo-muted">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: appointmentStatusColors[appointment.status] }} />
           {statusLabels[appointment.status]}
         </span>
@@ -152,7 +152,7 @@ export function MapAppointmentList({ appointments, todayId, selectedId, onSelect
         const selected = appointment.id === selectedId;
         return (
           <Fragment key={appointment.id}>
-            {newDay ? <p className="sticky top-0 z-10 bg-animeo-bg px-5 py-2 text-[11px] font-extrabold text-animeo-muted">{dayHeading(appointment.dateId, todayId)}</p> : null}
+            {newDay ? <p className="sticky top-0 z-10 bg-animeo-bg px-5 py-2 text-xs font-extrabold text-animeo-muted">{dayHeading(appointment.dateId, todayId)}</p> : null}
             <div
               data-appointment-row={appointment.id}
               onMouseEnter={() => onHover(appointment.id)}
@@ -198,7 +198,7 @@ export function ToursPanel({ zones, plannedTours, zoneCounts, unattachedCount, t
   return (
     <div className="space-y-4 border-b border-animeo-border-soft px-5 py-4" data-testid="map-tours-panel">
       <section>
-        <h3 className="text-[11px] font-extrabold uppercase tracking-wide text-animeo-muted">Tournées prévues</h3>
+        <h3 className="text-xs font-extrabold uppercase tracking-wide text-animeo-muted">Tournées prévues</h3>
         {plannedTours.length > 0 ? (
           <ul className="mt-2 space-y-1.5">
             {plannedTours.map((tour) => {
@@ -215,7 +215,7 @@ export function ToursPanel({ zones, plannedTours, zoneCounts, unattachedCount, t
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-extrabold text-animeo-dark">{tour.name}</span>
                       <span className="block truncate text-xs font-bold text-animeo-muted">{tour.nextOccurrenceLabel} · {tour.startTime}–{tour.endTime}</span>
-                      {zoneNames(tour.zoneIds) ? <span className="block truncate text-[11px] text-animeo-muted">{zoneNames(tour.zoneIds)}</span> : null}
+                      {zoneNames(tour.zoneIds) ? <span className="block truncate text-xs text-animeo-muted">{zoneNames(tour.zoneIds)}</span> : null}
                     </span>
                   </button>
                 </li>
@@ -226,7 +226,7 @@ export function ToursPanel({ zones, plannedTours, zoneCounts, unattachedCount, t
       </section>
 
       <section>
-        <h3 className="text-[11px] font-extrabold uppercase tracking-wide text-animeo-muted">Zones</h3>
+        <h3 className="text-xs font-extrabold uppercase tracking-wide text-animeo-muted">Zones</h3>
         <div role="group" aria-label="Filtrer par zone" className="mt-2 flex flex-wrap gap-1.5">
           <button type="button" aria-pressed={filter === null} onClick={() => onFilter(null)} className={chip(filter === null)}>Tous · {totalCount}</button>
           {zones.map((zone) => {

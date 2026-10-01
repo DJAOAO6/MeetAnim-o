@@ -165,7 +165,7 @@ function OpeningHoursCard({ professional, section }: { professional: PublicProfe
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-animeo-muted">Horaires susceptibles d’évoluer selon les disponibilités.</p>
+      <p className="mt-3 text-xs text-animeo-muted">Horaires susceptibles d’évoluer selon les disponibilités.</p>
     </SidebarCard>
   );
 }

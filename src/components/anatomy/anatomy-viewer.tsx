@@ -129,7 +129,7 @@ export function AnatomyViewer({
         {tooltip ? (
           <div
             role="tooltip"
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-animeo-dark px-2.5 py-1.5 text-[11px] leading-tight font-semibold text-white shadow-sm"
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md bg-animeo-dark px-2.5 py-1.5 text-xs leading-tight font-semibold text-white shadow-sm"
             style={{ left: `${tooltip.left}%`, top: `${tooltip.top}%` }}
           >
             {tooltip.title}
@@ -139,8 +139,8 @@ export function AnatomyViewer({
       </div>
 
       {view.awaitingIllustration ? (
-        <figcaption className="mt-2 flex items-center gap-2 rounded-md border border-dashed border-neutral-300 bg-neutral-50 px-3 py-2 text-[11px] leading-relaxed text-neutral-600">
-          <span className="inline-flex shrink-0 items-center rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-neutral-700 uppercase">
+        <figcaption className="mt-2 flex items-center gap-2 rounded-md border border-dashed border-neutral-300 bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-600">
+          <span className="inline-flex shrink-0 items-center rounded bg-neutral-200 px-1.5 py-0.5 text-xs font-bold tracking-wide text-neutral-700 uppercase">
             Provisoire
           </span>
           <span>

@@ -56,7 +56,7 @@ export function RemindersTable(props: RemindersTableProps) {
           place utile n'est que de 686 px une fois la barre latérale déduite. */}
       <div className="hidden overflow-x-auto xl:block">
         <div className="min-w-[980px]">
-          <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-animeo-border-soft bg-animeo-surface-alt px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
+          <div className="grid grid-cols-[38px_1.05fr_.75fr_1fr_.65fr_.9fr_.8fr_170px] items-center gap-3 rounded-t-3xl border-b border-animeo-border-soft bg-animeo-surface-alt px-5 py-3 text-xs font-extrabold uppercase tracking-[0.09em] text-animeo-muted">
             <input type="checkbox" checked={allSelected} onChange={onToggleAll} aria-label="Sélectionner tous les rappels affichés" className="h-4 w-4 accent-animeo-brand" />
             <span>Client</span>
             <span>Animal</span>
@@ -134,13 +134,13 @@ function AnimalCell({ reminder }: { reminder: Reminder }) {
   return (
     <div>
       <p className="text-sm font-extrabold text-animeo-dark">{reminder.animalName}</p>
-      <p className="mt-0.5 text-[10px] font-semibold text-animeo-muted">{reminder.animalSpecies}</p>
+      <p className="mt-0.5 text-xs font-semibold text-animeo-muted">{reminder.animalSpecies}</p>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: ReminderStatus }) {
-  return <span className={`inline-flex w-fit rounded-full px-2.5 py-1.5 text-[10px] font-black ${statusStyles[status]}`}>{status}</span>;
+  return <span className={`inline-flex w-fit rounded-full px-2.5 py-1.5 text-xs font-black ${statusStyles[status]}`}>{status}</span>;
 }
 
 function RowActions({ reminder, onRemind, onEdit, onIgnore }: Pick<RemindersTableProps, "onRemind" | "onEdit" | "onIgnore"> & { reminder: Reminder }) {
