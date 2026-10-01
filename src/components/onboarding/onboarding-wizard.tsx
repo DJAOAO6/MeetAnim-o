@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
@@ -383,6 +384,23 @@ function TextField({ id, label, value, onChange, type = "text", placeholder, aut
   );
 }
 
+/**
+ * Tarif saisi en texte (virgule acceptée, clavier numérique sur téléphone),
+ * « € » affiché dans le champ comme le PriceInput des Paramètres — qui, lui,
+ * travaille sur un nombre et ne distingue pas un champ vide de 0.
+ */
+function PriceField({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <label htmlFor={id} className={labelClassName}>{label}</label>
+      <div className="relative">
+        <input id={id} type="text" inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} className={`${inputClassName} pr-9`} />
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 top-3 text-sm font-black text-animeo-muted">€</span>
+      </div>
+    </div>
+  );
+}
+
 type DayDraft = { id: string; label: string; enabled: boolean; start: string; end: string };
 
 function HoursStep({ availability, mode, onSubmit, onBack, onDone }: {
@@ -520,6 +538,7 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
       const result = await saveServiceAction(service);
       if (!result.ok) return setFormError(result.error);
       onChange([...services, result.service]);
+      setError(null);
       setDraft(emptyDraft);
       setFormOpen(false);
     });
@@ -586,18 +605,26 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
           </div>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
-          {cabinet ? <TextField id="onboarding-service-cabinet-price" label="Tarif au cabinet (€)" type="number" value={draft.cabinetPrice} onChange={(value) => setDraft((current) => ({ ...current, cabinetPrice: value }))} /> : null}
-          {home ? <TextField id="onboarding-service-home-price" label="Tarif à domicile (€)" type="number" value={draft.homePrice} onChange={(value) => setDraft((current) => ({ ...current, homePrice: value }))} /> : null}
+          {cabinet ? <PriceField id="onboarding-service-cabinet-price" label="Tarif au cabinet" value={draft.cabinetPrice} onChange={(value) => setDraft((current) => ({ ...current, cabinetPrice: value }))} /> : null}
+          {home ? <PriceField id="onboarding-service-home-price" label="Tarif à domicile" value={draft.homePrice} onChange={(value) => setDraft((current) => ({ ...current, homePrice: value }))} /> : null}
         </div>
         {formError ? <p role="alert" className="text-sm font-bold text-animeo-error">{formError}</p> : null}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" onClick={add} disabled={adding}>{adding ? "Ajout…" : "Ajouter la prestation"}</Button>
+          {/* Tant qu'il n'y a aucune prestation, c'est l'action attendue ; ensuite
+              « Continuer » redevient la seule action principale. */}
+          <Button type="button" variant={services.length === 0 ? "primary" : "secondary"} onClick={add} disabled={adding} className="w-full sm:w-auto">
+            <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />
+            {adding ? "Ajout…" : "Ajouter la prestation"}
+          </Button>
           {services.length > 0 ? <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setFormError(null); }} disabled={adding}>Annuler</Button> : null}
         </div>
       </fieldset>
       </div>
       ) : (
-        <Button type="button" variant="secondary" onClick={() => setFormOpen(true)} className="w-full sm:w-auto">Ajouter une autre prestation</Button>
+        <Button type="button" variant="secondary" onClick={() => setFormOpen(true)} className="w-full sm:w-auto">
+          <Plus aria-hidden="true" className="h-4 w-4" />
+          Ajouter une autre prestation
+        </Button>
       )}
     </StepForm>
   );

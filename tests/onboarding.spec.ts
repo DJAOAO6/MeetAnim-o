@@ -149,14 +149,21 @@ test("un professionnel invité ouvre son espace, le configure et reçoit sa prem
 
     // 4. Prestations : au moins une, sinon rien à réserver.
     await expect(page.getByRole("heading", { name: "Vos prestations" })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByLabel("Tarif à domicile (€)"), "pas de tarif à domicile sans déplacement").toHaveCount(0);
+    await expect(page.getByLabel("Tarif à domicile"), "pas de tarif à domicile sans déplacement").toHaveCount(0);
     await page.getByRole("button", { name: "Continuer" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "au moins une prestation" })).toBeVisible();
     await page.getByLabel("Nom", { exact: true }).fill("Bilan comportemental");
     await page.getByLabel("Chien").check();
-    await page.getByLabel("Tarif au cabinet (€)").fill("55");
-    await page.getByRole("button", { name: "Ajouter la prestation" }).click();
+    // Sans prestation, l'ajout est l'action principale (pleine couleur)…
+    const addService = page.getByRole("button", { name: "Ajouter la prestation" });
+    await expect(addService).toHaveClass(/(^|\s)bg-animeo(\s|$)/);
+    await expect(page.getByLabel("Tarif au cabinet")).toHaveAttribute("inputmode", "decimal");
+    await page.getByLabel("Tarif au cabinet").fill("55");
+    await addService.click();
     await expect(page.getByRole("list", { name: "Prestations ajoutées" })).toContainText("Bilan comportemental");
+    await expect(page.getByRole("alert").filter({ hasText: "au moins une prestation" }), "le rappel disparaît une fois la prestation ajoutée").toHaveCount(0);
+    // … ensuite « Continuer » redevient la seule.
+    await expect(page.getByRole("button", { name: "Ajouter une autre prestation" })).not.toHaveClass(/(^|\s)bg-animeo(\s|$)/);
     await page.getByRole("button", { name: "Continuer" }).click();
 
     // 5. Lien de réservation : la page s'ouvre.
