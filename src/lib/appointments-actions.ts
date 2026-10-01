@@ -157,6 +157,17 @@ async function appointmentConflictIn(db: AppointmentReader, dateId: string, star
 }
 
 /**
+ * Recouvrement avec un créneau bloqué par le praticien ce jour-là. Réservé à
+ * la réservation publique : le praticien, lui, peut poser un rendez-vous sur
+ * son propre blocage.
+ */
+async function blockedSlotConflictIn(db: ScopedPrismaClient, dateId: string, start: string, duration: number): Promise<boolean> {
+  const blocked = await db.blockedSlot.findMany({ where: { date: toDate(dateId) }, select: { startTime: true, endTime: true } });
+  const startMinutes = timeToMinutes(start);
+  return blocked.some((slot) => intervalsOverlap(startMinutes, duration, timeToMinutes(slot.startTime), timeToMinutes(slot.endTime) - timeToMinutes(slot.startTime)));
+}
+
+/**
  * Verrou de la journée concernée, à poser en tout début de transaction.
  *
  * hasConflict() puis create() ne sont pas atomiques : deux demandes qui se
@@ -568,7 +579,7 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
       select: { start: true, duration: true, mode: true },
     }),
   ]);
-  const { hourly } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
+  const { intervals } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
 
   const planned = [
     { appointment: appointmentA, newStart: appointmentB.start },
@@ -579,7 +590,7 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
     const mode = modeLabel[appointment.mode];
     const startMinutes = timeToMinutes(newStart);
 
-    if (!fitsWithinOpenHours(hourly, mode, startMinutes, appointment.duration)) {
+    if (!fitsWithinOpenHours(intervals, mode, startMinutes, appointment.duration)) {
       return { ok: false, error: `« ${appointment.animalName} » ne tiendrait plus dans les horaires d'ouverture à ${newStart}. Échange refusé.` };
     }
 
@@ -933,6 +944,16 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
     return { ok: false, error: "Ce mode de consultation est temporairement fermé aux réservations. Merci de choisir l’autre mode ou de réessayer plus tard." };
   }
 
+  // Le créneau doit tenir dans une plage ouverte pour ce mode, ce jour-là,
+  // hors créneaux bloqués. La page publique ne propose que ceux-là ; une
+  // requête envoyée directement n'y est pas tenue.
+  const availability = await getAvailability(db);
+  const { intervals } = getDayAvailability(parseDateIdToLocalNoon(core.date), availability);
+  if (!fitsWithinOpenHours(intervals, core.mode, timeToMinutes(core.start), service.duration)
+    || await blockedSlotConflictIn(db, core.date, core.start, service.duration)) {
+    return { ok: false, error: "Ce créneau n’est pas disponible. Merci d’en choisir un autre." };
+  }
+
   if (await hasConflict(db, core.date, core.start, service.duration)) {
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
@@ -947,7 +968,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   const zones = await getPublicZones(db);
   const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
 
-  const { travelBuffer } = await getAvailability(db);
+  const { travelBuffer } = availability;
   let row;
   try {
     // Réservation publique : pas de session, donc pas encore de client

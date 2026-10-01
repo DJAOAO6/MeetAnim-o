@@ -220,8 +220,7 @@ export type UpdateAvailabilityResult = { ok: true } | { ok: false; error: string
 /**
  * Rendez-vous confirmés/en attente à venir qui ne tiendraient plus dans la
  * nouvelle configuration de disponibilités (AUDIT_COMPLET.md P2-19) —
- * réutilise fitsWithinOpenHours, déjà couvert par des tests unitaires pour
- * le cas d'un rendez-vous qui chevauche plusieurs heures.
+ * même règle que la page publique (fitsWithinOpenHours, à la minute).
  */
 async function findAvailabilityConflicts(newAvailability: AvailabilitySettings): Promise<AvailabilityConflict[]> {
   const db = await currentDb();
@@ -241,10 +240,10 @@ async function findAvailabilityConflicts(newAvailability: AvailabilitySettings):
     // .getDay() (utilisé par getDayAvailability) reflète toujours le bon
     // jour de la semaine, indépendamment du fuseau du serveur.
     const dateId = appointment.date.toISOString().slice(0, 10);
-    const { hourly } = getDayAvailability(parseDateIdToLocalNoon(dateId), newAvailability);
+    const { intervals } = getDayAvailability(parseDateIdToLocalNoon(dateId), newAvailability);
     const mode = appointment.mode === "CABINET" ? "cabinet" : "home";
     const startMinutes = timeToMinutes(appointment.start);
-    if (!fitsWithinOpenHours(hourly, mode, startMinutes, appointment.duration)) {
+    if (!fitsWithinOpenHours(intervals, mode, startMinutes, appointment.duration)) {
       conflicts.push({
         appointmentId: appointment.id,
         date: dateId,

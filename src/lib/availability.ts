@@ -1,13 +1,23 @@
 import type { AvailabilitySettings } from "@/data/settings";
 
-export type HourAvailability = { cabinet: boolean; home: boolean };
+/** Intervalle [début, fin) en minutes depuis minuit. */
+export type MinuteInterval = [number, number];
+
+/** Intervalles ouverts d'une journée, par mode, triés et sans chevauchement. */
+export type OpenIntervals = { cabinet: MinuteInterval[]; home: MinuteInterval[] };
 
 export type DayAvailabilityResult = {
+  /**
+   * Faux seulement pour un jour non travaillé (jour désactivé, sans plage,
+   * ou en vacances). Une journée travaillée que des fermetures vident reste
+   * « ouverte » : ses rendez-vous s'affichent, ses intervalles sont vides.
+   */
   open: boolean;
-  hourly: Record<number, HourAvailability> | null;
+  intervals: OpenIntervals;
 };
 
 const weekdayLabels = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const DAY_END = 24 * 60;
 
 function toDateId(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -18,38 +28,60 @@ function timeToMinutes(value: string): number {
   return hours * 60 + minutes;
 }
 
+/** Fin d'une fermeture : « 23:59 » veut dire « jusqu'au bout de la journée ». */
+function closureEndMinutes(value: string): number {
+  return value === "23:59" ? DAY_END : timeToMinutes(value);
+}
+
 function isWithinVacation(dateId: string, availability: AvailabilitySettings): boolean {
   return availability.vacations.some((vacation) => dateId >= vacation.startDate && dateId <= vacation.endDate);
 }
 
+/** Trie et fusionne les intervalles qui se chevauchent ou se touchent (09:00–12:00 + 12:00–14:00 = 09:00–14:00). */
+export function mergeIntervals(intervals: MinuteInterval[]): MinuteInterval[] {
+  const sorted = intervals.filter(([start, end]) => end > start).sort((first, second) => first[0] - second[0]);
+  const merged: MinuteInterval[] = [];
+  for (const [start, end] of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+
+/** Retire [cutStart, cutEnd) de chaque intervalle — à la minute près. */
+export function subtractInterval(intervals: MinuteInterval[], [cutStart, cutEnd]: MinuteInterval): MinuteInterval[] {
+  if (cutEnd <= cutStart) return intervals;
+  return intervals.flatMap(([start, end]): MinuteInterval[] => {
+    if (cutEnd <= start || cutStart >= end) return [[start, end]];
+    const pieces: MinuteInterval[] = [];
+    if (cutStart > start) pieces.push([start, cutStart]);
+    if (cutEnd < end) pieces.push([cutEnd, end]);
+    return pieces;
+  });
+}
+
 /**
- * Calcule, pour une date donnée, si la journée est ouverte et l'ouverture
- * heure par heure (cabinet / domicile), en tenant compte des plages
- * habituelles, des vacances et des fermetures exceptionnelles.
+ * Pour une date donnée : la journée est-elle travaillée, et quels intervalles
+ * sont ouverts, au cabinet et à domicile, à la minute près.
+ *
+ * Plages habituelles du jour → retrait des fermetures exceptionnelles (selon
+ * leur portée) → fusion des intervalles contigus. Les vacances ferment la
+ * journée entière.
  */
 export function getDayAvailability(date: Date, availability: AvailabilitySettings): DayAvailabilityResult {
+  const closedDay: DayAvailabilityResult = { open: false, intervals: { cabinet: [], home: [] } };
   const dateId = toDateId(date);
-  if (isWithinVacation(dateId, availability)) return { open: false, hourly: null };
+  if (isWithinVacation(dateId, availability)) return closedDay;
 
   const weekdayLabel = weekdayLabels[date.getDay()];
   const day = availability.days.find((item) => item.label === weekdayLabel);
-  if (!day || !day.enabled || day.slots.length === 0) return { open: false, hourly: null };
+  if (!day || !day.enabled || day.slots.length === 0) return closedDay;
 
-  const hourly: Record<number, HourAvailability> = {};
-  for (let hour = 0; hour < 24; hour++) hourly[hour] = { cabinet: false, home: false };
-
-  for (const slot of day.slots) {
-    const startMinutes = timeToMinutes(slot.start);
-    const endMinutes = timeToMinutes(slot.end);
-    for (let hour = 0; hour < 24; hour++) {
-      const hourStart = hour * 60;
-      const hourEnd = hourStart + 60;
-      if (startMinutes < hourEnd && endMinutes > hourStart) {
-        if (slot.cabinet) hourly[hour].cabinet = true;
-        if (slot.home) hourly[hour].home = true;
-      }
-    }
-  }
+  const slotsFor = (mode: "cabinet" | "home") =>
+    mergeIntervals(day.slots.filter((slot) => slot[mode]).map((slot): MinuteInterval => [timeToMinutes(slot.start), timeToMinutes(slot.end)]));
+  let cabinet = slotsFor("cabinet");
+  let home = slotsFor("home");
 
   for (const closure of availability.closures) {
     // Fermeture sur plusieurs jours : `endDate` borne la période, `date` en
@@ -57,39 +89,25 @@ export function getDayAvailability(date: Date, availability: AvailabilitySetting
     // s'applique plus — la réouverture n'a besoin d'aucune tâche planifiée.
     const lastDay = closure.endDate && closure.endDate >= closure.date ? closure.endDate : closure.date;
     if (dateId < closure.date || dateId > lastDay) continue;
-    const startMinutes = timeToMinutes(closure.start);
-    const endMinutes = timeToMinutes(closure.end);
-    for (let hour = 0; hour < 24; hour++) {
-      const hourStart = hour * 60;
-      const hourEnd = hourStart + 60;
-      if (startMinutes < hourEnd && endMinutes > hourStart) {
-        if (closure.scope === "Tout fermer" || closure.scope === "Cabinet uniquement") hourly[hour].cabinet = false;
-        if (closure.scope === "Tout fermer" || closure.scope === "Domicile uniquement") hourly[hour].home = false;
-      }
-    }
+    const cut: MinuteInterval = [timeToMinutes(closure.start), closureEndMinutes(closure.end)];
+    if (closure.scope === "Tout fermer" || closure.scope === "Cabinet uniquement") cabinet = subtractInterval(cabinet, cut);
+    if (closure.scope === "Tout fermer" || closure.scope === "Domicile uniquement") home = subtractInterval(home, cut);
   }
 
-  return { open: true, hourly };
+  return { open: true, intervals: { cabinet, home } };
 }
 
-export function isHourClosed(hourly: Record<number, HourAvailability> | null, hour: number): boolean {
-  if (!hourly) return true;
-  return !hourly[hour].cabinet && !hourly[hour].home;
+/** Une minute donnée est-elle ouverte pour au moins un mode ? */
+export function isOpenAt(intervals: OpenIntervals, minutes: number): boolean {
+  return [...intervals.cabinet, ...intervals.home].some(([start, end]) => minutes >= start && minutes < end);
 }
 
-export function computeClosedRanges(hourly: Record<number, HourAvailability> | null, startHour: number, endHour: number): Array<{ start: number; end: number }> {
-  const ranges: Array<{ start: number; end: number }> = [];
-  let rangeStart: number | null = null;
-
-  for (let hour = startHour; hour < endHour; hour++) {
-    const closed = isHourClosed(hourly, hour);
-    if (closed && rangeStart === null) rangeStart = hour;
-    if (!closed && rangeStart !== null) {
-      ranges.push({ start: rangeStart, end: hour });
-      rangeStart = null;
-    }
-  }
-  if (rangeStart !== null) ranges.push({ start: rangeStart, end: endHour });
-
-  return ranges;
+/**
+ * Intervalles fermés (aucun mode ouvert) entre deux bornes, en minutes —
+ * ce que la grille de l'agenda ombre.
+ */
+export function computeClosedRanges(intervals: OpenIntervals, fromMinutes: number, toMinutes: number): Array<{ start: number; end: number }> {
+  let closed: MinuteInterval[] = [[fromMinutes, toMinutes]];
+  for (const open of mergeIntervals([...intervals.cabinet, ...intervals.home])) closed = subtractInterval(closed, open);
+  return closed.map(([start, end]) => ({ start, end }));
 }

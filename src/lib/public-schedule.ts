@@ -56,9 +56,9 @@ export async function getPublicScheduleAction(slug: string, mode: "cabinet" | "h
 
   const dates: BookingDate[] = [];
   for (let offset = 0; offset < BOOKING_WINDOW_DAYS; offset++) {
-    const { open, hourly } = getDayAvailability(cursor, availability);
+    const { open, intervals } = getDayAvailability(cursor, availability);
     if (open) {
-      const slots = generateCandidateStarts(hourly, mode, durationMinutes, availability.slotInterval);
+      const slots = generateCandidateStarts(intervals, mode, durationMinutes, availability.slotInterval);
       if (slots.length > 0) {
         const dateId = toLocalDateId(cursor);
         dates.push({ id: dateId, ...formatBookingDateLabels(dateId), slots });

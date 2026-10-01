@@ -308,55 +308,41 @@ test("toLocalDateId and parseDateIdToLocalNoon round-trip correctly", () => {
   assert.equal(toLocalDateId(parseDateIdToLocalNoon(dateId)), dateId);
 });
 
-test("fitsWithinOpenHours accepts a slot fully within a single open hour", () => {
-  const hourly = { 9: { cabinet: true, home: false } };
-  assert.equal(fitsWithinOpenHours(hourly, "cabinet", timeToMinutes("09:00"), 30), true);
+// Intervalles ouverts en minutes ([début, fin)) : voir aussi tests-unit/availability.test.ts.
+const nineToTen = { cabinet: [[540, 600]] as Array<[number, number]>, home: [] as Array<[number, number]> };
+
+test("fitsWithinOpenHours accepts a slot fully within an open interval", () => {
+  assert.equal(fitsWithinOpenHours(nineToTen, "cabinet", timeToMinutes("09:00"), 30), true);
+  assert.equal(fitsWithinOpenHours(nineToTen, "cabinet", timeToMinutes("09:00"), 60), true);
 });
 
-test("fitsWithinOpenHours checks every hour a longer appointment touches, not just the start", () => {
-  // 09:30 pendant 60 min touche l'heure 9 (09:30-10:00) ET l'heure 10 (10:00-10:30).
-  const bothOpen = { 9: { cabinet: true, home: true }, 10: { cabinet: true, home: true } };
-  assert.equal(fitsWithinOpenHours(bothOpen, "cabinet", timeToMinutes("09:30"), 60), true);
-
-  const secondHourClosed = { 9: { cabinet: true, home: true }, 10: { cabinet: false, home: false } };
-  assert.equal(fitsWithinOpenHours(secondHourClosed, "cabinet", timeToMinutes("09:30"), 60), false);
+test("fitsWithinOpenHours checks the whole appointment, not just the start", () => {
+  // 09:30 pendant 60 min déborde de 30 min sur une plage qui finit à 10:00.
+  assert.equal(fitsWithinOpenHours(nineToTen, "cabinet", timeToMinutes("09:30"), 60), false);
 });
 
-test("fitsWithinOpenHours respects the mode (cabinet vs home can differ on the same hour)", () => {
-  const hourly = { 9: { cabinet: true, home: false } };
-  assert.equal(fitsWithinOpenHours(hourly, "cabinet", timeToMinutes("09:00"), 30), true);
-  assert.equal(fitsWithinOpenHours(hourly, "home", timeToMinutes("09:00"), 30), false);
+test("fitsWithinOpenHours respects the mode (cabinet vs home can differ)", () => {
+  assert.equal(fitsWithinOpenHours(nineToTen, "home", timeToMinutes("09:00"), 30), false);
 });
 
-test("fitsWithinOpenHours rejects a slot that would run past midnight", () => {
-  const hourly = { 23: { cabinet: true, home: true } };
-  assert.equal(fitsWithinOpenHours(hourly, "cabinet", timeToMinutes("23:30"), 60), false);
-});
-
-test("fitsWithinOpenHours is always false for a closed day (hourly null)", () => {
+test("fitsWithinOpenHours is always false for a closed day (null)", () => {
   assert.equal(fitsWithinOpenHours(null, "cabinet", timeToMinutes("09:00"), 30), false);
 });
 
-test("generateCandidateStarts returns only starts whose full duration fits within open hours", () => {
-  // Une seule heure ouverte (9h-10h) : avec un pas de 30 min, seuls 09:00 et
-  // 09:30 permettent de caser une prestation de 30 min sans déborder.
-  const hourly = { 9: { cabinet: true, home: true } };
-  const starts = generateCandidateStarts(hourly, "cabinet", 30);
-  assert.deepEqual(starts, ["09:00", "09:30"]);
+test("generateCandidateStarts returns only starts whose full duration fits", () => {
+  assert.deepEqual(generateCandidateStarts(nineToTen, "cabinet", 30), ["09:00", "09:30"]);
 });
 
 test("generateCandidateStarts returns an empty list when nothing fits", () => {
   assert.deepEqual(generateCandidateStarts(null, "cabinet", 30), []);
+  assert.deepEqual(generateCandidateStarts(nineToTen, "cabinet", 90), []);
 });
 
 test("generateCandidateStarts with a 0 slot interval chains starts on the appointment duration itself", () => {
-  // Pas "Désactivé" (0) : deux heures ouvertes (9h-11h), prestation de 45
-  // min — les créneaux s'enchaînent sans grille fixe (09:00, 09:45 ; 10:30
-  // déborderait sur 11h, non ouvert), pas de repli sur
-  // SLOT_GRANULARITY_MINUTES (30).
-  const hourly = { 9: { cabinet: true, home: true }, 10: { cabinet: true, home: true } };
-  const starts = generateCandidateStarts(hourly, "cabinet", 45, 0);
-  assert.deepEqual(starts, ["09:00", "09:45"]);
+  // Pas « Désactivé » (0), plage 9h-11h, prestation de 45 min : 09:00,
+  // 09:45 ; 10:30 déborderait.
+  const nineToEleven = { cabinet: [[540, 660]] as Array<[number, number]>, home: [] };
+  assert.deepEqual(generateCandidateStarts(nineToEleven, "cabinet", 45, 0), ["09:00", "09:45"]);
 });
 
 test("groupSlotsByPeriod splits morning/afternoon at 12:00, no separate evening group", () => {

@@ -41,9 +41,9 @@ export type TourFillOpportunity = {
 async function countFreeSlotsInTourWindow(tour: DbTour, dateId: string): Promise<number> {
   const db = await currentDb();
   const availability = await getAvailability();
-  const { hourly } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
+  const { intervals } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
   const duration = availability.defaultAppointmentDuration;
-  const candidates = generateCandidateStarts(hourly, "home", duration, availability.slotInterval);
+  const candidates = generateCandidateStarts(intervals, "home", duration, availability.slotInterval);
 
   const tourStartMinutes = timeToMinutes(tour.startTime);
   const tourEndMinutes = timeToMinutes(tour.endTime);

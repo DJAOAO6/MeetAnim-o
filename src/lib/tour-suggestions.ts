@@ -156,10 +156,10 @@ export async function getSuggestedToursForAddressAction(slug: string, input: Tou
       );
 
       if (runsToday) {
-        const { open, hourly } = getDayAvailability(cursor, availability);
+        const { open, intervals } = getDayAvailability(cursor, availability);
         if (open) {
           const slots = selectTourSlots({
-            candidates: generateCandidateStarts(hourly, "home", duration, availability.slotInterval),
+            candidates: generateCandidateStarts(intervals, "home", duration, availability.slotInterval),
             tour: tourWindow,
             durationMinutes: duration,
             booked: bookedByDate.get(dateId) ?? [],

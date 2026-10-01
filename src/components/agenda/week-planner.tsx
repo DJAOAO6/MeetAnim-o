@@ -7,7 +7,7 @@ import { selectionFromClick, toMinutes as slotToMinutes, type SelectionBounds, t
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
 import { ArrowLeftRight, Ban, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
-import { computeClosedRanges, getDayAvailability, isHourClosed } from "@/lib/availability";
+import { computeClosedRanges, getDayAvailability, isOpenAt } from "@/lib/availability";
 import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
@@ -124,7 +124,7 @@ function selectionBoundsFor(startHour: number, endHour: number, step: number, da
 }
 
 function closedAtFor(dayAvailability: ReturnType<typeof getDayAvailability>) {
-  return (minutes: number) => !dayAvailability.open || isHourClosed(dayAvailability.hourly, Math.floor(minutes / 60));
+  return (minutes: number) => !dayAvailability.open || !isOpenAt(dayAvailability.intervals, minutes);
 }
 
 /** Millisecondes écoulées depuis `since` (0 : horodatage courant). Appelée au relâchement d'un geste, jamais au rendu. */
@@ -537,8 +537,8 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       if (state.currentDay === state.originDay && state.currentStartMinutes === state.originStartMinutes) return;
       const targetDate = dates[state.currentDay];
       const targetStart = minutesToTime(state.currentStartMinutes);
-      const { open, hourly } = getDayAvailability(targetDate, availability);
-      const closed = !open || isHourClosed(hourly, Math.floor(state.currentStartMinutes / 60));
+      const { open, intervals } = getDayAvailability(targetDate, availability);
+      const closed = !open || !isOpenAt(intervals, state.currentStartMinutes);
       const conflict = allEvents.some((event) => event.id !== state.event.id && event.day === state.currentDay && event.start === targetStart);
       if (closed || conflict) {
         notify.error("Ce créneau n’est pas disponible : choisissez un autre horaire.");
@@ -582,8 +582,8 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     if (!drag || drag.kind !== "move") return true;
     const targetDate = dates[drag.currentDay];
     const targetStart = minutesToTime(drag.currentStartMinutes);
-    const { open, hourly } = getDayAvailability(targetDate, availability);
-    if (!open || isHourClosed(hourly, Math.floor(drag.currentStartMinutes / 60))) return false;
+    const { open, intervals } = getDayAvailability(targetDate, availability);
+    if (!open || !isOpenAt(intervals, drag.currentStartMinutes)) return false;
     return !allEvents.some((event) => event.id !== drag.event.id && event.day === drag.currentDay && event.start === targetStart);
   }, [drag, dates, availability, allEvents]);
 
@@ -856,7 +856,8 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
 }) {
   const dayAvailability = useMemo(() => getDayAvailability(date, availability), [date, availability]);
   const closedRanges = useMemo(
-    () => (dayAvailability.open ? computeClosedRanges(dayAvailability.hourly, startHour, endHour) : [{ start: startHour, end: endHour }]),
+    // En minutes : une fermeture de 14:15 à 14:45 n'ombre que cette demi-heure.
+    () => (dayAvailability.open ? computeClosedRanges(dayAvailability.intervals, startHour * 60, endHour * 60) : [{ start: startHour * 60, end: endHour * 60 }]),
     [dayAvailability, startHour, endHour],
   );
   // Hors de la plage affichée : pas de carte, une pastille en haut ou en bas.
@@ -910,9 +911,9 @@ function DayColumn({ date, now, availability, startHour, endHour, plannerHeight,
           // hachures. Les horaires, eux, ne changent pas.
           className={`pointer-events-none absolute inset-x-0 z-[1] ${showClosedZones ? "bg-[repeating-linear-gradient(135deg,#F1F3F3,#F1F3F3_8px,#E7EBEA_8px,#E7EBEA_16px)]" : "bg-animeo-surface-alt/45"}`}
           data-closed-zone={showClosedZones ? "hatched" : "muted"}
-          style={{ top: (range.start - startHour) * 60 * pxPerMinute, height: (range.end - range.start) * 60 * pxPerMinute }}
+          style={{ top: (range.start - startHour * 60) * pxPerMinute, height: (range.end - range.start) * pxPerMinute }}
         >
-          {showClosedZones && !dayAvailability.open && range.start === startHour && range.end === endHour ? (
+          {showClosedZones && !dayAvailability.open && range.start === startHour * 60 && range.end === endHour * 60 ? (
             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/85 px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-animeo-muted">
               Fermé
             </span>

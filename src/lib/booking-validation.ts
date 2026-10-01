@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { haversineDistanceKm } from "@/lib/geo";
 import type { PublicService, PublicZone } from "@/data/public-booking";
-import type { HourAvailability } from "@/lib/availability";
+import type { OpenIntervals } from "@/lib/availability";
 
 /**
  * Logique pure de validation et de tarification de la réservation publique.
@@ -206,23 +206,14 @@ export function formatBookingDateLabels(dateId: string): { weekday: string; shor
 
 /**
  * Un rendez-vous [startMinutes, startMinutes+durationMinutes) ne tient dans
- * les disponibilités horaires (getDayAvailability) que si CHAQUE heure
- * qu'il touche est ouverte pour le mode demandé — pas seulement son heure
- * de départ. Par exemple 09:30 pendant 60 min touche l'heure 9 ET l'heure
- * 10.
+ * les disponibilités (getDayAvailability) que s'il est entièrement contenu
+ * dans un seul intervalle ouvert pour le mode demandé — à la minute près :
+ * une plage qui finit à 12:30 n'accepte pas un rendez-vous de 12:00 à 13:00.
  */
-export function fitsWithinOpenHours(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", startMinutes: number, durationMinutes: number): boolean {
-  if (!hourly) return false;
+export function fitsWithinOpenHours(intervals: OpenIntervals | null, mode: "cabinet" | "home", startMinutes: number, durationMinutes: number): boolean {
+  if (!intervals || durationMinutes <= 0) return false;
   const endMinutes = startMinutes + durationMinutes;
-  if (endMinutes > 24 * 60) return false;
-
-  const firstHour = Math.floor(startMinutes / 60);
-  const lastHour = Math.floor((endMinutes - 1) / 60);
-  for (let hour = firstHour; hour <= lastHour; hour++) {
-    const hourInfo = hourly[hour];
-    if (!hourInfo || (mode === "cabinet" ? !hourInfo.cabinet : !hourInfo.home)) return false;
-  }
-  return true;
+  return intervals[mode].some(([start, end]) => startMinutes >= start && endMinutes <= end);
 }
 
 /**
@@ -284,20 +275,28 @@ export const SLOT_GRANULARITY_MINUTES = 30;
 export const BOOKING_WINDOW_DAYS = 90;
 
 /**
- * Génère les horaires de départ candidats (par pas de `slotIntervalMinutes`,
- * réglable par le praticien dans Paramètres > Disponibilités — sinon
- * SLOT_GRANULARITY_MINUTES par défaut) qui tiennent entièrement dans les
- * disponibilités réelles pour le mode et la durée demandés. Un pas à 0
- * ("Désactivé" côté réglages) enchaîne les créneaux sur la durée de la
- * prestation elle-même plutôt que sur une grille fixe.
+ * Génère les horaires de départ candidats qui tiennent entièrement dans un
+ * intervalle ouvert pour le mode et la durée demandés.
+ *
+ * Avec un pas (réglé par le praticien dans Paramètres > Disponibilités, sinon
+ * SLOT_GRANULARITY_MINUTES) : le début de chaque intervalle ouvert, puis les
+ * heures rondes de ce pas (9:00, 9:30…) — une plage qui commence à 9:20, ou
+ * qui reprend après une fermeture à 14:45, propose donc aussi ce premier
+ * horaire. Un pas à 0 (« Désactivé ») enchaîne les créneaux sur la durée de
+ * la prestation, à partir du début de chaque intervalle.
  */
-export function generateCandidateStarts(hourly: Record<number, HourAvailability> | null, mode: "cabinet" | "home", durationMinutes: number, slotIntervalMinutes: number = SLOT_GRANULARITY_MINUTES): string[] {
-  const step = slotIntervalMinutes || durationMinutes;
-  const starts: string[] = [];
-  for (let minutes = 0; minutes < 24 * 60; minutes += step) {
-    if (fitsWithinOpenHours(hourly, mode, minutes, durationMinutes)) starts.push(minutesToTime(minutes));
+export function generateCandidateStarts(intervals: OpenIntervals | null, mode: "cabinet" | "home", durationMinutes: number, slotIntervalMinutes: number = SLOT_GRANULARITY_MINUTES): string[] {
+  if (!intervals || durationMinutes <= 0) return [];
+  const starts = new Set<number>();
+  for (const [start, end] of intervals[mode]) {
+    if (slotIntervalMinutes > 0) {
+      if (start + durationMinutes <= end) starts.add(start);
+      for (let minutes = Math.ceil(start / slotIntervalMinutes) * slotIntervalMinutes; minutes + durationMinutes <= end; minutes += slotIntervalMinutes) starts.add(minutes);
+    } else {
+      for (let minutes = start; minutes + durationMinutes <= end; minutes += durationMinutes) starts.add(minutes);
+    }
   }
-  return starts;
+  return [...starts].sort((first, second) => first - second).map(minutesToTime);
 }
 
 /**
