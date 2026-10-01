@@ -8,6 +8,7 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { Card } from "@/components/ui/card";
 import { ArrowLeftRight, Ban, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
 import { computeClosedRanges, getDayAvailability, isOpenAt } from "@/lib/availability";
+import { conflictsWith } from "@/lib/booking-validation";
 import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
@@ -231,6 +232,21 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstDateId, dates.length]);
   const allEvents = useMemo(() => [...appointmentEvents, ...tourEvents, ...blockedEvents], [appointmentEvents, tourEvents, blockedEvents]);
+
+  /**
+   * Le rendez-vous déplacé heurterait-il un autre rendez-vous ce jour-là ?
+   * Même règle que le serveur (conflictsWith : trajet et pause dans les deux
+   * sens) ; un autre élément qui démarre à la même minute bloque aussi.
+   */
+  function moveConflicts(appointmentId: string | undefined, eventId: string, day: number, startMinutes: number): boolean {
+    const moved = appointments.find((item) => item.id === appointmentId);
+    const targetDateId = dateIdOf(dates[day]);
+    const targetStart = minutesToTime(startMinutes);
+    if (allEvents.some((event) => event.id !== eventId && event.day === day && event.start === targetStart)) return true;
+    if (!moved) return false;
+    return appointments.some((item) => item.id !== moved.id && item.status !== "cancelled" && item.date === targetDateId
+      && conflictsWith({ start: startMinutes, duration: moved.duration, mode: moved.mode }, { start: toMinutes(item.start), duration: item.duration, mode: item.mode }, availability));
+  }
   // Géométrie de la grille : la hauteur d'une ligne vient de la densité, sa
   // durée de l'intervalle. Les rendez-vous, eux, gardent leur vraie durée.
   const pxPerMinute = pixelsPerMinute(display);
@@ -539,7 +555,7 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       const targetStart = minutesToTime(state.currentStartMinutes);
       const { open, intervals } = getDayAvailability(targetDate, availability);
       const closed = !open || !isOpenAt(intervals, state.currentStartMinutes);
-      const conflict = allEvents.some((event) => event.id !== state.event.id && event.day === state.currentDay && event.start === targetStart);
+      const conflict = moveConflicts(state.event.appointmentId, state.event.id, state.currentDay, state.currentStartMinutes);
       if (closed || conflict) {
         notify.error("Ce créneau n’est pas disponible : choisissez un autre horaire.");
         return;
@@ -578,14 +594,14 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
     }
   }
 
-  const dragValid = useMemo(() => {
+  // Recalculé à chaque rendu du glisser : quelques comparaisons, pas de quoi mémoriser.
+  const dragValid = (() => {
     if (!drag || drag.kind !== "move") return true;
     const targetDate = dates[drag.currentDay];
-    const targetStart = minutesToTime(drag.currentStartMinutes);
     const { open, intervals } = getDayAvailability(targetDate, availability);
     if (!open || !isOpenAt(intervals, drag.currentStartMinutes)) return false;
-    return !allEvents.some((event) => event.id !== drag.event.id && event.day === drag.currentDay && event.start === targetStart);
-  }, [drag, dates, availability, allEvents]);
+    return !moveConflicts(drag.event.appointmentId, drag.event.id, drag.currentDay, drag.currentStartMinutes);
+  })();
 
   return (
     <>

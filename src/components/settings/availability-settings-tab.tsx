@@ -14,6 +14,11 @@ type AvailabilitySettingsTabProps = {
 const emptyClosure: Omit<ExceptionalClosure, "id"> = { date: "", start: "09:00", end: "18:00", scope: "Tout fermer", reason: "" };
 const emptyVacation = { startDate: "", endDate: "" };
 
+/** Pauses proposées ; une valeur déjà enregistrée hors liste reste affichée. */
+function breakOptions(current: number): number[] {
+  return [...new Set([0, 5, 10, 15, current])].sort((first, second) => first - second);
+}
+
 export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySettingsTabProps) {
   const [draft, setDraft] = useState(value);
   const [showClosureForm, setShowClosureForm] = useState(false);
@@ -87,8 +92,8 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
       </Card>
 
       <Card className="p-5 sm:p-6">
-        <SectionTitle title="Temps de déplacement" description="Après un rendez-vous à domicile, ce délai reste bloqué dans l’agenda avant qu’un autre rendez-vous (cabinet ou domicile) puisse commencer." />
-        <div className="max-w-sm"><Field label="Temps minimum après un rendez-vous à domicile"><select value={draft.travelBuffer} onChange={(event) => setDraft((current) => ({ ...current, travelBuffer: Number(event.target.value) }))} className={inputClassName}>{[0, 15, 30, 45, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes} minute{minutes > 1 ? "s" : ""}</option>)}</select></Field></div>
+        <SectionTitle title="Temps de déplacement" description="Après un rendez-vous à domicile, ce temps reste bloqué dans l’agenda avant le rendez-vous suivant, au cabinet comme à domicile. La pause après un rendez-vous s’y ajoute." />
+        <div className="max-w-sm"><Field label="Temps de trajet après un rendez-vous à domicile"><select value={draft.travelBuffer} onChange={(event) => setDraft((current) => ({ ...current, travelBuffer: Number(event.target.value) }))} className={inputClassName}>{[0, 15, 30, 45, 60].map((minutes) => <option key={minutes} value={minutes}>{minutes} minute{minutes > 1 ? "s" : ""}</option>)}</select></Field></div>
       </Card>
 
       <Card className="p-5 sm:p-6">
@@ -101,10 +106,15 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
               {durationOptions(draft.defaultAppointmentDuration).map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
             </select>
           </Field>
-          <Field label="Pas des créneaux proposés en ligne">
+          <Field label="Proposer un rendez-vous toutes les…" hint="Détermine les heures de début proposées à vos clients : 9 h 00, 9 h 15, 9 h 30…">
             <select value={draft.slotInterval} onChange={(event) => setDraft((current) => ({ ...current, slotInterval: Number(event.target.value) }))} className={inputClassName}>
-              <option value={0}>Désactivé (durée de la prestation)</option>
+              <option value={0}>À la suite (durée de la prestation + pause)</option>
               {[10, 15, 20, 30].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+            </select>
+          </Field>
+          <Field label="Temps de pause après un rendez-vous" hint="Bloqué après chaque rendez-vous, au cabinet comme à domicile. À domicile, il s’ajoute au temps de trajet.">
+            <select value={draft.breakAfterAppointment} onChange={(event) => setDraft((current) => ({ ...current, breakAfterAppointment: Number(event.target.value) }))} className={inputClassName}>
+              {breakOptions(draft.breakAfterAppointment).map((minutes) => <option key={minutes} value={minutes}>{minutes === 0 ? "Aucune" : `${minutes} minutes`}</option>)}
             </select>
           </Field>
         </div>

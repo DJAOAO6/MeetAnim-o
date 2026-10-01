@@ -9,6 +9,7 @@ import {
   BOOKING_WINDOW_DAYS,
   formatBookingDateLabels,
   generateCandidateStarts,
+  occupiedMinutes,
   parseDateIdToLocalNoon,
   timeToMinutes,
   toLocalDateId,
@@ -115,9 +116,8 @@ export async function getSuggestedToursForAddressAction(slug: string, input: Tou
   for (const appointment of booked) {
     const dateId = appointment.date.toISOString().slice(0, 10);
     const start = timeToMinutes(appointment.start);
-    // Même règle que hasConflict : une visite à domicile occupe sa durée plus
-    // le temps de trajet configuré.
-    const occupied = appointment.mode === "DOMICILE" ? appointment.duration + availability.travelBuffer : appointment.duration;
+    // Même règle que hasConflict : durée + trajet (à domicile) + pause.
+    const occupied = occupiedMinutes(appointment, availability);
     const entry = bookedByDate.get(dateId) ?? [];
     entry.push({
       start,
@@ -159,9 +159,10 @@ export async function getSuggestedToursForAddressAction(slug: string, input: Tou
         const { open, intervals } = getDayAvailability(cursor, availability);
         if (open) {
           const slots = selectTourSlots({
-            candidates: generateCandidateStarts(intervals, "home", duration, availability.slotInterval),
+            candidates: generateCandidateStarts(intervals, "home", duration, availability.slotInterval, availability.breakAfterAppointment),
             tour: tourWindow,
             durationMinutes: duration,
+            occupiedMinutes: occupiedMinutes({ duration, mode: "home" }, availability),
             booked: bookedByDate.get(dateId) ?? [],
             limit: MAX_SLOTS_PER_DATE,
           });

@@ -17,6 +17,7 @@ function settings(slots: DayAvailability["slots"], extra: Partial<AvailabilitySe
   return {
     days: [{ id: "monday", label: "Lundi", enabled: true, slots }],
     travelBuffer: 30,
+    breakAfterAppointment: 0,
     closures: [],
     vacations: [],
     defaultAppointmentDuration: 60,

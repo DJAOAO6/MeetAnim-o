@@ -85,6 +85,7 @@ export function blankAvailability(): AvailabilitySettings {
       { id: "sunday", label: "Dimanche", enabled: false, slots: [] },
     ],
     travelBuffer: 30,
+    breakAfterAppointment: 0,
     closures: [],
     vacations: [],
     defaultAppointmentDuration: 60,

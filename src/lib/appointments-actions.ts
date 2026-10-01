@@ -35,7 +35,11 @@ import {
   BOOKING_WINDOW_DAYS,
   computeTotalPrice,
   findServiceById,
+  conflictsWith,
   fitsWithinOpenHours,
+  type AppointmentBuffers,
+  type BufferedMode,
+  type OccupiedInterval,
   formatBookingDateLabels,
   formatBookingReference,
   intervalsOverlap,
@@ -97,7 +101,7 @@ async function notifyAppointmentChange(db: ScopedPrismaClient, clientId: string 
  * horaire de départ — voir handlePotentialSlotConflict ci-dessous pour le
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
-async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, excludeId?: string): Promise<boolean> {
+async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, mode: BufferedMode, excludeId?: string): Promise<boolean> {
   // Les rendez-vous, horaires et agendas Google du cabinet concerné, et de
   // lui seul : le 9 h d'un professionnel n'occupe pas celui d'un autre.
   const [availability, googleBusyPeriods] = await Promise.all([
@@ -108,7 +112,7 @@ async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string
     getGoogleBusyPeriods(organizationIdOf(db), `${dateId}T00:00:00.000Z`, `${dateId}T23:59:59.999Z`),
   ]);
 
-  if (await appointmentConflictIn(db, dateId, start, duration, availability.travelBuffer, excludeId)) return true;
+  if (await appointmentConflictIn(db, dateId, start, duration, mode, availability, excludeId)) return true;
 
   const startMinutes = timeToMinutes(start);
   const googleIntervals = mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods)[dateId] ?? [];
@@ -135,7 +139,7 @@ type AppointmentReader = {
  * qui peut être perdue dans une course, isolée pour être rejouée sous verrou
  * (withSlotLock) avec le client de la transaction.
  */
-async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, travelBuffer: number, excludeId?: string): Promise<boolean> {
+async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, mode: BufferedMode, buffers: AppointmentBuffers, excludeId?: string): Promise<boolean> {
   const sameDayAppointments = await db.appointment.findMany({
     where: {
       date: toDate(dateId),
@@ -145,15 +149,12 @@ async function appointmentConflictIn(db: AppointmentReader, dateId: string, star
     select: { start: true, duration: true, mode: true },
   });
 
-  const startMinutes = timeToMinutes(start);
-  return sameDayAppointments.some((appointment) => {
-    // « Temps de déplacement » (AUDIT_COMPLET.md P2-20) : un rendez-vous à
-    // domicile occupe, pour le calcul de conflit, sa durée réelle + le
-    // temps de trajet configuré après sa fin, avant qu'un autre rendez-vous
-    // (cabinet ou domicile) puisse démarrer.
-    const bufferedDuration = appointment.mode === "DOMICILE" ? appointment.duration + travelBuffer : appointment.duration;
-    return intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), bufferedDuration);
-  });
+  // Trajet et pause comptent après chaque rendez-vous, l'existant comme le
+  // nouveau (conflictsWith) : un rendez-vous à domicile placé juste avant un
+  // autre doit lui aussi laisser le temps de revenir.
+  const candidate = { start: timeToMinutes(start), duration, mode };
+  return sameDayAppointments.some((appointment) =>
+    conflictsWith(candidate, { start: timeToMinutes(appointment.start), duration: appointment.duration, mode: appointment.mode }, buffers));
 }
 
 /**
@@ -362,7 +363,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
   const existing = input.id ? await db.appointment.findUnique({ where: { id: input.id } }) : null;
 
-  if (await hasConflict(db, input.date, input.start, input.duration, input.id)) {
+  if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
 
@@ -395,12 +396,12 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null } : {}),
   };
 
-  const { travelBuffer } = await getAvailability(db);
+  const buffers = await getAvailability(db);
   let row;
   try {
     row = await db.$transaction(async (tx) => {
       await lockDay(tx, input.date);
-      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, travelBuffer, input.id)) return null;
+      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id)) return null;
       const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
       return input.id
         ? tx.appointment.update({ where: { id: input.id }, data, include })
@@ -452,7 +453,7 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   const current = await db.appointment.findUnique({ where: { id } });
   if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
 
-  if (status !== "cancelled" && await hasConflict(db, current.date.toISOString().slice(0, 10), current.start, current.duration, id)) {
+  if (status !== "cancelled" && await hasConflict(db, current.date.toISOString().slice(0, 10), current.start, current.duration, current.mode, id)) {
     return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 
@@ -594,10 +595,8 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
       return { ok: false, error: `« ${appointment.animalName} » ne tiendrait plus dans les horaires d'ouverture à ${newStart}. Échange refusé.` };
     }
 
-    const conflictsWithOthers = sameDayOthers.some((other) => {
-      const bufferedDuration = other.mode === "DOMICILE" ? other.duration + availability.travelBuffer : other.duration;
-      return intervalsOverlap(startMinutes, appointment.duration, timeToMinutes(other.start), bufferedDuration);
-    });
+    const conflictsWithOthers = sameDayOthers.some((other) =>
+      conflictsWith({ start: startMinutes, duration: appointment.duration, mode: appointment.mode }, { start: timeToMinutes(other.start), duration: other.duration, mode: other.mode }, availability));
     if (conflictsWithOthers) {
       return { ok: false, error: `« ${appointment.animalName} » chevaucherait un autre rendez-vous à ${newStart}. Échange refusé.` };
     }
@@ -606,8 +605,11 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
   // Les deux nouveaux intervalles l'un contre l'autre (rarement en cause —
   // ils se croisent typiquement dans l'ordre inverse — mais jamais supposé).
   const [firstPlanned, secondPlanned] = planned;
-  const firstBuffered = firstPlanned.appointment.mode === "DOMICILE" ? firstPlanned.appointment.duration + availability.travelBuffer : firstPlanned.appointment.duration;
-  if (intervalsOverlap(timeToMinutes(firstPlanned.newStart), firstBuffered, timeToMinutes(secondPlanned.newStart), secondPlanned.appointment.duration)) {
+  if (conflictsWith(
+    { start: timeToMinutes(firstPlanned.newStart), duration: firstPlanned.appointment.duration, mode: firstPlanned.appointment.mode },
+    { start: timeToMinutes(secondPlanned.newStart), duration: secondPlanned.appointment.duration, mode: secondPlanned.appointment.mode },
+    availability,
+  )) {
     return { ok: false, error: "Ces deux rendez-vous se chevaucheraient après l'échange. Échange refusé." };
   }
 
@@ -954,7 +956,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
     return { ok: false, error: "Ce créneau n’est pas disponible. Merci d’en choisir un autre." };
   }
 
-  if (await hasConflict(db, core.date, core.start, service.duration)) {
+  if (await hasConflict(db, core.date, core.start, service.duration, core.mode)) {
     return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
   }
 
@@ -968,7 +970,6 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   const zones = await getPublicZones(db);
   const price = computeTotalPrice(service, core.mode, zones, geoFields.postalCode, geoFields.city);
 
-  const { travelBuffer } = availability;
   let row;
   try {
     // Réservation publique : pas de session, donc pas encore de client
@@ -977,7 +978,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
       await lockDay(tx, core.date);
       // Rejouée sous verrou : une demande concurrente a pu être enregistrée
       // depuis la vérification du haut (voir withSlotLock).
-      if (await appointmentConflictIn(tx, core.date, core.start, service.duration, travelBuffer)) return null;
+      if (await appointmentConflictIn(tx, core.date, core.start, service.duration, core.mode, availability)) return null;
       return tx.appointment.create({
       data: {
         clientId,
@@ -1083,7 +1084,10 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   return { ok: true, id: row.id };
 }
 
-export type OccupiedInterval = { start: string; duration: number };
+export type { OccupiedInterval } from "@/lib/booking-validation";
+
+/** Créneaux occupés par jour, et les tampons à appliquer autour des rendez-vous. */
+export type OccupiedSlots = { buffers: AppointmentBuffers; byDate: Record<string, OccupiedInterval[]> };
 
 // Lecture légitime plusieurs fois par session de réservation (chargement
 // initial de la fenêtre de 90 jours, revalidation au choix d'une date,
@@ -1103,8 +1107,12 @@ const occupiedSlotsWindowMs = 5 * 60 * 1000;
  * départ — voir intervalsOverlap (src/lib/booking-validation.ts). Les
  * créneaux bloqués par le praticien (BlockedSlot) sont inclus comme un seul
  * intervalle par plage, plutôt que découpés en repères de 15 min.
+ *
+ * Les rendez-vous gardent leur durée réelle et leur mode : le trajet et la
+ * pause s'appliquent ensuite des deux côtés (isSlotFree), avec les tampons
+ * renvoyés à côté.
  */
-export async function getOccupiedSlotsAction(slug: string | null, fromDateId: string, toDateId: string): Promise<Record<string, OccupiedInterval[]>> {
+export async function getOccupiedSlotsAction(slug: string | null, fromDateId: string, toDateId: string): Promise<OccupiedSlots> {
   const ip = await requestIp();
   const rateLimitKey = `occupied-slots:ip:${ip}`;
   if (await isRateLimited(rateLimitKey, occupiedSlotsMaxAttempts, occupiedSlotsWindowMs)) {
@@ -1115,7 +1123,7 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
   // Deux appelants : la page publique, qui désigne son cabinet par le lien
   // suivi, et la fenêtre de rendez-vous du praticien, qui est connecté.
   const db = slug === null ? await currentDb() : await dbForSlug(slug);
-  if (!db) return {};
+  if (!db) return { buffers: { travelBuffer: 0, breakAfterAppointment: 0 }, byDate: {} };
 
   const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
 
@@ -1128,10 +1136,7 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
   const result: Record<string, OccupiedInterval[]> = {};
   for (const row of appointmentRows) {
     const id = row.date.toISOString().slice(0, 10);
-    // Même règle de temps de déplacement que hasConflict() : un rendez-vous
-    // à domicile occupe visuellement sa durée + le tampon configuré.
-    const duration = row.mode === "DOMICILE" ? row.duration + availability.travelBuffer : row.duration;
-    (result[id] ??= []).push({ start: row.start, duration });
+    (result[id] ??= []).push({ start: row.start, duration: row.duration, mode: row.mode });
   }
   for (const row of blockedRows) {
     const id = row.date.toISOString().slice(0, 10);
@@ -1149,5 +1154,5 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
     (result[id] ??= []).push(...intervals);
   }
 
-  return result;
+  return { buffers: { travelBuffer: availability.travelBuffer, breakAfterAppointment: availability.breakAfterAppointment }, byDate: result };
 }

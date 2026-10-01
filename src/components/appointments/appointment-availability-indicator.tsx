@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
-import { getOccupiedSlotsAction, type OccupiedInterval } from "@/lib/appointments-actions";
-import { intervalsOverlap, minutesToTime, timeToMinutes } from "@/lib/booking-validation";
+import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
+import { conflictsWith, minutesToTime, timeToMinutes, type OccupiedInterval } from "@/lib/booking-validation";
 
 type Availability =
   | { state: "idle" }
@@ -19,19 +19,21 @@ const CHECK_DEBOUNCE_MS = 350;
  *
  * Il répond à la question qu'on se pose au téléphone — « est-ce que 9 h est
  * libre ? » — avant d'avoir cliqué sur « Créer ». Il lit les créneaux
- * réellement occupés (getOccupiedSlotsAction, qui inclut le temps de trajet
- * des visites à domicile et les plages bloquées) et compare de vrais
- * intervalles, exactement comme hasConflict() côté serveur.
+ * réellement occupés (getOccupiedSlotsAction : rendez-vous et plages
+ * bloquées) et applique la même règle que hasConflict() côté serveur
+ * (conflictsWith : trajet et pause après chaque rendez-vous, dans les deux
+ * sens).
  *
  * C'est une aide, pas une autorisation : le refus d'un créneau occupé reste
  * décidé par le serveur au moment de l'enregistrement. Un témoin vert ne
  * garantit donc rien si quelqu'un réserve entre-temps — d'où le message
  * d'erreur du formulaire, qui reste la vérité.
  */
-export function AppointmentAvailabilityIndicator({ date, start, duration, excludeId }: {
+export function AppointmentAvailabilityIndicator({ date, start, duration, mode, excludeId }: {
   date: string;
   start: string;
   duration: number;
+  mode: "cabinet" | "home";
   /** Rendez-vous en cours de modification : il ne peut pas entrer en conflit avec lui-même. */
   excludeId?: string;
 }) {
@@ -40,7 +42,7 @@ export function AppointmentAvailabilityIndicator({ date, start, duration, exclud
   // Le créneau interrogé, sous forme de clé. Comparé pendant le rendu plutôt
   // que dans un effet : changer d'heure doit afficher « vérification… » tout
   // de suite, sans attendre un second rendu.
-  const slotKey = date && start && duration ? `${date}|${start}|${duration}` : null;
+  const slotKey = date && start && duration ? `${date}|${start}|${duration}|${mode}` : null;
   const [checkedSlot, setCheckedSlot] = useState<string | null>(null);
   if (checkedSlot !== slotKey) {
     setCheckedSlot(slotKey);
@@ -56,9 +58,9 @@ export function AppointmentAvailabilityIndicator({ date, start, duration, exclud
       getOccupiedSlotsAction(null, date, date)
         .then((slots) => {
           if (cancelled) return;
-          const startMinutes = timeToMinutes(start);
-          const sameDay = slots[date] ?? [];
-          const conflicts = sameDay.filter((slot) => intervalsOverlap(startMinutes, duration, timeToMinutes(slot.start), slot.duration));
+          const candidate = { start: timeToMinutes(start), duration, mode };
+          const sameDay = slots.byDate[date] ?? [];
+          const conflicts = sameDay.filter((slot) => conflictsWith(candidate, { start: timeToMinutes(slot.start), duration: slot.duration, mode: slot.mode }, slots.buffers));
 
           // Le rendez-vous modifié figure dans les créneaux occupés : il ne
           // doit pas se signaler à lui-même comme un conflit.
@@ -76,7 +78,7 @@ export function AppointmentAvailabilityIndicator({ date, start, duration, exclud
     }, CHECK_DEBOUNCE_MS);
 
     return () => { cancelled = true; clearTimeout(timeout); };
-  }, [date, start, duration, excludeId]);
+  }, [date, start, duration, mode, excludeId]);
 
   if (availability.state === "idle") return null;
 

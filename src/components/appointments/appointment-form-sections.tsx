@@ -261,7 +261,7 @@ export function AppointmentDetailsSection({ draft, services, appointmentId, onSe
           </Field>
         </div>
 
-        <AppointmentAvailabilityIndicator date={draft.date} start={draft.start} duration={draft.duration} excludeId={appointmentId} />
+        <AppointmentAvailabilityIndicator date={draft.date} start={draft.start} duration={draft.duration} mode={draft.place === "cabinet" ? "cabinet" : "home"} excludeId={appointmentId} />
       </div>
     </FormSection>
   );

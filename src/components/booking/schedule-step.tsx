@@ -4,9 +4,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import { CalendarMonth, type CalendarDayStatus } from "@/components/booking/calendar-month";
 import type { BookingDate, BookingMode, PublicService } from "@/data/public-booking";
-import { getOccupiedSlotsAction, type OccupiedInterval } from "@/lib/appointments-actions";
+import { getOccupiedSlotsAction, type OccupiedSlots } from "@/lib/appointments-actions";
 import { getPublicScheduleAction } from "@/lib/public-schedule";
-import { formatBookingDateLabels, groupSlotsByPeriod, intervalsOverlap, timeToMinutes } from "@/lib/booking-validation";
+import { formatBookingDateLabels, groupSlotsByPeriod, isSlotFree, timeToMinutes } from "@/lib/booking-validation";
 
 type ScheduleStepProps = {
   /** Lien public du cabinet : c'est lui qui désigne de quel agenda il s'agit. */
@@ -30,6 +30,7 @@ type ScheduleStepProps = {
 };
 
 const periodLabels = { morning: "Matin", afternoon: "Après-midi" } as const;
+const NO_OCCUPIED_SLOTS: OccupiedSlots = { buffers: { travelBuffer: 0, breakAfterAppointment: 0 }, byDate: {} };
 
 export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, onTimeChange, tourWeekdays = [], tourZoneName, onBack, onNext }: ScheduleStepProps) {
   // Comparaison insensible à la casse : le jour d'un motif de tournée est
@@ -45,7 +46,7 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
   const [windowStartId, setWindowStartId] = useState<string | null>(null);
   const [windowEndId, setWindowEndId] = useState<string | null>(null);
   const [loadingDates, setLoadingDates] = useState(true);
-  const [occupiedSlots, setOccupiedSlots] = useState<Record<string, OccupiedInterval[]>>({});
+  const [occupiedSlots, setOccupiedSlots] = useState<OccupiedSlots>(NO_OCCUPIED_SLOTS);
   const [occupiedSlotsError, setOccupiedSlotsError] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [revalidating, setRevalidating] = useState(false);
@@ -111,7 +112,7 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
 
   useEffect(() => {
     if (bookingDates.length === 0) {
-      queueMicrotask(() => { setOccupiedSlots({}); setOccupiedSlotsError(false); });
+      queueMicrotask(() => { setOccupiedSlots(NO_OCCUPIED_SLOTS); setOccupiedSlotsError(false); });
       return;
     }
     let cancelled = false;
@@ -129,6 +130,11 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
     return () => { cancelled = true; };
   }, [slug, bookingDates]);
 
+  /** Le rendez-vous que ce créneau deviendrait. */
+  function candidateAt(slot: string) {
+    return { start: timeToMinutes(slot), duration: service.duration, mode };
+  }
+
   const bookingDatesById = new Map(bookingDates.map((date) => [date.id, date]));
   const selectedDate = dateId ? bookingDatesById.get(dateId) : undefined;
 
@@ -143,24 +149,17 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
     const date = bookingDatesById.get(candidateDateId);
     if (!date) return "closed";
     if (occupiedSlotsError) return "available";
-    const occupied = occupiedSlots[candidateDateId] ?? [];
-    const isFull = date.slots.every((slot) =>
-      occupied.some((interval) => intervalsOverlap(timeToMinutes(slot), service.duration, timeToMinutes(interval.start), interval.duration)),
-    );
+    const occupied = occupiedSlots.byDate[candidateDateId] ?? [];
+    const isFull = date.slots.every((slot) => !isSlotFree(candidateAt(slot), occupied, occupiedSlots.buffers));
     return isFull ? "full" : "available";
   }
 
-  // Un créneau n'est proposé que si [début, début+durée) ne recouvre aucun
-  // intervalle déjà occupé — même règle que hasConflict() côté serveur
-  // (src/lib/appointments-actions.ts), pas une simple égalité d'horaire de
-  // départ : un soin de 60 min à 09:00 doit aussi retirer 09:30.
+  // Un créneau n'est proposé que s'il ne heurte aucun intervalle déjà occupé
+  // — même règle que hasConflict() côté serveur (isSlotFree) : un soin de
+  // 60 min à 09:00 retire aussi 09:30, et le trajet et la pause comptent
+  // après chaque rendez-vous, le nouveau compris.
   const availableSlots = selectedDate
-    ? selectedDate.slots.filter((slot) => {
-        const slotStartMinutes = timeToMinutes(slot);
-        return !(occupiedSlots[selectedDate.id] ?? []).some((occupied) =>
-          intervalsOverlap(slotStartMinutes, service.duration, timeToMinutes(occupied.start), occupied.duration),
-        );
-      })
+    ? selectedDate.slots.filter((slot) => isSlotFree(candidateAt(slot), occupiedSlots.byDate[selectedDate.id] ?? [], occupiedSlots.buffers))
     : [];
   const groupedSlots = groupSlotsByPeriod(availableSlots);
   const periodGroups = (["morning", "afternoon"] as const).filter((period) => groupedSlots[period].length > 0);
@@ -183,11 +182,9 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
     setRevalidating(true);
     try {
       const freshOccupied = await getOccupiedSlotsAction(slug, selectedDate.id, selectedDate.id);
-      const stillFree = !(freshOccupied[selectedDate.id] ?? []).some((occupied) =>
-        intervalsOverlap(timeToMinutes(time), service.duration, timeToMinutes(occupied.start), occupied.duration),
-      );
+      const stillFree = isSlotFree(candidateAt(time), freshOccupied.byDate[selectedDate.id] ?? [], freshOccupied.buffers);
       if (!stillFree) {
-        setOccupiedSlots((current) => ({ ...current, [selectedDate.id]: freshOccupied[selectedDate.id] ?? [] }));
+        setOccupiedSlots((current) => ({ buffers: freshOccupied.buffers, byDate: { ...current.byDate, [selectedDate.id]: freshOccupied.byDate[selectedDate.id] ?? [] } }));
         onTimeChange(null);
         setRevalidationError("Ce créneau vient d'être réservé par quelqu'un d'autre. Choisissez un autre horaire.");
         return;

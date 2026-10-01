@@ -123,6 +123,12 @@ export type AvailabilitySettings = {
    */
   publicMessage?: string;
   travelBuffer: number;
+  /**
+   * Pause bloquée après chaque rendez-vous, au cabinet comme à domicile (en
+   * minutes ; 0 = aucune). À domicile, elle s'ajoute au temps de trajet :
+   * voir occupiedMinutes (booking-validation.ts).
+   */
+  breakAfterAppointment: number;
   closures: ExceptionalClosure[];
   vacations: Vacation[];
   // Valeur pré-remplie à la création d'une nouvelle prestation (Prestations) —
@@ -258,6 +264,7 @@ export const initialSettings: SettingsState = {
   ],
   availability: {
     travelBuffer: 30,
+    breakAfterAppointment: 0,
     days: [
       { id: "monday", label: "Lundi", enabled: true, slots: [
         { id: "mon-1", start: "09:00", end: "12:00", cabinet: true, home: true },

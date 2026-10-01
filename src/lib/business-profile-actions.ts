@@ -211,6 +211,7 @@ export async function getAvailability(scoped?: ScopedPrismaClient): Promise<Avai
     ...stored,
     defaultAppointmentDuration: stored.defaultAppointmentDuration || initialSettings.availability.defaultAppointmentDuration,
     slotInterval: stored.slotInterval ?? initialSettings.availability.slotInterval,
+    breakAfterAppointment: stored.breakAfterAppointment ?? 0,
   };
 }
 
@@ -262,6 +263,11 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les disponibilités." };
   }
+  const breakAfter = input.breakAfterAppointment ?? 0;
+  if (!Number.isInteger(breakAfter) || breakAfter < 0 || breakAfter > 60) {
+    return { ok: false, error: "Le temps de pause après un rendez-vous doit être compris entre 0 et 60 minutes." };
+  }
+  input = { ...input, breakAfterAppointment: breakAfter };
 
   if (!force) {
     const conflicts = await findAvailabilityConflicts(input);

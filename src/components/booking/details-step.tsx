@@ -9,7 +9,7 @@ import { breedFieldLabel } from "@/data/breeds";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { computeAgeLabel } from "@/lib/animal-age";
 import { getOccupiedSlotsAction } from "@/lib/appointments-actions";
-import { formatBookingDateLabels, intervalsOverlap, isWithinZoneSector, timeToMinutes } from "@/lib/booking-validation";
+import { formatBookingDateLabels, isSlotFree, isWithinZoneSector, timeToMinutes } from "@/lib/booking-validation";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicAnimalType, PublicProfessional, PublicService } from "@/data/public-booking";
 
 const species: PublicAnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
@@ -288,9 +288,7 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
     setRevalidating(true);
     try {
       const freshOccupied = await getOccupiedSlotsAction(professional.slug, dateId, dateId);
-      const stillFree = !(freshOccupied[dateId] ?? []).some((occupied) =>
-        intervalsOverlap(timeToMinutes(time), service.duration, timeToMinutes(occupied.start), occupied.duration),
-      );
+      const stillFree = isSlotFree({ start: timeToMinutes(time), duration: service.duration, mode }, freshOccupied.byDate[dateId] ?? [], freshOccupied.buffers);
       if (!stillFree) {
         setRevalidationError("Ce créneau vient d'être réservé par quelqu'un d'autre. Revenez à l'étape précédente pour choisir un autre horaire.");
         return;

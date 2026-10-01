@@ -7,7 +7,7 @@ import {
   findMatchingZone,
   formatBookingDateLabels,
   generateCandidateStarts,
-  intervalsOverlap,
+  conflictsWith,
   parseDateIdToLocalNoon,
   timeToMinutes,
 } from "@/lib/booking-validation";
@@ -43,7 +43,7 @@ async function countFreeSlotsInTourWindow(tour: DbTour, dateId: string): Promise
   const availability = await getAvailability();
   const { intervals } = getDayAvailability(parseDateIdToLocalNoon(dateId), availability);
   const duration = availability.defaultAppointmentDuration;
-  const candidates = generateCandidateStarts(intervals, "home", duration, availability.slotInterval);
+  const candidates = generateCandidateStarts(intervals, "home", duration, availability.slotInterval, availability.breakAfterAppointment);
 
   const tourStartMinutes = timeToMinutes(tour.startTime);
   const tourEndMinutes = timeToMinutes(tour.endTime);
@@ -60,10 +60,8 @@ async function countFreeSlotsInTourWindow(tour: DbTour, dateId: string): Promise
 
   return withinWindow.filter((start) => {
     const startMinutes = timeToMinutes(start);
-    return !sameDayAppointments.some((appointment) => {
-      const bufferedDuration = appointment.mode === "DOMICILE" ? appointment.duration + availability.travelBuffer : appointment.duration;
-      return intervalsOverlap(startMinutes, duration, timeToMinutes(appointment.start), bufferedDuration);
-    });
+    return !sameDayAppointments.some((appointment) =>
+      conflictsWith({ start: startMinutes, duration, mode: "home" }, { start: timeToMinutes(appointment.start), duration: appointment.duration, mode: appointment.mode }, availability));
   }).length;
 }
 

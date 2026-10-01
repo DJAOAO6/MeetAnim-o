@@ -57,10 +57,12 @@ export function isTourFull(booked: BookedSlot[], tour: TourWindow): boolean {
  * réservable qu'un créneau choisi dans le calendrier — le serveur le
  * revérifie de toute façon à la soumission.
  */
-export function selectTourSlots({ candidates, tour, durationMinutes, booked, limit }: {
+export function selectTourSlots({ candidates, tour, durationMinutes, occupiedMinutes = durationMinutes, booked, limit }: {
   candidates: string[];
   tour: TourWindow;
   durationMinutes: number;
+  /** Temps bloqué dans l'agenda, trajet et pause compris (occupiedMinutes) ; `booked` porte déjà les siens. */
+  occupiedMinutes?: number;
   booked: BookedSlot[];
   limit: number;
 }): string[] {
@@ -78,7 +80,7 @@ export function selectTourSlots({ candidates, tour, durationMinutes, booked, lim
     })
     .filter((slot) => {
       const start = timeToMinutes(slot);
-      return !booked.some((item) => intervalsOverlap(start, durationMinutes, item.start, item.end - item.start));
+      return !booked.some((item) => intervalsOverlap(start, occupiedMinutes, item.start, item.end - item.start));
     })
     .slice(0, limit);
 }

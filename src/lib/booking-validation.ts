@@ -135,6 +135,54 @@ export function intervalsOverlap(startA: number, durationA: number, startB: numb
   return startA < startB + durationB && startB < startA + durationA;
 }
 
+/** Les tampons qui s'ajoutent après un rendez-vous (réglages de disponibilités). */
+export type AppointmentBuffers = { travelBuffer: number; breakAfterAppointment: number };
+
+/** Les différentes écritures du mode selon la couche (base, page publique, agenda). */
+export type BufferedMode = "CABINET" | "DOMICILE" | "HOME" | "cabinet" | "home";
+
+/**
+ * Combien de temps un rendez-vous occupe l'agenda — la seule fonction qui en
+ * décide, partout (serveur, page publique, agenda, tournées) :
+ * cabinet = durée + pause ; domicile = durée + trajet + pause.
+ */
+export function occupiedMinutes(appointment: { duration: number; mode: BufferedMode }, settings: AppointmentBuffers): number {
+  const home = appointment.mode === "DOMICILE" || appointment.mode === "HOME" || appointment.mode === "home";
+  return appointment.duration + (home ? settings.travelBuffer : 0) + (settings.breakAfterAppointment ?? 0);
+}
+
+/**
+ * Un intervalle déjà occupé ce jour-là. `mode` présent : un rendez-vous, dont
+ * les tampons comptent ; absent : un créneau bloqué ou une période occupée
+ * d'un agenda externe, qui ne compte que pour sa durée.
+ */
+export type OccupiedInterval = { start: string; duration: number; mode?: BufferedMode };
+
+/**
+ * Le candidat entre-t-il en conflit avec un intervalle existant ? Face à un
+ * rendez-vous, les tampons comptent dans les deux sens : le nouveau ne doit
+ * pas empiéter sur le trajet ou la pause du précédent, ni ses propres
+ * trajet et pause sur le suivant. Le tampon du dernier rendez-vous de la
+ * journée peut dépasser la fermeture : seuls les horaires de la durée sont
+ * vérifiés (fitsWithinOpenHours).
+ */
+export function conflictsWith(
+  candidate: { start: number; duration: number; mode: BufferedMode },
+  existing: { start: number; duration: number; mode?: BufferedMode },
+  settings: AppointmentBuffers,
+): boolean {
+  if (!existing.mode) return intervalsOverlap(candidate.start, candidate.duration, existing.start, existing.duration);
+  return intervalsOverlap(
+    candidate.start, occupiedMinutes(candidate, settings),
+    existing.start, occupiedMinutes({ duration: existing.duration, mode: existing.mode }, settings),
+  );
+}
+
+/** Le créneau candidat ne heurte aucun des intervalles occupés du jour. */
+export function isSlotFree(candidate: { start: number; duration: number; mode: BufferedMode }, occupied: OccupiedInterval[], settings: AppointmentBuffers): boolean {
+  return !occupied.some((item) => conflictsWith(candidate, { start: timeToMinutes(item.start), duration: item.duration, mode: item.mode }, settings));
+}
+
 /**
  * Piège anti-bot discret : un envoi plus rapide que le temps humain minimum
  * plausible pour remplir le tunnel est très probablement automatisé. Le
@@ -282,10 +330,10 @@ export const BOOKING_WINDOW_DAYS = 90;
  * SLOT_GRANULARITY_MINUTES) : le début de chaque intervalle ouvert, puis les
  * heures rondes de ce pas (9:00, 9:30…) — une plage qui commence à 9:20, ou
  * qui reprend après une fermeture à 14:45, propose donc aussi ce premier
- * horaire. Un pas à 0 (« Désactivé ») enchaîne les créneaux sur la durée de
- * la prestation, à partir du début de chaque intervalle.
+ * horaire. Un pas à 0 (« À la suite ») enchaîne les créneaux sur la durée de
+ * la prestation plus la pause, à partir du début de chaque intervalle.
  */
-export function generateCandidateStarts(intervals: OpenIntervals | null, mode: "cabinet" | "home", durationMinutes: number, slotIntervalMinutes: number = SLOT_GRANULARITY_MINUTES): string[] {
+export function generateCandidateStarts(intervals: OpenIntervals | null, mode: "cabinet" | "home", durationMinutes: number, slotIntervalMinutes: number = SLOT_GRANULARITY_MINUTES, breakAfterMinutes = 0): string[] {
   if (!intervals || durationMinutes <= 0) return [];
   const starts = new Set<number>();
   for (const [start, end] of intervals[mode]) {
@@ -293,7 +341,7 @@ export function generateCandidateStarts(intervals: OpenIntervals | null, mode: "
       if (start + durationMinutes <= end) starts.add(start);
       for (let minutes = Math.ceil(start / slotIntervalMinutes) * slotIntervalMinutes; minutes + durationMinutes <= end; minutes += slotIntervalMinutes) starts.add(minutes);
     } else {
-      for (let minutes = start; minutes + durationMinutes <= end; minutes += durationMinutes) starts.add(minutes);
+      for (let minutes = start; minutes + durationMinutes <= end; minutes += durationMinutes + breakAfterMinutes) starts.add(minutes);
     }
   }
   return [...starts].sort((first, second) => first - second).map(minutesToTime);
