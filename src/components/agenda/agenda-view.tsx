@@ -10,6 +10,7 @@ import { AgendaFilterBar } from "@/components/agenda/agenda-filter-bar";
 import { BlockedSlotModal } from "@/components/agenda/blocked-slot-modal";
 import { SlotActionMenu, type SlotAction } from "@/components/agenda/slot-action-menu";
 import { SlotActionSheet } from "@/components/agenda/slot-action-sheet";
+import { ExceptionalOpeningModal } from "@/components/agenda/exceptional-opening-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { availableDurations, formatMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { BlockedSlotPopover } from "@/components/agenda/blocked-slot-popover";
@@ -27,7 +28,9 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { notify } from "@/lib/notify";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { ClientPickerOption } from "@/data/clients";
-import type { AvailabilitySettings } from "@/data/settings";
+import type { AvailabilitySettings, ExceptionalClosure, ExceptionalOpening } from "@/data/settings";
+import { getDayAvailability } from "@/lib/availability";
+import { singleDayClosuresOver, trimClosure } from "@/lib/availability-editing";
 import type { Tour, TourAppointment } from "@/data/tours";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { AgendaDisplayMenu } from "@/components/agenda/agenda-display-menu";
@@ -145,7 +148,14 @@ type AgendaViewProps = {
   initialDisplay: AgendaDisplay;
 };
 
-export function AgendaView({ clients, availability, tours, tourAppointments, initialBlockedSlots, practiceMode, initialDisplay }: AgendaViewProps) {
+export function AgendaView({ clients, availability: savedAvailability, tours, tourAppointments, initialBlockedSlots, practiceMode, initialDisplay }: AgendaViewProps) {
+  // Horaires affichés : ceux du serveur, remplacés aussitôt par ce que
+  // l'agenda vient d'enregistrer (ouverture, fermeture), sans attendre de
+  // rechargement. Un nouvel envoi du serveur reprend la main.
+  const [availabilityState, setAvailabilityState] = useState({ saved: savedAvailability, current: savedAvailability });
+  if (availabilityState.saved !== savedAvailability) setAvailabilityState({ saved: savedAvailability, current: savedAvailability });
+  const availability = availabilityState.current;
+  const setAvailability = (next: AvailabilitySettings) => setAvailabilityState((state) => ({ ...state, current: next }));
   // Réglages d'affichage : appliqués aussitôt, enregistrés seulement sur
   // demande (« Définir comme affichage par défaut »).
   const [display, setDisplay] = useState<AgendaDisplay>(initialDisplay);
@@ -213,6 +223,7 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
   // Création demandée sur une période fermée : confirmée avant d'ouvrir le
   // formulaire, jamais par une boîte de dialogue du navigateur.
   const [confirmingClosedSlot, setConfirmingClosedSlot] = useState<{ date: string; start: string; duration: number } | null>(null);
+  const [openingRequest, setOpeningRequest] = useState<{ date: string; dateLabel: string; start: string; end: string; closedModes: { cabinet: boolean; home: boolean }; closuresUnder: ExceptionalClosure[] } | null>(null);
   const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   // Samedi et dimanche masqués : les colonnes restantes se partagent la largeur.
   // Mis en cache sur ce qui décide des jours affichés, et sur rien d'autre :
@@ -392,16 +403,59 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
       // rencontré, la fermeture n'en recouvre donc aucun. Le contrôle général
       // des horaires signalerait sinon des rendez-vous déjà hors horaires,
       // sans rapport avec ce créneau, et bloquerait la fermeture.
-      const result = await updateAvailabilityAction({ ...availability, closures: [...availability.closures, closure] }, true);
+      const next = { ...availability, closures: [...availability.closures, closure] };
+      const result = await updateAvailabilityAction(next, true);
       if (!result.ok) { notify.error(result.error); return; }
+      setAvailability(next);
       notify.success(`Indisponible de ${start} à ${closure.end} : le créneau n’est plus proposé à la réservation.`);
       router.refresh();
       return;
     }
 
-    // « Ouvrir exceptionnellement » demande une ouverture ponctuelle que les
-    // horaires ne portent pas encore : on le dit plutôt que de simuler.
-    notify.info("L’ouverture exceptionnelle arrive — en attendant, vous pouvez ajouter le rendez-vous manuellement.");
+    // « Ouvrir exceptionnellement » : la fenêtre part de la sélection, avec
+    // le mode fermé à cet endroit présélectionné.
+    const end = formatMinutes(selection.endMinutes);
+    const { intervals } = getDayAvailability(date, availability);
+    const openAt = (mode: "cabinet" | "home") => intervals[mode].some(([from, to]) => selection.startMinutes >= from && selection.startMinutes < to);
+    setOpeningRequest({
+      date: day,
+      dateLabel: formatDayLabel(date),
+      start,
+      end,
+      closedModes: { cabinet: hasCabinet(practiceMode) && !openAt("cabinet"), home: visitsHomes(practiceMode) && !openAt("home") },
+      closuresUnder: singleDayClosuresOver(availability.closures, day, start, end),
+    });
+  }
+
+  /** Enregistre de nouveaux horaires depuis l'agenda ; null si tout va bien. */
+  async function saveAvailabilityFromAgenda(next: AvailabilitySettings, message: string): Promise<string | null> {
+    // `force` : ouvrir ne peut sortir aucun rendez-vous des horaires ; le
+    // contrôle général signalerait sinon des rendez-vous déjà hors horaires,
+    // sans rapport avec ce créneau.
+    const result = await updateAvailabilityAction(next, true);
+    if (!result.ok) return result.error;
+    setAvailability(next);
+    setOpeningRequest(null);
+    notify.success(message);
+    return null;
+  }
+
+  function openExceptionally(opening: ExceptionalOpening) {
+    return saveAvailabilityFromAgenda(
+      { ...availability, openings: [...availability.openings, opening] },
+      `Ouvert exceptionnellement de ${opening.start} à ${opening.end} : le créneau est proposé à la réservation.`,
+    );
+  }
+
+  function reopenClosures(how: "trim" | "remove") {
+    if (!openingRequest) return Promise.resolve(null);
+    const { start, end, closuresUnder } = openingRequest;
+    const under = new Set(closuresUnder.map((closure) => closure.id));
+    const closures = availability.closures.flatMap((closure) => (!under.has(closure.id) ? [closure] : how === "trim" ? trimClosure(closure, start, end) : []));
+    return saveAvailabilityFromAgenda(
+      { ...availability, closures },
+      how === "trim" ? `Rouvert de ${start} à ${end}.` : "Fermeture retirée.",
+    );
   }
 
   async function saveBlockedSlot(input: Parameters<typeof createBlockedSlotAction>[0]) {
@@ -698,6 +752,21 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
           onSelectDuration={adjustSlotDuration}
           onAction={handleSlotAction}
           onClose={() => setSlotSelection(null)}
+        />
+      ) : null}
+
+      {openingRequest ? (
+        <ExceptionalOpeningModal
+          date={openingRequest.date}
+          dateLabel={openingRequest.dateLabel}
+          start={openingRequest.start}
+          end={openingRequest.end}
+          practiceMode={practiceMode}
+          closedModes={openingRequest.closedModes}
+          closuresUnder={openingRequest.closuresUnder}
+          onOpen={openExceptionally}
+          onReopenClosures={reopenClosures}
+          onClose={() => setOpeningRequest(null)}
         />
       ) : null}
 

@@ -24,7 +24,7 @@ import {
   type AvailabilityMode,
 } from "@/lib/availability-status";
 import type { AvailabilitySettings, ClosureScope, DayAvailability, ExceptionalClosure, TimeSlot } from "@/data/settings";
-import { addSlotForMode, isDayOpenFor, openDayForMode, removeSlotForMode, setDayModeClosed, updateSlotForMode } from "@/lib/availability-editing";
+import { addSlotForMode, isDayOpenFor, openDayForMode, openingModesLabel, removeSlotForMode, setDayModeClosed, upcomingOpenings, updateSlotForMode } from "@/lib/availability-editing";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 const MESSAGE_MAX = 300;
@@ -97,6 +97,8 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
     () => draft.closures.filter((closure) => closureAffects(closure, mode)).sort((a, b) => a.date.localeCompare(b.date)),
     [draft.closures, mode],
   );
+
+  const modeOpenings = useMemo(() => upcomingOpenings(draft.openings, toDateId(new Date())).filter((opening) => opening[mode]), [draft.openings, mode]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(availability);
 
@@ -314,6 +316,33 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                 >
                   + Ajouter une exception
                 </button>
+
+                <h3 className="mt-5 text-sm font-black text-animeo-dark">Ouvertures exceptionnelles</h3>
+                <p className="mb-2 text-xs text-animeo-muted">Des créneaux ouverts un jour précis, en plus des horaires habituels.</p>
+                <ul className="space-y-2" aria-label="Ouvertures exceptionnelles">
+                  {modeOpenings.map((opening) => (
+                    <li key={opening.id} className="flex items-center justify-between gap-3 rounded-xl border border-animeo-border p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-animeo-dark">
+                          <Icon name="calendar" className="mr-1.5 inline h-4 w-4 text-animeo" aria-hidden="true" />
+                          {formatDateId(opening.date)} · {opening.start} – {opening.end}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-animeo-muted">{opening.reason || "Ouverture exceptionnelle"} · {openingModesLabel(opening)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDraft((current) => ({ ...current, openings: current.openings.filter((item) => item.id !== opening.id) }))}
+                        aria-label={`Supprimer l’ouverture du ${formatDateId(opening.date)}`}
+                        className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft"
+                      >
+                        Supprimer
+                      </button>
+                    </li>
+                  ))}
+                  {modeOpenings.length === 0 ? (
+                    <li className="rounded-xl bg-animeo-bg p-4 text-sm text-animeo-muted">Aucune ouverture prévue. Dans l’agenda, sélectionnez un créneau fermé puis « Ouvrir exceptionnellement ».</li>
+                  ) : null}
+                </ul>
               </section>
             </div>
           </div>

@@ -79,7 +79,7 @@ test("un jour désactivé ne ressuscite pas ses anciennes plages", () => {
 });
 
 const settingsWith = (days: DayAvailability[]): AvailabilitySettings =>
-  ({ days, travelBuffer: 30, breakAfterAppointment: 0, closures: [], vacations: [], defaultAppointmentDuration: 60, slotInterval: 30 });
+  ({ days, travelBuffer: 30, breakAfterAppointment: 0, closures: [], openings: [], vacations: [], defaultAppointmentDuration: 60, slotInterval: 30 });
 
 test("changer de façon d'exercer garde les réglages des modes toujours pratiqués (bug B5)", () => {
   const wednesdayHomeOnly: DayAvailability = { id: "wednesday", label: "Mercredi", enabled: true, slots: [{ id: "w", start: "09:00", end: "12:00", cabinet: false, home: true }] };

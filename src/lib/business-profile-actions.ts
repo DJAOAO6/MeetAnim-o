@@ -6,6 +6,7 @@ import { currentDb, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDayAvailability } from "@/lib/availability";
+import { openingProblem } from "@/lib/availability-editing";
 import { fitsWithinOpenHours, parseDateIdToLocalNoon, timeToMinutes } from "@/lib/booking-validation";
 import { geocodeAddress } from "@/lib/geocoding";
 import { initialSettings, type AvailabilitySettings, type ProfileSettings, type ReminderSettings } from "@/data/settings";
@@ -212,6 +213,7 @@ export async function getAvailability(scoped?: ScopedPrismaClient): Promise<Avai
     defaultAppointmentDuration: stored.defaultAppointmentDuration || initialSettings.availability.defaultAppointmentDuration,
     slotInterval: stored.slotInterval ?? initialSettings.availability.slotInterval,
     breakAfterAppointment: stored.breakAfterAppointment ?? 0,
+    openings: stored.openings ?? [],
   };
 }
 
@@ -267,7 +269,10 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
   if (!Number.isInteger(breakAfter) || breakAfter < 0 || breakAfter > 60) {
     return { ok: false, error: "Le temps de pause après un rendez-vous doit être compris entre 0 et 60 minutes." };
   }
-  input = { ...input, breakAfterAppointment: breakAfter };
+  input = { ...input, breakAfterAppointment: breakAfter, openings: input.openings ?? [] };
+  const practice = await db.businessProfile.findFirst({ select: { practiceMode: true } });
+  const openingError = input.openings.map((opening) => openingProblem(opening, practice?.practiceMode ?? "BOTH")).find(Boolean);
+  if (openingError) return { ok: false, error: openingError };
 
   if (!force) {
     const conflicts = await findAvailabilityConflicts(input);

@@ -19,6 +19,7 @@ function settings(slots: DayAvailability["slots"], extra: Partial<AvailabilitySe
     travelBuffer: 30,
     breakAfterAppointment: 0,
     closures: [],
+    openings: [],
     vacations: [],
     defaultAppointmentDuration: 60,
     slotInterval: 30,

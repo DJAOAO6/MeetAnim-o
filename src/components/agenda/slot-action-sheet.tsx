@@ -74,7 +74,7 @@ export function SlotActionSheet({ selection, date, closed, durations, canClose =
         <div className="grid gap-2 border-t border-animeo-border-soft pt-4">
           {closed ? (
             <>
-              <SheetAction icon={Unlock} label="Ouvrir exceptionnellement" onClick={() => onAction("openExceptionally")} />
+              <SheetAction icon={Unlock} label="Ouvrir exceptionnellement" disabledReason={canClose ? undefined : "Réservé aux comptes autorisés à modifier les horaires."} onClick={() => onAction("openExceptionally")} />
               <SheetAction icon={CalendarPlus} label="Ajouter un rendez-vous" primary onClick={() => onAction("create")} />
             </>
           ) : (

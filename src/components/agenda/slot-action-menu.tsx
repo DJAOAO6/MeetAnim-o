@@ -113,7 +113,7 @@ export function SlotActionMenu({ selection, date, closed, anchorRect, canClose =
           <div className="border-t border-animeo-border-soft pt-1.5">
             {closed ? (
               <>
-                <MenuItem icon={Unlock} label="Ouvrir exceptionnellement" tone="positive" onClick={() => onAction("openExceptionally")} />
+                <MenuItem icon={Unlock} label="Ouvrir exceptionnellement" tone="positive" disabledReason={canClose ? undefined : "Réservé aux comptes autorisés à modifier les horaires."} onClick={() => onAction("openExceptionally")} />
                 <MenuItem icon={CalendarPlus} label="Ajouter un rendez-vous" onClick={() => onAction("create")} />
                 <MenuItem icon={Settings2} label="Modifier les horaires" onClick={() => onAction("editHours")} />
               </>

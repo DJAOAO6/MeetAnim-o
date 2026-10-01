@@ -1,4 +1,4 @@
-import type { AvailabilitySettings, DayAvailability, TimeSlot } from "@/data/settings";
+import type { AvailabilitySettings, DayAvailability, ExceptionalClosure, ExceptionalOpening, TimeSlot } from "@/data/settings";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 /**
@@ -101,4 +101,46 @@ export function withPracticeModeFlags(availability: AvailabilitySettings, previo
       return { ...day, enabled: day.enabled && slots.length > 0, slots };
     }),
   };
+}
+
+const dateIdPattern = /^\d{4}-\d{2}-\d{2}$/;
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Ce qui rend une ouverture exceptionnelle invalide, ou null. */
+export function openingProblem(opening: ExceptionalOpening, practiceMode: PracticeMode): string | null {
+  if (!dateIdPattern.test(opening.date)) return "Ouverture exceptionnelle : date invalide.";
+  if (!timePattern.test(opening.start) || !timePattern.test(opening.end)) return "Ouverture exceptionnelle : horaire invalide.";
+  if (opening.start >= opening.end) return "Ouverture exceptionnelle : l’heure de fin doit suivre l’heure de début.";
+  if (!opening.cabinet && !opening.home) return "Ouverture exceptionnelle : choisissez le cabinet, le domicile ou les deux.";
+  if (opening.cabinet && !hasCabinet(practiceMode)) return "Ouverture exceptionnelle : vous ne recevez pas au cabinet.";
+  if (opening.home && !visitsHomes(practiceMode)) return "Ouverture exceptionnelle : vous ne vous déplacez pas à domicile.";
+  return null;
+}
+
+/** Ouvertures d'aujourd'hui et à venir, dans l'ordre : les passées ne s'affichent plus. */
+export function upcomingOpenings(openings: ExceptionalOpening[], todayId: string): ExceptionalOpening[] {
+  return openings.filter((opening) => opening.date >= todayId).sort((first, second) => `${first.date}${first.start}`.localeCompare(`${second.date}${second.start}`));
+}
+
+/**
+ * Fermetures ponctuelles d'un seul jour qui recouvrent [start, end) ce
+ * jour-là — celles que « Indisponible / Fermé » crée depuis l'agenda. Une
+ * ouverture posée par-dessus serait illisible : on propose de les retirer ou
+ * de les rogner plutôt.
+ */
+export function singleDayClosuresOver(closures: ExceptionalClosure[], dateId: string, start: string, end: string): ExceptionalClosure[] {
+  return closures.filter((closure) => closure.date === dateId && (!closure.endDate || closure.endDate === closure.date) && closure.start < end && start < closure.end);
+}
+
+/** La fermeture, privée de [start, end) : zéro, une ou deux fermetures. */
+export function trimClosure(closure: ExceptionalClosure, start: string, end: string): ExceptionalClosure[] {
+  const pieces: ExceptionalClosure[] = [];
+  if (closure.start < start) pieces.push({ ...closure, end: start < closure.end ? start : closure.end });
+  if (end < closure.end) pieces.push({ ...closure, id: pieces.length ? `${closure.id}-suite` : closure.id, start: end > closure.start ? end : closure.start });
+  return pieces;
+}
+
+/** « Cabinet », « Domicile » ou « Cabinet et domicile ». */
+export function openingModesLabel(opening: ExceptionalOpening): string {
+  return opening.cabinet && opening.home ? "Cabinet et domicile" : opening.cabinet ? "Cabinet" : "Domicile";
 }

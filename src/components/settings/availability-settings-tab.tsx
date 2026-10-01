@@ -5,8 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, Toggle, inputClassName } from "@/components/settings/settings-fields";
 import type { AvailabilitySettings, ExceptionalClosure, TimeSlot, Vacation } from "@/data/settings";
 import { durationOptions } from "@/data/durations";
-import { isDayOpenFor, openDayForMode, setDayModeClosed, type SlotMode } from "@/lib/availability-editing";
+import { isDayOpenFor, openDayForMode, openingModesLabel, setDayModeClosed, upcomingOpenings, type SlotMode } from "@/lib/availability-editing";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
+import { toDateId } from "@/lib/availability-status";
 
 type AvailabilitySettingsTabProps = {
   value: AvailabilitySettings;
@@ -31,6 +32,8 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
   const [showVacationForm, setShowVacationForm] = useState(false);
   const [closure, setClosure] = useState(emptyClosure);
   const [vacation, setVacation] = useState(emptyVacation);
+  // Les ouvertures passées ne s'affichent plus.
+  const openingsAhead = upcomingOpenings(draft.openings, toDateId(new Date()));
 
   function updateDay(dayId: string, updater: (day: AvailabilitySettings["days"][number]) => AvailabilitySettings["days"][number]) {
     setDraft((current) => ({ ...current, days: current.days.map((day) => day.id === dayId ? updater(day) : day) }));
@@ -175,6 +178,14 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
           {draft.closures.map((item) => <ClosureRow key={item.id} title={`${item.date} · ${item.start} – ${item.end}`} subtitle={`${item.scope}${item.reason ? ` · ${item.reason}` : ""}`} onRemove={() => setDraft((current) => ({ ...current, closures: current.closures.filter((closureItem) => closureItem.id !== item.id) }))} />)}
           {draft.vacations.map((item) => <ClosureRow key={item.id} title={`Vacances · ${item.startDate} au ${item.endDate}`} subtitle="Cabinet et Domicile fermés" onRemove={() => setDraft((current) => ({ ...current, vacations: current.vacations.filter((vacationItem) => vacationItem.id !== item.id) }))} />)}
           {draft.closures.length === 0 && draft.vacations.length === 0 ? <p className="rounded-2xl bg-animeo-bg p-4 text-sm text-animeo-muted">Aucune fermeture programmée.</p> : null}
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <SectionTitle title="Ouvertures exceptionnelles" description="Des créneaux ouverts un jour précis, en plus des horaires habituels. Elles l’emportent sur une fermeture ou des vacances le même jour." />
+        <div className="space-y-2">
+          {openingsAhead.map((item) => <ClosureRow key={item.id} title={`${item.date} · ${item.start} – ${item.end}`} subtitle={`${openingModesLabel(item)}${item.reason ? ` · ${item.reason}` : ""}`} onRemove={() => setDraft((current) => ({ ...current, openings: current.openings.filter((openingItem) => openingItem.id !== item.id) }))} />)}
+          {openingsAhead.length === 0 ? <p className="rounded-2xl bg-animeo-bg p-4 text-sm text-animeo-muted">Aucune ouverture prévue. Dans l’agenda, sélectionnez un créneau fermé puis « Ouvrir exceptionnellement ».</p> : null}
         </div>
       </Card>
 

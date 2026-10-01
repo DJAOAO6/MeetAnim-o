@@ -87,6 +87,7 @@ export function blankAvailability(): AvailabilitySettings {
     travelBuffer: 30,
     breakAfterAppointment: 0,
     closures: [],
+    openings: [],
     vacations: [],
     defaultAppointmentDuration: 60,
     slotInterval: 30,

@@ -109,6 +109,22 @@ export type ExceptionalClosure = {
   reason: string;
 };
 
+/**
+ * Ouverture exceptionnelle : une plage ouverte un jour précis, en plus des
+ * horaires habituels. C'est l'action la plus explicite du praticien : elle
+ * l'emporte sur une fermeture ou des vacances couvrant la même période
+ * (voir getDayAvailability).
+ */
+export type ExceptionalOpening = {
+  id: string;
+  date: string;
+  start: string;
+  end: string;
+  cabinet: boolean;
+  home: boolean;
+  reason: string;
+};
+
 export type Vacation = {
   id: string;
   startDate: string;
@@ -130,6 +146,8 @@ export type AvailabilitySettings = {
    */
   breakAfterAppointment: number;
   closures: ExceptionalClosure[];
+  /** Ouvertures exceptionnelles (absentes des profils plus anciens : [] à la lecture). */
+  openings: ExceptionalOpening[];
   vacations: Vacation[];
   // Valeur pré-remplie à la création d'une nouvelle prestation (Prestations) —
   // chaque prestation reste ensuite librement modifiable individuellement,
@@ -277,6 +295,7 @@ export const initialSettings: SettingsState = {
       { id: "saturday", label: "Samedi", enabled: false, slots: [] },
       { id: "sunday", label: "Dimanche", enabled: false, slots: [] },
     ],
+    openings: [],
     closures: [
       { id: "closure-1", date: "2026-09-14", start: "14:00", end: "18:00", scope: "Cabinet uniquement", reason: "Formation" },
     ],

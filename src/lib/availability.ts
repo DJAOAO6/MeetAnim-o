@@ -66,12 +66,26 @@ export function subtractInterval(intervals: MinuteInterval[], [cutStart, cutEnd]
  * sont ouverts, au cabinet et à domicile, à la minute près.
  *
  * Plages habituelles du jour → retrait des fermetures exceptionnelles (selon
- * leur portée) → fusion des intervalles contigus. Les vacances ferment la
- * journée entière.
+ * leur portée) → fusion des intervalles contigus → ajout des ouvertures
+ * exceptionnelles. Les vacances ferment la journée entière, sauf ce qu'une
+ * ouverture exceptionnelle rouvre.
  */
 export function getDayAvailability(date: Date, availability: AvailabilitySettings): DayAvailabilityResult {
-  const closedDay: DayAvailabilityResult = { open: false, intervals: { cabinet: [], home: [] } };
   const dateId = toDateId(date);
+  const base = usualAvailability(dateId, date, availability);
+
+  // Ouvertures exceptionnelles, en dernier : elles l'emportent sur les
+  // vacances et les fermetures du même jour.
+  const openings = (availability.openings ?? []).filter((opening) => opening.date === dateId);
+  if (openings.length === 0) return base;
+  const add = (intervals: MinuteInterval[], mode: "cabinet" | "home") =>
+    mergeIntervals([...intervals, ...openings.filter((opening) => opening[mode]).map((opening): MinuteInterval => [timeToMinutes(opening.start), timeToMinutes(opening.end)])]);
+  return { open: true, intervals: { cabinet: add(base.intervals.cabinet, "cabinet"), home: add(base.intervals.home, "home") } };
+}
+
+/** Horaires habituels du jour, moins vacances et fermetures. */
+function usualAvailability(dateId: string, date: Date, availability: AvailabilitySettings): DayAvailabilityResult {
+  const closedDay: DayAvailabilityResult = { open: false, intervals: { cabinet: [], home: [] } };
   if (isWithinVacation(dateId, availability)) return closedDay;
 
   const weekdayLabel = weekdayLabels[date.getDay()];
