@@ -5,9 +5,12 @@ import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, Toggle, inputClassName } from "@/components/settings/settings-fields";
 import type { AvailabilitySettings, ExceptionalClosure, TimeSlot, Vacation } from "@/data/settings";
 import { durationOptions } from "@/data/durations";
+import { isDayOpenFor, openDayForMode, setDayModeClosed, type SlotMode } from "@/lib/availability-editing";
+import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 type AvailabilitySettingsTabProps = {
   value: AvailabilitySettings;
+  practiceMode: PracticeMode;
   onChange: (value: AvailabilitySettings, message: string) => void;
 };
 
@@ -19,7 +22,10 @@ function breakOptions(current: number): number[] {
   return [...new Set([0, 5, 10, 15, current])].sort((first, second) => first - second);
 }
 
-export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySettingsTabProps) {
+export function AvailabilitySettingsTab({ value, practiceMode, onChange }: AvailabilitySettingsTabProps) {
+  const practiced = { cabinet: hasCabinet(practiceMode), home: visitsHomes(practiceMode) };
+  // Raccourcis par mode : utiles seulement quand on pratique les deux.
+  const modeShortcuts: Array<{ mode: SlotMode; label: string }> = practiced.cabinet && practiced.home ? [{ mode: "cabinet", label: "Cabinet" }, { mode: "home", label: "Domicile" }] : [];
   const [draft, setDraft] = useState(value);
   const [showClosureForm, setShowClosureForm] = useState(false);
   const [showVacationForm, setShowVacationForm] = useState(false);
@@ -35,7 +41,7 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
   }
 
   function addSlot(dayId: string) {
-    updateDay(dayId, (day) => ({ ...day, enabled: true, slots: [...day.slots, { id: `slot-${Date.now()}`, start: "09:00", end: "12:00", cabinet: true, home: true }] }));
+    updateDay(dayId, (day) => ({ ...day, enabled: true, slots: [...day.slots, { id: `slot-${Date.now()}`, start: "09:00", end: "12:00", ...practiced }] }));
   }
 
   function addClosure(event: FormEvent<HTMLFormElement>) {
@@ -66,7 +72,26 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
                   <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black ${day.enabled ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>{day.label.slice(0, 2)}</span>
                   <div><h3 className="font-black text-animeo-dark">{day.label}</h3><p className="text-xs text-animeo-muted">{day.enabled ? `${day.slots.length} plage${day.slots.length > 1 ? "s" : ""}` : "Fermé"}</p></div>
                 </div>
-                <Toggle checked={day.enabled} onChange={(enabled) => updateDay(day.id, (current) => ({ ...current, enabled, slots: enabled && current.slots.length === 0 ? [{ id: `slot-${day.id}`, start: "09:00", end: "18:00", cabinet: true, home: true }] : current.slots }))} label={day.enabled ? "Activé" : "Fermé"} />
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Fermer ou rouvrir un seul mode ce jour-là ; l'interrupteur
+                      principal, lui, ferme tout le jour. */}
+                  {modeShortcuts.map(({ mode, label }) => {
+                    const open = isDayOpenFor(day, mode);
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={open}
+                        aria-label={`${label} ouvert le ${day.label.toLowerCase()}`}
+                        onClick={() => updateDay(day.id, (current) => (open ? setDayModeClosed(current, mode) : openDayForMode(current, mode)))}
+                        className={`min-h-9 rounded-xl px-3 text-xs font-extrabold transition ${open ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted line-through"}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                  <Toggle checked={day.enabled} onChange={(enabled) => updateDay(day.id, (current) => ({ ...current, enabled, slots: enabled && current.slots.length === 0 ? [{ id: `slot-${day.id}`, start: "09:00", end: "18:00", ...practiced }] : current.slots }))} label={day.enabled ? "Activé" : "Fermé"} />
+                </div>
               </div>
 
               {day.enabled ? (
@@ -77,8 +102,8 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
                       <span className="hidden text-center font-black text-animeo-muted lg:block">–</span>
                       <input type="time" aria-label={`Fin ${day.label}`} value={slot.end} onChange={(event) => updateSlot(day.id, slot.id, "end", event.target.value)} className={inputClassName} />
                       <div className="flex flex-wrap gap-2">
-                        <Toggle checked={slot.cabinet} onChange={(checked) => updateSlot(day.id, slot.id, "cabinet", checked)} label={`Cabinet : ${slot.cabinet ? "OUI" : "NON"}`} compact />
-                        <Toggle checked={slot.home} onChange={(checked) => updateSlot(day.id, slot.id, "home", checked)} label={`Domicile : ${slot.home ? "OUI" : "NON"}`} compact />
+                        {practiced.cabinet ? <Toggle checked={slot.cabinet} onChange={(checked) => updateSlot(day.id, slot.id, "cabinet", checked)} label={`Cabinet : ${slot.cabinet ? "OUI" : "NON"}`} compact /> : null}
+                        {practiced.home ? <Toggle checked={slot.home} onChange={(checked) => updateSlot(day.id, slot.id, "home", checked)} label={`Domicile : ${slot.home ? "OUI" : "NON"}`} compact /> : null}
                       </div>
                       <button type="button" onClick={() => updateDay(day.id, (current) => ({ ...current, slots: current.slots.filter((item) => item.id !== slot.id) }))} aria-label="Supprimer la plage" className="flex h-9 w-9 items-center justify-center rounded-xl text-lg font-bold text-animeo-danger hover:bg-animeo-danger-soft">×</button>
                     </div>

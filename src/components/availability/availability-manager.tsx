@@ -23,7 +23,8 @@ import {
   toDateId,
   type AvailabilityMode,
 } from "@/lib/availability-status";
-import type { AvailabilitySettings, ClosureScope, ExceptionalClosure, TimeSlot } from "@/data/settings";
+import type { AvailabilitySettings, ClosureScope, DayAvailability, ExceptionalClosure, TimeSlot } from "@/data/settings";
+import { addSlotForMode, isDayOpenFor, openDayForMode, removeSlotForMode, setDayModeClosed, updateSlotForMode } from "@/lib/availability-editing";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 
 const MESSAGE_MAX = 300;
@@ -123,10 +124,10 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
     );
   }
 
-  function updateDay(label: string, change: Partial<{ enabled: boolean; slots: TimeSlot[] }>) {
+  function updateDay(label: string, update: (day: DayAvailability) => DayAvailability) {
     setDraft((current) => ({
       ...current,
-      days: current.days.map((day) => (day.label === label ? { ...day, ...change } : day)),
+      days: current.days.map((day) => (day.label === label ? update(day) : day)),
     }));
   }
 
@@ -360,8 +361,14 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
 }
 
 /** Horaires habituels : sept jours, plusieurs plages par jour. */
-function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: AvailabilitySettings["days"]; onChange: (label: string, change: Partial<{ enabled: boolean; slots: TimeSlot[] }>) => void }) {
+/**
+ * Horaires habituels du mode affiché, et de lui seul : les plages de l'autre
+ * mode n'apparaissent pas, et rien de ce qui se fait ici ne les change (voir
+ * availability-editing.ts).
+ */
+function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: AvailabilitySettings["days"]; onChange: (label: string, update: (day: DayAvailability) => DayAvailability) => void }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const forMode = mode === "cabinet" ? "pour le cabinet" : "pour le domicile";
 
   const ordered = weekdayOrder
     .map((label) => days.find((day) => day.label === label))
@@ -373,8 +380,10 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
       <p className="mb-2 text-xs text-animeo-muted">Définissez vos créneaux récurrents pour chaque jour de la semaine.</p>
       <ul className="divide-y divide-animeo-border-soft overflow-hidden rounded-2xl border border-animeo-border">
         {ordered.map((day) => {
-          const open = day.enabled && day.slots.some((slot) => (mode === "cabinet" ? slot.cabinet : slot.home));
+          const open = isDayOpenFor(day, mode);
+          const modeSlots = open ? day.slots.filter((slot) => slot[mode]) : [];
           const isEditing = editing === day.label;
+          const dayName = day.label.toLowerCase();
           return (
             <li key={day.label} className="bg-animeo-surface">
               <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -389,7 +398,7 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
                     type="button"
                     onClick={() => setEditing(isEditing ? null : day.label)}
                     aria-expanded={isEditing}
-                    aria-label={`Modifier les horaires du ${day.label.toLowerCase()}`}
+                    aria-label={`Modifier les horaires du ${dayName}`}
                     className="min-h-9 min-w-9 rounded-lg text-animeo-muted transition hover:bg-animeo-bg"
                   >
                     ⋯
@@ -399,26 +408,29 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
 
               {isEditing ? (
                 <div className="space-y-2 border-t border-animeo-border-soft bg-animeo-bg px-4 py-3">
-                  {day.slots.map((slot, index) => (
+                  {/* Clé = position : modifier une plage partagée la remplace
+                      par une plage propre à ce mode, et le champ en cours de
+                      saisie doit garder le focus. */}
+                  {modeSlots.map((slot, index) => (
                     <div key={index} className="flex flex-wrap items-center gap-2">
                       <input
                         type="time"
                         value={slot.start}
-                        aria-label={`Début de la plage ${index + 1} du ${day.label.toLowerCase()}`}
-                        onChange={(event) => onChange(day.label, { slots: day.slots.map((item, position) => (position === index ? { ...item, start: event.target.value } : item)) })}
+                        aria-label={`Début de la plage ${index + 1} du ${dayName}`}
+                        onChange={(event) => onChange(day.label, (current) => updateSlotForMode(current, slot.id, mode, { start: event.target.value }))}
                         className="min-h-11 rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark"
                       />
                       <span aria-hidden="true" className="text-animeo-muted">→</span>
                       <input
                         type="time"
                         value={slot.end}
-                        aria-label={`Fin de la plage ${index + 1} du ${day.label.toLowerCase()}`}
-                        onChange={(event) => onChange(day.label, { slots: day.slots.map((item, position) => (position === index ? { ...item, end: event.target.value } : item)) })}
+                        aria-label={`Fin de la plage ${index + 1} du ${dayName}`}
+                        onChange={(event) => onChange(day.label, (current) => updateSlotForMode(current, slot.id, mode, { end: event.target.value }))}
                         className="min-h-11 rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark"
                       />
                       <button
                         type="button"
-                        onClick={() => onChange(day.label, { slots: day.slots.filter((_, position) => position !== index) })}
+                        onClick={() => onChange(day.label, (current) => removeSlotForMode(current, slot.id, mode))}
                         className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft"
                       >
                         Supprimer
@@ -427,15 +439,11 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
                   ))}
 
                   <div className="flex flex-wrap gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => onChange(day.label, { enabled: true, slots: [...day.slots, { id: `slot-${Date.now()}`, start: "09:00", end: "12:00", cabinet: true, home: true }] })}
-                    >
+                    <Button size="sm" variant="secondary" onClick={() => onChange(day.label, (current) => addSlotForMode(current, mode))}>
                       + Ajouter une plage
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => onChange(day.label, { enabled: !day.enabled })}>
-                      {day.enabled ? "Marquer comme fermé" : "Rouvrir ce jour"}
+                    <Button size="sm" variant="ghost" onClick={() => onChange(day.label, (current) => (open ? setDayModeClosed(current, mode) : openDayForMode(current, mode)))}>
+                      {open ? `Fermer ce jour ${forMode}` : `Rouvrir ce jour ${forMode}`}
                     </Button>
                   </div>
                 </div>

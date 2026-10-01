@@ -161,6 +161,9 @@ test("sans le droit de modifier les horaires, « Indisponible / Fermé » est gr
 test("« Indisponible / Fermé » ferme vraiment le créneau", async ({ page }) => {
   // Le droit de modifier les horaires, le temps de l'essai.
   const [account] = await sql`SELECT permissions FROM "User" WHERE email = ${PRACTITIONER}`;
+  // La fermeture créée est réelle : les disponibilités sont rétablies à la fin,
+  // sinon elle reste en base et fausse les autres tests (carte « Fermé aujourd'hui »).
+  const [before] = await sql`SELECT availability FROM "BusinessProfile" WHERE "organizationId" = 'org-1002-pattes'`;
   await sql`UPDATE "User" SET permissions = array_append(permissions, 'MANAGE_PUBLIC_SETTINGS') WHERE email = ${PRACTITIONER}`;
   try {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -175,5 +178,6 @@ test("« Indisponible / Fermé » ferme vraiment le créneau", async ({ page }) 
   expect(closures.some((closure) => closure.reason === "Indisponible" && closure.scope === "Tout fermer"), "une fermeture exceptionnelle enregistrée").toBe(true);
   } finally {
     await sql`UPDATE "User" SET permissions = ${account.permissions}::text[] WHERE email = ${PRACTITIONER}`;
+    await sql`UPDATE "BusinessProfile" SET availability = ${before.availability === null ? null : JSON.stringify(before.availability)}::jsonb WHERE "organizationId" = 'org-1002-pattes'`;
   }
 });

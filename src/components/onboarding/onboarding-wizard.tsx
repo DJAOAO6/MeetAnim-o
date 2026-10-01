@@ -13,6 +13,7 @@ import { deleteServiceAction, saveServiceAction } from "@/lib/services-actions";
 import { completeOnboardingAction } from "@/lib/onboarding-actions";
 import { hasCabinet, PRACTICE_MODES, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { slugProblem } from "@/lib/slug";
+import { withPracticeModeFlags } from "@/lib/availability-editing";
 import { durationOptions } from "@/data/durations";
 
 /**
@@ -55,14 +56,6 @@ const labelClassName = "mb-1.5 block text-xs font-extrabold uppercase tracking-[
  */
 function typedSlug(value: string): string {
   return value.toLocaleLowerCase("fr-FR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-/, "");
-}
-
-/** Les plages suivent la façon d'exercer : pas de créneau « cabinet » sans cabinet, ni « domicile » sans déplacement. */
-function withModeFlags(availability: AvailabilitySettings, mode: PracticeMode): AvailabilitySettings {
-  return {
-    ...availability,
-    days: availability.days.map((day) => ({ ...day, slots: day.slots.map((slot) => ({ ...slot, cabinet: hasCabinet(mode), home: visitsHomes(mode) })) })),
-  };
 }
 
 export function OnboardingWizard({ initialProfile, initialAvailability, initialServices }: {
@@ -134,10 +127,11 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
             profile={{ ...profile, practiceMode: chosenMode }}
             onModeChange={setChosenMode}
             onSubmit={async (draft) => {
+              const previousMode = profile.practiceMode;
               const error = await saveProfile(draft);
               if (error) return error;
               // Les plages déjà réglées suivent le nouveau mode.
-              return saveAvailability(withModeFlags(availability, draft.practiceMode));
+              return saveAvailability(withPracticeModeFlags(availability, previousMode, draft.practiceMode));
             }}
             onDone={next}
           />
@@ -401,7 +395,7 @@ function PriceField({ id, label, value, onChange }: { id: string; label: string;
   );
 }
 
-type DayDraft = { id: string; label: string; enabled: boolean; start: string; end: string };
+type DayDraft = { id: string; label: string; enabled: boolean; start: string; end: string; cabinet: boolean; home: boolean };
 
 function HoursStep({ availability, mode, onSubmit, onBack, onDone }: {
   availability: AvailabilitySettings;
@@ -416,7 +410,12 @@ function HoursStep({ availability, mode, onSubmit, onBack, onDone }: {
     enabled: day.enabled && day.slots.length > 0,
     start: day.slots[0]?.start ?? "09:00",
     end: day.slots[day.slots.length - 1]?.end ?? "18:00",
+    // Sans plage, ou sans mode coché : les deux, par défaut.
+    ...(day.slots.some((slot) => slot.cabinet || slot.home)
+      ? { cabinet: day.slots.some((slot) => slot.cabinet), home: day.slots.some((slot) => slot.home) }
+      : { cabinet: true, home: true }),
   })));
+  const choosesModes = hasCabinet(mode) && visitsHomes(mode);
   const [lunchBreak, setLunchBreak] = useState(() => availability.days.some((day) => day.enabled && day.slots.length > 1));
   const [duration, setDuration] = useState(availability.defaultAppointmentDuration);
   const { error, setError, pending, run } = useStepSubmit(onDone);
@@ -425,18 +424,24 @@ function HoursStep({ availability, mode, onSubmit, onBack, onDone }: {
     setDays((current) => current.map((day) => (day.id === id ? { ...day, ...patch } : day)));
   }
 
+  /** Un jour garde au moins un mode : décocher le dernier ferme le jour. */
+  function toggleMode(day: DayDraft, key: "cabinet" | "home", checked: boolean) {
+    const next = { ...day, [key]: checked };
+    update(day.id, next.cabinet || next.home ? { [key]: checked } : { enabled: false, cabinet: true, home: true });
+  }
+
   function submit() {
     const open = days.filter((day) => day.enabled);
     if (open.length === 0) return setError("Ouvrez au moins une journée.");
     const invalid = open.find((day) => !day.start || !day.end || day.start >= day.end);
     if (invalid) return setError(`${invalid.label} : l’heure de fin doit suivre l’heure de début.`);
 
-    const flags = { cabinet: hasCabinet(mode), home: visitsHomes(mode) };
     const next: AvailabilitySettings = {
       ...availability,
       defaultAppointmentDuration: duration,
       days: days.map((day) => {
         if (!day.enabled) return { id: day.id, label: day.label, enabled: false, slots: [] };
+        const flags = choosesModes ? { cabinet: day.cabinet, home: day.home } : { cabinet: hasCabinet(mode), home: visitsHomes(mode) };
         // Pause de 12 h à 14 h, seulement si elle tombe dans la journée.
         const splits = lunchBreak && day.start < "12:00" && day.end > "14:00";
         const slots = splits
@@ -459,10 +464,20 @@ function HoursStep({ availability, mode, onSubmit, onBack, onDone }: {
               {day.label}
             </label>
             {day.enabled ? (
-              <span className="flex items-center gap-2 text-sm text-animeo-muted">
+              <span className="flex flex-wrap items-center gap-2 text-sm text-animeo-muted">
                 <input type="time" aria-label={`${day.label}, début`} value={day.start} onChange={(event) => update(day.id, { start: event.target.value })} className={`${inputClassName} w-32`} />
                 à
                 <input type="time" aria-label={`${day.label}, fin`} value={day.end} onChange={(event) => update(day.id, { end: event.target.value })} className={`${inputClassName} w-32`} />
+                {choosesModes ? (
+                  <>
+                    {([["cabinet", "Cabinet"], ["home", "Domicile"]] as const).map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-1.5 font-bold text-animeo-dark">
+                        <input type="checkbox" aria-label={`${day.label}, ${label.toLowerCase()}`} checked={day[key]} onChange={(event) => toggleMode(day, key, event.target.checked)} className="h-4 w-4 accent-[var(--theme-brand)]" />
+                        {label}
+                      </label>
+                    ))}
+                  </>
+                ) : null}
               </span>
             ) : <span className="text-sm text-animeo-muted">Fermé</span>}
           </li>

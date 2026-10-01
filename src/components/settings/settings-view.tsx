@@ -238,7 +238,7 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
       {activeTab === "schedule" ? (
         <div className="space-y-8">
           <section data-testid="settings-availability">
-            <AvailabilitySettingsTab value={settings.availability} onChange={saveAvailability} />
+            <AvailabilitySettingsTab value={settings.availability} practiceMode={settings.profile.practiceMode} onChange={saveAvailability} />
           </section>
           <section data-testid="settings-reminders">
             <RemindersSettingsTab value={settings.reminders} slug={settings.profile.slug} onSave={saveReminders} />

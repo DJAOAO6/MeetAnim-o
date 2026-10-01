@@ -326,3 +326,60 @@ test("chaque page de politique de confidentialité montre son propre professionn
   await page.goto("/politique-de-confidentialite/pauline-faucillon");
   await expect(page.getByText("Pauline Faucillon").first()).toBeVisible();
 });
+
+test("« Les deux » : un jour peut n'ouvrir que le domicile, et revenir à l'étape 1 ne l'écrase pas", async ({ browser }) => {
+  test.setTimeout(180_000);
+  await removeInvitee();
+  const url = await invite(browser);
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.route("**/api/address-search**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ results: [] }) }));
+
+  async function wednesday() {
+    const [row] = await sql`SELECT p.availability FROM "BusinessProfile" p JOIN "User" u ON u."organizationId" = p."organizationId" WHERE u.email = ${INVITEE_EMAIL}`;
+    const days = (row.availability as { days: Array<{ label: string; slots: Array<{ cabinet: boolean; home: boolean }> }> }).days;
+    const flags = (label: string) => days.find((day) => day.label === label)!.slots.map((slot) => [slot.cabinet, slot.home]);
+    return { wednesday: flags("Mercredi"), monday: flags("Lundi") };
+  }
+
+  try {
+    await page.goto(url);
+    await page.getByLabel("Prénom").fill("Élodie");
+    await page.getByLabel("Nom", { exact: true }).fill("Invitée");
+    await page.getByLabel("Mot de passe", { exact: true }).fill(INVITEE_PASSWORD);
+    await page.getByLabel("Confirmer le mot de passe").fill(INVITEE_PASSWORD);
+    await page.getByRole("button", { name: "Créer mon compte" }).click();
+    await page.waitForURL("**/dashboard/bienvenue", { timeout: 20000 });
+
+    await page.getByLabel(/Les deux/).check();
+    await page.getByLabel("Adresse du cabinet").fill("8 rue de l’Essai, 76000 Rouen");
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("heading", { name: "Votre profil" })).toBeVisible({ timeout: 15000 });
+    await page.getByLabel("Métier").fill("Comportementaliste");
+    await page.getByLabel("Téléphone").fill("06 00 00 00 01");
+    await page.getByRole("button", { name: "Continuer" }).click();
+
+    // Horaires : le mercredi, domicile seulement.
+    await expect(page.getByRole("heading", { name: "Vos horaires" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("checkbox", { name: "Lundi, cabinet" })).toBeChecked();
+    await page.getByRole("checkbox", { name: "Mercredi, cabinet" }).uncheck();
+    // Décocher aussi le domicile fermerait le jour : un jour garde au moins un mode.
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("heading", { name: "Vos prestations" })).toBeVisible({ timeout: 15000 });
+    expect(await wednesday()).toEqual({ wednesday: [[false, true], [false, true]], monday: [[true, true], [true, true]] });
+
+    // Retour à l'étape 1, même façon d'exercer : le mercredi reste au domicile (bug B5).
+    for (const heading of ["Vos horaires", "Votre profil", "Votre façon d’exercer"]) {
+      await page.getByRole("button", { name: "Précédent" }).click();
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible({ timeout: 15000 });
+    }
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("heading", { name: "Votre profil" })).toBeVisible({ timeout: 15000 });
+    expect(await wednesday()).toEqual({ wednesday: [[false, true], [false, true]], monday: [[true, true], [true, true]] });
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("checkbox", { name: "Mercredi, cabinet" })).not.toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "Mercredi, domicile" })).toBeChecked();
+  } finally {
+    await context.close();
+  }
+});
