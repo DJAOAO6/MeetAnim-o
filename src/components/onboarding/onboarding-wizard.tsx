@@ -12,6 +12,7 @@ import { deleteServiceAction, saveServiceAction } from "@/lib/services-actions";
 import { completeOnboardingAction } from "@/lib/onboarding-actions";
 import { hasCabinet, PRACTICE_MODES, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { slugProblem } from "@/lib/slug";
+import { durationOptions } from "@/data/durations";
 
 /**
  * Onboarding d'un cabinet qui vient d'ouvrir (multi-comptes, phase 4).
@@ -40,7 +41,6 @@ const STEP_TITLES: Record<StepId, string> = {
 };
 
 const ANIMALS: AnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
-const DURATIONS = [30, 45, 60, 75, 90];
 const TRAVEL_BUFFERS = [0, 15, 30, 45, 60];
 
 const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -457,7 +457,7 @@ function HoursStep({ availability, mode, onSubmit, onBack, onDone }: {
       <div>
         <label htmlFor="onboarding-duration" className={labelClassName}>Durée habituelle d’un rendez-vous</label>
         <select id="onboarding-duration" value={duration} onChange={(event) => setDuration(Number(event.target.value))} className={`${inputClassName} max-w-48`}>
-          {DURATIONS.map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+          {durationOptions(duration).map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
         </select>
       </div>
     </StepForm>

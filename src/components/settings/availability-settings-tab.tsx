@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, Toggle, inputClassName } from "@/components/settings/settings-fields";
 import type { AvailabilitySettings, ExceptionalClosure, TimeSlot, Vacation } from "@/data/settings";
+import { durationOptions } from "@/data/durations";
 
 type AvailabilitySettingsTabProps = {
   value: AvailabilitySettings;
@@ -95,7 +96,9 @@ export function AvailabilitySettingsTab({ value, onChange }: AvailabilitySetting
         <div className="grid gap-4 sm:max-w-xl sm:grid-cols-2">
           <Field label="Durée par défaut d’une prestation">
             <select value={draft.defaultAppointmentDuration} onChange={(event) => setDraft((current) => ({ ...current, defaultAppointmentDuration: Number(event.target.value) }))} className={inputClassName}>
-              {[15, 30, 45, 60, 90].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
+              {/* Même liste que les prestations ; une durée par défaut déjà
+                  réglée hors liste (15 min) reste affichée et gardée. */}
+              {durationOptions(draft.defaultAppointmentDuration).map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}
             </select>
           </Field>
           <Field label="Pas des créneaux proposés en ligne">

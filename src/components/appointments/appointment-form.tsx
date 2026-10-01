@@ -12,6 +12,7 @@ import { checkGeographicWarningAction, type GeoWarning, type SaveAppointmentInpu
 import { toLocalDateId } from "@/lib/booking-validation";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
+import { durationOptions } from "@/data/durations";
 
 export function AppointmentForm({ appointment, clients, defaultDate, onSave, onBack, backLabel = "Tous les rendez-vous", onDirtyChange }: {
   appointment?: Appointment;
@@ -288,7 +289,7 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
           <div className="sm:col-span-2"><Field label="Prestation"><input value={draft.serviceName} onChange={(event) => update("serviceName", event.target.value)} className={inputClassName} required /></Field></div>
           <Field label="Date"><input type="date" value={draft.date} onChange={(event) => update("date", event.target.value)} className={inputClassName} required /></Field>
           <Field label="Heure"><input type="time" value={draft.start} onChange={(event) => update("start", event.target.value)} className={inputClassName} required /></Field>
-          <Field label="Durée"><select value={draft.duration} onChange={(event) => update("duration", Number(event.target.value))} className={inputClassName}>{[30, 45, 60, 90, 120].map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}</select></Field>
+          <Field label="Durée"><select value={draft.duration} onChange={(event) => update("duration", Number(event.target.value))} className={inputClassName}>{durationOptions(draft.duration).map((duration) => <option key={duration} value={duration}>{duration} minutes</option>)}</select></Field>
           <Field label="Statut"><select value={draft.status} onChange={(event) => update("status", event.target.value as AppointmentStatus)} className={inputClassName}>{Object.entries(appointmentStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="Mode"><select value={draft.mode} onChange={(event) => handleModeChange(event.target.value as Appointment["mode"])} className={inputClassName}><option value="cabinet">Cabinet</option><option value="home">Domicile</option></select></Field>
           <Field label="Prix"><div className="relative"><input type="number" min="0" value={draft.price} onChange={(event) => update("price", Number(event.target.value))} className={`${inputClassName} pr-9`} /><span className="absolute right-3 top-3 text-sm font-black text-animeo-muted">€</span></div></Field>

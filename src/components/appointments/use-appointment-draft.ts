@@ -8,6 +8,7 @@ import type { ServiceSettings } from "@/data/settings";
 import type { AnimalSpecies } from "@/data/species";
 import { toLocalDateId } from "@/lib/booking-validation";
 import { hasCabinet, type PracticeMode } from "@/lib/practice-mode";
+import { durationOptions } from "@/data/durations";
 
 /**
  * Où le rendez-vous se déroule, du point de vue de l'utilisateur.
@@ -328,12 +329,11 @@ export function buildRecurrenceDates(startDateId: string, frequency: RecurrenceF
   return dates;
 }
 
-/** Durées proposées : celles des prestations réglées, plus les paliers usuels. */
+/** Durées proposées : la liste commune, celles des prestations réglées, et la valeur courante. */
 export function useDurationOptions(services: ServiceSettings[], current: number) {
   return useMemo(() => {
-    const values = new Set<number>([15, 30, 45, 60, 90, 120]);
-    for (const service of services) values.add(service.duration);
-    values.add(current);
-    return [...values].filter((value) => value > 0).sort((first, second) => first - second);
+    const values = new Set<number>(durationOptions(current));
+    for (const service of services) if (service.duration > 0) values.add(service.duration);
+    return [...values].sort((first, second) => first - second);
   }, [services, current]);
 }

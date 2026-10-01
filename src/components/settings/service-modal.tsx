@@ -9,6 +9,7 @@ import type { AnimalType, ServiceSettings } from "@/data/settings";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { PublicAnimalType } from "@/data/public-booking";
+import { APPOINTMENT_DURATION_PRESETS } from "@/data/durations";
 
 type ServiceModalProps = {
   service?: ServiceSettings;
@@ -22,7 +23,7 @@ type ServiceModalProps = {
 };
 
 const animals: AnimalType[] = ["Chien", "Chat", "Cheval", "NAC", "Petit ruminant"];
-const standardDurations = [30, 45, 60, 90];
+const standardDurations: readonly number[] = APPOINTMENT_DURATION_PRESETS;
 
 const emptyServiceBase: Omit<ServiceSettings, "duration"> = {
   id: "",
