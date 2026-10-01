@@ -7,7 +7,7 @@ import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { ClientSearch } from "@/components/appointments/client-search";
 import { AppointmentAvailabilityIndicator } from "@/components/appointments/appointment-availability-indicator";
-import { recurrenceLabels, useDurationOptions, type AppointmentDraft, type AppointmentPlace, type RecurrenceFrequency } from "@/components/appointments/use-appointment-draft";
+import { useDurationOptions, type AppointmentDraft, type AppointmentPlace } from "@/components/appointments/use-appointment-draft";
 import { appointmentStatusLabels, type AppointmentStatus } from "@/data/appointments";
 import { initialsFor } from "@/lib/format";
 import { listTourRunsForDateAction, type TourRunOption } from "@/lib/appointment-tour-actions";
@@ -407,11 +407,10 @@ export function AppointmentLocationSection({ draft, cabinetAddress, practiceMode
 
 /* ------------------------------------------------------------------ 4 */
 
-export function AppointmentOptionsSection({ draft, reminderSummary, isEditing, onUpdate }: {
+export function AppointmentOptionsSection({ draft, reminderSummary, onUpdate }: {
   draft: AppointmentDraft;
   /** Phrase décrivant le réglage de rappels réel du cabinet. */
   reminderSummary: string;
-  isEditing: boolean;
   onUpdate: (change: Partial<AppointmentDraft>) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -463,49 +462,6 @@ export function AppointmentOptionsSection({ draft, reminderSummary, isEditing, o
               <p className="mt-1.5 text-sm text-animeo-dark">{reminderSummary}</p>
               <p className="mt-1 text-xs text-animeo-muted">Ce réglage s’applique à tous vos rendez-vous, depuis Paramètres › Disponibilités et rappels.</p>
             </div>
-
-            {!isEditing ? (
-              <div className="rounded-xl border border-animeo-border bg-animeo-bg p-3.5">
-                <label className="flex items-center gap-2.5 text-sm font-extrabold text-animeo-dark">
-                  <input
-                    type="checkbox"
-                    checked={draft.repeat !== null}
-                    onChange={(event) => onUpdate({ repeat: event.target.checked ? "weekly" : null })}
-                    className="h-4 w-4 accent-[var(--theme-primary)]"
-                  />
-                  Rendez-vous récurrent
-                </label>
-
-                {draft.repeat !== null ? (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <Field label="Fréquence">
-                      <select
-                        value={draft.repeat}
-                        onChange={(event) => onUpdate({ repeat: event.target.value as RecurrenceFrequency })}
-                        className={inputClassName}
-                      >
-                        {Object.entries(recurrenceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Occurrences suivantes">
-                      <select
-                        value={draft.repeatCount}
-                        onChange={(event) => onUpdate({ repeatCount: Number(event.target.value) })}
-                        className={inputClassName}
-                      >
-                        {[1, 2, 3, 4, 5, 6, 8, 10, 12].map((count) => (
-                          <option key={count} value={count}>{count} de plus</option>
-                        ))}
-                      </select>
-                    </Field>
-                    <p className="text-xs text-animeo-muted sm:col-span-2">
-                      Chaque occurrence est créée comme un rendez-vous à part entière et vérifiée séparément : celles qui
-                      tomberaient sur un créneau occupé vous seront signalées plutôt qu’enregistrées de force.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

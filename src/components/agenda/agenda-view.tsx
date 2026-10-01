@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Lock, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
 import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/agenda-view-switcher";
@@ -47,6 +47,22 @@ function getWeekDates(offset: number) {
   return Array.from({ length: 7 }, (_, dayIndex) =>
     new Date(monday.getTime() + (offset * 7 + dayIndex) * DAY_IN_MS),
   );
+}
+
+/** Décalage en semaines entre la semaine en cours et celle qui contient `date`. */
+function weekOffsetOf(date: Date) {
+  const day = date.getDay();
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() + (day === 0 ? -6 : 1 - day), 12);
+  return Math.round((monday.getTime() - getCurrentWeekMonday().getTime()) / (7 * DAY_IN_MS));
+}
+
+/** Date d'un paramètre ?date=AAAA-MM-JJ, ou null s'il est absent ou invalide. */
+function parseDateParam(value: string | null): Date | null {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(year, month - 1, day, 12);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
 
 function getDayDate(offset: number) {
@@ -151,8 +167,22 @@ export function AgendaView({ clients, availability, tours, tourAppointments, ini
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [dayOffset, setDayOffset] = useState(0);
+  // ?date= : semaine et jour qui contiennent cette date, au premier rendu
+  // comme à chaque nouveau lien (raccourci « Voir dans l'agenda » alors que
+  // l'agenda est déjà ouvert) — ajusté pendant le rendu, sans effet.
+  const dateParam = useSearchParams().get("date");
+  const requestedDate = parseDateParam(dateParam);
+  const [weekOffset, setWeekOffset] = useState(() => (requestedDate ? weekOffsetOf(requestedDate) : 0));
+  const [dayOffset, setDayOffset] = useState(() => (requestedDate ? dayOffsetOf(requestedDate) : 0));
+  const [appliedDateParam, setAppliedDateParam] = useState(dateParam);
+  if (dateParam !== appliedDateParam) {
+    setAppliedDateParam(dateParam);
+    if (requestedDate) {
+      setWeekOffset(weekOffsetOf(requestedDate));
+      setDayOffset(dayOffsetOf(requestedDate));
+      if (view !== "day") setView("week");
+    }
+  }
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset, setYearOffset] = useState(0);
   const [filter, setFilter] = useState<MonthFilter>("all");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarPlus, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,6 @@ import { AppointmentSummaryPanel } from "@/components/appointments/appointment-s
 import { QuickCreateAnimal } from "@/components/appointments/quick-create-animal";
 import { QuickCreateClient } from "@/components/appointments/quick-create-client";
 import {
-  buildRecurrenceDates,
   composeLocation,
   modeOf,
   useAppointmentDraft,
@@ -63,6 +63,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
   /** Appelé après une création réussie, pour enchaîner (retour à la liste…). */
   onCreated?: () => void;
 }) {
+  const router = useRouter();
   const { clients, services, cabinetAddress, practiceMode, reminderSummary } = context;
   const prefillClient = prefill?.clientId ? clients.find((client) => client.id === prefill.clientId) : undefined;
   const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, prefillClient, services, practiceMode });
@@ -167,21 +168,15 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
       await attachToTourRun(draft.tourRunId, result.appointment.id);
     }
 
-    // Occurrences suivantes : créées une à une par la même action, donc
-    // soumises aux mêmes règles de conflit. Celles qui échouent sont
-    // annoncées, jamais forcées ni tues.
-    let refusedDates: string[] = [];
-    if (!appointment && draft.repeat) {
-      const dates = buildRecurrenceDates(draft.date, draft.repeat, draft.repeatCount);
-      const outcomes = await Promise.all(dates.map(async (date) => ({ date, result: await onSave({ ...buildInput(date), id: undefined }) })));
-      refusedDates = outcomes.filter((outcome) => !outcome.result.ok).map((outcome) => outcome.date);
-    }
-
     setPending(false);
 
     if (appointment) notify.success("Rendez-vous modifié");
-    else if (refusedDates.length > 0) notify.warning(`Rendez-vous créé. ${refusedDates.length} occurrence${refusedDates.length > 1 ? "s" : ""} n’${refusedDates.length > 1 ? "ont" : "a"} pas pu être placée${refusedDates.length > 1 ? "s" : ""} : ${refusedDates.map(formatShortDate).join(", ")}.`);
-    else notify.success(draft.repeat ? "Rendez-vous et occurrences créés" : "Rendez-vous créé");
+    else {
+      // Raccourci vers le jour du rendez-vous : l'agenda lit ?date= (déjà
+      // ouvert, il s'y place sans recharger la page).
+      const dateId = draft.date;
+      notify.success("Rendez-vous créé", { action: { label: "Voir dans l’agenda", onClick: () => router.push(`/dashboard/agenda?date=${dateId}`) } });
+    }
 
     onCreated?.();
     onClose();
@@ -254,7 +249,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
               </div>
             ) : null}
 
-            <AppointmentOptionsSection draft={draft} reminderSummary={reminderSummary} isEditing={Boolean(appointment)} onUpdate={update} />
+            <AppointmentOptionsSection draft={draft} reminderSummary={reminderSummary} onUpdate={update} />
           </div>
 
           {/* L'aperçu reste visible pendant la saisie sur grand écran ; sur
@@ -309,7 +304,3 @@ export async function attachToTourRun(tourRunId: string, appointmentId: string):
   if (!result.ok) notify.warning("Rendez-vous créé, mais il n’a pas pu être ajouté à la tournée. Ajoutez-le depuis l’écran Tournées.");
 }
 
-function formatShortDate(dateId: string): string {
-  const [year, month, day] = dateId.split("-").map(Number);
-  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(new Date(year, month - 1, day, 12));
-}

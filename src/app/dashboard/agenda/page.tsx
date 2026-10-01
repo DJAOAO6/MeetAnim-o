@@ -8,6 +8,9 @@ import { getAgendaDisplay } from "@/lib/agenda-preferences-actions";
 
 export const metadata: Metadata = { title: "Agenda" };
 
+// ?date=AAAA-MM-JJ : l'agenda s'ouvre sur la semaine (ou le jour, sur
+// téléphone) qui contient cette date — par exemple depuis « Voir dans
+// l'agenda » après la création d'un rendez-vous. Une date invalide est ignorée.
 export default async function AgendaPage() {
   const [clients, availability, tours, tourAppointments, blockedSlots, profile, display] = await Promise.all([
     getClientPickerOptions(),

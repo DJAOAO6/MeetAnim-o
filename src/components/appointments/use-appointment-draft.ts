@@ -44,17 +44,6 @@ export type AppointmentDraft = {
   city: string;
   latitude?: number;
   longitude?: number;
-  /** Répétition : voir buildRecurrenceDates. */
-  repeat: RecurrenceFrequency | null;
-  repeatCount: number;
-};
-
-export type RecurrenceFrequency = "weekly" | "biweekly" | "monthly";
-
-export const recurrenceLabels: Record<RecurrenceFrequency, string> = {
-  weekly: "Chaque semaine",
-  biweekly: "Toutes les deux semaines",
-  monthly: "Tous les mois",
 };
 
 /**
@@ -142,8 +131,6 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
         city: appointment.city ?? "",
         latitude: appointment.latitude,
         longitude: appointment.longitude,
-        repeat: null,
-        repeatCount: 4,
       };
     }
 
@@ -185,8 +172,6 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       latitude: undefined,
       longitude: undefined,
       ...placeAddress(firstAnimal),
-      repeat: null,
-      repeatCount: 4,
     };
   });
 
@@ -307,28 +292,6 @@ export function composeLocation(draft: AppointmentDraft): string {
   return [line1, line2].filter(Boolean).join(", ");
 }
 
-/**
- * Dates des occurrences suivantes d'un rendez-vous répété.
- *
- * Chacune sera créée par le même enregistrement que le rendez-vous initial :
- * une occurrence qui tomberait sur un créneau occupé est refusée par le
- * serveur comme n'importe quel autre rendez-vous, et signalée — jamais
- * enregistrée de force, jamais silencieusement ignorée.
- */
-export function buildRecurrenceDates(startDateId: string, frequency: RecurrenceFrequency, count: number): string[] {
-  const [year, month, day] = startDateId.split("-").map(Number);
-  const dates: string[] = [];
-
-  for (let index = 1; index <= count; index += 1) {
-    const date = new Date(year, month - 1, day, 12);
-    if (frequency === "weekly") date.setDate(date.getDate() + 7 * index);
-    else if (frequency === "biweekly") date.setDate(date.getDate() + 14 * index);
-    else date.setMonth(date.getMonth() + index);
-    dates.push(toLocalDateId(date));
-  }
-
-  return dates;
-}
 
 /** Durées proposées : la liste commune, celles des prestations réglées, et la valeur courante. */
 export function useDurationOptions(services: ServiceSettings[], current: number) {

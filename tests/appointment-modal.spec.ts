@@ -252,3 +252,34 @@ test("annuler un rendez-vous passe par une confirmation et libère le créneau",
   expect(rows[0].status, "annulé, pas supprimé : l’historique est conservé").toBe("CANCELLED");
   await sql`DELETE FROM "Appointment" WHERE id = ${id}`;
 });
+
+test("après création, « Voir dans l’agenda » ouvre la semaine du rendez-vous", async ({ page }) => {
+  // Un jour libre à environ trois semaines : hors de la semaine affichée.
+  const sql = neon(process.env.DATABASE_URL!);
+  let dateId = "";
+  for (let offset = 21; offset < 60 && !dateId; offset++) {
+    const candidate = new Date(Date.now() + offset * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const day = new Date(`${candidate}T12:00:00Z`).getUTCDay();
+    if (day === 0 || day === 6) continue;
+    const [row] = await sql`SELECT count(*)::int AS n FROM "Appointment" WHERE date::date = ${candidate}::date AND status <> 'CANCELLED'`;
+    if (row.n === 0) dateId = candidate;
+  }
+
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await openCreate(page);
+  await page.getByLabel("Date").fill(dateId);
+  await page.getByLabel("Heure").fill("11:00");
+  await page.getByRole("combobox", { name: /rechercher un client/i }).fill("E2E-Modal Agenda");
+  await page.getByRole("button", { name: "Utiliser ce nom sans créer de fiche" }).click();
+  const animalName = page.getByLabel(/Nom de l’animal|Animal/).first();
+  if (await animalName.isVisible().catch(() => false)) await animalName.fill("ToastE2E");
+
+  await page.getByRole("button", { name: "Créer le rendez-vous" }).click();
+  const toast = page.locator("[data-sonner-toast]").filter({ hasText: "Rendez-vous créé" });
+  await expect(toast).toBeVisible({ timeout: 20000 });
+  await toast.getByRole("button", { name: "Voir dans l’agenda" }).click();
+
+  await page.waitForURL(`**/dashboard/agenda?date=${dateId}`);
+  // La semaine affichée est celle du rendez-vous : sa carte y est.
+  await expect(page.locator("[data-testid='agenda-event'][aria-label*='E2E-Modal Agenda']")).toBeVisible({ timeout: 15000 });
+});
