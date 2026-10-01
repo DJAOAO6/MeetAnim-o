@@ -362,19 +362,32 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
   );
 }
 
+/**
+ * Toute la ligne ouvre la fiche : un vrai lien sur le nom, étendu à la
+ * ligne par un pseudo-élément (clic molette, Cmd+clic et clavier restent
+ * ceux d'un lien). En mode sélection, un clic sur la ligne coche la case.
+ */
 function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: { client: Client; selectionMode: boolean; selected: boolean; onToggleSelected: () => void }) {
+  const name = `${client.firstName} ${client.lastName}`;
   return (
-    <tr className={`transition ${selected ? "bg-animeo-soft/55" : "hover:bg-animeo-bg/70"}`}>
+    <tr
+      onClick={selectionMode ? onToggleSelected : undefined}
+      className={`relative transition ${selectionMode ? "cursor-pointer" : ""} ${selected ? "bg-animeo-soft/55" : "hover:bg-animeo-bg/70"}`}
+    >
       {selectionMode ? (
         <td className="px-6 py-4">
-          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 accent-animeo-brand" />
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} onClick={(event) => event.stopPropagation()} aria-label={`Sélectionner ${name}`} className="relative z-10 h-4 w-4 accent-animeo-brand" />
         </td>
       ) : null}
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           <AnimalAvatarStack animals={client.animals} />
           <div>
-            <p className="font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</p>
+            {selectionMode ? (
+              <p className="font-extrabold text-animeo-dark">{name}</p>
+            ) : (
+              <Link href={`/dashboard/clients/${client.id}`} className="font-extrabold text-animeo-dark outline-none after:absolute after:inset-0 after:content-[''] focus-visible:underline">{name}</Link>
+            )}
             <p className="mt-0.5 text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
           </div>
         </div>
@@ -392,12 +405,12 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-animeo-soft text-animeo-dark">
             <Icon name="paw" className="h-4 w-4" />
           </span>
-          <div>
-            <p className="text-sm font-extrabold text-animeo-dark">
-              {pluralizeAnimals(client.animals.length)}
-            </p>
-            <p className="mt-0.5 max-w-40 truncate text-xs font-semibold text-animeo-muted">
+          <div className="min-w-0">
+            <p className="max-w-48 truncate text-sm font-extrabold text-animeo-dark" title={animalNames(client)}>
               {animalNames(client)}
+            </p>
+            <p className="mt-0.5 text-xs text-animeo-muted">
+              {pluralizeAnimals(client.animals.length)}
             </p>
           </div>
         </div>
@@ -412,24 +425,36 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
   );
 }
 
+/** Même principe que la ligne du tableau : toute la carte ouvre la fiche. */
 function ClientMobileCard({ client, selectionMode, selected, onToggleSelected }: { client: Client; selectionMode: boolean; selected: boolean; onToggleSelected: () => void }) {
+  const name = `${client.firstName} ${client.lastName}`;
   return (
-    <article className={`rounded-2xl border p-4 ${selected ? "border-animeo bg-animeo-soft/50" : "border-animeo-border bg-white"}`}>
+    <article
+      onClick={selectionMode ? onToggleSelected : undefined}
+      className={`relative rounded-2xl border p-4 ${selectionMode ? "cursor-pointer" : ""} ${selected ? "border-animeo bg-animeo-soft/50" : "border-animeo-border bg-white"}`}
+    >
       <div className="flex items-center gap-3">
         {selectionMode ? (
-          <input type="checkbox" checked={selected} onChange={onToggleSelected} aria-label={`Sélectionner ${client.firstName} ${client.lastName}`} className="h-4 w-4 shrink-0 accent-animeo-brand" />
+          <input type="checkbox" checked={selected} onChange={onToggleSelected} onClick={(event) => event.stopPropagation()} aria-label={`Sélectionner ${name}`} className="relative z-10 h-4 w-4 shrink-0 accent-animeo-brand" />
         ) : null}
         <AnimalAvatarStack animals={client.animals} />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-extrabold text-animeo-dark">{client.firstName} {client.lastName}</h3>
+          <h3 className="truncate font-extrabold text-animeo-dark">
+            {selectionMode ? name : (
+              <Link href={`/dashboard/clients/${client.id}`} className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:underline">{name}</Link>
+            )}
+          </h3>
           <p className="text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
         </div>
       </div>
-      <dl className="mt-4 space-y-2 text-sm">
+      <div className="mt-4">
+        <p className="truncate text-sm font-extrabold text-animeo-dark">{animalNames(client)}</p>
+        <p className="mt-0.5 text-xs text-animeo-muted">{pluralizeAnimals(client.animals.length)}</p>
+      </div>
+      <dl className="mt-3 space-y-2 text-sm">
         <InfoLine label="Téléphone" value={client.phone} />
         <InfoLine label="Email" value={client.email} />
         <InfoLine label="Ville" value={client.city} />
-        <InfoLine label={`Animaux (${client.animals.length})`} value={animalNames(client)} />
         <InfoLine label="Dernière consultation" value={client.lastConsultation} />
       </dl>
       <ClientLink id={client.id} fullWidth />
@@ -474,7 +499,10 @@ function ClientLink({ id, fullWidth = false }: { id: string; fullWidth?: boolean
   return (
     <Link
       href={`/dashboard/clients/${id}`}
-      className={`${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
+      // Le nom est déjà le lien de la ligne au clavier : pas de second arrêt.
+      tabIndex={-1}
+      onClick={(event) => event.stopPropagation()}
+      className={`relative z-10 ${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
     >
       Voir la fiche
       <Icon name="arrow" className="ml-1 h-4 w-4" />

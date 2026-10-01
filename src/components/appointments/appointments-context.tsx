@@ -61,6 +61,8 @@ export type AppointmentPrefill = {
   mode?: AppointmentMode;
   /** Client déjà choisi (depuis la carte, par exemple). */
   clientId?: string;
+  /** Animal déjà choisi : retenu seulement s'il appartient bien au client. */
+  animalId?: string;
 };
 
 const AppointmentsContext = createContext<AppointmentsContextValue | null>(null);

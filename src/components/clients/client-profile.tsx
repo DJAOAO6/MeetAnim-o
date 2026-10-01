@@ -128,7 +128,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   }
 
   function handleAnimalAdded(created: Animal) {
-    setAnimals((current) => [...current, created]);
+    setAnimals((current) => sortAnimals([...current, created]));
     setSelectedAnimalId(created.id);
     notify.success(`${created.name} a été ajouté à la fiche.`);
     setAddingAnimal(false);
@@ -145,7 +145,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   }
 
   function handleAnimalUpdated(updated: Animal) {
-    setAnimals((current) => current.map((animal) => (animal.id === updated.id ? updated : animal)));
+    setAnimals((current) => sortAnimals(current.map((animal) => (animal.id === updated.id ? updated : animal))));
     notify.success(`Fiche de ${updated.name} mise à jour.`);
     router.refresh();
   }
@@ -211,7 +211,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             <ActionButton label="Ajouter un animal" onClick={() => setAddingAnimal(true)} />
             <button
               type="button"
-              onClick={() => openNewAppointment()}
+              onClick={() => openNewAppointment(undefined, { clientId: clientInfo.id, animalId: selectedAnimal?.id })}
               className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_18%,transparent)] transition hover:bg-animeo-hover"
             >
               <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>
@@ -407,4 +407,9 @@ function LocationIcon() {
 
 function capitalizeFirst(text: string): string {
   return text.charAt(0).toLocaleUpperCase("fr-FR") + text.slice(1);
+}
+
+/** Animaux par ordre alphabétique, comme le serveur les renvoie (accents et majuscules ignorés). */
+function sortAnimals(animals: Animal[]): Animal[] {
+  return [...animals].sort((first, second) => first.name.localeCompare(second.name, "fr", { sensitivity: "base" }));
 }

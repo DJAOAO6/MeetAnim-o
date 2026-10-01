@@ -159,7 +159,8 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
     // Client déjà choisi (ex. « Nouveau RDV » depuis la carte) : mêmes
     // valeurs que si on l'avait sélectionné dans la liste.
     const client = prefillClient;
-    const firstAnimal = client?.animals[0];
+    // L'animal affiché sur la fiche d'où l'on vient, sinon le premier.
+    const firstAnimal = client?.animals.find((animal) => animal.id === prefill?.animalId) ?? client?.animals[0];
     return {
       place,
       tourRunId: null,

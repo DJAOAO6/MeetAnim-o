@@ -15,6 +15,7 @@ import type {
 
 export const clientInclude = {
   animals: {
+    orderBy: { name: "asc" as const },
     include: {
       consultations: { orderBy: { date: "desc" as const } },
       documents: { orderBy: { createdAt: "desc" as const } },
