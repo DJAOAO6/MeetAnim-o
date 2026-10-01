@@ -62,9 +62,12 @@ export default async function PlatformPage() {
         organizations={organizations.map((organization) => ({
           ...organization,
           createdAt: organization.createdAt.toISOString(),
+          suspendedAt: organization.suspendedAt?.toISOString() ?? null,
+          deletionScheduledFor: organization.deletionScheduledFor?.toISOString() ?? null,
           accounts: organization.accounts.map((account) => ({ ...account, lastLoginAt: account.lastLoginAt?.toISOString() ?? null })),
         }))}
         assistances={assistances.map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() }))}
+        ownOrganizationId={access.user.organizationId}
       />
     </main>
   );

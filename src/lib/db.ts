@@ -1,4 +1,5 @@
 import "server-only";
+import { organizationBlockOf, READ_ONLY_ORGANIZATION_ERROR } from "@/lib/organization-status";
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
@@ -109,12 +110,23 @@ function buildScopedClient(organizationId: string) {
   return client.$extends({
     query: {
       $allModels: {
-        $allOperations({ model, operation, args, query }) {
+        async $allOperations({ model, operation, args, query }) {
+          // Espace suspendu : plus personne n'y écrit. Ses membres n'y
+          // entrent plus et ses chemins publics sont fermés ; reste
+          // l'assistance de la plateforme, en lecture seule. Relu à chaque
+          // écriture, pour qu'une suspension s'applique aussitôt.
+          if (WRITE_OPERATIONS.has(operation)) {
+            const organization = await client.organization.findUnique({ where: { id: organizationId }, select: { suspendedAt: true, deletionScheduledFor: true } });
+            if (organizationBlockOf(organization)) throw new Error(READ_ONLY_ORGANIZATION_ERROR);
+          }
           return query(scopeArgs(model, operation, args as Record<string, unknown>, organizationId) as typeof args);
         },
       },
     },
   });
 }
+
+/** Opérations qui écrivent : refusées dans un espace suspendu. */
+const WRITE_OPERATIONS = new Set(["create", "createMany", "createManyAndReturn", "update", "updateMany", "updateManyAndReturn", "upsert", "delete", "deleteMany"]);
 
 export type ScopedPrismaClient = ReturnType<typeof buildScopedClient>;

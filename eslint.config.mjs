@@ -33,6 +33,8 @@ const rawPrismaAllowed = [
   // Préférences d'affichage de l'agenda : une donnée du compte, pas de l'espace.
   "src/lib/agenda-preferences-actions.ts",
   "src/lib/scheduler/jobs.ts",
+  // Statut d'un espace (suspension) : lu avant toute session, hors cloisonnement.
+  "src/lib/organization-access.ts",
   "src/app/api/calendar/**",
 ];
 

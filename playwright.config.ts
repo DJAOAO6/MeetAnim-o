@@ -81,7 +81,9 @@ export default defineConfig({
     // alignée sur le port de test : les liens que l'application fabrique
     // (flux d'agenda, lien de réservation) doivent pointer vers ce serveur,
     // pas vers le serveur de développement du port 3000.
-    env: { NEXT_DIST_DIR: ".next-e2e", NEXT_PUBLIC_APP_URL: BASE_URL },
+    // CRON_SECRET : la route des tâches planifiées, appelée par les tests de
+    // suspension d'un espace (le même secret côté test, voir ces specs).
+    env: { NEXT_DIST_DIR: ".next-e2e", NEXT_PUBLIC_APP_URL: BASE_URL, CRON_SECRET: process.env.CRON_SECRET ?? "e2e-cron-local" },
     timeout: 120000,
   },
 });

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { startAssistanceAction } from "@/lib/platform/assistance-actions";
 import { roleLabels } from "@/data/admin";
 import { ModulesEditor } from "@/components/platform/modules-editor";
+import { OrganizationStatusControls } from "@/components/platform/organization-status-controls";
 
 export type PlatformAccountView = {
   id: string;
@@ -22,6 +23,9 @@ export type PlatformOrganizationView = {
   name: string;
   createdAt: string;
   onboarded: boolean;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
+  deletionScheduledFor: string | null;
   modules: string[];
   slug: string | null;
   counts: { clients: number; appointments: number };
@@ -46,14 +50,14 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", ti
  * jamais le contenu d'un cabinet, qui ne s'ouvre qu'en l'assistant, motif à
  * l'appui.
  */
-export function PlatformView({ organizations, assistances }: { organizations: PlatformOrganizationView[]; assistances: PlatformAssistanceView[] }) {
+export function PlatformView({ organizations, assistances, ownOrganizationId }: { organizations: PlatformOrganizationView[]; assistances: PlatformAssistanceView[]; ownOrganizationId: string | null }) {
   return (
     <div className="space-y-6">
       {organizations.map((organization) => (
-        <Card key={organization.id} className="p-5 sm:p-6">
+        <Card key={organization.id} role="region" aria-labelledby={`espace-${organization.id}`} className="p-5 sm:p-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-animeo-dark">
+              <h2 id={`espace-${organization.id}`} className="text-lg font-extrabold text-animeo-dark">
                 {organization.name}
                 {organization.onboarded ? null : <span className="ml-2 rounded-full bg-animeo-warning-soft px-2 py-0.5 align-middle text-xs font-extrabold text-animeo-dark">Configuration en cours</span>}
               </h2>
@@ -62,6 +66,14 @@ export function PlatformView({ organizations, assistances }: { organizations: Pl
                 {organization.counts.clients} client{organization.counts.clients > 1 ? "s" : ""} · {organization.counts.appointments} rendez-vous · créé le {dateFormatter.format(new Date(organization.createdAt))}
               </p>
             </div>
+            <OrganizationStatusControls
+              organizationId={organization.id}
+              organizationName={organization.name}
+              suspendedAt={organization.suspendedAt}
+              suspendedReason={organization.suspendedReason}
+              deletionScheduledFor={organization.deletionScheduledFor}
+              ownSpace={organization.id === ownOrganizationId}
+            />
           </div>
 
           <ModulesEditor organizationId={organization.id} organizationName={organization.name} initialModules={organization.modules} />

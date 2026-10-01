@@ -1,4 +1,5 @@
 import "server-only";
+import { organizationBlockOf } from "@/lib/organization-status";
 import { redirect } from "next/navigation";
 import { dbFor, organizationIdOf, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { hasModule, normalizeModules, type ModuleKey } from "@/lib/modules";
@@ -154,12 +155,14 @@ export async function readDb(): Promise<ScopedPrismaClient> {
 export async function dbForSlug(slug: string): Promise<ScopedPrismaClient | null> {
   const profile = await prisma.businessProfile.findUnique({
     where: { slug },
-    select: { organization: { select: { id: true, onboardedAt: true } } },
+    select: { organization: { select: { id: true, onboardedAt: true, suspendedAt: true, deletionScheduledFor: true } } },
   });
   // Un cabinet qui n'a pas fini sa configuration n'a pas encore de page
   // publique : pas d'horaires, pas de prestations, parfois pas même de nom.
-  // Son lien ne mène à rien, comme un lien inconnu.
+  // Son lien ne mène à rien, comme un lien inconnu. Un espace suspendu non
+  // plus : sa page est fermée, et rien ne dit pourquoi.
   if (!profile?.organization.onboardedAt) return null;
+  if (organizationBlockOf(profile.organization)) return null;
   return dbFor(profile.organization.id);
 }
 

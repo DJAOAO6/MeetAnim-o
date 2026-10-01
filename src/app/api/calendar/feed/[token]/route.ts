@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dbFor, prisma } from "@/lib/db";
 import { moduleOpenFor } from "@/lib/organization";
+import { organizationBlocked } from "@/lib/organization-access";
 import { buildIcsCalendar, type IcsEventInput } from "@/lib/booking-validation";
 
 /**
@@ -17,6 +18,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
 
   const user = await prisma.user.findUnique({ where: { icsFeedToken: token }, select: { id: true, organizationId: true } });
   if (!user?.organizationId) return new NextResponse("Not found", { status: 404 });
+  // Espace suspendu : le flux se tait, comme un lien inconnu.
+  if (await organizationBlocked(user.organizationId)) return new NextResponse("Not found", { status: 404 });
   // Le jeton désigne un compte, donc son cabinet : le flux ne peut montrer
   // que l'agenda de celui-ci.
   const db = dbFor(user.organizationId);

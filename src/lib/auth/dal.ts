@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionPayload } from "@/lib/auth/session";
 import { normalizeModules, type ModuleKey } from "@/lib/modules";
+import { organizationBlockOf } from "@/lib/organization-status";
 
 export type CurrentUser = {
   id: string;
@@ -27,6 +28,11 @@ export type CurrentUser = {
   /** Annoncer les nouvelles demandes de rendez-vous par le teckel animé. */
   newRequestAnimation: boolean;
   twoFactorEnabled: boolean;
+  /**
+   * Espace suspendu par la plateforme (ou effacement programmé). Seule une
+   * assistance y entre encore, en lecture seule.
+   */
+  organizationBlocked: boolean;
   /**
    * Présent quand cette session est une assistance : un compte de plateforme
    * agit au nom de ce professionnel. L'interface l'affiche en permanence, et
@@ -52,7 +58,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   // La session doit exister, appartenir à ce compte, ne pas être révoquée
   // (déconnexion) ni expirée : une seule lecture, utilisateur compris.
-  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: { include: { organization: { select: { modules: true } } } }, impersonator: true } });
+  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: { include: { organization: { select: { modules: true, suspendedAt: true, deletionScheduledFor: true } } } }, impersonator: true } });
   if (!session || session.userId !== payload.userId || session.revokedAt || session.expiresAt.getTime() <= Date.now()) return null;
 
   // Une assistance ne vaut que tant que celui qui assiste est toujours un
@@ -62,6 +68,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const user = session.user;
   if (!user.active) return null;
+
+  // Espace suspendu : plus aucun accès pour ses membres, même avec une
+  // session déjà ouverte ailleurs. Seule l'assistance de la plateforme y
+  // entre encore — en lecture seule, les écritures étant refusées par le
+  // client de l'espace (src/lib/db.ts).
+  const organizationBlocked = organizationBlockOf(user.organization) !== null;
+  if (organizationBlocked && !session.impersonatorId) return null;
 
   // Un jeton émis avant le dernier changement de mot de passe ne vaut plus.
   // `iat` est en secondes : la comparaison se fait à la seconde, sinon une
@@ -81,6 +94,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     platformAdmin: user.platformAdmin,
     newRequestAnimation: user.newRequestAnimation,
     twoFactorEnabled: user.twoFactorEnabled,
+    organizationBlocked,
     assistance: session.impersonator
       ? {
           impersonatorId: session.impersonator.id,

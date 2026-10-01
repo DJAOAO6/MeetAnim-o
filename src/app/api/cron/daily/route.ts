@@ -24,5 +24,7 @@ export async function GET(request: NextRequest) {
   // Mêmes tâches que le planificateur interne (src/lib/scheduler/start.ts),
   // qui les lance déjà chaque heure en production : cette route reste pour
   // un déclenchement manuel ou externe, protégé par CRON_SECRET.
-  return NextResponse.json(await runScheduledJobs());
+  // ?organization=<id> : un seul espace (relance ciblée, tests).
+  const organizationId = request.nextUrl.searchParams.get("organization") ?? undefined;
+  return NextResponse.json(await runScheduledJobs(new Date(), { organizationId }));
 }

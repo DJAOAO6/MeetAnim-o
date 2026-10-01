@@ -6,6 +6,8 @@ import { deletePendingTwoFactorSession, getPendingTwoFactorSession, createPendin
 import { openSession } from "@/lib/auth/session-store";
 import { generateNumericCode, hashToken } from "@/lib/auth/tokens";
 import { logAudit } from "@/lib/audit";
+import { organizationBlocked } from "@/lib/organization-access";
+import { suspendedAccountMessage } from "@/lib/organization-status";
 import { getEmailProvider } from "@/lib/email/provider";
 import { twoFactorCodeTemplate } from "@/lib/email/templates";
 
@@ -48,6 +50,11 @@ export async function verifyTwoFactorCode(_prevState: TwoFactorState, formData: 
 
   await prisma.twoFactorCode.update({ where: { id: twoFactorCode.id }, data: { usedAt: new Date() } });
   await deletePendingTwoFactorSession();
+  // L'espace a pu être suspendu entre le mot de passe et le code.
+  const account = await prisma.user.findUnique({ where: { id: pending.userId }, select: { organizationId: true } });
+  if (await organizationBlocked(account?.organizationId ?? null)) {
+    return { error: suspendedAccountMessage(process.env.SUPPORT_EMAIL) };
+  }
   await openSession(pending.userId);
   await prisma.user.update({ where: { id: pending.userId }, data: { lastLoginAt: new Date() } });
   await logAudit({ userId: pending.userId, action: "TWO_FACTOR_VERIFIED" });

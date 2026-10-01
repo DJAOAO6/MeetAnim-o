@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth/credentials";
 import { generateResetToken, hashToken } from "@/lib/auth/tokens";
 import { passwordSchema } from "@/lib/auth/password-policy";
 import { logAudit } from "@/lib/audit";
+import { organizationBlocked } from "@/lib/organization-access";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { getEmailProvider } from "@/lib/email/provider";
 import { passwordResetTemplate } from "@/lib/email/templates";
@@ -30,7 +31,9 @@ export async function requestPasswordReset(_prevState: RequestResetState, formDa
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (user?.active) {
+  // Espace suspendu : même réponse que pour une adresse inconnue, et aucun
+  // email envoyé.
+  if (user?.active && !(await organizationBlocked(user.organizationId))) {
     const token = generateResetToken();
     await prisma.passwordResetToken.create({
       data: { userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + tokenDurationMs) },
@@ -64,6 +67,11 @@ export async function resetPassword(_prevState: ResetPasswordState, formData: Fo
   const resetToken = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(token) } });
 
   if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+    return { error: "Ce lien de réinitialisation est invalide ou a expiré." };
+  }
+  // Lien envoyé avant la suspension de l'espace : il ne vaut plus.
+  const owner = await prisma.user.findUnique({ where: { id: resetToken.userId }, select: { organizationId: true } });
+  if (await organizationBlocked(owner?.organizationId ?? null)) {
     return { error: "Ce lien de réinitialisation est invalide ou a expiré." };
   }
 

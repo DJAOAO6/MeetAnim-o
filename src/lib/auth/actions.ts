@@ -8,6 +8,8 @@ import { createPendingTwoFactorSession } from "@/lib/auth/session";
 import { closeCurrentSession, openSession } from "@/lib/auth/session-store";
 import { generateNumericCode, hashToken } from "@/lib/auth/tokens";
 import { logAudit } from "@/lib/audit";
+import { organizationBlocked } from "@/lib/organization-access";
+import { suspendedAccountMessage } from "@/lib/organization-status";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
 import { getEmailProvider } from "@/lib/email/provider";
 import { twoFactorCodeTemplate } from "@/lib/email/templates";
@@ -45,6 +47,12 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   if (!user || !valid) {
     await logAudit({ userId: user?.id, action: "LOGIN_FAILED", metadata: { email } });
     return { error: "Email ou mot de passe incorrect." };
+  }
+
+  // Espace suspendu : dit seulement après un mot de passe correct, pour ne
+  // rien révéler à qui essaie des adresses.
+  if (await organizationBlocked(user.organizationId)) {
+    return { error: suspendedAccountMessage(process.env.SUPPORT_EMAIL) };
   }
 
   if (user.twoFactorEnabled) {

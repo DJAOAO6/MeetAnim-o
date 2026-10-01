@@ -108,6 +108,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                     impersonatorName={user.assistance.impersonatorName}
                     reason={user.assistance.reason}
                     expiresAt={user.assistance.expiresAt.toISOString()}
+                    readOnly={user.organizationBlocked}
                   />
                 ) : null}
                 {!organization.onboardedAt && hasPermission(user, "MANAGE_PUBLIC_SETTINGS") ? <OnboardingBanner /> : null}

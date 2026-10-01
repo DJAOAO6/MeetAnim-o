@@ -48,7 +48,9 @@ type AuditAction =
   | "INVITATION_REVOKED"
   | "ORGANIZATION_CREATED"
   | "ONBOARDING_COMPLETED"
-  | "MODULES_CHANGED";
+  | "MODULES_CHANGED"
+  | "ORGANIZATION_SUSPENDED"
+  | "ORGANIZATION_REACTIVATED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun

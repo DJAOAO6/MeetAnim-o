@@ -1,5 +1,6 @@
 import "server-only";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
+import { OPEN_ORGANIZATION_WHERE } from "@/lib/organization-status";
 import { hasModule } from "@/lib/modules";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { sendDueAppointmentReminders } from "@/lib/scheduler/appointment-reminders";
@@ -26,8 +27,13 @@ async function markDueFollowUps(db: ScopedPrismaClient, now: Date): Promise<numb
  * n'empêche pas les suivants d'être traités — sans quoi un réglage bancal
  * chez l'un priverait tous les autres de leurs rappels.
  */
-export async function runScheduledJobs(now: Date = new Date()) {
-  const organizations = await prisma.organization.findMany({ select: { id: true, name: true, modules: true } });
+export async function runScheduledJobs(now: Date = new Date(), options: { organizationId?: string } = {}) {
+  // Espaces ouverts seulement : un espace suspendu n'envoie plus rien à ses
+  // clients — ni rappel, ni relance — et ne génère plus de tournée.
+  const organizations = await prisma.organization.findMany({
+    where: { ...OPEN_ORGANIZATION_WHERE, ...(options.organizationId ? { id: options.organizationId } : {}) },
+    select: { id: true, name: true, modules: true },
+  });
   const errors: string[] = [];
   let followUpsDue = 0;
   let tourRunsGenerated = 0;

@@ -10,11 +10,13 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute
  * l'assistance, impossible à masquer. Celui qui assiste doit savoir à tout
  * instant qu'il agit au nom de quelqu'un d'autre — et pour combien de temps.
  */
-export function AssistanceBanner({ assistedName, impersonatorName, reason, expiresAt }: {
+export function AssistanceBanner({ assistedName, impersonatorName, reason, expiresAt, readOnly = false }: {
   assistedName: string;
   impersonatorName: string;
   reason: string;
   expiresAt: string;
+  /** Espace suspendu : on peut regarder, rien n'est enregistré. */
+  readOnly?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -30,6 +32,7 @@ export function AssistanceBanner({ assistedName, impersonatorName, reason, expir
         <p className="text-animeo-dark">
           {impersonatorName} · motif : « {reason} » · fin automatique à {timeFormatter.format(new Date(expiresAt))}. Chaque action est inscrite à votre nom au journal de cet espace.
         </p>
+        {readOnly ? <p className="mt-1 font-black text-animeo-error">Espace suspendu : lecture seule. Aucune modification ne sera enregistrée.</p> : null}
       </div>
       <button
         type="button"

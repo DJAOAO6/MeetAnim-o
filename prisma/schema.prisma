@@ -193,6 +193,8 @@ enum AuditAction {
   ORGANIZATION_CREATED
   ONBOARDING_COMPLETED
   MODULES_CHANGED
+  ORGANIZATION_SUSPENDED
+  ORGANIZATION_REACTIVATED
 }
 
 model User {
@@ -1304,6 +1306,16 @@ model Organization {
   /// Fin de la configuration initiale (onboarding). Tant qu'elle est vide,
   /// la page de réservation du cabinet n'est pas ouverte au public.
   onboardedAt DateTime?
+
+  // Suspension par la super-administration (chantier C9) : plus de
+  // connexion, page publique fermée, aucune tâche automatique, assistance en
+  // lecture seule. Réversible. suspendedByUserId sans clé étrangère : le
+  // compte de plateforme peut disparaître sans lever la suspension.
+  suspendedAt       DateTime?
+  suspendedReason   String?
+  suspendedByUserId String?
+  // Effacement définitif programmé (phase 3) : l'espace est alors suspendu.
+  deletionScheduledFor DateTime?
 
   /// Modules ouverts en plus du socle (src/lib/modules.ts). Décidés par la
   /// super-administration, jamais par l'espace lui-même.
