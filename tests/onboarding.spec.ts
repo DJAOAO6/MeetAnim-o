@@ -499,25 +499,73 @@ test("un ostéopathe animalier donne son numéro RNA ; son espace attend la vér
       await platform.close();
     }
 
-    // Refus : le motif est affiché, le numéro se corrige et la demande repart.
-    await sql`UPDATE "Organization" SET "verificationStatus" = 'REJECTED', "verificationNote" = 'Numéro introuvable dans l’annuaire de l’Ordre.' WHERE id = ${organization.id}`;
-    await page.goto("/dashboard/agenda");
-    await page.waitForURL("**/dashboard/verification", { timeout: 15000 });
-    await expect(page.getByRole("heading", { name: "Votre numéro RNA n’a pas pu être validé" })).toBeVisible();
-    await expect(page.getByText("Numéro introuvable dans l’annuaire de l’Ordre.")).toBeVisible();
-    const corrected = page.getByLabel("Numéro RNA (Registre national d’aptitude)");
-    await expect(corrected).toHaveValue("E2E-RNA-2026");
-    await corrected.fill("e2e rna pris");
-    await page.getByRole("button", { name: "Demander une nouvelle vérification" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Ce numéro est déjà associé à un compte." })).toBeVisible();
-    await corrected.fill("E2E-RNA-2027");
-    await page.getByRole("button", { name: "Demander une nouvelle vérification" }).click();
-    await expect(page.getByRole("heading", { name: "Vérification de votre numéro RNA en cours" })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText("Numéro transmis : E2E-RNA-2027")).toBeVisible();
-    const [again] = await sql`SELECT o."verificationStatus"::text AS status, o."verificationNote", p."registrationNumber" FROM "Organization" o JOIN "BusinessProfile" p ON p."organizationId" = o.id WHERE o.id = ${organization.id}`;
-    expect([again.status, again.verificationNote, again.registrationNumber]).toEqual(["PENDING", null, "E2E-RNA-2027"]);
-    const [requests] = await sql`SELECT count(*)::int AS n FROM "AuditLog" WHERE "organizationId" = ${organization.id} AND action = 'VERIFICATION_REQUESTED'`;
-    expect(requests.n, "la nouvelle demande est journalisée").toBe(2);
+    // Phase 5 : la plateforme contrôle le numéro. Une session à part : celle
+    // qui assiste n'a plus accès à la super-administration.
+    const reviewer = await browser.newContext();
+    try {
+      const platformPage = await reviewer.newPage();
+      await loginAsPlatform(platformPage, sql, platformId, PLATFORM_EMAIL);
+      await platformPage.goto("/plateforme", { waitUntil: "networkidle" });
+      // Les espaces à vérifier passent en tête.
+      await expect(platformPage.getByRole("region").first().getByRole("heading", { level: 2 })).toContainText("Élodie Comportement");
+      const firstCard = platformPage.getByRole("region", { name: /^Élodie Comportement/ });
+      await expect(firstCard.getByText("À vérifier", { exact: true })).toBeVisible();
+      const review = firstCard.getByRole("region", { name: /Vérification du numéro RNA/ });
+      await expect(review).toContainText("Ostéopathe animalier");
+      await expect(review).toContainText("E2E-RNA-2026");
+      await expect(review.getByRole("link", { name: /annuaire de l’Ordre des vétérinaires/ })).toHaveAttribute("href", /registre-national-daptitude-rna/);
+
+      // Refus : motif obligatoire.
+      await review.getByRole("button", { name: "Refuser" }).click();
+      await review.getByRole("button", { name: "Confirmer le refus" }).click();
+      await expect(review.getByRole("alert")).toContainText("Indiquez le motif du refus");
+      await review.getByLabel("Motif du refus").fill("Numéro introuvable dans l’annuaire de l’Ordre.");
+      await review.getByRole("button", { name: "Confirmer le refus" }).click();
+      await expect(firstCard.getByText("Numéro RNA refusé")).toBeVisible({ timeout: 15000 });
+
+      // Le professionnel voit le motif, corrige son numéro et redemande.
+      await page.goto("/dashboard/agenda");
+      await page.waitForURL("**/dashboard/verification", { timeout: 15000 });
+      await expect(page.getByRole("heading", { name: "Votre numéro RNA n’a pas pu être validé" })).toBeVisible();
+      await expect(page.getByText("Numéro introuvable dans l’annuaire de l’Ordre.")).toBeVisible();
+      const corrected = page.getByLabel("Numéro RNA (Registre national d’aptitude)");
+      await expect(corrected).toHaveValue("E2E-RNA-2026");
+      await corrected.fill("e2e rna pris");
+      await page.getByRole("button", { name: "Demander une nouvelle vérification" }).click();
+      await expect(page.getByRole("alert").filter({ hasText: "Ce numéro est déjà associé à un compte." })).toBeVisible();
+      await corrected.fill("E2E-RNA-2027");
+      await page.getByRole("button", { name: "Demander une nouvelle vérification" }).click();
+      await expect(page.getByRole("heading", { name: "Vérification de votre numéro RNA en cours" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText("Numéro transmis : E2E-RNA-2027")).toBeVisible();
+      const [again] = await sql`SELECT o."verificationStatus"::text AS status, o."verificationNote", p."registrationNumber" FROM "Organization" o JOIN "BusinessProfile" p ON p."organizationId" = o.id WHERE o.id = ${organization.id}`;
+      expect([again.status, again.verificationNote, again.registrationNumber]).toEqual(["PENDING", null, "E2E-RNA-2027"]);
+
+      // Validation : l'espace et la page publique s'ouvrent.
+      await platformPage.reload({ waitUntil: "networkidle" });
+      await expect(platformPage.getByRole("region").first().getByRole("heading", { level: 2 })).toContainText("Élodie Comportement");
+      const card = platformPage.getByRole("region", { name: /^Élodie Comportement/ });
+      await expect(card).toContainText("E2E-RNA-2027");
+      await card.getByRole("button", { name: "Valider le numéro" }).click();
+      await expect(card.getByText("À vérifier", { exact: true })).toHaveCount(0, { timeout: 15000 });
+    } finally {
+      await reviewer.close();
+    }
+
+    const [verified] = await sql`SELECT "verificationStatus"::text AS status, "verifiedAt", "verifiedByUserId" FROM "Organization" WHERE id = ${organization.id}`;
+    expect(verified.status).toBe("VERIFIED");
+    expect(verified.verifiedAt).not.toBeNull();
+    expect(verified.verifiedByUserId).toBe(platformId);
+    const decisions = await sql`SELECT action::text, metadata FROM "AuditLog" WHERE "organizationId" = ${organization.id} AND action IN ('VERIFICATION_REQUESTED', 'VERIFICATION_REJECTED', 'VERIFICATION_APPROVED') ORDER BY "createdAt"`;
+    expect(decisions.map((row) => row.action)).toEqual(["VERIFICATION_REQUESTED", "VERIFICATION_REJECTED", "VERIFICATION_REQUESTED", "VERIFICATION_APPROVED"]);
+    // L'e-mail de chaque décision est parti (ou son échec serait compté ici).
+    for (const row of decisions.filter((decision) => decision.action !== "VERIFICATION_REQUESTED")) expect(row.metadata).toEqual({ emailsSent: 1, emailsFailed: 0 });
+
+    await page.goto("/dashboard");
+    await expect(page, "le tableau de bord s'ouvre").toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole("link", { name: "Agenda" }).first()).toBeVisible();
+    const visitor = await browser.newContext();
+    expect((await (await visitor.newPage()).goto(`/reserver/${SLUG}`))?.status(), "page publique ouverte").toBe(200);
+    await visitor.close();
   } finally {
     await context.close();
     await sql`UPDATE "BusinessProfile" SET "registrationNumber" = ${demo.registrationNumber} WHERE "organizationId" = 'org-1002-pattes'`;

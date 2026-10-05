@@ -64,6 +64,7 @@ export default async function PlatformPage() {
           createdAt: organization.createdAt.toISOString(),
           suspendedAt: organization.suspendedAt?.toISOString() ?? null,
           deletionScheduledFor: organization.deletionScheduledFor?.toISOString() ?? null,
+          verification: { ...organization.verification, requestedAt: organization.verification.requestedAt?.toISOString() ?? null },
           accounts: organization.accounts.map((account) => ({ ...account, lastLoginAt: account.lastLoginAt?.toISOString() ?? null })),
         }))}
         assistances={assistances.map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() }))}

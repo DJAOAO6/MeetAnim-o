@@ -580,3 +580,80 @@ export function appointmentRescheduledClientTemplate(params: AppointmentEmailPar
     }),
   };
 }
+
+/** Numéro RNA validé par la plateforme (chantier C4) : l'espace et la page de rendez-vous s'ouvrent. */
+export function verificationApprovedTemplate(params: { organizationName: string; slug: string }): EmailContent {
+  const dashboardUrl = `${appUrl()}/dashboard`;
+  const pageUrl = `${appUrl()}/reserver/${params.slug}`;
+  return {
+    subject: "Votre numéro RNA est vérifié : votre espace 1002 Pattes est ouvert",
+    text: `Bonjour,
+
+Votre numéro RNA a été vérifié. L'espace « ${params.organizationName} » est ouvert, et votre page de rendez-vous est en ligne : ${pageUrl}
+
+Votre tableau de bord : ${dashboardUrl}`,
+    html: layout({
+      preheader: "Votre numéro RNA est vérifié : votre espace et votre page de rendez-vous sont ouverts.",
+      title: "Votre espace est ouvert",
+      body: [
+        paragraph("Bonjour,"),
+        paragraph(`Votre numéro RNA a été vérifié. L’espace <strong>${escapeHtml(params.organizationName)}</strong> est ouvert, et votre page de rendez-vous est en ligne :`),
+        paragraph(`<a href="${escapeHtml(pageUrl)}">${escapeHtml(pageUrl)}</a>`),
+        button(dashboardUrl, "Découvrir mon tableau de bord"),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}
+
+/** Numéro RNA refusé : le motif, et où le corriger. */
+export function verificationRejectedTemplate(params: { organizationName: string; reason: string }): EmailContent {
+  const verificationUrl = `${appUrl()}/dashboard/verification`;
+  return {
+    subject: "Votre numéro RNA n’a pas pu être validé",
+    text: `Bonjour,
+
+Le numéro RNA de l'espace « ${params.organizationName} » n'a pas pu être validé.
+
+Motif : ${params.reason}
+
+Vous pouvez corriger votre numéro et demander une nouvelle vérification : ${verificationUrl}`,
+    html: layout({
+      preheader: "Votre numéro RNA n’a pas pu être validé : corrigez-le et demandez une nouvelle vérification.",
+      title: "Numéro RNA non validé",
+      body: [
+        paragraph("Bonjour,"),
+        paragraph(`Le numéro RNA de l’espace <strong>${escapeHtml(params.organizationName)}</strong> n’a pas pu être validé.`),
+        detailsTable([["Motif", params.reason]]),
+        paragraph("Vous pouvez corriger votre numéro et demander une nouvelle vérification."),
+        button(verificationUrl, "Corriger mon numéro"),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}
+
+/** Nouvelle demande de vérification, pour la super-administration. */
+export function verificationRequestedTemplate(params: { organizationName: string; profession: string; registrationNumber: string }): EmailContent {
+  const platformUrl = `${appUrl()}/plateforme`;
+  return {
+    subject: `Numéro RNA à vérifier — ${params.organizationName}`,
+    text: `Un espace attend la vérification de son numéro RNA.
+
+Espace : ${params.organizationName}
+Métier : ${params.profession}
+Numéro RNA : ${params.registrationNumber}
+
+À vérifier sur la plateforme : ${platformUrl}`,
+    html: layout({
+      preheader: `${params.organizationName} attend la vérification de son numéro RNA.`,
+      title: "Numéro RNA à vérifier",
+      body: [
+        paragraph("Un espace attend la vérification de son numéro RNA."),
+        detailsTable([["Espace", params.organizationName], ["Métier", params.profession], ["Numéro RNA", params.registrationNumber]]),
+        button(platformUrl, "Ouvrir la plateforme"),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}

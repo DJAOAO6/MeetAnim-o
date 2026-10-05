@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
+import { notifyPlatformOfVerificationRequest } from "@/lib/platform/verification-notify";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { currentDb, markCurrentOrganizationOnboarded } from "@/lib/organization";
 import { normalizeRegistrationNumber, requiresRna } from "@/lib/registration-number";
@@ -71,6 +72,7 @@ export async function completeOnboardingAction(rawSlug: string): Promise<Complet
     await logAudit({ userId: user.id, action: "ONBOARDING_COMPLETED", entityType: "BusinessProfile", entityId: profile.id });
     if (awaitingVerification) {
       await logAudit({ userId: user.id, action: "VERIFICATION_REQUESTED", entityType: "Organization", entityId: profile.organizationId });
+      await notifyPlatformOfVerificationRequest(profile.organizationId);
     }
   }
 

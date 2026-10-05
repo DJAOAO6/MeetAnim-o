@@ -187,7 +187,7 @@ export async function currentOrganization(): Promise<Organization & { onboardedA
  */
 export async function markCurrentOrganizationOnboarded(verificationStatus: "PENDING" | "NOT_REQUIRED"): Promise<boolean> {
   const id = await currentOrganizationId();
-  const { count } = await prisma.organization.updateMany({ where: { id, onboardedAt: null }, data: { onboardedAt: new Date(), verificationStatus } });
+  const { count } = await prisma.organization.updateMany({ where: { id, onboardedAt: null }, data: { onboardedAt: new Date(), verificationStatus, verificationRequestedAt: verificationStatus === "PENDING" ? new Date() : null } });
   return count > 0;
 }
 

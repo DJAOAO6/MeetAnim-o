@@ -11,6 +11,13 @@ export type PlatformOrganization = {
   deletionScheduledFor: Date | null;
   modules: string[];
   slug: string | null;
+  verification: {
+    status: "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "REJECTED";
+    requestedAt: Date | null;
+    note: string | null;
+    profession: string;
+    registrationNumber: string | null;
+  };
   counts: { clients: number; appointments: number };
   accounts: Array<{
     id: string;
@@ -56,7 +63,10 @@ export async function getPlatformOverview(): Promise<PlatformOrganization[]> {
       suspendedReason: true,
       deletionScheduledFor: true,
       modules: true,
-      businessProfiles: { select: { slug: true }, take: 1 },
+      verificationStatus: true,
+      verificationRequestedAt: true,
+      verificationNote: true,
+      businessProfiles: { select: { slug: true, profession: true, registrationNumber: true }, take: 1 },
       users: {
         orderBy: [{ active: "desc" }, { lastName: "asc" }],
         select: { id: true, email: true, firstName: true, lastName: true, role: true, active: true, platformAdmin: true, lastLoginAt: true },
@@ -65,7 +75,12 @@ export async function getPlatformOverview(): Promise<PlatformOrganization[]> {
     },
   });
 
-  return organizations.map((organization) => ({
+  // Les numéros à vérifier en tête, les plus anciennes demandes d'abord ;
+  // le reste dans l'ordre de création.
+  const waiting = (organization: (typeof organizations)[number]) => organization.verificationStatus === "PENDING";
+  const ordered = [...organizations.filter(waiting).sort((a, b) => (a.verificationRequestedAt?.getTime() ?? 0) - (b.verificationRequestedAt?.getTime() ?? 0)), ...organizations.filter((organization) => !waiting(organization))];
+
+  return ordered.map((organization) => ({
     id: organization.id,
     name: organization.name,
     onboarded: organization.onboardedAt !== null,
@@ -75,6 +90,13 @@ export async function getPlatformOverview(): Promise<PlatformOrganization[]> {
     modules: organization.modules,
     createdAt: organization.createdAt,
     slug: organization.businessProfiles[0]?.slug ?? null,
+    verification: {
+      status: organization.verificationStatus,
+      requestedAt: organization.verificationRequestedAt,
+      note: organization.verificationNote,
+      profession: organization.businessProfiles[0]?.profession ?? "",
+      registrationNumber: organization.businessProfiles[0]?.registrationNumber ?? null,
+    },
     counts: { clients: organization._count.clients, appointments: organization._count.appointments },
     accounts: organization.users,
   }));

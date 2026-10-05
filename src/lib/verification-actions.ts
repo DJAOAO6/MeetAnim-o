@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
+import { notifyPlatformOfVerificationRequest } from "@/lib/platform/verification-notify";
 import { dbFor } from "@/lib/db";
 import { registrationNumberTaken, requestVerificationAgain, verificationStateOf } from "@/lib/organization-access";
 import { REGISTRATION_NUMBER_REQUIRED_ERROR, REGISTRATION_NUMBER_TAKEN_ERROR, normalizeRegistrationNumber } from "@/lib/registration-number";
@@ -36,7 +37,10 @@ export async function resubmitVerificationAction(rawNumber: string): Promise<Res
     if (JSON.stringify(error).includes("registrationNumber")) return { ok: false, error: REGISTRATION_NUMBER_TAKEN_ERROR };
     throw error;
   }
-  if (await requestVerificationAgain(user.organizationId)) await logAudit({ userId: user.id, action: "VERIFICATION_REQUESTED", entityType: "Organization", entityId: user.organizationId });
+  if (await requestVerificationAgain(user.organizationId)) {
+    await logAudit({ userId: user.id, action: "VERIFICATION_REQUESTED", entityType: "Organization", entityId: user.organizationId });
+    await notifyPlatformOfVerificationRequest(user.organizationId);
+  }
 
   revalidatePath("/dashboard/verification");
   return { ok: true };

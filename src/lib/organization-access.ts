@@ -56,6 +56,6 @@ export async function verificationStateOf(organizationId: string) {
  * demande ; vrai si c'est celle-ci qui l'a faite.
  */
 export async function requestVerificationAgain(organizationId: string): Promise<boolean> {
-  const { count } = await prisma.organization.updateMany({ where: { id: organizationId, verificationStatus: "REJECTED" }, data: { verificationStatus: "PENDING", verificationNote: null } });
+  const { count } = await prisma.organization.updateMany({ where: { id: organizationId, verificationStatus: "REJECTED" }, data: { verificationStatus: "PENDING", verificationNote: null, verificationRequestedAt: new Date() } });
   return count > 0;
 }

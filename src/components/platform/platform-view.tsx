@@ -6,6 +6,7 @@ import { startAssistanceAction } from "@/lib/platform/assistance-actions";
 import { roleLabels } from "@/data/admin";
 import { ModulesEditor } from "@/components/platform/modules-editor";
 import { OrganizationStatusControls } from "@/components/platform/organization-status-controls";
+import { VerificationReview, type PlatformVerificationView } from "@/components/platform/verification-review";
 
 export type PlatformAccountView = {
   id: string;
@@ -28,6 +29,7 @@ export type PlatformOrganizationView = {
   deletionScheduledFor: string | null;
   modules: string[];
   slug: string | null;
+  verification: PlatformVerificationView;
   counts: { clients: number; appointments: number };
   accounts: PlatformAccountView[];
 };
@@ -60,9 +62,10 @@ export function PlatformView({ organizations, assistances, ownOrganizationId }: 
               <h2 id={`espace-${organization.id}`} className="text-lg font-extrabold text-animeo-dark">
                 {organization.name}
                 {organization.onboarded ? null : <span className="ml-2 rounded-full bg-animeo-warning-soft px-2 py-0.5 align-middle text-xs font-extrabold text-animeo-dark">Configuration en cours</span>}
+                {organization.verification.status === "PENDING" ? <span className="ml-2 rounded-full bg-animeo-dark px-2 py-0.5 align-middle text-xs font-extrabold text-white">À vérifier</span> : null}
               </h2>
               <p className="mt-1 text-sm text-animeo-muted">
-                {organization.slug && organization.onboarded ? `/reserver/${organization.slug} · ` : ""}
+                {organization.slug && organization.onboarded && organization.verification.status !== "PENDING" && organization.verification.status !== "REJECTED" ? `/reserver/${organization.slug} · ` : ""}
                 {organization.counts.clients} client{organization.counts.clients > 1 ? "s" : ""} · {organization.counts.appointments} rendez-vous · créé le {dateFormatter.format(new Date(organization.createdAt))}
               </p>
             </div>
@@ -75,6 +78,8 @@ export function PlatformView({ organizations, assistances, ownOrganizationId }: 
               ownSpace={organization.id === ownOrganizationId}
             />
           </div>
+
+          <VerificationReview organizationId={organization.id} organizationName={organization.name} verification={organization.verification} />
 
           <ModulesEditor organizationId={organization.id} organizationName={organization.name} initialModules={organization.modules} />
 

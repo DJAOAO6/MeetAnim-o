@@ -54,7 +54,9 @@ type AuditAction =
   | "ORGANIZATION_DELETION_SCHEDULED"
   | "ORGANIZATION_DELETION_CANCELLED"
   | "ORGANIZATION_EXPORTED"
-  | "VERIFICATION_REQUESTED";
+  | "VERIFICATION_REQUESTED"
+  | "VERIFICATION_APPROVED"
+  | "VERIFICATION_REJECTED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
