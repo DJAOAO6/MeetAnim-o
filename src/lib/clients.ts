@@ -1,4 +1,5 @@
 import "server-only";
+import { animalAgeLabel } from "@/lib/animal-age";
 import { cache } from "react";
 import { currentDb } from "@/lib/organization";
 import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
@@ -57,7 +58,10 @@ export function mapAnimal(animal: DbAnimal & { consultations: DbConsultation[]; 
     name: animal.name,
     species: animal.species,
     breed: animal.breed,
-    age: animal.age,
+    age: animalAgeLabel(animal),
+    ageText: animal.age,
+    birthDate: animal.birthDate ? animal.birthDate.toISOString().slice(0, 10) : null,
+    birthDateApproximate: animal.birthDateApproximate,
     weight: animal.weight,
     sex: animal.sex,
     avatar: animal.avatar,
@@ -129,7 +133,7 @@ export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption
       email: true,
       animals: {
         select: {
-          id: true, name: true, species: true, breed: true, age: true,
+          id: true, name: true, species: true, breed: true, age: true, birthDate: true, birthDateApproximate: true,
           place: { select: { id: true, name: true, kind: true, city: true, address: true, postalCode: true, latitude: true, longitude: true } },
         },
         orderBy: { name: "asc" },
@@ -139,8 +143,9 @@ export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption
 
   return clients.map((client) => ({
     ...client,
-    animals: client.animals.map((animal) => ({
+    animals: client.animals.map(({ birthDate, birthDateApproximate, ...animal }) => ({
       ...animal,
+      age: animalAgeLabel({ age: animal.age, birthDate, birthDateApproximate }),
       place: animal.place ? { ...animal.place, kind: animal.place.kind as AnimalPlaceKind, postalCode: animal.place.postalCode ?? "" } : null,
     })),
   }));

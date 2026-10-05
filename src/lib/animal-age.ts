@@ -35,3 +35,17 @@ export function computeAgeLabel(value: BirthDateValue): string | null {
   if (months === 0) return `${years} an${years > 1 ? "s" : ""}`;
   return `${years} an${years > 1 ? "s" : ""} et ${months} mois`;
 }
+
+/**
+ * L'âge à afficher sur une fiche : calculé depuis la date de naissance quand
+ * elle est connue (il reste juste avec le temps), sinon le texte saisi
+ * (« environ 8 ans »). Si les deux existent, la date gagne.
+ */
+export function animalAgeLabel(animal: { age: string; birthDate: Date | string | null | undefined; birthDateApproximate: boolean }): string {
+  if (animal.birthDate) {
+    const date = animal.birthDate instanceof Date ? animal.birthDate.toISOString().slice(0, 10) : animal.birthDate.slice(0, 10);
+    const computed = computeAgeLabel({ date, approximate: animal.birthDateApproximate });
+    if (computed) return computed;
+  }
+  return animal.age;
+}

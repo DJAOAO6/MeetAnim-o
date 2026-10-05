@@ -22,7 +22,13 @@ export type Animal = {
   name: string;
   species: string;
   breed: string;
+  /** Âge à afficher : calculé depuis la date de naissance si elle est connue. */
   age: string;
+  /** Âge saisi en texte (« environ 8 ans »), pour les animaux sans date. */
+  ageText: string;
+  /** Date de naissance AAAA-MM-JJ, ou null. */
+  birthDate: string | null;
+  birthDateApproximate: boolean;
   weight: string;
   sex: string;
   avatar: string;

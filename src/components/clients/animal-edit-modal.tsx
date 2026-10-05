@@ -1,5 +1,6 @@
 "use client";
 
+import { SEX_VALUES } from "@/lib/animal-validation";
 import { useState, type FormEvent } from "react";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
     name: animal.name,
     species: animal.species,
     breed: animal.breed,
-    age: animal.age,
+    age: animal.ageText,
     weight: animal.weight,
     sex: animal.sex,
     history: animal.history,
@@ -82,7 +83,8 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
       const result = await updateAnimalAction(animal.id, input);
       setSaving(false);
       if (!result.ok) { setError(result.error); return; }
-      onSaved({ ...animal, ...draft, place });
+      // L'animal tel qu'enregistré : pictogramme et âge à jour.
+      onSaved(result.animal);
       return;
     }
 
@@ -124,7 +126,14 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
           <Field label="Race"><input value={draft.breed} onChange={(event) => update("breed", event.target.value)} className={inputClassName} /></Field>
           <Field label="Âge"><input value={draft.age} onChange={(event) => update("age", event.target.value)} className={inputClassName} placeholder="Ex. 5 ans" /></Field>
           <Field label="Poids"><input value={draft.weight} onChange={(event) => update("weight", event.target.value)} className={inputClassName} placeholder="Ex. 28 kg" /></Field>
-          <Field label="Sexe"><input value={draft.sex} onChange={(event) => update("sex", event.target.value)} className={inputClassName} placeholder="Ex. Mâle, Femelle" /></Field>
+          <Field label="Sexe">
+            <select value={draft.sex} onChange={(event) => update("sex", event.target.value)} className={inputClassName}>
+              {draft.sex === "" ? <option value="">Choisir…</option> : null}
+              {SEX_VALUES.map((value) => <option key={value} value={value}>{value}</option>)}
+              {/* Ancienne valeur hors liste : gardée telle quelle tant qu'on ne la change pas. */}
+              {draft.sex && !(SEX_VALUES as readonly string[]).includes(draft.sex) ? <option value={draft.sex}>{draft.sex}</option> : null}
+            </select>
+          </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

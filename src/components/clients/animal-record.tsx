@@ -1,5 +1,6 @@
 "use client";
 
+import { sexLabel } from "@/lib/animal-validation";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -78,7 +79,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
               <div className="mt-4 flex flex-wrap gap-2">
                 <AnimalInfo label="Âge" value={animal.age} />
                 <AnimalInfo label="Poids" value={animal.weight} />
-                <AnimalInfo label="Sexe" value={animal.sex} />
+                <AnimalInfo label="Sexe" value={sexLabel(animal.species, animal.sex)} />
               </div>
             </div>
             </div>

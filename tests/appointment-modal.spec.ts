@@ -156,6 +156,7 @@ test("créer un client puis son animal sans quitter le rendez-vous, et enregistr
   const animalForm = page.locator("form#quick-create-animal");
   await animalForm.getByLabel("Nom *", { exact: true }).fill("Milou");
   await animalForm.getByLabel("Race").fill("Fox-terrier");
+  await animalForm.getByRole("button", { name: "Mâle" }).click();
   await page.getByRole("button", { name: "Ajouter l’animal et continuer" }).click();
   await expect(page.getByRole("heading", { name: "Ajout rapide d’un animal" })).toHaveCount(0, { timeout: 15000 });
 

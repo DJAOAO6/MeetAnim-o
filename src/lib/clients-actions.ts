@@ -1,5 +1,6 @@
 "use server";
 
+import { firstAnimalError, validateAnimal, type ValidAnimal } from "@/lib/animal-validation";
 import { animalDeletedMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -237,12 +238,36 @@ export type UpdateAnimalInput = {
   conditions: string;
   treatments: string;
   notes: string;
+  /** Date de naissance (AAAA-MM-JJ) ; vide ou null = inconnue. Absent = inchangée. */
+  birthDate?: string | null;
+  /** Année seule connue : l'âge s'affiche alors en estimation. */
+  birthDateApproximate?: boolean;
   /**
    * Lieu où vit l'animal (phase 8.9) : un lieu de l'espace, ou null pour
    * « chez son propriétaire ». Absent = inchangé.
    */
   placeId?: string | null;
 };
+
+/** Champs écrits en base, depuis une saisie validée : la liste blanche. */
+function animalData(data: ValidAnimal) {
+  return {
+    name: data.name,
+    species: data.species,
+    breed: data.breed,
+    age: data.age,
+    weight: data.weight,
+    sex: data.sex,
+    history: data.history,
+    conditions: data.conditions,
+    treatments: data.treatments,
+    notes: data.notes,
+    ...(data.birthDate !== undefined ? { birthDate: data.birthDate ? new Date(`${data.birthDate}T00:00:00.000Z`) : null, birthDateApproximate: data.birthDate ? Boolean(data.birthDateApproximate) : false } : {}),
+    ...(data.placeId !== undefined ? { placeId: data.placeId } : {}),
+  };
+}
+
+const animalInclude = { consultations: { orderBy: { date: "desc" as const } }, documents: { orderBy: { createdAt: "desc" as const } }, place: { select: { id: true, name: true, kind: true, city: true } } };
 
 /** Un lieu cité par le navigateur doit exister dans l'espace courant. */
 async function checkedPlaceId(db: Awaited<ReturnType<typeof currentDb>>, placeId: string | null | undefined): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -251,21 +276,30 @@ async function checkedPlaceId(db: Awaited<ReturnType<typeof currentDb>>, placeId
   return place ? { ok: true } : { ok: false, error: "Ce lieu n’existe plus." };
 }
 
-export async function updateAnimalAction(animalId: string, input: UpdateAnimalInput): Promise<ClientActionResult> {
+export async function updateAnimalAction(animalId: string, input: UpdateAnimalInput): Promise<AnimalResult> {
   const user = await requireUser();
   const db = await currentDb();
 
-  const animal = await db.animal.findUnique({ where: { id: animalId }, select: { id: true, clientId: true } });
+  const animal = await db.animal.findUnique({ where: { id: animalId }, select: { id: true, clientId: true, species: true, sex: true } });
   if (!animal) return { ok: false, error: "Animal introuvable." };
 
-  const name = input.name.trim();
-  if (!name) return { ok: false, error: "Le nom de l’animal est obligatoire." };
-  const placeCheck = await checkedPlaceId(db, input.placeId);
+  // Une ancienne espèce ou un ancien sexe restent acceptés s'ils ne changent pas.
+  const validation = validateAnimal(input, { species: animal.species, sex: animal.sex });
+  if (!validation.ok) return { ok: false, error: firstAnimalError(validation.errors) };
+  const data = validation.data;
+  const placeCheck = await checkedPlaceId(db, data.placeId);
   if (!placeCheck.ok) return placeCheck;
 
-  await db.$transaction([
-    db.animal.update({ where: { id: animalId }, data: { ...input, name } }),
-    db.appointment.updateMany({ where: { animalId }, data: { animalName: name } }),
+  // Changer d'espèce change le pictogramme (bug #23) ; le fond de couleur et
+  // une éventuelle photo, eux, restent.
+  const speciesChanged = data.species !== animal.species;
+  const [updated] = await db.$transaction([
+    db.animal.update({
+      where: { id: animalId },
+      data: { ...animalData(data), ...(speciesChanged ? { avatar: avatarForSpecies(data.species as PublicAnimalType) } : {}) },
+      include: animalInclude,
+    }),
+    db.appointment.updateMany({ where: { animalId }, data: { animalName: data.name } }),
   ]);
   await logAudit({ userId: user.id, action: "ANIMAL_UPDATED", entityType: "Animal", entityId: animalId, metadata: { clientId: animal.clientId } });
 
@@ -276,7 +310,8 @@ export async function updateAnimalAction(animalId: string, input: UpdateAnimalIn
   revalidatePath("/dashboard/carte");
   revalidatePath("/dashboard");
 
-  return { ok: true };
+  // L'animal tel qu'enregistré : le navigateur n'a pas à le reconstituer.
+  return { ok: true, animal: mapAnimal(updated) };
 }
 
 export type AnimalResult = { ok: true; animal: Animal } | { ok: false; error: string };
@@ -288,25 +323,21 @@ export async function createAnimalAction(clientId: string, input: UpdateAnimalIn
   const client = await db.client.findUnique({ where: { id: clientId }, select: { id: true } });
   if (!client) return { ok: false, error: "Client introuvable." };
 
-  const name = input.name.trim();
-  if (!name) return { ok: false, error: "Le nom de l’animal est obligatoire." };
-  const species = input.species.trim() || "Chien";
-  const placeCheck = await checkedPlaceId(db, input.placeId);
+  // Création : nom, espèce de la liste et sexe obligatoires.
+  const validation = validateAnimal(input);
+  if (!validation.ok) return { ok: false, error: firstAnimalError(validation.errors) };
+  const data = validation.data;
+  const placeCheck = await checkedPlaceId(db, data.placeId);
   if (!placeCheck.ok) return placeCheck;
 
   const created = await db.animal.create({
     data: {
-      ...input,
+      ...animalData(data),
       clientId,
-      name,
-      species,
-      // Le champ espèce est un texte libre en base, mais le sélecteur du
-      // formulaire ne propose que les 5 valeurs de animalSpeciesList — même
-      // hypothèse que findOrCreateClientAndAnimal() dans appointments-actions.ts.
-      avatar: avatarForSpecies(species as PublicAnimalType),
-      avatarBackground: avatarBackgroundFor(`${clientId}-${name}`),
+      avatar: avatarForSpecies(data.species as PublicAnimalType),
+      avatarBackground: avatarBackgroundFor(`${clientId}-${data.name}`),
     },
-    include: { consultations: { orderBy: { date: "desc" } }, documents: { orderBy: { createdAt: "desc" } }, place: { select: { id: true, name: true, kind: true, city: true } } },
+    include: animalInclude,
   });
   // Pas de valeur d'audit dédiée à la création d'un animal (schéma existant) :
   // ANIMAL_UPDATED reste la valeur la plus proche disponible sans migration.

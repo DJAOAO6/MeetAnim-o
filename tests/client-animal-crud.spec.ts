@@ -89,12 +89,17 @@ test.describe("CRUD client et animal", () => {
     await page.getByRole("button", { name: "Ajouter un animal" }).first().click();
     const dialog = page.locator('section[role="dialog"]');
     await dialog.getByLabel("Nom", { exact: true }).fill("RexE2E");
+    // Le sexe est obligatoire : sans lui, le serveur refuse.
+    await dialog.getByRole("button", { name: "Ajouter l’animal" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("sexe");
+    await dialog.getByLabel("Sexe").selectOption("Femelle");
     await dialog.getByRole("button", { name: "Ajouter l’animal" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
-    const [animal] = await sql`SELECT name, species FROM "Animal" WHERE "clientId" = 'tmp-crud-client2'`;
+    const [animal] = await sql`SELECT name, species, sex FROM "Animal" WHERE "clientId" = 'tmp-crud-client2'`;
     expect(animal).toBeTruthy();
     expect(animal.name).toBe("RexE2E");
+    expect(animal.sex).toBe("Femelle");
     await expect(page.getByText("RexE2E").first()).toBeVisible();
   });
 
@@ -118,5 +123,28 @@ test.describe("CRUD client et animal", () => {
     const [animal] = await sql`SELECT name FROM "Animal" WHERE id = 'tmp-crud-animal'`;
     expect(animal.name).toBe("ApresEdit");
     await expect(page.getByText("ApresEdit").first()).toBeVisible();
+  });
+
+  test("changer l'espèce met à jour le pictogramme, sur la fiche et dans la liste", async ({ page }) => {
+    const sql = neon(process.env.DATABASE_URL!);
+    await sql`INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, "updatedAt") VALUES ('tmp-crud-client4', ${testClientFirstName}, ${testClientLastName}, '0600000000', 'pictogramme-test@example.fr', 'Rouen', '1 rue Test', now())`;
+    await sql`INSERT INTO "Animal" (id, "clientId", name, species, breed, age, weight, sex, avatar, "avatarBackground", history, conditions, treatments, notes, "updatedAt") VALUES ('tmp-crud-animal4', 'tmp-crud-client4', 'Mistigri', 'Chien', '', '', '', 'Mâle', '🐕', 'from-[#dcefeb] to-[#f4faf8]', '', '', '', '', now())`;
+
+    await page.goto("/dashboard/clients/tmp-crud-client4");
+    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Modifier la fiche de Mistigri" }).click();
+    const dialog = page.locator('section[role="dialog"]');
+    await dialog.getByLabel("Espèce").selectOption("Chat");
+    await dialog.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await expect(dialog).toHaveCount(0, { timeout: 10000 });
+
+    // Sur la fiche, aussitôt, sans recharger.
+    await expect(page.getByRole("img", { name: "Pictogramme de Mistigri" }).first()).toHaveText("🐈");
+    const [animal] = await sql`SELECT species, avatar, "avatarBackground" FROM "Animal" WHERE id = 'tmp-crud-animal4'`;
+    expect(animal).toEqual({ species: "Chat", avatar: "🐈", avatarBackground: "from-[#dcefeb] to-[#f4faf8]" });
+
+    // Et dans la liste des clients.
+    await page.goto(`/dashboard/clients?q=${testClientLastName}`, { waitUntil: "networkidle" });
+    await expect(page.getByRole("img", { name: "Pictogramme de Mistigri" }).first()).toHaveText("🐈");
   });
 });

@@ -99,7 +99,8 @@ function ageFor(): string {
 
 function sexFor(species: string): string {
   const female = faker.datatype.boolean();
-  if (species === "Cheval") return female ? "Jument" : "Hongre";
+  // Cheval : Jument / Hongre à l'affichage (sexLabel), valeurs normalisées en base.
+  if (species === "Cheval") return female ? "Femelle" : "Mâle castré";
   return female ? pick(["Femelle", "Femelle stérilisée"]) : pick(["Mâle", "Mâle castré"]);
 }
 
@@ -123,7 +124,7 @@ const CURATED_CLIENTS = [
     id: "julie-robert", firstName: "Julie", lastName: "Robert", phone: "07 56 22 18 40", email: "julie.robert@example.fr",
     city: "Mont-Saint-Aignan", address: "32 avenue du Mont aux Malades, 76130 Mont-Saint-Aignan",
     animals: [
-      { name: "Spirit", species: "Cheval", breed: "Selle Français", age: "9 ans", weight: "540 kg", sex: "Hongre", avatar: "🐎", avatarBackground: AVATAR_BACKGROUNDS[2], history: "Tendinite légère en 2022, aujourd’hui résolue.", conditions: "Tensions régulières au niveau du garrot.", treatments: "Programme d’étirements après le travail.", notes: "Cheval calme, suivi sportif trimestriel.", reminderLabel: "À relancer dans 6 mois", reminderDate: "22 février 2027" },
+      { name: "Spirit", species: "Cheval", breed: "Selle Français", age: "9 ans", weight: "540 kg", sex: "Mâle castré", avatar: "🐎", avatarBackground: AVATAR_BACKGROUNDS[2], history: "Tendinite légère en 2022, aujourd’hui résolue.", conditions: "Tensions régulières au niveau du garrot.", treatments: "Programme d’étirements après le travail.", notes: "Cheval calme, suivi sportif trimestriel.", reminderLabel: "À relancer dans 6 mois", reminderDate: "22 février 2027" },
       { name: "Nala", species: "Chien", breed: "Berger Australien", age: "4 ans", weight: "21 kg", sex: "Femelle", avatar: "🐕‍🦺", avatarBackground: AVATAR_BACKGROUNDS[3], history: "Aucun antécédent majeur.", conditions: "Tensions musculaires après les séances d’agility.", treatments: "Repos actif pendant 48 heures après consultation.", notes: "Très dynamique.", reminderLabel: "À relancer dans 6 mois", reminderDate: "18 février 2027" },
       { name: "Milo", species: "Chat", breed: "Maine Coon", age: "6 ans", weight: "7,8 kg", sex: "Mâle castré", avatar: "🐈‍⬛", avatarBackground: AVATAR_BACKGROUNDS[4], history: "Aucun antécédent notable.", conditions: "Raideur légère des hanches.", treatments: "Surveillance du poids.", notes: "Consultation à domicile recommandée.", reminderLabel: "À relancer dans 12 mois", reminderDate: "4 avril 2027" },
     ],

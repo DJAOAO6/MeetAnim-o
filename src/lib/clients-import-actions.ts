@@ -1,5 +1,6 @@
 "use server";
 
+import { normalizeSex } from "@/lib/animal-validation";
 import { requireModule } from "@/lib/module-access";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -313,7 +314,8 @@ export async function importClientsChunkAction(importId: string, rows: ImportRow
               birthDate: row.animal.birthDateIso ? new Date(`${row.animal.birthDateIso}T00:00:00.000Z`) : null,
               birthDateApproximate: row.animal.birthDateApproximate,
               weight: row.animal.weight,
-              sex: row.animal.sex,
+              // « M », « hongre », « femelle stérilisée »… ramenés aux quatre valeurs ; le reste tel quel.
+              sex: normalizeSex(row.animal.sex) ?? row.animal.sex,
               avatar: avatarForSpecies(species as PublicAnimalType),
               avatarBackground: avatarBackgroundFor(`${clientRecord.id}-${row.animal.name}`),
               history: row.animal.history,

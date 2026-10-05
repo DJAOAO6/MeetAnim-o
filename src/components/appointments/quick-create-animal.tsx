@@ -41,12 +41,13 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
     setError(null);
     setPending(true);
 
-    const age = birthDate ? ageLabelFrom(birthDate) : "";
+    // La date de naissance est enregistrée : l'âge en est calculé à la lecture.
     const result = await createAnimalAction(clientId, {
       name,
       species,
       breed,
-      age,
+      age: "",
+      birthDate: birthDate || null,
       weight,
       sex,
       history: "",
@@ -97,7 +98,7 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Sexe</span>
+            <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Sexe *</span>
             <div className="inline-flex gap-1 rounded-xl bg-animeo-bg p-1" role="group" aria-label="Sexe de l’animal">
               {sexOptions.map((option) => (
                 <button
@@ -125,22 +126,4 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
       </form>
     </Modal>
   );
-}
-
-/**
- * « 3 ans », « 8 mois » : le champ âge est un texte libre en base (voir
- * UpdateAnimalInput), et c'est un âge qu'on lit sur une fiche, pas une date
- * de naissance. Calculé une fois à la création ; il vieillira comme le
- * faisait déjà la saisie manuelle.
- */
-function ageLabelFrom(birthDate: string): string {
-  const born = new Date(`${birthDate}T12:00:00`);
-  if (Number.isNaN(born.getTime())) return "";
-  const now = new Date();
-  let months = (now.getFullYear() - born.getFullYear()) * 12 + (now.getMonth() - born.getMonth());
-  if (now.getDate() < born.getDate()) months -= 1;
-  if (months < 0) return "";
-  if (months < 12) return `${months} mois`;
-  const years = Math.floor(months / 12);
-  return `${years} an${years > 1 ? "s" : ""}`;
 }
