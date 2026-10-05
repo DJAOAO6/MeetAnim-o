@@ -1,5 +1,6 @@
 "use client";
 
+import { serviceOfferLabel } from "@/lib/service-offer";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -506,7 +507,10 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
 }) {
   const cabinet = hasCabinet(mode);
   const home = visitsHomes(mode);
-  const emptyDraft = { name: "", duration: "60", animals: [] as AnimalType[], cabinetPrice: "", homePrice: "" };
+  const practicesBoth = cabinet && home;
+  // Quand on pratique les deux, chaque prestation dit où elle est proposée :
+  // les deux par défaut ; un seul tarif demandé si elle ne l'est qu'à un endroit.
+  const emptyDraft = { name: "", duration: "60", animals: [] as AnimalType[], cabinetPrice: "", homePrice: "", offerCabinet: cabinet, offerHome: home };
   const [draft, setDraft] = useState(emptyDraft);
   const [formError, setFormError] = useState<string | null>(null);
   const [adding, startAdding] = useTransition();
@@ -527,8 +531,11 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
     if (!draft.name.trim()) return setFormError("Donnez un nom à la prestation.");
     if (!Number.isFinite(duration) || duration < 5) return setFormError("Indiquez une durée en minutes.");
     if (draft.animals.length === 0) return setFormError("Cochez au moins une espèce.");
-    if (cabinet && (!draft.cabinetPrice || !Number.isFinite(cabinetPrice) || cabinetPrice < 0)) return setFormError("Indiquez le tarif au cabinet.");
-    if (home && (!draft.homePrice || !Number.isFinite(homePrice) || homePrice < 0)) return setFormError("Indiquez le tarif à domicile.");
+    const offerCabinet = cabinet && draft.offerCabinet;
+    const offerHome = home && draft.offerHome;
+    if (!offerCabinet && !offerHome) return setFormError("Proposez la prestation au cabinet, à domicile, ou les deux.");
+    if (offerCabinet && (!draft.cabinetPrice || !Number.isFinite(cabinetPrice) || cabinetPrice < 0)) return setFormError("Indiquez le tarif au cabinet.");
+    if (offerHome && (!draft.homePrice || !Number.isFinite(homePrice) || homePrice < 0)) return setFormError("Indiquez le tarif à domicile.");
 
     const service: ServiceSettings = {
       id: "",
@@ -536,10 +543,10 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
       description: "",
       duration,
       animals: draft.animals,
-      cabinetEnabled: cabinet,
-      cabinetPrice: cabinet ? cabinetPrice : 0,
-      homeEnabled: home,
-      homePrice: home ? homePrice : 0,
+      cabinetEnabled: offerCabinet,
+      cabinetPrice: offerCabinet ? cabinetPrice : 0,
+      homeEnabled: offerHome,
+      homePrice: offerHome ? homePrice : 0,
       travelFeesEnabled: false,
       travelFeeMode: "fixed",
       fixedTravelFee: 0,
@@ -589,9 +596,7 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
               <span className="min-w-0">
                 <span className="block font-bold text-animeo-dark">{service.name}</span>
                 <span className="block text-sm text-animeo-muted">
-                  {service.duration} min · {service.animals.join(", ")}
-                  {service.cabinetEnabled ? ` · ${service.cabinetPrice} € au cabinet` : ""}
-                  {service.homeEnabled ? ` · ${service.homePrice} € à domicile` : ""}
+                  {service.duration} min · {service.animals.join(", ")} · {serviceOfferLabel(service, practicesBoth)}
                 </span>
               </span>
               <Button type="button" variant="ghost" size="sm" onClick={() => remove(service.id)} disabled={adding} aria-label={`Retirer ${service.name}`}>Retirer</Button>
@@ -619,9 +624,22 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
             ))}
           </div>
         </fieldset>
+        {practicesBoth ? (
+          <fieldset>
+            <legend className={labelClassName}>Où la proposez-vous ?</legend>
+            <div className="flex flex-wrap gap-2">
+              {([["offerCabinet", "Proposée au cabinet"], ["offerHome", "Proposée à domicile"]] as const).map(([key, label]) => (
+                <label key={key} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm font-bold ${draft[key] ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}>
+                  <input type="checkbox" checked={draft[key]} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.checked }))} className="h-4 w-4 accent-[var(--theme-brand)]" />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
-          {cabinet ? <PriceField id="onboarding-service-cabinet-price" label="Tarif au cabinet" value={draft.cabinetPrice} onChange={(value) => setDraft((current) => ({ ...current, cabinetPrice: value }))} /> : null}
-          {home ? <PriceField id="onboarding-service-home-price" label="Tarif à domicile" value={draft.homePrice} onChange={(value) => setDraft((current) => ({ ...current, homePrice: value }))} /> : null}
+          {cabinet && draft.offerCabinet ? <PriceField id="onboarding-service-cabinet-price" label="Tarif au cabinet" value={draft.cabinetPrice} onChange={(value) => setDraft((current) => ({ ...current, cabinetPrice: value }))} /> : null}
+          {home && draft.offerHome ? <PriceField id="onboarding-service-home-price" label="Tarif à domicile" value={draft.homePrice} onChange={(value) => setDraft((current) => ({ ...current, homePrice: value }))} /> : null}
         </div>
         {formError ? <p role="alert" className="text-sm font-bold text-animeo-error">{formError}</p> : null}
         <div className="flex flex-wrap gap-2">

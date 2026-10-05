@@ -117,3 +117,21 @@ test("une demande au cabinet est refusée par le serveur quand il n'y en a pas",
   const [count] = await sql`SELECT count(*)::int AS n FROM "Appointment" WHERE "clientName" LIKE 'E2E-Mode%'`;
   expect(count.n, "aucun rendez-vous ne doit être créé").toBe(0);
 });
+
+test("une prestation proposée seulement au cabinet ne se réserve pas à domicile", async ({ page }) => {
+  await setMode("BOTH");
+  const [{ organizationId }] = await sql`SELECT "organizationId" FROM "BusinessProfile" WHERE slug = ${SLUG}`;
+  await sql`DELETE FROM "Service" WHERE id = 'e2e-cabinet-seul'`;
+  await sql`INSERT INTO "Service" (id, "organizationId", name, description, duration, animals, "cabinetEnabled", "cabinetPrice", "homeEnabled", "homePrice", "zoneFees", "suggestedReminder", active, "createdAt")
+    VALUES ('e2e-cabinet-seul', ${organizationId}, 'E2E Bilan cabinet seul', '', 45, ARRAY['Chien','Chat','Cheval','NAC','Petit ruminant']::text[], true, 55, false, 0, '{}'::jsonb, 'Aucun', true, now())`;
+  try {
+    await page.addInitScript(() => sessionStorage.clear());
+    await page.goto(`/reserver/${SLUG}`, { waitUntil: "networkidle" });
+    await page.locator("button[aria-pressed]").filter({ hasText: "E2E Bilan cabinet seul" }).click();
+    await expect(cabinetCard(page)).toBeEnabled();
+    await expect(page.getByText("Proposée uniquement au cabinet")).toBeVisible();
+    await expect(homeCard(page)).toBeDisabled();
+  } finally {
+    await sql`DELETE FROM "Service" WHERE id = 'e2e-cabinet-seul'`;
+  }
+});

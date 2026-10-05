@@ -368,6 +368,19 @@ test("« Les deux » : un jour peut n'ouvrir que le domicile, et revenir à l'é
     await expect(page.getByRole("heading", { name: "Vos prestations" })).toBeVisible({ timeout: 15000 });
     expect(await wednesday()).toEqual({ wednesday: [[false, true], [false, true]], monday: [[true, true], [true, true]] });
 
+    // Prestation proposée au cabinet seulement : un seul tarif demandé.
+    await expect(page.getByLabel("Proposée au cabinet")).toBeChecked();
+    await expect(page.getByLabel("Proposée à domicile")).toBeChecked();
+    await page.getByLabel("Nom", { exact: true }).fill("Bilan au cabinet");
+    await page.getByLabel("Chien").check();
+    await page.getByLabel("Proposée à domicile").uncheck();
+    await expect(page.getByLabel("Tarif à domicile"), "pas de tarif pour un mode non proposé").toHaveCount(0);
+    await page.getByLabel("Tarif au cabinet").fill("55");
+    await page.getByRole("button", { name: "Ajouter la prestation" }).click();
+    await expect(page.getByRole("list", { name: "Prestations ajoutées" })).toContainText("Cabinet uniquement · 55 €");
+    const [service] = await sql`SELECT s."cabinetEnabled", s."homeEnabled", s."cabinetPrice" FROM "Service" s JOIN "User" u ON u."organizationId" = s."organizationId" WHERE u.email = ${INVITEE_EMAIL}`;
+    expect([service.cabinetEnabled, service.homeEnabled, service.cabinetPrice]).toEqual([true, false, 55]);
+
     // Retour à l'étape 1, même façon d'exercer : le mercredi reste au domicile (bug B5).
     for (const heading of ["Vos horaires", "Votre profil", "Votre façon d’exercer"]) {
       await page.getByRole("button", { name: "Précédent" }).click();
