@@ -136,7 +136,7 @@ test("suspendre coupe tout ; réactiver rétablit tout", async ({ browser }) => 
   await dialog.getByLabel("Prénom").fill("Essai");
   await dialog.getByLabel("Nom", { exact: true }).fill("Lecture-Seule-E2E");
   await dialog.getByLabel("Téléphone").fill("0600000001");
-  await dialog.getByRole("button", { name: "Créer le client" }).click();
+  await dialog.getByRole("button", { name: "Enregistrer sans animal" }).click();
   await assistant.waitForTimeout(2000);
   const [written] = await sql`SELECT count(*)::int AS n FROM "Client" WHERE "lastName" = 'Lecture-Seule-E2E'`;
   expect(written.n, "aucune écriture pendant l'assistance d'un espace suspendu").toBe(0);

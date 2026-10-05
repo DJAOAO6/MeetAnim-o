@@ -67,16 +67,26 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
       <div className="space-y-5">
           {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Prénom"><input value={draft.firstName} onChange={(event) => update("firstName", event.target.value)} className={inputClassName} required /></Field>
-            <Field label="Nom"><input value={draft.lastName} onChange={(event) => update("lastName", event.target.value)} className={inputClassName} required /></Field>
-            <Field label="Téléphone"><input value={draft.phone} onChange={(event) => update("phone", event.target.value)} className={inputClassName} placeholder="06 12 34 56 78" /></Field>
-            <Field label="Email"><input type="email" value={draft.email} onChange={(event) => update("email", event.target.value)} className={inputClassName} placeholder="vous@exemple.fr" /></Field>
-            <Field label="Code postal"><input value={draft.postalCode} onChange={(event) => update("postalCode", event.target.value)} className={inputClassName} /></Field>
-            <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
-            <Field label="Adresse"><input value={draft.address} onChange={(event) => update("address", event.target.value)} className={inputClassName} /></Field>
-          </div>
+          <ClientContactFields draft={draft} onChange={update} />
       </div>
     </Modal>
+  );
+}
+
+/** Les coordonnées d'un propriétaire : fiche client, et nouveau client avec ses animaux. */
+export function ClientContactFields({ draft, onChange }: {
+  draft: ClientContactInput;
+  onChange: <K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Prénom"><input value={draft.firstName} onChange={(event) => onChange("firstName", event.target.value)} className={inputClassName} required /></Field>
+      <Field label="Nom"><input value={draft.lastName} onChange={(event) => onChange("lastName", event.target.value)} className={inputClassName} required /></Field>
+      <Field label="Téléphone"><input value={draft.phone} onChange={(event) => onChange("phone", event.target.value)} className={inputClassName} placeholder="06 12 34 56 78" /></Field>
+      <Field label="Email"><input type="email" value={draft.email} onChange={(event) => onChange("email", event.target.value)} className={inputClassName} placeholder="vous@exemple.fr" /></Field>
+      <Field label="Code postal"><input value={draft.postalCode} onChange={(event) => onChange("postalCode", event.target.value)} className={inputClassName} /></Field>
+      <Field label="Ville"><input value={draft.city} onChange={(event) => onChange("city", event.target.value)} className={inputClassName} /></Field>
+      <Field label="Adresse"><input value={draft.address} onChange={(event) => onChange("address", event.target.value)} className={inputClassName} /></Field>
+    </div>
   );
 }

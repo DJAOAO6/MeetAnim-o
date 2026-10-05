@@ -63,7 +63,8 @@ test.describe("Clients — géocodage automatique à l'écriture (Chantier Tourn
     await dialog.getByLabel("Téléphone").fill("0612345678");
     await dialog.getByLabel("Ville").fill("Paris");
     await dialog.getByLabel("Adresse").fill("10 Rue de la Paix");
-    await dialog.getByRole("button", { name: "Créer le client" }).click();
+    // Propriétaire seul : ce test ne porte que sur l'adresse.
+    await dialog.getByRole("button", { name: "Enregistrer sans animal" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
     const geocoded = await pollGeocodedClient(testClientLastName);

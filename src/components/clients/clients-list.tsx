@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
-import { ClientEditModal } from "@/components/clients/client-edit-modal";
+import { NewClientModal } from "@/components/clients/new-client-modal";
 import { ClientImportModal } from "@/components/clients/client-import-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
-import { createClientAction, deleteClientsAction, type ClientContactInput } from "@/lib/clients-actions";
+import { deleteClientsAction } from "@/lib/clients-actions";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 import { hasModule } from "@/lib/modules";
@@ -55,7 +55,6 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Tous les statuts");
   const [sortBy, setSortBy] = useState<SortOption>("name");
   const [creatingClient, setCreatingClient] = useState(initialCreating);
-  const [savingClient, setSavingClient] = useState(false);
   const [importingClients, setImportingClients] = useState(false);
   // Suppression façon Gmail : jamais de bouton visible sur une fiche. Les
   // cases à cocher elles-mêmes restent masquées tant que le mode sélection
@@ -144,18 +143,12 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
     });
   }
 
-  async function saveNewClient(input: ClientContactInput) {
-    setSavingClient(true);
-    const result = await createClientAction(input);
-    setSavingClient(false);
-    if (!result.ok) {
-      notify.error(result.error);
-      return;
-    }
-    setLocalClients((current) => [result.client, ...current]);
-    notify.success(`${result.client.firstName} ${result.client.lastName} a été ajouté.`);
+  /** Nouveau client (et ses animaux) enregistré : sa fiche s'ouvre. */
+  function openNewClient(client: Client) {
+    setLocalClients((current) => [client, ...current]);
     setCreatingClient(false);
-    router.refresh();
+    notify.success(`${client.firstName} ${client.lastName} a été ajouté${client.animals.length ? `, avec ${pluralizeAnimals(client.animals.length)}` : ""}.`);
+    router.push(`/dashboard/clients/${client.id}`);
   }
 
   return (
@@ -352,7 +345,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
       </Card>
 
       {creatingClient ? (
-        <ClientEditModal saving={savingClient} onClose={() => setCreatingClient(false)} onSave={saveNewClient} />
+        <NewClientModal onClose={() => setCreatingClient(false)} onCreated={openNewClient} />
       ) : null}
 
       {importingClients ? (

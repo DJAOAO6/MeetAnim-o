@@ -1,6 +1,6 @@
 "use server";
 
-import { firstAnimalError, validateAnimal, type ValidAnimal } from "@/lib/animal-validation";
+import { firstAnimalError, validateAnimal, type AnimalFieldErrors, type ValidAnimal } from "@/lib/animal-validation";
 import { animalDeletedMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -148,6 +148,81 @@ export async function createClientAction(input: ClientContactInput): Promise<Cli
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/carte");
 
+  return { ok: true, client: mapClient(created) };
+}
+
+export type ClientWithAnimalsResult =
+  | { ok: true; client: Client }
+  | { ok: false; error: string; animalErrors?: Record<number, AnimalFieldErrors> };
+
+/**
+ * « Nouveau client » avec ses animaux, en une fois (chantier C3).
+ *
+ * Une seule transaction : tout est validé avant d'écrire — le propriétaire
+ * comme chaque animal, avec les mêmes règles que leurs actions séparées —,
+ * puis client et animaux sont créés ensemble. Si un animal est refusé, rien
+ * n'est créé et l'erreur revient sur sa section : pas de client orphelin à
+ * rattraper, ni de doublon si l'on réessaie.
+ */
+export async function createClientWithAnimalsAction(input: { client: ClientContactInput; animals: UpdateAnimalInput[] }): Promise<ClientWithAnimalsResult> {
+  const user = await requireUser();
+  const db = await currentDb();
+
+  const firstName = input.client.firstName.trim();
+  const lastName = input.client.lastName.trim();
+  if (!firstName || !lastName) return { ok: false, error: "Le prénom et le nom sont obligatoires." };
+  const email = input.client.email.trim();
+  if (email && !emailPattern.test(email)) return { ok: false, error: "Email invalide." };
+  if (input.animals.length > 20) return { ok: false, error: "Vingt animaux au plus à la fois." };
+
+  const animals: ValidAnimal[] = [];
+  const animalErrors: Record<number, AnimalFieldErrors> = {};
+  input.animals.forEach((animal, index) => {
+    // Un nouveau client n'a pas encore de lieux d'animaux à citer.
+    const validation = validateAnimal({ ...animal, placeId: undefined });
+    if (validation.ok) animals.push(validation.data);
+    else animalErrors[index] = validation.errors;
+  });
+  if (Object.keys(animalErrors).length > 0) {
+    const first = Number(Object.keys(animalErrors)[0]);
+    return { ok: false, error: `Animal ${first + 1} : ${firstAnimalError(animalErrors[first])}`, animalErrors };
+  }
+
+  const created = await db.$transaction(async (tx) => {
+    const client = await tx.client.create({
+      data: {
+        firstName,
+        lastName,
+        phone: input.client.phone.trim(),
+        email,
+        city: input.client.city.trim(),
+        postalCode: input.client.postalCode.trim() || null,
+        address: input.client.address.trim(),
+      },
+    });
+    for (const animal of animals) {
+      await tx.animal.create({
+        data: {
+          ...animalData(animal),
+          clientId: client.id,
+          avatar: avatarForSpecies(animal.species as PublicAnimalType),
+          avatarBackground: avatarBackgroundFor(`${client.id}-${animal.name}`),
+        },
+      });
+    }
+    return tx.client.findUniqueOrThrow({ where: { id: client.id }, include: clientInclude });
+  });
+
+  await logAudit({ userId: user.id, action: "CLIENT_CREATED", entityType: "Client", entityId: created.id });
+  for (const animal of created.animals) {
+    await logAudit({ userId: user.id, action: "ANIMAL_UPDATED", entityType: "Animal", entityId: animal.id, metadata: { clientId: created.id, created: true } });
+  }
+  if (created.address && created.city) {
+    after(() => geocodeClientInBackground(created.organizationId, created.id, created.address, created.city, created.postalCode).catch(() => {}));
+  }
+
+  revalidatePath("/dashboard/clients");
+  revalidatePath("/dashboard/carte");
   return { ok: true, client: mapClient(created) };
 }
 

@@ -53,7 +53,8 @@ test.describe("CRUD client et animal", () => {
     await dialog.getByLabel("Nom", { exact: true }).fill(testClientLastName);
     await dialog.getByLabel("Téléphone").fill("0612345678");
     await dialog.getByLabel("Email").fill("e2e-crud-test@example.fr");
-    await dialog.getByRole("button", { name: "Créer le client" }).click();
+    // Au téléphone, l'animal n'est pas toujours connu : propriétaire seul.
+    await dialog.getByRole("button", { name: "Enregistrer sans animal" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
     const sql = neon(process.env.DATABASE_URL!);
@@ -78,6 +79,41 @@ test.describe("CRUD client et animal", () => {
 
     const [client] = await sql`SELECT city FROM "Client" WHERE id = 'tmp-crud-client'`;
     expect(client.city).toBe("Le Havre");
+  });
+
+  test("nouveau client avec deux animaux : une seule fenêtre, puis sa fiche, animaux par ordre alphabétique", async ({ page }) => {
+    await page.goto("/dashboard/clients");
+    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Nouveau client" }).click();
+    const dialog = page.locator('section[role="dialog"]');
+    await dialog.getByLabel("Prénom").fill(testClientFirstName);
+    await dialog.getByLabel("Nom", { exact: true }).fill(testClientLastName);
+
+    // Premier animal, dans la même fenêtre.
+    const first = dialog.getByRole("region", { name: "Premier animal" });
+    await first.getByLabel("Nom *", { exact: true }).fill("Zéphyr");
+    await first.getByLabel("Espèce *").selectOption("Cheval");
+    await first.getByText("Mâle", { exact: true }).click();
+    await first.getByText("Hongre (castré)").click();
+
+    // Un second, incomplet d'abord : refusé sur sa section, rien n'est créé.
+    await dialog.getByRole("button", { name: "Ajouter un autre animal" }).click();
+    const second = dialog.getByRole("region", { name: "Animal 2" });
+    await second.getByLabel("Nom *", { exact: true }).fill("Amande");
+    await second.getByLabel("Espèce *").selectOption("Chat");
+    await dialog.getByRole("button", { name: "Créer le client" }).click();
+    await expect(second.getByText("Indiquez le sexe de l’animal.")).toBeVisible();
+    const sql = neon(process.env.DATABASE_URL!);
+    expect((await sql`SELECT count(*)::int AS n FROM "Client" WHERE "lastName" = ${testClientLastName}`)[0].n, "rien n'est créé tant qu'un animal est invalide").toBe(0);
+
+    await second.getByText("Femelle", { exact: true }).click();
+    await dialog.getByRole("button", { name: "Créer le client" }).click();
+    await page.waitForURL(/\/dashboard\/clients\/[^/?]+$/, { timeout: 15000 });
+
+    const animals = await sql`SELECT a.name, a.species, a.sex FROM "Animal" a JOIN "Client" c ON c.id = a."clientId" WHERE c."lastName" = ${testClientLastName} ORDER BY a.name`;
+    expect(animals.map((row) => [row.name, row.species, row.sex])).toEqual([["Amande", "Chat", "Femelle"], ["Zéphyr", "Cheval", "Mâle castré"]]);
+    const pictograms = page.locator("button[aria-pressed]").filter({ has: page.locator("[role='img'][aria-label^='Pictogramme de']") });
+    await expect(pictograms).toHaveText([/Amande/, /Zéphyr/]);
   });
 
   test("ajouter un animal à un client existant le persiste réellement", async ({ page }) => {
