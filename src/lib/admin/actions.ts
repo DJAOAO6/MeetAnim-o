@@ -1,5 +1,6 @@
 "use server";
 
+import { accountChangeMetadata, accountDeletedMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/dal";
@@ -157,8 +158,9 @@ export async function updateUserProfileAction(userId: string, input: { firstName
     return { ok: false, error: "Un autre compte utilise déjà cet email." };
   }
 
+  const before = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { firstName: true, lastName: true, email: true } });
   await prisma.user.update({ where: { id: userId }, data: { firstName, lastName, email } });
-  await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { firstName, lastName, email } });
+  await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: accountChangeMetadata(before, { firstName, lastName, email }) });
   revalidatePath("/dashboard/admin");
 
   return { ok: true };
@@ -200,7 +202,7 @@ export async function deleteUserAction(userId: string): Promise<DeleteUserResult
   }
 
   await prisma.user.delete({ where: { id: userId } });
-  await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { deleted: true, email: target.email } });
+  await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: accountDeletedMetadata() });
   revalidatePath("/dashboard/admin");
 
   return { ok: true };

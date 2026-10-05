@@ -112,6 +112,17 @@ export const googleCalendarProvider: CalendarProvider = {
     };
   },
 
+  async revokeToken(token): Promise<void> {
+    // Révoquer le jeton de rafraîchissement retire aussi l'accès de
+    // l'application au compte Google (https://developers.google.com/identity/protocols/oauth2/web-server#tokenrevoke).
+    const response = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }),
+    });
+    if (!response.ok) throw new Error(`Révocation du jeton Google refusée (${response.status})`);
+  },
+
   async refreshAccessToken(refreshToken): Promise<RefreshedCredentials> {
     const response = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",

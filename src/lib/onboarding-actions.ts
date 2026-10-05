@@ -57,7 +57,7 @@ export async function completeOnboardingAction(rawSlug: string): Promise<Complet
   }
 
   await markCurrentOrganizationOnboarded();
-  await logAudit({ userId: user.id, action: "ONBOARDING_COMPLETED", entityType: "BusinessProfile", entityId: profile.id, metadata: { slug } });
+  await logAudit({ userId: user.id, action: "ONBOARDING_COMPLETED", entityType: "BusinessProfile", entityId: profile.id });
 
   revalidatePath("/dashboard", "layout");
   revalidatePath(`/reserver/${slug}`);

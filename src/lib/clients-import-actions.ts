@@ -376,8 +376,8 @@ export async function finishClientImportAction(importId: string): Promise<Finish
     action: "CLIENTS_IMPORTED",
     entityType: "ClientImport",
     entityId: importId,
+    // Pas le nom du fichier : il porte parfois celui d'une personne.
     metadata: {
-      fileName: updated.fileName,
       createdClients: updated.createdClients,
       createdAnimals: updated.createdAnimals,
       mergedClients: updated.mergedClients,

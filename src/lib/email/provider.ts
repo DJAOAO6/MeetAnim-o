@@ -1,4 +1,5 @@
 import "server-only";
+import { maskEmail, redactEmails } from "@/lib/privacy";
 
 export type EmailAttachment = {
   filename: string;
@@ -35,8 +36,20 @@ export interface EmailProvider {
   send(message: EmailMessage): Promise<void>;
 }
 
+/**
+ * Sans Mailjet, les emails ne partent pas : ils sont écrits dans les journaux
+ * du serveur. En développement, en entier (codes de connexion, liens de
+ * réinitialisation). En production, jamais le corps — noms, adresses,
+ * rendez-vous des clients finiraient dans les journaux de l'hébergeur — :
+ * seulement le destinataire masqué et le sujet. Le démarrage le signale
+ * (src/instrumentation.ts).
+ */
 class ConsoleEmailProvider implements EmailProvider {
   async send(message: EmailMessage): Promise<void> {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(`[email] non envoyé (Mailjet non configuré) → ${maskEmail(message.to)} · ${message.subject}`);
+      return;
+    }
     const attachmentsLabel = message.attachments?.length ? ` [pièce(s) jointe(s) : ${message.attachments.map((item) => item.filename).join(", ")}]` : "";
     console.log(
       `\n[email:dev] → ${message.to}\n[email:dev] Sujet : ${message.subject}${attachmentsLabel}\n${message.text}\n`,
@@ -81,12 +94,19 @@ class MailjetEmailProvider implements EmailProvider {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Échec de l'envoi Mailjet (${response.status}) : ${body}`);
+      // La réponse de Mailjet recopie parfois le destinataire : masqué avant
+      // de remonter dans les journaux.
+      throw new Error(`Échec de l'envoi Mailjet (${response.status}) : ${redactEmails(body).slice(0, 500)}`);
     }
   }
 }
 
 let cachedProvider: EmailProvider | null = null;
+
+/** Mailjet est-il configuré ? Sinon, aucun email ne part (voir ConsoleEmailProvider). */
+export function emailConfigured(): boolean {
+  return Boolean(process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET && process.env.MAIL_FROM_ADDRESS);
+}
 
 export function getEmailProvider(): EmailProvider {
   if (cachedProvider) return cachedProvider;

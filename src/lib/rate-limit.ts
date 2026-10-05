@@ -23,16 +23,26 @@ export async function isRateLimited(key: string, maxAttempts: number, windowMs: 
 const purgeRetentionMs = 24 * 60 * 60 * 1000;
 const purgeProbability = 0.02;
 
+/**
+ * Supprime les traces de sécurité expirées : tentatives de plus de 24 h,
+ * codes et liens périmés. Appelée à chaque passage du planificateur (toutes
+ * les heures en production) — la durée de vie est donc bornée à environ
+ * 25 h — et, en plus, de temps en temps à la volée.
+ */
+export async function purgeExpiredSecurityRecords(): Promise<void> {
+  const cutoff = new Date(Date.now() - purgeRetentionMs);
+  const now = new Date();
+  await Promise.all([
+    prisma.rateLimitEvent.deleteMany({ where: { createdAt: { lt: cutoff } } }),
+    prisma.twoFactorCode.deleteMany({ where: { expiresAt: { lt: now } } }),
+    prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: now } } }),
+  ]);
+}
+
 async function maybePurgeExpiredSecurityRecords(): Promise<void> {
   if (Math.random() >= purgeProbability) return;
   try {
-    const cutoff = new Date(Date.now() - purgeRetentionMs);
-    const now = new Date();
-    await Promise.all([
-      prisma.rateLimitEvent.deleteMany({ where: { createdAt: { lt: cutoff } } }),
-      prisma.twoFactorCode.deleteMany({ where: { expiresAt: { lt: now } } }),
-      prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: now } } }),
-    ]);
+    await purgeExpiredSecurityRecords();
   } catch {
     // Best-effort : une purge manquée ne doit jamais faire échouer l'action
     // qui vient de vérifier ou d'enregistrer une limite de débit.

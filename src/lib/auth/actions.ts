@@ -1,5 +1,7 @@
 "use server";
 
+import { loginFailedMetadata } from "@/lib/audit-metadata";
+import { rateLimitKey } from "@/lib/privacy";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -35,17 +37,20 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   }
 
   const ip = await requestIp();
-  if (await isRateLimited(`login:${email}`, loginMaxAttempts, loginWindowMs) || await isRateLimited(`login:ip:${ip}`, loginMaxAttempts * 3, loginWindowMs)) {
+  // Adresse et IP en empreinte (privacy.ts) : la limite tient, sans les garder en clair.
+  const emailKey = rateLimitKey("login", email);
+  const ipKey = rateLimitKey("login:ip", ip ?? "");
+  if (await isRateLimited(emailKey, loginMaxAttempts, loginWindowMs) || await isRateLimited(ipKey, loginMaxAttempts * 3, loginWindowMs)) {
     return { error: "Trop de tentatives. Merci de réessayer dans quelques minutes." };
   }
-  await recordAttempt(`login:${email}`);
-  await recordAttempt(`login:ip:${ip}`);
+  await recordAttempt(emailKey);
+  await recordAttempt(ipKey);
 
   const user = await findActiveUserByEmail(email);
   const valid = user?.active ? await verifyPassword(user.passwordHash, password) : false;
 
   if (!user || !valid) {
-    await logAudit({ userId: user?.id, action: "LOGIN_FAILED", metadata: { email } });
+    await logAudit({ userId: user?.id, action: "LOGIN_FAILED", metadata: loginFailedMetadata(email) });
     return { error: "Email ou mot de passe incorrect." };
   }
 

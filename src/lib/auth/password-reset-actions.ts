@@ -1,5 +1,6 @@
 "use server";
 
+import { rateLimitKey } from "@/lib/privacy";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/credentials";
@@ -23,11 +24,12 @@ export async function requestPasswordReset(_prevState: RequestResetState, formDa
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) return { error: "Merci de renseigner votre email." };
 
-  if (await isRateLimited(`reset:${email}`, requestMaxAttempts, requestWindowMs)) {
+  const resetKey = rateLimitKey("reset", email);
+  if (await isRateLimited(resetKey, requestMaxAttempts, requestWindowMs)) {
     // Réponse volontairement identique : ne jamais laisser deviner si l'email existe.
     return { message: genericMessage };
   }
-  await recordAttempt(`reset:${email}`);
+  await recordAttempt(resetKey);
 
   const user = await prisma.user.findUnique({ where: { email } });
 

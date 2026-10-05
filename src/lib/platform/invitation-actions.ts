@@ -1,5 +1,6 @@
 "use server";
 
+import { invitationSentMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -70,7 +71,7 @@ export async function createInvitationAction(input: { email: string; organizatio
     action: "INVITATION_SENT",
     entityType: "Invitation",
     entityId: invitation.id,
-    metadata: { email, organizationName, emailSent },
+    metadata: invitationSentMetadata(emailSent),
   });
 
   revalidatePath("/plateforme");
@@ -168,7 +169,7 @@ export async function acceptInvitationAction(_state: AcceptInvitationState, form
     action: "ORGANIZATION_CREATED",
     entityType: "Organization",
     entityId: created.organizationId,
-    metadata: { invitationId: invitation.id, organizationName },
+    metadata: { invitationId: invitation.id },
   });
 
   await openSession(created.userId);

@@ -1,5 +1,6 @@
 "use server";
 
+import { animalDeletedMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { dbFor } from "@/lib/db";
@@ -329,7 +330,7 @@ export async function deleteAnimalAction(animalId: string): Promise<ClientAction
   if (!animal) return { ok: false, error: "Animal introuvable." };
 
   await db.animal.delete({ where: { id: animalId } });
-  await logAudit({ userId: user.id, action: "ANIMAL_DELETED", entityType: "Animal", entityId: animalId, metadata: { clientId: animal.clientId, name: animal.name } });
+  await logAudit({ userId: user.id, action: "ANIMAL_DELETED", entityType: "Animal", entityId: animalId, metadata: animalDeletedMetadata(animal.clientId) });
 
   revalidatePath(`/dashboard/clients/${animal.clientId}`);
   revalidatePath("/dashboard/clients");

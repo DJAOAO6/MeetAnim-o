@@ -1,5 +1,6 @@
 "use server";
 
+import { rateLimitKey } from "@/lib/privacy";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -879,15 +880,17 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   const genericRetryError = "Impossible de traiter cette demande pour le moment. Merci de réessayer dans quelques instants.";
 
   const ip = await requestIp();
-  const emailKey = (input.ownerEmail ?? "").trim().toLowerCase();
+  const ownerEmail = (input.ownerEmail ?? "").trim().toLowerCase();
+  const ipKey = rateLimitKey("public-booking:ip", ip ?? "");
+  const emailKey = ownerEmail ? rateLimitKey("public-booking:email", ownerEmail) : "";
   if (
-    await isRateLimited(`public-booking:ip:${ip}`, bookingIpMaxAttempts, bookingIpWindowMs)
-    || (emailKey && await isRateLimited(`public-booking:email:${emailKey}`, bookingEmailMaxAttempts, bookingEmailWindowMs))
+    await isRateLimited(ipKey, bookingIpMaxAttempts, bookingIpWindowMs)
+    || (emailKey && await isRateLimited(emailKey, bookingEmailMaxAttempts, bookingEmailWindowMs))
   ) {
     return { ok: false, error: "Trop de demandes envoyées récemment. Merci de réessayer dans quelques minutes." };
   }
-  await recordAttempt(`public-booking:ip:${ip}`);
-  if (emailKey) await recordAttempt(`public-booking:email:${emailKey}`);
+  await recordAttempt(ipKey);
+  if (emailKey) await recordAttempt(emailKey);
 
   // Signal anti-bot best-effort : un envoi plus rapide que le temps humain
   // plausible pour remplir le tunnel est traité comme suspect, avec un
@@ -1114,11 +1117,11 @@ const occupiedSlotsWindowMs = 5 * 60 * 1000;
  */
 export async function getOccupiedSlotsAction(slug: string | null, fromDateId: string, toDateId: string): Promise<OccupiedSlots> {
   const ip = await requestIp();
-  const rateLimitKey = `occupied-slots:ip:${ip}`;
-  if (await isRateLimited(rateLimitKey, occupiedSlotsMaxAttempts, occupiedSlotsWindowMs)) {
+  const occupiedKey = rateLimitKey("occupied-slots:ip", ip ?? "");
+  if (await isRateLimited(occupiedKey, occupiedSlotsMaxAttempts, occupiedSlotsWindowMs)) {
     throw new Error("Trop de requêtes. Merci de réessayer dans quelques instants.");
   }
-  await recordAttempt(rateLimitKey);
+  await recordAttempt(occupiedKey);
 
   // Deux appelants : la page publique, qui désigne son cabinet par le lien
   // suivi, et la fenêtre de rendez-vous du praticien, qui est connecté.

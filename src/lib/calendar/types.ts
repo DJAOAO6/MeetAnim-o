@@ -55,6 +55,8 @@ export interface CalendarProvider {
   /** Ne doit jamais lever si l'événement est déjà absent côté provider (supprimé manuellement) — voir l'implémentation Google. */
   deleteEvent(accessToken: string, calendarId: string, externalEventId: string): Promise<void>;
   getBusyPeriods(accessToken: string, calendarId: string, fromIso: string, toIso: string): Promise<BusyPeriod[]>;
+  /** Révoque le jeton chez le prestataire (déconnexion, effacement). Lève en cas de refus. */
+  revokeToken(token: string): Promise<void>;
 }
 
 /** Erreur distincte d'une panne réseau générique : le refresh token n'est plus valide, la connexion doit être proposée à la reconnexion plutôt que réessayée. */

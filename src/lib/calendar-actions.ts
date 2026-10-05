@@ -1,5 +1,7 @@
 "use server";
 
+import { providerFor } from "@/lib/calendar/calendar-connections";
+import { decryptCalendarToken } from "@/lib/calendar/calendar-encryption";
 import { requireModule } from "@/lib/module-access";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -17,6 +19,16 @@ export async function disconnectGoogleCalendarAction(): Promise<CalendarActionRe
 
   const connection = await prisma.calendarConnection.findUnique({ where: { userId_provider: { userId: user.id, provider: "GOOGLE" } } });
   if (!connection) return { ok: false, error: "Aucune connexion Google Agenda à déconnecter." };
+
+  // Révoquer d'abord l'accès chez Google : supprimer la connexion locale seule
+  // laisserait l'application autorisée sur le compte. Au mieux : un échec
+  // (réseau, jeton déjà révoqué) est journalisé, sans donnée personnelle, et
+  // n'empêche pas la déconnexion.
+  try {
+    await providerFor("GOOGLE").revokeToken(decryptCalendarToken(connection.refreshTokenEncrypted));
+  } catch (error) {
+    console.warn(`[google] révocation du jeton impossible (connexion ${connection.id}) : ${error instanceof Error ? error.message : "erreur inconnue"}`);
+  }
 
   // onDelete: Cascade supprime les liaisons AppointmentCalendarEvent avec —
   // les rendez-vous internes ne sont jamais touchés (voir schema.prisma).

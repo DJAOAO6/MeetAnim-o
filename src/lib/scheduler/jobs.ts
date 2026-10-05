@@ -1,4 +1,6 @@
 import "server-only";
+import { purgeExpiredSecurityRecords } from "@/lib/rate-limit";
+import { redactEmails } from "@/lib/privacy";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { OPEN_ORGANIZATION_WHERE } from "@/lib/organization-status";
 import { hasModule } from "@/lib/modules";
@@ -28,11 +30,15 @@ async function markDueFollowUps(db: ScopedPrismaClient, now: Date): Promise<numb
  * chez l'un priverait tous les autres de leurs rappels.
  */
 export async function runScheduledJobs(now: Date = new Date(), options: { organizationId?: string } = {}) {
+  // Traces de sécurité expirées (tentatives de connexion, codes) : purgées à
+  // chaque passage, quel que soit l'espace. Une panne ici n'arrête pas le reste.
+  const securityPurge = await purgeExpiredSecurityRecords().then(() => true, () => false);
+
   // Espaces ouverts seulement : un espace suspendu n'envoie plus rien à ses
   // clients — ni rappel, ni relance — et ne génère plus de tournée.
   const organizations = await prisma.organization.findMany({
     where: { ...OPEN_ORGANIZATION_WHERE, ...(options.organizationId ? { id: options.organizationId } : {}) },
-    select: { id: true, name: true, modules: true },
+    select: { id: true, modules: true },
   });
   const errors: string[] = [];
   let followUpsDue = 0;
@@ -50,7 +56,7 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
     ]);
 
     for (const result of [followUps, tourRuns, reminders]) {
-      if (result.status === "rejected") errors.push(`${organization.name} : ${String(result.reason)}`);
+      if (result.status === "rejected") errors.push(`${organization.id} : ${redactEmails(String(result.reason))}`);
     }
     if (followUps.status === "fulfilled") followUpsDue += followUps.value;
     if (tourRuns.status === "fulfilled") tourRunsGenerated += tourRuns.value.created;
@@ -68,7 +74,7 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   }
 
   return {
-    ok: errors.length === 0,
+    ok: errors.length === 0 && securityPurge,
     organizations: organizations.length,
     followUpsDue,
     tourRunsGenerated,

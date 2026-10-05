@@ -39,6 +39,17 @@ export async function register() {
     console.warn("[plateforme] synchronisation du rôle impossible :", error instanceof Error ? error.message : error);
   }
 
+  // Production sans Mailjet : rien ne part, et rien de personnel n'est écrit
+  // dans les journaux à la place (voir ConsoleEmailProvider). On le dit
+  // haut et fort au démarrage plutôt que de le découvrir au premier client
+  // qui n'a pas reçu sa confirmation.
+  if (process.env.NODE_ENV === "production") {
+    const { emailConfigured } = await import("@/lib/email/provider");
+    if (!emailConfigured()) {
+      console.warn("[email] ATTENTION : Mailjet n'est pas configuré (MAILJET_API_KEY, MAILJET_API_SECRET, MAIL_FROM_ADDRESS). Aucun email n'est envoyé ; seuls le destinataire masqué et le sujet sont journalisés.");
+    }
+  }
+
   const override = process.env.SCHEDULER_ENABLED;
   const enabled = override === undefined ? process.env.NODE_ENV === "production" : override === "1";
   if (!enabled) return;

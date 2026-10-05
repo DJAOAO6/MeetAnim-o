@@ -1,4 +1,5 @@
 import "server-only";
+import { redactEmails } from "@/lib/privacy";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { moduleOpenFor } from "@/lib/organization";
 import { getActiveConnectionsForProvider, getFreshAccessToken, providerFor } from "@/lib/calendar/calendar-connections";
@@ -119,7 +120,8 @@ async function syncOneConnection(db: ScopedPrismaClient, connection: DbCalendarC
   } catch (error) {
     // Jamais le jeton dans le log — seulement le message d'erreur (étape 22
     // du chantier calendrier).
-    const message = error instanceof Error ? error.message : "Erreur de synchronisation inconnue.";
+    // Ni adresse email : les réponses d'erreur de Google en recopient parfois.
+    const message = redactEmails(error instanceof Error ? error.message : "Erreur de synchronisation inconnue.");
     console.error(`[calendar-sync] échec (connexion ${connection.id}, rendez-vous ${appointment.id}) : ${message}`);
     await prisma.calendarConnection.update({ where: { id: connection.id }, data: { lastError: message } }).catch(() => {});
     if (existingLink) {

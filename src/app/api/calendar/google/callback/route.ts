@@ -1,4 +1,5 @@
 import { hasModule } from "@/lib/modules";
+import { calendarConnectedMetadata } from "@/lib/audit-metadata";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/dal";
 import { prisma } from "@/lib/db";
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
       },
     });
 
-    await logAudit({ userId: user.id, action: "CALENDAR_CONNECTED", entityType: "CalendarConnection", metadata: { provider: "GOOGLE", accountEmail: tokens.accountEmail } });
+    await logAudit({ userId: user.id, action: "CALENDAR_CONNECTED", entityType: "CalendarConnection", metadata: calendarConnectedMetadata() });
 
     return redirectWith("connected=google");
   } catch (error) {
