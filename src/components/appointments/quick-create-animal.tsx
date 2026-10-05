@@ -1,24 +1,23 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { PawPrint } from "lucide-react";
-import { Field, inputClassName } from "@/components/settings/settings-fields";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { createAnimalAction } from "@/lib/clients-actions";
-import { animalSpeciesList } from "@/data/species";
+import { AnimalPlacePicker, resolvePlaceChoice, type AnimalPlaceChoice } from "@/components/clients/animal-place-picker";
+import { AnimalFields, animalInputFrom, emptyAnimalDraft, focusFirstAnimalError, validateAnimalDraft, withoutChangedErrors, type AnimalDraft } from "@/components/clients/animal-fields";
+import type { AnimalFieldErrors } from "@/lib/animal-validation";
 import type { ClientPickerAnimal } from "@/data/clients";
 
-const sexOptions = ["Mâle", "Femelle"] as const;
+const ID_PREFIX = "quick-animal";
 
 /**
  * Création d'un animal sans quitter le rendez-vous, rattaché au client
  * sélectionné, via createAnimalAction — l'action de la fiche client.
  *
- * Seul le nom est obligatoire côté serveur ; l'espèce l'est ici aussi car
- * elle détermine l'avatar et la couleur de l'animal dans l'agenda. Tout le
- * reste peut attendre : au téléphone, on ne demande pas la date de naissance
- * exacte du chien avant de poser un rendez-vous.
+ * Les champs sont exactement ceux de la fiche animal (AnimalFields) : un
+ * animal ajouté en vitesse n'est pas une fiche au rabais. Seuls le nom,
+ * l'espèce et le sexe sont obligatoires ; le reste peut attendre.
  */
 export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: {
   clientId: string;
@@ -26,12 +25,9 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
   onCreated: (animal: ClientPickerAnimal) => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [species, setSpecies] = useState<string>(animalSpeciesList[0]);
-  const [breed, setBreed] = useState("");
-  const [sex, setSex] = useState<string>("");
-  const [birthDate, setBirthDate] = useState("");
-  const [weight, setWeight] = useState("");
+  const [draft, setDraft] = useState<AnimalDraft>(emptyAnimalDraft);
+  const [placeChoice, setPlaceChoice] = useState<AnimalPlaceChoice>({ choice: "home" });
+  const [errors, setErrors] = useState<AnimalFieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -39,22 +35,19 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
     event.preventDefault();
     if (pending) return;
     setError(null);
+    const fieldErrors = validateAnimalDraft(draft);
+    setErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) {
+      focusFirstAnimalError(ID_PREFIX, fieldErrors);
+      return;
+    }
     setPending(true);
 
-    // La date de naissance est enregistrée : l'âge en est calculé à la lecture.
-    const result = await createAnimalAction(clientId, {
-      name,
-      species,
-      breed,
-      age: "",
-      birthDate: birthDate || null,
-      weight,
-      sex,
-      history: "",
-      conditions: "",
-      treatments: "",
-      notes: "",
-    });
+    const resolved = await resolvePlaceChoice(placeChoice);
+    if (!resolved.ok) { setPending(false); setError(resolved.error); return; }
+    setPlaceChoice(resolved.choice);
+
+    const result = await createAnimalAction(clientId, { ...animalInputFrom(draft), placeId: resolved.place?.id ?? null });
     setPending(false);
     if (!result.ok) { setError(result.error); return; }
 
@@ -64,7 +57,7 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
   return (
     <Modal
       title="Ajout rapide d’un animal"
-      description={`L’animal sera rattaché à la fiche de ${clientName}.`}
+      description={`L’animal sera rattaché à la fiche de ${clientName}. Les champs marqués d’un astérisque sont obligatoires.`}
       onClose={onClose}
       size="lg"
       footer={
@@ -76,53 +69,10 @@ export function QuickCreateAnimal({ clientId, clientName, onCreated, onClose }: 
         </div>
       }
     >
-      <form id="quick-create-animal" onSubmit={submit} className="space-y-4">
+      <form id="quick-create-animal" onSubmit={submit} noValidate className="space-y-5">
         {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nom *">
-            <input value={name} onChange={(event) => setName(event.target.value)} className={inputClassName} required autoFocus autoComplete="off" />
-          </Field>
-          <Field label="Espèce *">
-            <select value={species} onChange={(event) => setSpecies(event.target.value)} className={inputClassName}>
-              {animalSpeciesList.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </Field>
-          <Field label="Race">
-            <input value={breed} onChange={(event) => setBreed(event.target.value)} className={inputClassName} placeholder="Berger australien" autoComplete="off" />
-          </Field>
-          <Field label="Poids">
-            <input value={weight} onChange={(event) => setWeight(event.target.value)} className={inputClassName} placeholder="24 kg" autoComplete="off" />
-          </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Sexe *</span>
-            <div className="inline-flex gap-1 rounded-xl bg-animeo-bg p-1" role="group" aria-label="Sexe de l’animal">
-              {sexOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={sex === option}
-                  onClick={() => setSex((current) => (current === option ? "" : option))}
-                  className={`min-h-9 rounded-lg px-4 text-sm font-extrabold transition ${sex === option ? "bg-animeo-surface text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Field label="Date de naissance">
-            <input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className={inputClassName} />
-          </Field>
-        </div>
-
-        <p className="flex items-start gap-2 rounded-xl bg-animeo-bg px-4 py-3 text-xs text-animeo-muted">
-          <PawPrint aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-          Antécédents, traitements et photo se complètent depuis la fiche de l’animal — rien ne bloque la prise de
-          rendez-vous.
-        </p>
+        <AnimalFields idPrefix={ID_PREFIX} draft={draft} onChange={(patch) => { setDraft((current) => ({ ...current, ...patch })); setErrors((current) => withoutChangedErrors(current, patch)); }} errors={errors} />
+        <AnimalPlacePicker value={placeChoice} onChange={setPlaceChoice} />
       </form>
     </Modal>
   );

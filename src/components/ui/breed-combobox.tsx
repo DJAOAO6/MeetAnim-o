@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { bookingInputClassName } from "@/components/booking/booking-ui";
 import { isKnownBreed, searchBreeds } from "@/data/breeds";
 import type { PublicAnimalType } from "@/data/public-booking";
 
 type BreedComboboxProps = {
   id?: string;
+  /** Style du champ : celui de la page publique, ou celui de l'espace professionnel. */
+  inputClassName: string;
+  ariaInvalid?: boolean;
   species: PublicAnimalType;
   value: string;
   onChange: (value: string) => void;
@@ -16,7 +18,7 @@ type BreedComboboxProps = {
   ariaDescribedBy?: string;
 };
 
-export function BreedCombobox({ id, species, value, onChange, onCommit, placeholder, inputRef, ariaDescribedBy }: BreedComboboxProps) {
+export function BreedCombobox({ id, inputClassName, ariaInvalid, species, value, onChange, onCommit, placeholder, inputRef, ariaDescribedBy }: BreedComboboxProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,8 @@ export function BreedCombobox({ id, species, value, onChange, onCommit, placehol
         onBlur={() => { setOpen(false); onCommit?.(); }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className={bookingInputClassName}
+        aria-invalid={ariaInvalid || undefined}
+        className={inputClassName}
       />
 
       {open && matches.length > 0 ? (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Field, inputClassName } from "@/components/settings/settings-fields";
-import { listPlacesAction } from "@/lib/places-actions";
+import { listPlacesAction, savePlaceAction } from "@/lib/places-actions";
 import { animalPlaceKindLabels, animalPlaceKinds, type AnimalPlaceKind, type AnimalPlaceRef } from "@/data/places";
 
 export type NewPlaceDraft = { name: string; kind: AnimalPlaceKind; address: string; postalCode: string; city: string };
@@ -17,6 +17,24 @@ export type AnimalPlaceChoice =
   | { choice: "new"; draft: NewPlaceDraft };
 
 export const emptyPlaceDraft: NewPlaceDraft = { name: "", kind: "HARAS", address: "", postalCode: "", city: "" };
+
+/**
+ * Le lieu à enregistrer avec l'animal : null pour « chez son propriétaire » ;
+ * un nouveau lieu est d'abord créé (et localisé). `choice` est le nouvel état
+ * du sélecteur — un lieu créé devient un lieu existant, pour ne pas le
+ * recréer si l'enregistrement de l'animal échoue ensuite.
+ */
+export async function resolvePlaceChoice(value: AnimalPlaceChoice, currentPlace?: AnimalPlaceRef | null): Promise<{ ok: true; place: AnimalPlaceRef | null; choice: AnimalPlaceChoice } | { ok: false; error: string }> {
+  if (value.choice === "home") return { ok: true, place: null, choice: value };
+  if (value.choice === "new") {
+    const created = await savePlaceAction({ ...value.draft, notes: "" });
+    if (!created.ok) return { ok: false, error: created.error };
+    return { ok: true, place: created.place, choice: { choice: "existing", placeId: created.place.id, place: created.place } };
+  }
+  const place = value.place ?? (currentPlace?.id === value.placeId ? currentPlace : null);
+  if (!place) return { ok: false, error: "Choisissez le lieu où vit l’animal." };
+  return { ok: true, place, choice: value };
+}
 
 export function AnimalPlacePicker({ value, onChange, currentPlace }: {
   value: AnimalPlaceChoice;

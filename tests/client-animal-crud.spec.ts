@@ -88,18 +88,23 @@ test.describe("CRUD client et animal", () => {
     await page.waitForTimeout(600);
     await page.getByRole("button", { name: "Ajouter un animal" }).first().click();
     const dialog = page.locator('section[role="dialog"]');
-    await dialog.getByLabel("Nom", { exact: true }).fill("RexE2E");
-    // Le sexe est obligatoire : sans lui, le serveur refuse.
+    await dialog.getByLabel("Nom *", { exact: true }).fill("RexE2E");
+    // Espèce et sexe sont obligatoires : sans eux, refus, message sous chaque champ.
     await dialog.getByRole("button", { name: "Ajouter l’animal" }).click();
-    await expect(dialog.getByRole("alert")).toContainText("sexe");
-    await dialog.getByLabel("Sexe").selectOption("Femelle");
+    await expect(dialog.getByText("Choisissez l’espèce.")).toBeVisible();
+    await expect(dialog.getByLabel("Espèce *")).toBeFocused();
+    await dialog.getByLabel("Espèce *").selectOption("Chien");
+    await dialog.getByRole("button", { name: "Ajouter l’animal" }).click();
+    await expect(dialog.getByText("Indiquez le sexe de l’animal.")).toBeVisible();
+    await dialog.getByText("Femelle", { exact: true }).click();
+    await dialog.getByText("Stérilisée", { exact: true }).click();
     await dialog.getByRole("button", { name: "Ajouter l’animal" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
     const [animal] = await sql`SELECT name, species, sex FROM "Animal" WHERE "clientId" = 'tmp-crud-client2'`;
     expect(animal).toBeTruthy();
     expect(animal.name).toBe("RexE2E");
-    expect(animal.sex).toBe("Femelle");
+    expect(animal.sex).toBe("Femelle stérilisée");
     await expect(page.getByText("RexE2E").first()).toBeVisible();
   });
 
@@ -116,7 +121,7 @@ test.describe("CRUD client et animal", () => {
     await page.getByRole("button", { name: "Modifier" }).last().click();
     await page.waitForTimeout(400);
     const dialog = page.locator('section[role="dialog"]');
-    await dialog.getByLabel("Nom", { exact: true }).fill("ApresEdit");
+    await dialog.getByLabel("Nom *", { exact: true }).fill("ApresEdit");
     await dialog.getByRole("button", { name: "Enregistrer les modifications" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
@@ -134,7 +139,7 @@ test.describe("CRUD client et animal", () => {
     await page.waitForTimeout(600);
     await page.getByRole("button", { name: "Modifier la fiche de Mistigri" }).click();
     const dialog = page.locator('section[role="dialog"]');
-    await dialog.getByLabel("Espèce").selectOption("Chat");
+    await dialog.getByLabel("Espèce *").selectOption("Chat");
     await dialog.getByRole("button", { name: "Enregistrer les modifications" }).click();
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 

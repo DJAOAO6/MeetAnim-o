@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
 import { BirthDatePicker } from "@/components/booking/birth-date-picker";
-import { BreedCombobox } from "@/components/booking/breed-combobox";
+import { BreedCombobox } from "@/components/ui/breed-combobox";
 import { BookingActions, BookingField, StepHeading, bookingErrorInputClassName, bookingFieldDescribedBy, bookingInputClassName, bookingTextareaClassName } from "@/components/booking/booking-ui";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { breedFieldLabel } from "@/data/breeds";
@@ -523,6 +523,7 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
             <BookingField id="booking-details-breed" label={breedFieldLabel[animal.species]} hint="Facultatif">
               <BreedCombobox
                 id="booking-details-breed"
+                inputClassName={bookingInputClassName}
                 species={animal.species}
                 value={animal.breed}
                 onChange={(value) => updateAnimal("breed", value)}

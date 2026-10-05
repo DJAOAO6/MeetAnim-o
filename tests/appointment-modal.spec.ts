@@ -154,9 +154,22 @@ test("créer un client puis son animal sans quitter le rendez-vous, et enregistr
   // s'ouvre d'elle-même.
   await expect(page.getByRole("heading", { name: "Ajout rapide d’un animal" })).toBeVisible({ timeout: 15000 });
   const animalForm = page.locator("form#quick-create-animal");
+  // Les mêmes champs que la fiche animal, sans le texte « se complètent depuis la fiche ».
+  await expect(animalForm.getByLabel("Antécédents")).toBeVisible();
+  await expect(animalForm.getByText(/se complètent depuis la fiche/)).toHaveCount(0);
   await animalForm.getByLabel("Nom *", { exact: true }).fill("Milou");
-  await animalForm.getByLabel("Race").fill("Fox-terrier");
-  await animalForm.getByRole("button", { name: "Mâle" }).click();
+  await animalForm.getByLabel("Espèce *").selectOption("Chien");
+  // Race suggérée selon l'espèce.
+  await animalForm.getByLabel("Race").fill("fox terrier à poil d");
+  await page.getByRole("option", { name: "Fox Terrier à poil dur" }).click();
+  await animalForm.getByLabel("Date de naissance").fill("2022-04-15");
+  await expect(animalForm.getByLabel("Âge")).toBeDisabled();
+  // Sans sexe : refusé, le message sous le champ, le focus dessus.
+  await page.getByRole("button", { name: "Ajouter l’animal et continuer" }).click();
+  await expect(animalForm.getByText("Indiquez le sexe de l’animal.")).toBeVisible();
+  await expect(animalForm.getByRole("radio", { name: "Mâle" })).toBeFocused();
+  await animalForm.getByText("Mâle", { exact: true }).click();
+  await expect(animalForm.getByRole("radio", { name: "Mâle" })).toBeChecked();
   await page.getByRole("button", { name: "Ajouter l’animal et continuer" }).click();
   await expect(page.getByRole("heading", { name: "Ajout rapide d’un animal" })).toHaveCount(0, { timeout: 15000 });
 
@@ -176,6 +189,13 @@ test("créer un client puis son animal sans quitter le rendez-vous, et enregistr
   expect(rows.length, "le rendez-vous doit exister en base").toBe(1);
   expect(rows[0].animalName).toBe("Milou");
   expect(rows[0].start).toBe("16:30");
+
+  // La fiche de l'animal contient la race suggérée, la date de naissance et le sexe.
+  const [animal] = await sql`SELECT a.breed, a.sex, to_char(a."birthDate", 'YYYY-MM-DD') AS "birthDate", c.id AS "clientId" FROM "Animal" a JOIN "Client" c ON c.id = a."clientId" WHERE c."lastName" = 'Tournesol'`;
+  expect(animal).toMatchObject({ breed: "Fox Terrier à poil dur", sex: "Mâle", birthDate: "2022-04-15" });
+  await page.goto(`/dashboard/clients/${animal.clientId}`, { waitUntil: "networkidle" });
+  await expect(page.getByText("Fox Terrier à poil dur").first()).toBeVisible();
+  await expect(page.getByText(/^\d+ ans( et \d+ mois)?$/).first()).toBeVisible();
 });
 
 test("le centre de gestion filtre, sélectionne et propose les actions du statut", async ({ page }) => {
