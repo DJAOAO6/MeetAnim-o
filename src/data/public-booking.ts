@@ -1,4 +1,5 @@
 import type { PracticeMode } from "@/lib/practice-mode";
+import type { ServiceArea } from "@/lib/service-area";
 import type { PublicHoursRow } from "@/lib/public-hours";
 
 export type BookingMode = "CABINET" | "HOME";
@@ -58,6 +59,8 @@ export type PublicProfessional = {
   company: string;
   bio: string;
   location: string;
+  /** Secteur d'intervention (commune et rayon), s'il a été choisi. */
+  serviceArea: ServiceArea | null;
   cabinetAddress: string;
   cabinetPostalCode: string;
   cabinetCity: string;

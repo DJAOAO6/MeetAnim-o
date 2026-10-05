@@ -15,6 +15,8 @@ type AddressAutocompleteProps = {
   // de réutiliser ce composant avec leur propre style d'input plutôt que
   // celui de la page de réservation.
   inputClassName?: string;
+  /** « municipality » : des communes seulement (secteur d'intervention). */
+  kind?: "address" | "municipality";
   // Relié par l'appelant à son propre message d'indice/erreur (voir
   // bookingFieldDescribedBy, src/components/booking/booking-ui.tsx) : ce
   // composant ne connaît pas ce contexte lui-même.
@@ -25,7 +27,7 @@ type AddressAutocompleteProps = {
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 300;
 
-export function AddressAutocomplete({ id, value, placeholder, required, onQueryChange, onSelect, inputClassName = bookingInputClassName, ariaDescribedBy, ariaInvalid }: AddressAutocompleteProps) {
+export function AddressAutocomplete({ id, value, placeholder, required, onQueryChange, onSelect, inputClassName = bookingInputClassName, kind = "address", ariaDescribedBy, ariaInvalid }: AddressAutocompleteProps) {
   const [results, setResults] = useState<GeocodedAddress[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,7 +65,7 @@ export function AddressAutocomplete({ id, value, placeholder, required, onQueryC
     abortRef.current = controller;
     setLoading(true);
 
-    fetch(`/api/address-search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+    fetch(`/api/address-search?q=${encodeURIComponent(trimmed)}${kind === "municipality" ? "&type=municipality" : ""}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error("address search request failed");
         return response.json() as Promise<AddressSearchResponse>;

@@ -915,6 +915,12 @@ model BusinessProfile {
   postalCode               String
   city                     String
   location                 String
+  // Secteur d'intervention (C4) : commune de départ, coordonnées, rayon en
+  // km (vide = pas de limite). `location` en est alors généré.
+  serviceAreaLabel     String?
+  serviceAreaLatitude  Float?
+  serviceAreaLongitude Float?
+  serviceAreaRadiusKm  Int?
   latitude                 Float?
   longitude                Float?
   bio                      String       @db.Text

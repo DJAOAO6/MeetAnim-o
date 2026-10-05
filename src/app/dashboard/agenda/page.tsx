@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { serviceAreaOf } from "@/lib/service-area";
 import { AgendaView } from "@/components/agenda/agenda-view";
 import { getBlockedSlots } from "@/lib/blocked-slots-actions";
 import { getAvailability, getBusinessProfile } from "@/lib/business-profile-actions";
@@ -30,6 +31,7 @@ export default async function AgendaPage() {
       tourAppointments={tourAppointments}
       initialBlockedSlots={blockedSlots}
       practiceMode={profile.practiceMode}
+      serviceArea={serviceAreaOf(profile)}
       initialDisplay={display}
     />
   );

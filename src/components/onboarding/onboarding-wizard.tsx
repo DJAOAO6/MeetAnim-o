@@ -1,5 +1,6 @@
 "use client";
 
+import { ServiceAreaFields, serviceAreaFields, serviceAreaUnconfirmed, type ServiceAreaDraft } from "@/components/settings/service-area-fields";
 import { serviceOfferLabel } from "@/lib/service-offer";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
@@ -144,8 +145,9 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
           <TravelStep
             profile={profile}
             availability={availability}
-            onSubmit={async (location, travelBuffer) => {
-              const error = await saveProfile({ ...profile, location });
+            onSubmit={async (area, travelBuffer) => {
+              // Le texte public (`location`) est généré par le serveur depuis le secteur.
+              const error = await saveProfile({ ...profile, ...serviceAreaFields(area) });
               if (error) return error;
               return saveAvailability({ ...availability, travelBuffer });
             }}
@@ -666,18 +668,29 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
 function TravelStep({ profile, availability, onSubmit, onBack, onDone }: {
   profile: BusinessProfileData;
   availability: AvailabilitySettings;
-  onSubmit: (location: string, travelBuffer: number) => Promise<string | null>;
+  onSubmit: (area: ServiceAreaDraft, travelBuffer: number) => Promise<string | null>;
   onBack: () => void;
   onDone: () => void;
 }) {
-  const [location, setLocation] = useState(profile.location);
+  // Secteur déjà choisi, sinon la ville du cabinet (localisée) comme point de départ.
+  const [area, setArea] = useState<ServiceAreaDraft>(() => profile.serviceAreaLabel && profile.serviceAreaLatitude !== null
+    ? { label: profile.serviceAreaLabel, latitude: profile.serviceAreaLatitude, longitude: profile.serviceAreaLongitude, radiusKm: profile.serviceAreaRadiusKm }
+    : { label: profile.city && profile.latitude !== null ? profile.city : "", latitude: profile.city ? profile.latitude : null, longitude: profile.city ? profile.longitude : null, radiusKm: 30 });
   const [travelBuffer, setTravelBuffer] = useState(TRAVEL_BUFFERS.includes(availability.travelBuffer) ? availability.travelBuffer : 30);
-  const { error, pending, run } = useStepSubmit(onDone);
+  const { error, setError, pending, run } = useStepSubmit(onDone);
 
   return (
-    <StepForm error={error} pending={pending} onBack={onBack} onSubmit={() => run(() => onSubmit(location.trim(), travelBuffer))}>
+    <StepForm
+      error={error}
+      pending={pending}
+      onBack={onBack}
+      onSubmit={() => {
+        if (serviceAreaUnconfirmed(area)) return setError("Choisissez votre commune de départ dans la liste proposée.");
+        run(() => onSubmit(area, travelBuffer));
+      }}
+    >
       <p className="text-sm text-animeo-muted">Pour que vos clients sachent si vous venez jusqu’à eux, et que l’agenda laisse le temps de la route.</p>
-      <TextField id="onboarding-location" label="Secteur d’intervention" value={location} onChange={setLocation} placeholder="Rouen et 30 km autour" />
+      <ServiceAreaFields idPrefix="onboarding-area" draft={area} onChange={setArea} />
       <div>
         <label htmlFor="onboarding-travel-buffer" className={labelClassName}>Temps de route entre deux rendez-vous à domicile</label>
         <select id="onboarding-travel-buffer" value={travelBuffer} onChange={(event) => setTravelBuffer(Number(event.target.value))} className={`${inputClassName} max-w-48`}>

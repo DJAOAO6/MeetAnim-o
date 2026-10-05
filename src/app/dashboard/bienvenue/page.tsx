@@ -27,7 +27,7 @@ export default async function WelcomePage() {
   // entière (horaires, rappels, brouillons de page publique…).
   const profile: BusinessProfileData = {
     firstName: row.firstName, lastName: row.lastName, profession: row.profession, company: row.company, phone: row.phone, email: row.email,
-    address: row.address, postalCode: row.postalCode, city: row.city, location: row.location, bio: row.bio, slug: row.slug, photo: row.photo, logo: row.logo,
+    address: row.address, postalCode: row.postalCode, city: row.city, location: row.location, serviceAreaLabel: row.serviceAreaLabel, serviceAreaLatitude: row.serviceAreaLatitude, serviceAreaLongitude: row.serviceAreaLongitude, serviceAreaRadiusKm: row.serviceAreaRadiusKm, bio: row.bio, slug: row.slug, photo: row.photo, logo: row.logo,
     publicColor: row.publicColor, tagline: row.tagline, coverPicture: row.coverPicture, website: row.website, facebook: row.facebook, instagram: row.instagram,
     registrationNumber: row.registrationNumber, acceptedPayments: row.acceptedPayments, cabinetName: row.cabinetName, cabinetInstructions: row.cabinetInstructions,
     parkingInformation: row.parkingInformation, accessibilityInformation: row.accessibilityInformation, showPhonePublicly: row.showPhonePublicly,

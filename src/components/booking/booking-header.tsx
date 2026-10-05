@@ -34,7 +34,8 @@ export function BookingHeader({ professional }: { professional: PublicProfession
   const hasCover = Boolean(professional.coverPicture?.trim());
 
   const locationParts = [
-    professional.location.trim() ? `Basée en ${professional.location.trim()}` : null,
+    // Secteur choisi : la commune de départ ; sinon le texte libre d'avant.
+    professional.serviceArea ? `Basée à ${professional.serviceArea.label}` : professional.location.trim() ? `Basée en ${professional.location.trim()}` : null,
     hasCabinet(professional.practiceMode) && professional.cabinetAvailable && professional.cabinetCity.trim() ? professional.cabinetCity.trim() : null,
     visitsHomes(professional.practiceMode) && professional.homeAvailable ? "Déplacements à domicile" : null,
   ].filter((part): part is string => Boolean(part));

@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
   const upstreamUrl = new URL(IGN_SEARCH_URL);
   upstreamUrl.searchParams.set("q", parsedQuery.data);
   upstreamUrl.searchParams.set("index", "address");
+  // Communes seulement (secteur d'intervention) : seule valeur acceptée.
+  if (request.nextUrl.searchParams.get("type") === "municipality") upstreamUrl.searchParams.set("type", "municipality");
   upstreamUrl.searchParams.set("autocomplete", "1");
   upstreamUrl.searchParams.set("limit", String(MAX_RESULTS));
 

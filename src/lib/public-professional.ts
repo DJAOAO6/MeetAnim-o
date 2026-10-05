@@ -1,5 +1,6 @@
 import "server-only";
 
+import { serviceAreaOf } from "@/lib/service-area";
 import type { PublicProfessional } from "@/data/public-booking";
 import { getAvailability, getBusinessProfile } from "@/lib/business-profile-actions";
 import { getPublicServices } from "@/lib/services-actions";
@@ -33,6 +34,7 @@ export async function loadPublicProfessional(slug?: string): Promise<PublicProfe
     company: profile.company,
     bio: profile.bio,
     location: profile.location,
+    serviceArea: serviceAreaOf(profile),
     cabinetAddress: profile.address,
     cabinetPostalCode: profile.postalCode,
     cabinetCity: profile.city,

@@ -1,5 +1,6 @@
 "use client";
 
+import { outsideServiceArea, outsideServiceAreaMessage } from "@/lib/service-area";
 import { useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
 import { BirthDatePicker } from "@/components/booking/birth-date-picker";
 import { BreedCombobox } from "@/components/ui/breed-combobox";
@@ -117,6 +118,11 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
   // 16acbdf ; ceci reste un message informatif après coup, jamais un filtre).
   const selectedDateWeekday = formatBookingDateLabels(dateId).weekday;
   const zoneRunsOnSelectedDate = mode === "HOME" && Boolean(zone?.tourDays.includes(selectedDateWeekday));
+  // Au-delà du secteur d'intervention : on prévient, sans bloquer — le
+  // professionnel confirmera s'il peut se déplacer (C4).
+  const outsideKm = mode === "HOME" && address.latitude != null && address.longitude != null
+    ? outsideServiceArea(professional.serviceArea, { lat: address.latitude, lng: address.longitude })
+    : null;
 
   function isGroupValid(group: GroupKey): boolean {
     switch (group) {
@@ -425,6 +431,11 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
               />
             )}
           </BookingField>
+          {outsideKm !== null && professional.serviceArea ? (
+            <p role="status" className="mt-3 rounded-xl border border-animeo-warning-border bg-animeo-warning-soft px-4 py-3 text-sm font-semibold text-animeo-dark">
+              {outsideServiceAreaMessage(outsideKm, professional.serviceArea)}
+            </p>
+          ) : null}
 
           <DynamicReveal show={showAddressDetails}>
             <div className="grid gap-4 sm:grid-cols-2">

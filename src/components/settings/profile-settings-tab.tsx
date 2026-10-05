@@ -6,7 +6,8 @@ import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Field, ImagePicker, SectionTitle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import type { GeocodedAddress } from "@/data/geocoding";
 import type { ProfileSettings } from "@/data/settings";
-import { hasCabinet, PRACTICE_MODES } from "@/lib/practice-mode";
+import { hasCabinet, PRACTICE_MODES, visitsHomes } from "@/lib/practice-mode";
+import { ServiceAreaFields, serviceAreaFields, serviceAreaUnconfirmed, type ServiceAreaDraft } from "@/components/settings/service-area-fields";
 
 type ProfileSettingsTabProps = {
   value: ProfileSettings;
@@ -26,6 +27,8 @@ const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").r
 
 export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
   const [draft, setDraft] = useState(value);
+  // Secteur d'intervention : choisi par commune et rayon ; le texte public en est tiré.
+  const [area, setArea] = useState<ServiceAreaDraft>({ label: value.serviceAreaLabel ?? "", latitude: value.serviceAreaLatitude, longitude: value.serviceAreaLongitude, radiusKm: value.serviceAreaLabel ? value.serviceAreaRadiusKm : 30 });
   const [copied, setCopied] = useState(false);
   const publicLinkPrefix = `${appOrigin}/reserver/`;
   const publicLink = `${publicLinkPrefix}${draft.slug || "votre-nom"}`;
@@ -40,7 +43,12 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(draft);
+    // Une commune tapée sans être choisie n'a pas de coordonnées : on attend.
+    if (visitsHomes(draft.practiceMode) && serviceAreaUnconfirmed(area)) {
+      document.getElementById("profile-area-from")?.focus();
+      return;
+    }
+    onSave(visitsHomes(draft.practiceMode) ? { ...draft, ...serviceAreaFields(area) } : draft);
   }
 
   async function copyLink() {
@@ -78,7 +86,14 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
               <Field label="Ville"><input value={draft.city} onChange={(event) => update("city", event.target.value)} className={inputClassName} /></Field>
             </>
           ) : null}
-          <div className="md:col-span-2"><Field label="Zone d’intervention" hint="Affichée sur votre page publique, ex. « Rouen et Normandie »."><input value={draft.location} onChange={(event) => update("location", event.target.value)} className={inputClassName} /></Field></div>
+          {visitsHomes(draft.practiceMode) ? (
+            <div className="md:col-span-2">
+              <h3 className="mb-3 text-sm font-black text-animeo-dark">Secteur d’intervention</h3>
+              <ServiceAreaFields idPrefix="profile-area" draft={area} onChange={setArea} currentText={value.serviceAreaLabel ? undefined : value.location || undefined} />
+            </div>
+          ) : (
+            <div className="md:col-span-2"><Field label="Zone d’intervention" hint="Affichée sur votre page publique, ex. « Rouen et Normandie »."><input value={draft.location} onChange={(event) => update("location", event.target.value)} className={inputClassName} /></Field></div>
+          )}
           <div className="md:col-span-2"><Field label="Bio courte"><textarea value={draft.bio} onChange={(event) => update("bio", event.target.value)} className={textareaClassName} /></Field></div>
         </div>
       </Card>

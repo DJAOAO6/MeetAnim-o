@@ -53,7 +53,7 @@ test.describe("Profil — géocodage non bloquant de l'adresse du cabinet (Phase
   });
 
   test("une adresse introuvable n'empêche pas l'enregistrement et affiche un avertissement, sans deviner de position", async ({ page }) => {
-    await page.getByRole("combobox").fill(unresolvableCity);
+    await page.getByRole("combobox", { name: "Adresse du cabinet" }).fill(unresolvableCity);
     await page.getByLabel("Code postal").fill("00000");
     await page.getByLabel("Ville").fill(unresolvableCity);
     // « Mon profil » est désormais une section de l'onglet « Mon cabinet »,

@@ -1,5 +1,6 @@
 "use client";
 
+import { outsideServiceArea, type ServiceArea } from "@/lib/service-area";
 import { useEffect, useMemo, useState } from "react";
 import { Lock, Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -135,6 +136,8 @@ type PendingRequest = {
   animal: string;
   client: string;
   location: string;
+  /** Domicile au-delà du secteur d'intervention : distance arrondie, sinon null. */
+  outsideKm: number | null;
 };
 
 type AgendaViewProps = {
@@ -144,11 +147,13 @@ type AgendaViewProps = {
   tourAppointments: Record<string, TourAppointment[]>;
   initialBlockedSlots: BlockedSlot[];
   practiceMode: PracticeMode;
+  /** Secteur d'intervention : signale les demandes à domicile au-delà. */
+  serviceArea: ServiceArea | null;
   /** Affichage enregistré par le compte (ou celui par défaut). */
   initialDisplay: AgendaDisplay;
 };
 
-export function AgendaView({ clients, availability: savedAvailability, tours, tourAppointments, initialBlockedSlots, practiceMode, initialDisplay }: AgendaViewProps) {
+export function AgendaView({ clients, availability: savedAvailability, tours, tourAppointments, initialBlockedSlots, practiceMode, serviceArea, initialDisplay }: AgendaViewProps) {
   // Horaires affichés : ceux du serveur, remplacés aussitôt par ce que
   // l'agenda vient d'enregistrer (ouverture, fermeture), sans attendre de
   // rechargement. Un nouvel envoi du serveur reprend la main.
@@ -281,6 +286,10 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
       animal: appointment.animalName,
       client: appointment.clientName,
       location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
+      // Calculé à l'affichage, depuis l'adresse localisée de la demande.
+      outsideKm: appointment.mode === "home" && appointment.latitude != null && appointment.longitude != null
+        ? outsideServiceArea(serviceArea, { lat: appointment.latitude, lng: appointment.longitude })
+        : null,
     }))
     .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
 
@@ -839,6 +848,9 @@ function PendingRequestsPanel({ requests, onAction }: {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-animeo-warning-border bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.08em] text-animeo-warning">En attente</span>
                   <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>
+                  {request.outsideKm !== null ? (
+                    <span className="rounded-full bg-animeo-danger-soft px-2.5 py-1 text-xs font-black text-animeo-error" title="Adresse au-delà de votre secteur d’intervention">Hors secteur · {request.outsideKm} km</span>
+                  ) : null}
                 </div>
                 <h3 className="mt-2 text-lg font-black text-animeo-dark">{request.animal}</h3>
                 <p className="text-sm font-bold text-animeo-muted">{request.client}</p>

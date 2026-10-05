@@ -13,6 +13,11 @@ export type ProfileSettings = {
   postalCode: string;
   city: string;
   location: string;
+  /** Secteur d'intervention (C4) : commune de départ, coordonnées, rayon (null = pas de limite). */
+  serviceAreaLabel: string | null;
+  serviceAreaLatitude: number | null;
+  serviceAreaLongitude: number | null;
+  serviceAreaRadiusKm: number | null;
   bio: string;
   slug: string;
   photo: string;
@@ -197,6 +202,10 @@ export const initialSettings: SettingsState = {
     postalCode: "",
     city: "",
     location: "",
+    serviceAreaLabel: null,
+    serviceAreaLatitude: null,
+    serviceAreaLongitude: null,
+    serviceAreaRadiusKm: null,
     bio: "",
     slug: "",
     photo: "",

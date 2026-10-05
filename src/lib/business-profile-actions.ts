@@ -1,5 +1,6 @@
 "use server";
 
+import { cleanServiceArea, serviceAreaText } from "@/lib/service-area";
 import { SLUG_QUARANTINE_ERROR, slugInQuarantine } from "@/lib/organization-access";
 import { revalidatePath } from "next/cache";
 import type { ScopedPrismaClient } from "@/lib/db";
@@ -95,6 +96,15 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   const { cabinetAvailable, homeAvailable } = input;
   const profileFields = Object.fromEntries(PROFILE_FIELDS.map((key) => [key, input[key]])) as Pick<BusinessProfileData, (typeof PROFILE_FIELDS)[number]>;
   const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug };
+
+  // Secteur d'intervention : contrôlé ici, et le texte public en est généré.
+  // Sans secteur choisi, le texte libre existant reste tel quel.
+  const area = cleanServiceArea(input);
+  data.serviceAreaLabel = area?.label ?? null;
+  data.serviceAreaLatitude = area?.latitude ?? null;
+  data.serviceAreaLongitude = area?.longitude ?? null;
+  data.serviceAreaRadiusKm = area?.radiusKm ?? null;
+  if (area) data.location = serviceAreaText(area);
 
   // Ne re-géocoder que si l'adresse a réellement changé : ni gaspiller un
   // appel externe à chaque enregistrement, ni écraser de bonnes coordonnées

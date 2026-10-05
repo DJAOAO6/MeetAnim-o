@@ -86,22 +86,8 @@ export async function getAppointments(range: AppointmentRange): Promise<Appointm
     include: { animal: { select: { species: true } }, client: { select: { phone: true } } },
   });
 
-  return appointments.map((appointment) => ({
-    id: appointment.id,
-    date: toIsoDate(appointment.date),
-    start: appointment.start,
-    duration: appointment.duration,
-    clientId: appointment.clientId ?? undefined,
-    clientName: appointment.clientName,
-    clientPhone: appointment.client?.phone ?? undefined,
-    animalId: appointment.animalId ?? undefined,
-    animalName: appointment.animalName,
-    animalSpecies: (appointment.animal?.species ?? appointment.animalSpecies ?? undefined) as AnimalSpecies | undefined,
-    serviceName: appointment.serviceName,
-    mode: modeLabel[appointment.mode],
-    location: appointment.location,
-    price: appointment.price,
-    status: statusLabel[appointment.status],
-    notes: appointment.notes,
-  }));
+  // Même conversion que partout ailleurs (toAppointment) : une copie qui
+  // oubliait l'adresse et ses coordonnées privait l'agenda de la mention
+  // « hors secteur » des demandes à domicile.
+  return appointments.map(toAppointment);
 }
