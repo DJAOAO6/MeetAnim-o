@@ -39,6 +39,13 @@ export const ORGANIZATION_TABLES = [
   "BusinessProfile",
 ] as const;
 
+/**
+ * Tables de liaison implicites de Prisma (relations plusieurs-à-plusieurs) :
+ * pas de modèle, donc invisibles dans ModelName. Purgées explicitement ; le
+ * test canari vérifie qu'il n'en existe pas d'autre.
+ */
+export const JOIN_TABLES = ["_TourZones"] as const;
+
 /** Tables rattachées à un compte de l'espace (pas de colonne d'espace). */
 export const USER_TABLES = [
   "CalendarConnection",

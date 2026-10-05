@@ -82,6 +82,9 @@ export async function purgeOrganization(organizationId: string, options: { reque
     counts.ClientImport = (await tx.clientImport.deleteMany({ where })).count;
     counts.BlockedSlot = (await tx.blockedSlot.deleteMany({ where })).count;
     counts.City = (await tx.city.deleteMany({ where })).count;
+    // Table de liaison implicite tournées ↔ zones (A = Tour, B = Zone) :
+    // vidée explicitement, pas seulement par la cascade de ses clés.
+    counts._TourZones = await tx.$executeRaw`DELETE FROM "_TourZones" WHERE "A" IN (SELECT id FROM "Tour" WHERE "organizationId" = ${organizationId}) OR "B" IN (SELECT id FROM "Zone" WHERE "organizationId" = ${organizationId})`;
     counts.Tour = (await tx.tour.deleteMany({ where })).count;
     counts.Zone = (await tx.zone.deleteMany({ where })).count;
     counts.Service = (await tx.service.deleteMany({ where })).count;
@@ -120,6 +123,13 @@ export async function purgeOrganization(organizationId: string, options: { reque
         ],
       },
     })).count;
+
+    // Lignes anciennes (antérieures aux empreintes) qui citeraient encore en
+    // clair une adresse de l'espace dans leurs métadonnées.
+    const emailPatterns = emails.map((email) => `%${email.replace(/[\\%_]/g, (character) => `\\${character}`)}%`);
+    if (emailPatterns.length > 0) {
+      counts.AuditLog += await tx.$executeRaw`DELETE FROM "AuditLog" WHERE lower(metadata::text) LIKE ANY(${emailPatterns})`;
+    }
 
     counts.RateLimitEvent = (await tx.rateLimitEvent.deleteMany({ where: { key: { in: rateLimitKeysFor(emails, userIds) } } })).count;
     counts.User = (await tx.user.deleteMany({ where })).count;
