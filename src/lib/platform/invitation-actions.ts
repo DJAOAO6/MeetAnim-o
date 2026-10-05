@@ -1,5 +1,6 @@
 "use server";
 
+import { slugInQuarantine } from "@/lib/organization-access";
 import { invitationSentMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -144,7 +145,8 @@ export async function acceptInvitationAction(_state: AcceptInvitationState, form
       }
 
       const organization = await tx.organization.create({ data: { name: organizationName } });
-      const slug = await firstFreeSlug(`${firstName} ${lastName}`, async (candidate) => Boolean(await tx.businessProfile.findUnique({ where: { slug: candidate }, select: { id: true } })));
+      // Un lien pris, ou en quarantaine après l'effacement d'un espace, n'est pas libre.
+      const slug = await firstFreeSlug(`${firstName} ${lastName}`, async (candidate) => Boolean(await tx.businessProfile.findUnique({ where: { slug: candidate }, select: { id: true } })) || await slugInQuarantine(candidate));
       await tx.businessProfile.create({
         data: {
           ...blankProfile({ firstName, lastName, company: organizationName, email: invitation.email, slug }),

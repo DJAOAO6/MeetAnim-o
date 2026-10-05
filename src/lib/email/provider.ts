@@ -103,6 +103,33 @@ class MailjetEmailProvider implements EmailProvider {
 
 let cachedProvider: EmailProvider | null = null;
 
+export type MailjetErasure = "deleted" | "absent" | "failed" | "not-configured";
+
+/**
+ * Suppression RGPD d'un contact chez Mailjet (effacement d'un espace, C9).
+ * Deux temps, selon leur documentation (« GDPR Delete contacts ») :
+ * l'identifiant du contact à partir de l'adresse (GET /v3/REST/contact/<email>),
+ * puis DELETE /v4/contacts/<id> — 200 : anonymisé aussitôt, effacé chez eux
+ * sous 30 jours. Ne lève jamais : la purge de la base ne doit pas en dépendre.
+ */
+export async function eraseMailjetContact(email: string): Promise<MailjetErasure> {
+  const apiKey = process.env.MAILJET_API_KEY;
+  const apiSecret = process.env.MAILJET_API_SECRET;
+  if (!apiKey || !apiSecret) return "not-configured";
+  const authorization = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`;
+  try {
+    const lookup = await fetch(`https://api.mailjet.com/v3/REST/contact/${encodeURIComponent(email)}`, { headers: { Authorization: authorization } });
+    if (lookup.status === 404) return "absent";
+    if (!lookup.ok) return "failed";
+    const contactId = ((await lookup.json()) as { Data?: Array<{ ID?: number }> }).Data?.[0]?.ID;
+    if (!contactId) return "absent";
+    const erased = await fetch(`https://api.mailjet.com/v4/contacts/${contactId}`, { method: "DELETE", headers: { Authorization: authorization } });
+    return erased.ok ? "deleted" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
 /** Mailjet est-il configuré ? Sinon, aucun email ne part (voir ConsoleEmailProvider). */
 export function emailConfigured(): boolean {
   return Boolean(process.env.MAILJET_API_KEY && process.env.MAILJET_API_SECRET && process.env.MAIL_FROM_ADDRESS);

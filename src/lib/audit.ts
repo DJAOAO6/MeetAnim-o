@@ -50,7 +50,10 @@ type AuditAction =
   | "ONBOARDING_COMPLETED"
   | "MODULES_CHANGED"
   | "ORGANIZATION_SUSPENDED"
-  | "ORGANIZATION_REACTIVATED";
+  | "ORGANIZATION_REACTIVATED"
+  | "ORGANIZATION_DELETION_SCHEDULED"
+  | "ORGANIZATION_DELETION_CANCELLED"
+  | "ORGANIZATION_EXPORTED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun

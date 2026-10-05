@@ -1,5 +1,6 @@
 "use server";
 
+import { SLUG_QUARANTINE_ERROR, slugInQuarantine } from "@/lib/organization-access";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -30,6 +31,7 @@ export async function completeOnboardingAction(rawSlug: string): Promise<Complet
   const slug = rawSlug.trim();
   const problem = slugProblem(slug);
   if (problem) return { ok: false, error: problem };
+  if (await slugInQuarantine(slug)) return { ok: false, error: SLUG_QUARANTINE_ERROR };
 
   const profile = await db.businessProfile.findFirst();
   if (!profile) return { ok: false, error: "Le profil de l’espace est introuvable." };

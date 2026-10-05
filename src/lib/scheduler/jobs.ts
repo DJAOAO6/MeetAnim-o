@@ -1,4 +1,5 @@
 import "server-only";
+import { purgeDueOrganizations } from "@/lib/platform/organization-deletion";
 import { purgeExpiredSecurityRecords } from "@/lib/rate-limit";
 import { redactEmails } from "@/lib/privacy";
 import { dbFor, prisma, type ScopedPrismaClient } from "@/lib/db";
@@ -33,6 +34,9 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   // Traces de sécurité expirées (tentatives de connexion, codes) : purgées à
   // chaque passage, quel que soit l'espace. Une panne ici n'arrête pas le reste.
   const securityPurge = await purgeExpiredSecurityRecords().then(() => true, () => false);
+
+  // Effacements programmés arrivés à échéance (C9) : avant tout le reste.
+  const deletions = await purgeDueOrganizations(now, options.organizationId);
 
   // Espaces ouverts seulement : un espace suspendu n'envoie plus rien à ses
   // clients — ni rappel, ni relance — et ne génère plus de tournée.
@@ -74,7 +78,8 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   }
 
   return {
-    ok: errors.length === 0 && securityPurge,
+    ok: errors.length === 0 && securityPurge && deletions.failed === 0,
+    organizationsPurged: deletions.purged,
     organizations: organizations.length,
     followUpsDue,
     tourRunsGenerated,

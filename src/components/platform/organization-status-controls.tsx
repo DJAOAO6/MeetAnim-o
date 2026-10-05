@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { reactivateOrganizationAction, suspendOrganizationAction } from "@/lib/platform/organization-actions";
+import { cancelOrganizationDeletionAction, reactivateOrganizationAction, suspendOrganizationAction } from "@/lib/platform/organization-actions";
+import { OrganizationDeletionDialog } from "@/components/platform/organization-deletion-dialog";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" });
 
 /**
- * Statut d'un espace et ses deux actions : suspendre (motif obligatoire,
- * inscrit au journal) et réactiver. Une suppression programmée se gère à part.
+ * Statut d'un espace et ses actions : suspendre (motif obligatoire, inscrit
+ * au journal), réactiver, supprimer (programmé à 7 jours ou immédiat) et
+ * annuler une suppression programmée.
  */
 export function OrganizationStatusControls({ organizationId, organizationName, suspendedAt, suspendedReason, deletionScheduledFor, ownSpace }: {
   organizationId: string;
@@ -19,6 +21,7 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
   ownSpace: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -43,6 +46,12 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
       ) : (
         <span className="rounded-full bg-animeo-positive-soft px-2.5 py-1 text-xs font-extrabold text-animeo-dark">Actif</span>
       )}
+
+      {deletionScheduledFor ? (
+        <button type="button" onClick={() => run(() => cancelOrganizationDeletionAction(organizationId))} disabled={pending} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft disabled:opacity-50">
+          {pending ? "Annulation…" : "Annuler la suppression"}
+        </button>
+      ) : null}
 
       {suspendedAt && !deletionScheduledFor ? (
         <button type="button" onClick={() => run(() => reactivateOrganizationAction(organizationId))} disabled={pending} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft disabled:opacity-50">
@@ -70,7 +79,14 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
         )
       ) : null}
 
+      {!deletionScheduledFor && !ownSpace ? (
+        <button type="button" onClick={() => setDeleting(true)} className="min-h-9 rounded-xl px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft">
+          Supprimer l’espace…
+        </button>
+      ) : null}
+
       {error ? <p role="alert" className="text-xs font-bold text-animeo-error">{error}</p> : null}
+      {deleting ? <OrganizationDeletionDialog organizationId={organizationId} organizationName={organizationName} onClose={() => setDeleting(false)} /> : null}
     </div>
   );
 }

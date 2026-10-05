@@ -195,6 +195,9 @@ enum AuditAction {
   MODULES_CHANGED
   ORGANIZATION_SUSPENDED
   ORGANIZATION_REACTIVATED
+  ORGANIZATION_DELETION_SCHEDULED
+  ORGANIZATION_DELETION_CANCELLED
+  ORGANIZATION_EXPORTED
 }
 
 model User {
@@ -1407,4 +1410,36 @@ model AnimalPlace {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@index([organizationId])
+}
+
+/// Motif d'une suppression d'espace, en catégorie : jamais de texte libre,
+/// qui pourrait contenir une donnée personnelle.
+enum DeletionReason {
+  PROFESSIONAL_REQUEST
+  CONTRACT_END
+  FRAUD
+  OTHER
+}
+
+/// La seule trace qui survit à l'effacement d'un espace (chantier C9).
+/// Aucune donnée personnelle : relu explicitement à chaque modification.
+/// - organizationHash : SHA-256 de l'identifiant de l'espace (aléatoire,
+///   donc impossible à retrouver par essais) — sert à rejouer la purge après
+///   une restauration de sauvegarde (scripts/replay-deletions.mjs) ;
+/// - slugHash : empreinte HMAC du lien de réservation (un lien se devine) —
+///   quarantaine de 6 mois après l'effacement ;
+/// - requestedByUserId : le compte de plateforme qui a demandé ;
+/// - rowCounts : nombre de lignes supprimées par table.
+model DeletionRecord {
+  id                String         @id @default(cuid())
+  organizationHash  String         @unique
+  slugHash          String?
+  reason            DeletionReason
+  requestedAt       DateTime
+  requestedByUserId String?
+  purgedAt          DateTime?
+  rowCounts         Json?
+  createdAt         DateTime       @default(now())
+
+  @@index([slugHash])
 }

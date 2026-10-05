@@ -194,6 +194,37 @@ Si vous n'attendiez pas cette invitation, ignorez cet email : aucun compte ne se
   };
 }
 
+/**
+ * Effacement programmé d'un espace (C9) : la date, et comment l'annuler ou
+ * récupérer ses données avant. Pas de lien de connexion : l'espace est
+ * suspendu, c'est par le support que tout passe.
+ */
+export function deletionScheduledTemplate(params: { organizationName: string; dateLabel: string; supportEmail?: string }): EmailContent {
+  const { organizationName, dateLabel } = params;
+  const contact = params.supportEmail?.trim() || "le support de 1002 Pattes";
+  return {
+    subject: `Votre espace 1002 Pattes sera supprimé le ${dateLabel}`,
+    text: `Bonjour,
+
+L'espace professionnel « ${organizationName} » sur 1002 Pattes sera définitivement supprimé le ${dateLabel}, avec toutes ses données : clients, animaux, rendez-vous, documents et comptes.
+
+D'ici là, l'espace est suspendu. Pour annuler la suppression ou récupérer une copie de vos données, contactez ${contact} avant cette date.
+
+Passé ce délai, l'effacement est définitif.`,
+    html: layout({
+      preheader: `Suppression prévue le ${dateLabel} — contactez-nous avant pour l'annuler ou récupérer vos données.`,
+      title: "Suppression de votre espace",
+      body: [
+        paragraph("Bonjour,"),
+        paragraph(`L’espace professionnel <strong>${escapeHtml(organizationName)}</strong> sur 1002 Pattes sera définitivement supprimé le <strong>${escapeHtml(dateLabel)}</strong>, avec toutes ses données : clients, animaux, rendez-vous, documents et comptes.`),
+        paragraph(`D’ici là, l’espace est suspendu. Pour annuler la suppression ou récupérer une copie de vos données, contactez ${escapeHtml(contact)} avant cette date.`),
+        mutedParagraph("Passé ce délai, l’effacement est définitif."),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}
+
 export function twoFactorCodeTemplate(code: string): EmailContent {
   return {
     subject: `${code} — votre code de connexion 1002 Pattes`,

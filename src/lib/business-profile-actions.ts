@@ -1,5 +1,6 @@
 "use server";
 
+import { SLUG_QUARANTINE_ERROR, slugInQuarantine } from "@/lib/organization-access";
 import { revalidatePath } from "next/cache";
 import type { ScopedPrismaClient } from "@/lib/db";
 import { currentDb, readDb } from "@/lib/organization";
@@ -81,6 +82,7 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (!existing || existing.slug !== slug) {
     const problem = slugProblem(slug);
     if (problem) return { ok: false, error: problem };
+    if (await slugInQuarantine(slug)) return { ok: false, error: SLUG_QUARANTINE_ERROR };
   }
 
   // Seuls les champs du formulaire de profil sont écrits, nommément. Le
