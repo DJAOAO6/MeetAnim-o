@@ -24,6 +24,8 @@ import { OnboardingBanner } from "@/components/onboarding/onboarding-banner";
 import { RunningDogNotifications } from "@/components/notifications/running-dog-notification";
 import { currentOrganization } from "@/lib/organization";
 import { redirect } from "next/navigation";
+import { AnimeoLogo } from "@/components/brand/animeo-logo";
+import { logout } from "@/lib/auth/actions";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
@@ -49,10 +51,30 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // Contrôle "sûr" en complément du contrôle optimiste du proxy : relit
   // l'utilisateur en base et invalide la session si le mot de passe a
   // changé ou si le compte a été désactivé depuis l'émission du cookie.
-  const user = await requireUser();
+  const user = await requireUser({ allowUnverified: true });
   // Un compte de plateforme sans cabinet n'a pas d'espace professionnel : sa
   // page est la super-administration.
   if (!user.organizationId && user.platformAdmin) redirect("/plateforme");
+  // Numéro RNA pas encore vérifié : un cadre réduit, sans menu ni données de
+  // l'espace. La seule page qui s'y affiche est celle de vérification —
+  // toute autre renvoie vers elle dès qu'elle lit les données de l'espace
+  // (src/lib/auth/dal.ts). Ni barre latérale vers des pages fermées, ni
+  // rafraîchissement automatique qui pourrait boucler.
+  if (user.verificationGate && !user.assistance) {
+    return (
+      <CurrentUserProvider user={user}>
+        <div className="min-h-screen bg-animeo-bg text-animeo-text">
+          <header className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-5 sm:px-7">
+            <AnimeoLogo size="footer" priority />
+            <form action={logout}>
+              <button type="submit" className="min-h-11 rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark hover:bg-white">Se déconnecter</button>
+            </form>
+          </header>
+          <main className="mx-auto max-w-2xl px-4 pb-10 sm:px-7">{children}</main>
+        </div>
+      </CurrentUserProvider>
+    );
+  }
   // Une seule lecture pour tout l'espace professionnel : les deux fenêtres
   // de rendez-vous (création, gestion) sont montées ici, et un formulaire de
   // rendez-vous a besoin des prestations réglées, de l'adresse du cabinet et

@@ -398,7 +398,7 @@ test("« Les deux » : un jour peut n'ouvrir que le domicile, et revenir à l'é
 });
 
 test("un ostéopathe animalier donne son numéro RNA ; son espace attend la vérification", async ({ browser }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   await removeInvitee();
   const url = await invite(browser);
   // Un numéro déjà pris par le premier cabinet, le temps du test.
@@ -455,7 +455,7 @@ test("un ostéopathe animalier donne son numéro RNA ; son espace attend la vér
     await expect(page.getByText("Elle s’ouvrira au public dès que votre numéro RNA aura été vérifié.")).toBeVisible();
     await page.getByLabel("Votre lien").fill(SLUG);
     await page.getByRole("button", { name: "Terminer la configuration" }).click();
-    await expect(page.getByRole("heading", { name: "Votre espace est configuré" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Vérification de votre numéro RNA en cours" })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Numéro transmis : E2E-RNA-2026")).toBeVisible();
     await expect(page.getByRole("link", { name: "Voir ma page de rendez-vous" })).toHaveCount(0);
 
@@ -467,9 +467,57 @@ test("un ostéopathe animalier donne son numéro RNA ; son espace attend la vér
     const audits = await sql`SELECT action::text FROM "AuditLog" WHERE "organizationId" = ${organization.id} AND action IN ('ONBOARDING_COMPLETED', 'VERIFICATION_REQUESTED') ORDER BY "createdAt"`;
     expect(audits.map((row) => row.action)).toEqual(["ONBOARDING_COMPLETED", "VERIFICATION_REQUESTED"]);
 
-    // Revenir sur la page d'accueil montre toujours l'attente.
-    await page.goto("/dashboard/bienvenue");
-    await expect(page.getByRole("heading", { name: "Votre espace est configuré" })).toBeVisible();
+    // Phase 4 : tant que le numéro n'est pas vérifié, l'espace se résume à
+    // la page de vérification — quelle que soit l'adresse tapée.
+    for (const path of ["/dashboard", "/dashboard/agenda", "/dashboard/clients", "/dashboard/parametres", "/dashboard/bienvenue"]) {
+      await page.goto(path);
+      await page.waitForURL("**/dashboard/verification", { timeout: 15000 });
+    }
+    await expect(page.getByRole("heading", { name: "Vérification de votre numéro RNA en cours" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Agenda" }), "ni menu vers des pages fermées").toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Se déconnecter" })).toBeVisible();
+
+    // La page publique est fermée, comme un lien inconnu.
+    const anonymous = await browser.newContext();
+    expect((await (await anonymous.newPage()).goto(`/reserver/${SLUG}`))?.status()).toBe(404);
+    await anonymous.close();
+
+    // L'assistance de la plateforme, elle, entre dans l'espace.
+    const platform = await browser.newContext();
+    try {
+      const helper = await platform.newPage();
+      await loginAsPlatform(helper, sql, platformId, PLATFORM_EMAIL);
+      await helper.goto("/plateforme", { waitUntil: "networkidle" });
+      const row = helper.getByRole("listitem").filter({ hasText: INVITEE_EMAIL });
+      await row.getByRole("button", { name: "Assister" }).click();
+      await row.getByLabel("Motif de l’assistance").fill("Test automatique : espace en attente de vérification");
+      await row.getByRole("button", { name: /^Ouvrir l’assistance/ }).click();
+      await helper.waitForURL(/\/dashboard$/, { timeout: 15000 });
+      await helper.goto("/dashboard/agenda");
+      await expect(helper, "pas de renvoi vers la vérification").toHaveURL(/\/dashboard\/agenda$/);
+    } finally {
+      await platform.close();
+    }
+
+    // Refus : le motif est affiché, le numéro se corrige et la demande repart.
+    await sql`UPDATE "Organization" SET "verificationStatus" = 'REJECTED', "verificationNote" = 'Numéro introuvable dans l’annuaire de l’Ordre.' WHERE id = ${organization.id}`;
+    await page.goto("/dashboard/agenda");
+    await page.waitForURL("**/dashboard/verification", { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Votre numéro RNA n’a pas pu être validé" })).toBeVisible();
+    await expect(page.getByText("Numéro introuvable dans l’annuaire de l’Ordre.")).toBeVisible();
+    const corrected = page.getByLabel("Numéro RNA (Registre national d’aptitude)");
+    await expect(corrected).toHaveValue("E2E-RNA-2026");
+    await corrected.fill("e2e rna pris");
+    await page.getByRole("button", { name: "Demander une nouvelle vérification" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Ce numéro est déjà associé à un compte." })).toBeVisible();
+    await corrected.fill("E2E-RNA-2027");
+    await page.getByRole("button", { name: "Demander une nouvelle vérification" }).click();
+    await expect(page.getByRole("heading", { name: "Vérification de votre numéro RNA en cours" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Numéro transmis : E2E-RNA-2027")).toBeVisible();
+    const [again] = await sql`SELECT o."verificationStatus"::text AS status, o."verificationNote", p."registrationNumber" FROM "Organization" o JOIN "BusinessProfile" p ON p."organizationId" = o.id WHERE o.id = ${organization.id}`;
+    expect([again.status, again.verificationNote, again.registrationNumber]).toEqual(["PENDING", null, "E2E-RNA-2027"]);
+    const [requests] = await sql`SELECT count(*)::int AS n FROM "AuditLog" WHERE "organizationId" = ${organization.id} AND action = 'VERIFICATION_REQUESTED'`;
+    expect(requests.n, "la nouvelle demande est journalisée").toBe(2);
   } finally {
     await context.close();
     await sql`UPDATE "BusinessProfile" SET "registrationNumber" = ${demo.registrationNumber} WHERE "organizationId" = 'org-1002-pattes'`;

@@ -1,9 +1,9 @@
 import "server-only";
-import { organizationBlockOf } from "@/lib/organization-status";
+import { publicPageClosed } from "@/lib/organization-status";
 import { redirect } from "next/navigation";
 import { dbFor, organizationIdOf, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { hasModule, normalizeModules, type ModuleKey } from "@/lib/modules";
-import { getCurrentUser } from "@/lib/auth/dal";
+import { getCurrentUser, redirectUnverified } from "@/lib/auth/dal";
 import type { VerificationStatus } from "@/generated/prisma/client";
 
 /**
@@ -86,6 +86,8 @@ export async function currentDb(): Promise<ScopedPrismaClient> {
 export async function currentOrganizationId(): Promise<string> {
   const user = await getCurrentUser();
   if (!user) throw new Error("Aucun compte connecté : impossible de déterminer l'espace professionnel.");
+  // Espace en attente de vérification : ses données restent fermées.
+  redirectUnverified(user);
   if (!user.organizationId) {
     // Un compte de plateforme sans cabinet n'a pas d'espace professionnel :
     // sa place est la super-administration. Les pages de l'espace se
@@ -141,6 +143,7 @@ export async function publicDb(): Promise<ScopedPrismaClient> {
  */
 export async function readDb(): Promise<ScopedPrismaClient> {
   const user = await getCurrentUser().catch(() => null);
+  redirectUnverified(user);
   if (user?.organizationId) return dbFor(user.organizationId);
   return publicDb();
 }
@@ -156,14 +159,14 @@ export async function readDb(): Promise<ScopedPrismaClient> {
 export async function dbForSlug(slug: string): Promise<ScopedPrismaClient | null> {
   const profile = await prisma.businessProfile.findUnique({
     where: { slug },
-    select: { organization: { select: { id: true, onboardedAt: true, suspendedAt: true, deletionScheduledFor: true } } },
+    select: { organization: { select: { id: true, onboardedAt: true, suspendedAt: true, deletionScheduledFor: true, verificationStatus: true } } },
   });
   // Un cabinet qui n'a pas fini sa configuration n'a pas encore de page
   // publique : pas d'horaires, pas de prestations, parfois pas même de nom.
-  // Son lien ne mène à rien, comme un lien inconnu. Un espace suspendu non
-  // plus : sa page est fermée, et rien ne dit pourquoi.
-  if (!profile?.organization.onboardedAt) return null;
-  if (organizationBlockOf(profile.organization)) return null;
+  // Son lien ne mène à rien, comme un lien inconnu. Un espace suspendu, ou
+  // dont le numéro RNA n'est pas vérifié, non plus : sa page est fermée, et
+  // rien ne dit pourquoi.
+  if (!profile || publicPageClosed(profile.organization)) return null;
   return dbFor(profile.organization.id);
 }
 

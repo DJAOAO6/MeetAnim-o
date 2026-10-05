@@ -44,3 +44,18 @@ export async function registrationNumberTaken(number: string | null | undefined,
     LIMIT 1`;
   return rows.length > 0;
 }
+
+/** Où en est la vérification du numéro RNA d'un espace (page de vérification). */
+export async function verificationStateOf(organizationId: string) {
+  return prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { verificationStatus: true, verificationNote: true, onboardedAt: true } });
+}
+
+/**
+ * Numéro corrigé après un refus : l'espace repasse en attente. Seulement
+ * depuis un refus, pour que deux envois simultanés ne fassent qu'une
+ * demande ; vrai si c'est celle-ci qui l'a faite.
+ */
+export async function requestVerificationAgain(organizationId: string): Promise<boolean> {
+  const { count } = await prisma.organization.updateMany({ where: { id: organizationId, verificationStatus: "REJECTED" }, data: { verificationStatus: "PENDING", verificationNote: null } });
+  return count > 0;
+}

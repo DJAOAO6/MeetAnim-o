@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionPayload } from "@/lib/auth/session";
 import { normalizeModules, type ModuleKey } from "@/lib/modules";
-import { organizationBlockOf } from "@/lib/organization-status";
+import { organizationBlockOf, verificationGateOf, type VerificationGate } from "@/lib/organization-status";
 
 export type CurrentUser = {
   id: string;
@@ -34,6 +34,12 @@ export type CurrentUser = {
    */
   organizationBlocked: boolean;
   /**
+   * Numéro RNA de l'espace en attente de vérification, ou refusé (chantier
+   * C4). Ses membres ne voient que la page de vérification ; une assistance
+   * de la plateforme entre normalement.
+   */
+  verificationGate: VerificationGate | null;
+  /**
    * Présent quand cette session est une assistance : un compte de plateforme
    * agit au nom de ce professionnel. L'interface l'affiche en permanence, et
    * le journal d'audit attribue chaque action à celui qui assiste.
@@ -58,7 +64,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   // La session doit exister, appartenir à ce compte, ne pas être révoquée
   // (déconnexion) ni expirée : une seule lecture, utilisateur compris.
-  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: { include: { organization: { select: { modules: true, suspendedAt: true, deletionScheduledFor: true } } } }, impersonator: true } });
+  const session = await prisma.session.findUnique({ where: { id: payload.sid }, include: { user: { include: { organization: { select: { modules: true, suspendedAt: true, deletionScheduledFor: true, verificationStatus: true } } } }, impersonator: true } });
   if (!session || session.userId !== payload.userId || session.revokedAt || session.expiresAt.getTime() <= Date.now()) return null;
 
   // Une assistance ne vaut que tant que celui qui assiste est toujours un
@@ -95,6 +101,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     newRequestAnimation: user.newRequestAnimation,
     twoFactorEnabled: user.twoFactorEnabled,
     organizationBlocked,
+    verificationGate: verificationGateOf(user.organization),
     assistance: session.impersonator
       ? {
           impersonatorId: session.impersonator.id,
@@ -106,9 +113,32 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   };
 });
 
-export async function requireUser(): Promise<CurrentUser> {
+/** Où va un membre d'un espace qui attend la vérification de son numéro RNA. */
+export const VERIFICATION_PATH = "/dashboard/verification";
+
+/**
+ * Tant que le numéro RNA de son espace n'est pas vérifié, un membre ne voit
+ * que la page de vérification. Appelé par chaque porte de l'espace
+ * professionnel : `requireUser`, et l'accès aux données de l'espace
+ * (`currentOrganizationId`, `readDb`) — pages et actions serveur comprises,
+ * qu'aucune mise en page ne protège à elle seule. L'assistance de la
+ * plateforme n'est pas retenue.
+ */
+export function redirectUnverified(user: CurrentUser | null): void {
+  if (user?.verificationGate && !user.assistance) redirect(VERIFICATION_PATH);
+}
+
+/**
+ * Le compte connecté, ou la page de connexion. `allowUnverified` : pour les
+ * seuls chemins ouverts à un espace en attente de vérification (la mise en
+ * page, la page de vérification et son action).
+ */
+export async function requireUser(options: { allowUnverified?: boolean } = {}): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (user) return user;
+  if (user) {
+    if (!options.allowUnverified) redirectUnverified(user);
+    return user;
+  }
 
   // Un Server Component ne peut pas supprimer de cookie (réservé aux Server
   // Actions/Route Handlers) — si le jeton est cryptographiquement valide

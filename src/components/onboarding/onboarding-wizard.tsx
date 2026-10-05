@@ -1,5 +1,6 @@
 "use client";
 
+import { VerificationPending } from "@/components/verification/verification-screens";
 import { ProfessionField, RegistrationNumberField } from "@/components/settings/profession-fields";
 import { REGISTRATION_NUMBER_REQUIRED_ERROR, normalizeRegistrationNumber, requiresRna } from "@/lib/registration-number";
 import { ServiceAreaFields, serviceAreaFields, serviceAreaUnconfirmed, type ServiceAreaDraft } from "@/components/settings/service-area-fields";
@@ -110,7 +111,7 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
     return null;
   }
 
-  if (opened) return opened.awaitingVerification ? <OnboardingAwaitingVerification registrationNumber={profile.registrationNumber} /> : <OnboardingDone slug={opened.slug} />;
+  if (opened) return opened.awaitingVerification ? <VerificationPending registrationNumber={profile.registrationNumber} /> : <OnboardingDone slug={opened.slug} />;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -160,28 +161,6 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
         {step === "link" ? <LinkStep profile={profile} onBack={back} onOpened={setOpened} /> : null}
       </div>
     </div>
-  );
-}
-
-/**
- * Fin de l'onboarding d'un métier qui exige un numéro RNA : l'espace est
- * configuré, mais rien n'ouvre avant la vérification du numéro.
- */
-export function OnboardingAwaitingVerification({ registrationNumber }: { registrationNumber: string | null }) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  useEffect(() => headingRef.current?.focus(), []);
-  return (
-    <Card className="mx-auto max-w-2xl p-5 sm:p-8">
-      <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-black text-animeo-dark outline-none">Votre espace est configuré</h1>
-      <p className="mt-2 text-sm text-animeo-muted">
-        Nous vérifions votre numéro RNA. Votre espace et votre page de rendez-vous s’ouvriront dès sa validation, généralement sous 48 h ouvrées. Vous recevrez un e-mail.
-      </p>
-      {registrationNumber ? (
-        <p className="mt-4 rounded-xl border border-animeo-border-soft bg-animeo-bg px-4 py-3 text-sm text-animeo-dark">
-          Numéro transmis : <strong>{registrationNumber}</strong>
-        </p>
-      ) : null}
-    </Card>
   );
 }
 

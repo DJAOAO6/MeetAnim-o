@@ -1,11 +1,17 @@
 /**
- * Un espace professionnel est-il fermé à ses membres, et pourquoi ?
+ * Un espace professionnel est-il fermé, et pourquoi ?
  *
- * Un seul contrôle, plusieurs raisons : la suspension par la plateforme, et
- * l'effacement programmé (qui suspend aussi). D'autres raisons viendront
- * s'ajouter ici (par exemple un espace pas encore vérifié), pour que chaque
- * porte d'entrée — session, connexion, page publique, tâches de fond,
- * flux d'agenda — pose la même question au même endroit.
+ * Un seul endroit pour toutes les raisons, pour que chaque porte d'entrée —
+ * session, connexion, page publique, tâches de fond, flux d'agenda — pose la
+ * même question au même endroit. Deux degrés :
+ *
+ * - fermé à ses membres (`organizationBlockOf`) : la suspension par la
+ *   plateforme, et l'effacement programmé (qui suspend aussi). Plus de
+ *   connexion du tout ;
+ * - en attente de vérification (`verificationGateOf`, chantier C4) : le
+ *   numéro RNA n'est pas encore validé, ou a été refusé. On se connecte,
+ *   mais on ne voit que la page de vérification, et la page publique est
+ *   fermée (`publicPageClosed`).
  */
 
 export type OrganizationBlock = "suspended" | "deletion_scheduled";
@@ -23,8 +29,36 @@ export function organizationBlockOf(organization: OrganizationStatusFields | nul
   return null;
 }
 
-/** Filtre Prisma : les espaces ouverts. */
-export const OPEN_ORGANIZATION_WHERE = { suspendedAt: null, deletionScheduledFor: null } as const;
+type VerificationStatus = "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "REJECTED";
+
+export type VerificationGate = "verification_pending" | "verification_rejected";
+
+/** L'espace attend-il la vérification de son numéro RNA ? */
+export function verificationGateOf(organization: { verificationStatus: VerificationStatus } | null | undefined): VerificationGate | null {
+  if (organization?.verificationStatus === "PENDING") return "verification_pending";
+  if (organization?.verificationStatus === "REJECTED") return "verification_rejected";
+  return null;
+}
+
+/**
+ * La page publique de l'espace est-elle fermée ? Configuration pas finie,
+ * espace fermé, ou numéro pas vérifié : le lien ne mène à rien, comme un
+ * lien inconnu, et rien ne dit pourquoi.
+ */
+export function publicPageClosed(organization: (OrganizationStatusFields & { onboardedAt: Date | null; verificationStatus: VerificationStatus }) | null | undefined): boolean {
+  if (!organization?.onboardedAt) return true;
+  return organizationBlockOf(organization) !== null || verificationGateOf(organization) !== null;
+}
+
+/**
+ * Filtre Prisma : les espaces où les tâches de fond travaillent. Ni fermés,
+ * ni en attente de vérification (rien à y rappeler ni synchroniser).
+ */
+export const OPEN_ORGANIZATION_WHERE = {
+  suspendedAt: null,
+  deletionScheduledFor: null,
+  verificationStatus: { notIn: ["PENDING", "REJECTED"] as VerificationStatus[] },
+};
 
 /**
  * Message de connexion d'un compte dont l'espace est fermé. Il ne dit pas
