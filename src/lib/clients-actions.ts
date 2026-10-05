@@ -10,7 +10,7 @@ import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { clientInclude, mapAnimal, mapClient } from "@/lib/clients";
-import { buildClientNameWordConditions, clientSearchQuerySchema, MAX_SEARCH_RESULTS_PER_GROUP } from "@/lib/client-search";
+import { clientSearchQuerySchema, rankClientsAndAnimals } from "@/lib/client-search";
 import { geocodeClientAddress, type PreciseGeocode } from "@/lib/geocoding";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { Animal, Client } from "@/data/clients";
@@ -467,30 +467,23 @@ export async function searchClientsAndAnimalsAction(rawQuery: string): Promise<C
   const parsed = clientSearchQuerySchema.safeParse(rawQuery);
   if (!parsed.success) return { clients: [], animals: [] };
 
-  const [clients, animals] = await Promise.all([
-    db.client.findMany({
-      where: { AND: buildClientNameWordConditions(parsed.data) },
-      select: { id: true, firstName: true, lastName: true, address: true, city: true },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      take: MAX_SEARCH_RESULTS_PER_GROUP,
-    }),
-    db.animal.findMany({
-      where: { name: { contains: parsed.data, mode: "insensitive" } },
-      select: { id: true, name: true, species: true, clientId: true, client: { select: { firstName: true, lastName: true, city: true } } },
-      orderBy: { name: "asc" },
-      take: MAX_SEARCH_RESULTS_PER_GROUP,
-    }),
-  ]);
+  // Toutes les fiches de l'espace, classées comme dans l'en-tête (accents,
+  // fautes) : un ILIKE ne sait faire ni l'un ni l'autre, et à l'échelle d'un
+  // cabinet les classer ici reste instantané.
+  const people = await db.client.findMany({
+    select: { id: true, firstName: true, lastName: true, address: true, city: true, phone: true, animals: { select: { id: true, name: true, species: true } } },
+  });
+  const ranked = rankClientsAndAnimals(parsed.data, people);
 
   return {
-    clients,
-    animals: animals.map((animal): AnimalSearchResult => ({
+    clients: ranked.clients.map(({ client }) => ({ id: client.id, firstName: client.firstName, lastName: client.lastName, address: client.address, city: client.city })),
+    animals: ranked.animals.map(({ animal, client }): AnimalSearchResult => ({
       id: animal.id,
       name: animal.name,
       species: animal.species as AnimalSpecies,
-      clientId: animal.clientId,
-      ownerName: `${animal.client.firstName} ${animal.client.lastName}`,
-      city: animal.client.city,
+      clientId: client.id,
+      ownerName: `${client.firstName} ${client.lastName}`,
+      city: client.city,
     })),
   };
 }

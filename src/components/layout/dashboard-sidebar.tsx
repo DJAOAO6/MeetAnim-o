@@ -12,6 +12,7 @@ import { ChevronRight, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Shield, 
 import { SidebarNavigation } from "@/components/layout/sidebar-navigation";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { logout } from "@/lib/auth/actions";
+import { MobileSearchButton } from "@/components/search/header-search";
 import { initialsFor } from "@/lib/format";
 
 const roleLabels: Record<string, string> = {
@@ -73,6 +74,8 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
             le panneau s'ancre en `right-0` sur son propre conteneur, donc la
             garder au bord droit évite qu'il ne déborde à gauche du viewport. */}
         <div className="flex items-center gap-2" style={{ position: "fixed", right: 16, top: 10, zIndex: 70 }}>
+          {/* La recherche de l'en-tête, en plein écran (masquée avec lui sous 768px). */}
+          <MobileSearchButton className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[var(--theme-sidebar-hover)] text-[var(--theme-sidebar-text-strong)]" />
           <button
             type="button"
             onClick={() => setMobileOpen(true)}

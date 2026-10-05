@@ -1,5 +1,6 @@
 "use client";
 
+import { candidateWords, queryWords, scoreMatch } from "@/lib/fuzzy-match";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
@@ -51,6 +52,13 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
     setLocalClients(clients);
   }
   const [query, setQuery] = useState(initialQuery);
+  // Une nouvelle recherche de l'en-tête (?q=) alors que la liste est déjà
+  // affichée : elle remplace le filtre en cours.
+  const [previousInitialQuery, setPreviousInitialQuery] = useState(initialQuery);
+  if (initialQuery !== previousInitialQuery) {
+    setPreviousInitialQuery(initialQuery);
+    setQuery(initialQuery);
+  }
   const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("Tous");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("Tous les statuts");
   const [sortBy, setSortBy] = useState<SortOption>("name");
@@ -69,16 +77,26 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
     setSelectedIds(new Set());
   }
 
+  // Mots cherchables de chaque fiche, normalisés une fois par liste : même
+  // recherche tolérante que l'en-tête (« helene » trouve « Hélène »).
+  const searchIndex = useMemo(
+    () => new Map(localClients.map((client) => [client.id, candidateWords([client.firstName, client.lastName, client.city, ...client.animals.map((animal) => animal.name)], [client.phone])])),
+    [localClients],
+  );
+
   const filteredClients = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("fr-FR");
+    const words = queryWords(query);
+    const scores = new Map<string, number>();
 
     const filtered = localClients.filter((client) => {
-      const animalNames = client.animals.map((animal) => animal.name).join(" ");
-      const searchableContent = `${client.firstName} ${client.lastName} ${client.phone} ${animalNames}`.toLocaleLowerCase("fr-FR");
-      const matchesQuery = !normalizedQuery || searchableContent.includes(normalizedQuery);
+      if (words.length > 0) {
+        const score = scoreMatch(words, searchIndex.get(client.id) ?? []);
+        if (score === 0) return false;
+        scores.set(client.id, score);
+      }
       const matchesSpecies = speciesFilter === "Tous" || client.animals.some((animal) => animal.species === speciesFilter);
       const matchesStatus = statusFilter === "Tous les statuts" || client.status === statusFilter;
-      return matchesQuery && matchesSpecies && matchesStatus;
+      return matchesSpecies && matchesStatus;
     });
 
     const sorted = [...filtered];
@@ -87,9 +105,12 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
     } else {
       sorted.sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime());
     }
+    // Pendant une recherche, les meilleures correspondances d'abord (le tri
+    // choisi départage les ex æquo).
+    if (words.length > 0) sorted.sort((first, second) => (scores.get(second.id) ?? 0) - (scores.get(first.id) ?? 0));
 
     return sorted;
-  }, [localClients, query, speciesFilter, statusFilter, sortBy]);
+  }, [localClients, searchIndex, query, speciesFilter, statusFilter, sortBy]);
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {

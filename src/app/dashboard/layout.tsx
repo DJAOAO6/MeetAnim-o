@@ -24,6 +24,7 @@ import { OnboardingBanner } from "@/components/onboarding/onboarding-banner";
 import { RunningDogNotifications } from "@/components/notifications/running-dog-notification";
 import { currentOrganization } from "@/lib/organization";
 import { redirect } from "next/navigation";
+import { ClientDirectoryProvider } from "@/components/search/client-directory-context";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { logout } from "@/lib/auth/actions";
 
@@ -96,6 +97,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <CurrentUserProvider user={user}>
+      {/* Mêmes clients que le formulaire de rendez-vous : la recherche de
+          l'en-tête les classe sur place (chantier C5). */}
+      <ClientDirectoryProvider clients={clientOptions}>
       <SidebarProvider>
         <DashboardThemeProvider>
         <AppointmentsProvider initialAppointments={appointments} initialRange={appointmentRange}>
@@ -179,6 +183,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         </AppointmentsProvider>
         </DashboardThemeProvider>
       </SidebarProvider>
+      </ClientDirectoryProvider>
     </CurrentUserProvider>
   );
 }

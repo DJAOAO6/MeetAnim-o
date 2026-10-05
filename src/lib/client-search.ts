@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { searchPeople, type SearchablePerson } from "@/lib/fuzzy-match";
 
 /**
  * Logique pure de la recherche unifiée (clients/animaux) : séparée de
@@ -11,28 +12,16 @@ export const clientSearchQuerySchema = z.string().trim().min(2).max(100);
 
 export const MAX_SEARCH_RESULTS_PER_GROUP = 5;
 
-type InsensitiveContains = { contains: string; mode: "insensitive" };
-export type ClientNameWordCondition = { OR: [
-  { firstName: InsensitiveContains },
-  { lastName: InsensitiveContains },
-  { phone: InsensitiveContains },
-  { city: InsensitiveContains },
-] };
-
 /**
- * Un mot doit correspondre à au moins un des champs cherchés (ET entre les
- * mots) : permet de retrouver "prénom nom" saisi dans n'importe quel ordre
- * sans concaténer les colonnes en SQL brut — juste des conditions Prisma
- * standard, qui se traduisent en ILIKE côté Postgres (mode: "insensitive").
+ * Le classement de la recherche côté serveur (carte, tournées) : le même
+ * que celui de l'en-tête (src/lib/fuzzy-match.ts), pour qu'une même saisie
+ * trouve la même chose partout. Sans groupe « Vous cherchiez peut-être »
+ * dans ces écrans, les résultats approchants suivent les franches.
  */
-export function buildClientNameWordConditions(query: string): ClientNameWordCondition[] {
-  const words = query.split(/\s+/).filter(Boolean);
-  return words.map((word) => ({
-    OR: [
-      { firstName: { contains: word, mode: "insensitive" as const } },
-      { lastName: { contains: word, mode: "insensitive" as const } },
-      { phone: { contains: word, mode: "insensitive" as const } },
-      { city: { contains: word, mode: "insensitive" as const } },
-    ],
-  }));
+export function rankClientsAndAnimals<C extends SearchablePerson>(query: string, people: C[]) {
+  const result = searchPeople(query, people, { limit: MAX_SEARCH_RESULTS_PER_GROUP });
+  return {
+    clients: [...result.clients, ...result.approximate.clients].slice(0, MAX_SEARCH_RESULTS_PER_GROUP),
+    animals: [...result.animals, ...result.approximate.animals].slice(0, MAX_SEARCH_RESULTS_PER_GROUP),
+  };
 }

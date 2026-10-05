@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
 import { LiveClock } from "@/components/dashboard/live-clock";
+import { HeaderSearch } from "@/components/search/header-search";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 
 /**
@@ -10,50 +9,23 @@ import { NotificationsBell } from "@/components/dashboard/notifications-bell";
  * l'en-tête de chaque page (PageHeader, DashboardHeader) plutôt que rendu
  * séparément au-dessus depuis le layout — pour que titre de page et actions
  * tiennent sur une seule rangée au lieu de deux rangées décalées
- * verticalement. Masqué sur mobile : la cloche y est déplacée dans le
- * bandeau fixe de la sidebar pour ne pas empiler deux barres d'en-tête sous
- * les 768px.
+ * verticalement. Masqué sur mobile : la cloche et une loupe (recherche en
+ * plein écran) sont dans le bandeau fixe de la sidebar, pour ne pas empiler
+ * deux barres d'en-tête sous les 768px.
  *
  * Le profil (avatar, nom, rôle, déconnexion) vit uniquement dans la sidebar
  * (bloc en bas avec chevron) — l'ancienne carte profil dupliquée ici a été
  * retirée pour ne pas répéter la même information deux fois à l'écran.
  */
 export function HeaderActions() {
-  const router = useRouter();
-  const [query, setQuery] = useState("");
-
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmed = query.trim();
-    router.push(trimmed ? `/dashboard/clients?q=${encodeURIComponent(trimmed)}` : "/dashboard/clients");
-  }
-
   return (
     <div className="hidden shrink-0 items-center gap-3 md:flex">
       <LiveClock />
 
-      <form onSubmit={submitSearch} role="search" className="relative hidden sm:block">
-        <SearchIcon />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Rechercher un client, un animal…"
-          aria-label="Rechercher un client, un animal"
-          className="h-12 w-64 rounded-2xl border border-animeo-border bg-white pl-11 pr-4 text-sm font-semibold text-animeo-dark shadow-[0_4px_16px_rgb(var(--theme-shadow-rgb)/0.04)] outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:w-72 lg:w-72"
-        />
-      </form>
+      {/* Suggestions pendant la frappe, Ctrl+K pour y venir (chantier C5). */}
+      <HeaderSearch />
 
       <NotificationsBell />
     </div>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-animeo-muted">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
   );
 }

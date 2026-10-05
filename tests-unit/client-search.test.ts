@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildClientNameWordConditions, clientSearchQuerySchema, MAX_SEARCH_RESULTS_PER_GROUP } from "../src/lib/client-search";
+import { clientSearchQuerySchema, MAX_SEARCH_RESULTS_PER_GROUP, rankClientsAndAnimals } from "../src/lib/client-search";
 
 test("clientSearchQuerySchema rejette une chaîne trop courte", () => {
   assert.equal(clientSearchQuerySchema.safeParse("r").success, false);
@@ -18,29 +18,19 @@ test("clientSearchQuerySchema rejette une chaîne excessivement longue", () => {
   assert.equal(clientSearchQuerySchema.safeParse("a".repeat(100)).success, true);
 });
 
-test("buildClientNameWordConditions produit une condition ET par mot", () => {
-  const conditions = buildClientNameWordConditions("camille test");
-  assert.equal(conditions.length, 2);
+const people = [
+  { id: "c1", firstName: "Hélène", lastName: "Dupont", phone: "0612345678", city: "Rouen", animals: [{ id: "a1", name: "Mirsa" }] },
+  { id: "c2", firstName: "Camille", lastName: "Test", phone: "", city: "Le Havre", animals: [] },
+];
+
+test("même classement que l'en-tête : accents, fautes, ville", () => {
+  assert.deepEqual(rankClientsAndAnimals("helene", people).clients.map((entry) => entry.client.id), ["c1"]);
+  assert.deepEqual(rankClientsAndAnimals("havre", people).clients.map((entry) => entry.client.id), ["c2"]);
+  // Approchant, faute de groupe dédié sur ces écrans : à la suite des franches.
+  assert.deepEqual(rankClientsAndAnimals("mirza", people).animals.map((entry) => entry.animal.id), ["a1"]);
 });
 
-test("buildClientNameWordConditions ignore les espaces multiples", () => {
-  const conditions = buildClientNameWordConditions("camille   test");
-  assert.equal(conditions.length, 2);
-});
-
-test("buildClientNameWordConditions cherche chaque mot sur prénom, nom, téléphone et ville", () => {
-  const [condition] = buildClientNameWordConditions("camille");
-  const fields = condition.OR.map((entry) => Object.keys(entry)[0]);
-  assert.deepEqual(fields, ["firstName", "lastName", "phone", "city"]);
-  assert.equal(condition.OR[0].firstName.contains, "camille");
-  assert.equal(condition.OR[0].firstName.mode, "insensitive");
-});
-
-test("buildClientNameWordConditions produit une seule condition pour un seul mot", () => {
-  const conditions = buildClientNameWordConditions("rouen");
-  assert.equal(conditions.length, 1);
-});
-
-test("MAX_SEARCH_RESULTS_PER_GROUP borne les résultats à 5 par groupe", () => {
-  assert.equal(MAX_SEARCH_RESULTS_PER_GROUP, 5);
+test("au plus cinq résultats par groupe", () => {
+  const many = Array.from({ length: 12 }, (_, index) => ({ id: `d${index}`, firstName: "Jean", lastName: `Durand${index}`, phone: "", city: "", animals: [] }));
+  assert.equal(rankClientsAndAnimals("durand", many).clients.length, MAX_SEARCH_RESULTS_PER_GROUP);
 });
