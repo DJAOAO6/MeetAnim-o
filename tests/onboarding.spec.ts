@@ -139,7 +139,7 @@ test("un professionnel invité ouvre son espace, le configure et reçoit sa prem
 
     // 2. Profil.
     await expect(page.getByRole("heading", { name: "Votre profil" })).toBeVisible({ timeout: 15000 });
-    await page.getByLabel("Métier").fill("Comportementaliste");
+    await page.getByLabel("Métier").selectOption("Comportementaliste");
     await page.getByLabel("Téléphone").fill("06 00 00 00 01");
     await page.getByRole("button", { name: "Continuer" }).click();
 
@@ -355,7 +355,7 @@ test("« Les deux » : un jour peut n'ouvrir que le domicile, et revenir à l'é
     await page.getByLabel("Adresse du cabinet").fill("8 rue de l’Essai, 76000 Rouen");
     await page.getByRole("button", { name: "Continuer" }).click();
     await expect(page.getByRole("heading", { name: "Votre profil" })).toBeVisible({ timeout: 15000 });
-    await page.getByLabel("Métier").fill("Comportementaliste");
+    await page.getByLabel("Métier").selectOption("Comportementaliste");
     await page.getByLabel("Téléphone").fill("06 00 00 00 01");
     await page.getByRole("button", { name: "Continuer" }).click();
 
@@ -394,5 +394,84 @@ test("« Les deux » : un jour peut n'ouvrir que le domicile, et revenir à l'é
     await expect(page.getByRole("checkbox", { name: "Mercredi, domicile" })).toBeChecked();
   } finally {
     await context.close();
+  }
+});
+
+test("un ostéopathe animalier donne son numéro RNA ; son espace attend la vérification", async ({ browser }) => {
+  test.setTimeout(180_000);
+  await removeInvitee();
+  const url = await invite(browser);
+  // Un numéro déjà pris par le premier cabinet, le temps du test.
+  const [demo] = await sql`SELECT "registrationNumber" FROM "BusinessProfile" WHERE "organizationId" = 'org-1002-pattes'`;
+  await sql`UPDATE "BusinessProfile" SET "registrationNumber" = 'E2E RNA PRIS' WHERE "organizationId" = 'org-1002-pattes'`;
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.route("**/api/address-search**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ results: [] }) }));
+
+  try {
+    await page.goto(url);
+    await page.getByLabel("Prénom").fill("Élodie");
+    await page.getByLabel("Nom", { exact: true }).fill("Invitée");
+    await page.getByLabel("Mot de passe", { exact: true }).fill(INVITEE_PASSWORD);
+    await page.getByLabel("Confirmer le mot de passe").fill(INVITEE_PASSWORD);
+    await page.getByRole("button", { name: "Créer mon compte" }).click();
+    await page.waitForURL("**/dashboard/bienvenue", { timeout: 20000 });
+
+    await page.getByLabel(/Au cabinet uniquement/).check();
+    await page.getByLabel("Adresse du cabinet").fill("8 rue de l’Essai, 76000 Rouen");
+    await page.getByRole("button", { name: "Continuer" }).click();
+
+    // Profil : « ostéopathe » écrit dans « Autre » demande aussi le numéro.
+    await expect(page.getByRole("heading", { name: "Votre profil" })).toBeVisible({ timeout: 15000 });
+    const rna = page.getByLabel("Numéro RNA (Registre national d’aptitude)");
+    await page.getByLabel("Métier", { exact: true }).selectOption("Autre");
+    await page.getByLabel("Précisez votre métier").fill("Ostéopathe équin");
+    await expect(rna).toBeVisible();
+    await page.getByLabel("Métier", { exact: true }).selectOption("Comportementaliste");
+    await expect(rna, "facultatif pour un autre métier : pas demandé").toHaveCount(0);
+    await page.getByLabel("Métier", { exact: true }).selectOption("Ostéopathe animalier");
+    await expect(page.getByText("Il sera vérifié avant l’ouverture de votre espace.")).toBeVisible();
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Indiquez votre numéro RNA" })).toBeVisible();
+    // Déjà associé à un autre espace, même écrit autrement : refusé sans dire lequel.
+    await rna.fill("e2e rna pris");
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Ce numéro est déjà associé à un compte." })).toBeVisible();
+    await rna.fill("E2E-RNA-2026");
+    await page.getByRole("button", { name: "Continuer" }).click();
+
+    await expect(page.getByRole("heading", { name: "Vos horaires" })).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: "Continuer" }).click();
+    await expect(page.getByRole("heading", { name: "Vos prestations" })).toBeVisible({ timeout: 15000 });
+    await page.getByLabel("Nom", { exact: true }).fill("Bilan ostéopathique");
+    await page.getByLabel("Chien").check();
+    await page.getByLabel("Tarif au cabinet").fill("60");
+    await page.getByRole("button", { name: "Ajouter la prestation" }).click();
+    await expect(page.getByRole("list", { name: "Prestations ajoutées" })).toContainText("Bilan ostéopathique");
+    await page.getByRole("button", { name: "Continuer" }).click();
+
+    // Lien : la page ne s'ouvrira qu'après la vérification.
+    await expect(page.getByRole("heading", { name: "Votre lien de réservation" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Elle s’ouvrira au public dès que votre numéro RNA aura été vérifié.")).toBeVisible();
+    await page.getByLabel("Votre lien").fill(SLUG);
+    await page.getByRole("button", { name: "Terminer la configuration" }).click();
+    await expect(page.getByRole("heading", { name: "Votre espace est configuré" })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Numéro transmis : E2E-RNA-2026")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Voir ma page de rendez-vous" })).toHaveCount(0);
+
+    const [organization] = await sql`SELECT o.id, o."verificationStatus"::text AS status, o."onboardedAt", p."registrationNumber", p.profession
+      FROM "Organization" o JOIN "BusinessProfile" p ON p."organizationId" = o.id JOIN "User" u ON u."organizationId" = o.id WHERE u.email = ${INVITEE_EMAIL}`;
+    expect(organization.status).toBe("PENDING");
+    expect(organization.onboardedAt, "la configuration est bien terminée").not.toBeNull();
+    expect([organization.registrationNumber, organization.profession]).toEqual(["E2E-RNA-2026", "Ostéopathe animalier"]);
+    const audits = await sql`SELECT action::text FROM "AuditLog" WHERE "organizationId" = ${organization.id} AND action IN ('ONBOARDING_COMPLETED', 'VERIFICATION_REQUESTED') ORDER BY "createdAt"`;
+    expect(audits.map((row) => row.action)).toEqual(["ONBOARDING_COMPLETED", "VERIFICATION_REQUESTED"]);
+
+    // Revenir sur la page d'accueil montre toujours l'attente.
+    await page.goto("/dashboard/bienvenue");
+    await expect(page.getByRole("heading", { name: "Votre espace est configuré" })).toBeVisible();
+  } finally {
+    await context.close();
+    await sql`UPDATE "BusinessProfile" SET "registrationNumber" = ${demo.registrationNumber} WHERE "organizationId" = 'org-1002-pattes'`;
   }
 });

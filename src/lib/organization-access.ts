@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { organizationBlockOf } from "@/lib/organization-status";
 import { SLUG_QUARANTINE_MS, slugHash } from "@/lib/deletion-plan";
+import { normalizeRegistrationNumber } from "@/lib/registration-number";
 
 /**
  * L'espace est-il fermé à ses membres (suspendu, effacement programmé) ?
@@ -28,3 +29,18 @@ export async function slugInQuarantine(slug: string, now: Date = new Date()): Pr
 
 export const SLUG_QUARANTINE_ERROR = "Ce lien a appartenu à un espace supprimé récemment : choisissez-en un autre.";
 
+
+/**
+ * Ce numéro RNA est-il déjà celui d'un autre espace ? Comparé comme l'index
+ * unique de la base : en majuscules, sans espaces. Lu hors cloisonnement,
+ * puisqu'il s'agit justement des autres espaces ; seule la réponse sort.
+ */
+export async function registrationNumberTaken(number: string | null | undefined, organizationId: string): Promise<boolean> {
+  const normalized = normalizeRegistrationNumber(number);
+  if (!normalized) return false;
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id FROM "BusinessProfile"
+    WHERE upper(regexp_replace("registrationNumber", '[[:space:]]', '', 'g')) = ${normalized} AND "organizationId" <> ${organizationId}
+    LIMIT 1`;
+  return rows.length > 0;
+}

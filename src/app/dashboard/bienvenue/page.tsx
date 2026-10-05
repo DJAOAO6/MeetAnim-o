@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { OnboardingDone, OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { OnboardingAwaitingVerification, OnboardingDone, OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getAvailability, getBusinessProfile, type BusinessProfileData } from "@/lib/business-profile-actions";
@@ -21,7 +21,9 @@ export default async function WelcomePage() {
   const [row, availability, services] = await Promise.all([getBusinessProfile(), getAvailability(), getServices()]);
   // Déjà configuré : l'écran de fin, pas un nouveau parcours. C'est aussi ce
   // que montre le rafraîchissement qui suit le dernier enregistrement.
-  if (organization.onboardedAt) return <OnboardingDone slug={row.slug} />;
+  if (organization.onboardedAt) {
+    return organization.verificationStatus === "PENDING" ? <OnboardingAwaitingVerification registrationNumber={row.registrationNumber} /> : <OnboardingDone slug={row.slug} />;
+  }
 
   // Seuls les champs du profil voyagent jusqu'au navigateur, pas la ligne
   // entière (horaires, rappels, brouillons de page publique…).

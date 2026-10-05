@@ -1,5 +1,7 @@
 "use client";
 
+import { ProfessionField, RegistrationNumberField } from "@/components/settings/profession-fields";
+import { REGISTRATION_NUMBER_REQUIRED_ERROR, normalizeRegistrationNumber, requiresRna } from "@/lib/registration-number";
 import { ServiceAreaFields, serviceAreaFields, serviceAreaUnconfirmed, type ServiceAreaDraft } from "@/components/settings/service-area-fields";
 import { serviceOfferLabel } from "@/lib/service-offer";
 import { useEffect, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
@@ -69,7 +71,7 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
   const [availability, setAvailability] = useState(initialAvailability);
   const [services, setServices] = useState(initialServices);
   const [stepIndex, setStepIndex] = useState(0);
-  const [openedSlug, setOpenedSlug] = useState<string | null>(null);
+  const [opened, setOpened] = useState<{ slug: string; awaitingVerification: boolean } | null>(null);
   // Le mode coché sur le premier écran, avant même d'être enregistré : le
   // nombre d'étapes annoncé le suit aussitôt.
   const [chosenMode, setChosenMode] = useState(initialProfile.practiceMode);
@@ -108,7 +110,7 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
     return null;
   }
 
-  if (openedSlug) return <OnboardingDone slug={openedSlug} />;
+  if (opened) return opened.awaitingVerification ? <OnboardingAwaitingVerification registrationNumber={profile.registrationNumber} /> : <OnboardingDone slug={opened.slug} />;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -155,9 +157,31 @@ export function OnboardingWizard({ initialProfile, initialAvailability, initialS
             onDone={next}
           />
         ) : null}
-        {step === "link" ? <LinkStep profile={profile} onBack={back} onOpened={setOpenedSlug} /> : null}
+        {step === "link" ? <LinkStep profile={profile} onBack={back} onOpened={setOpened} /> : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * Fin de l'onboarding d'un métier qui exige un numéro RNA : l'espace est
+ * configuré, mais rien n'ouvre avant la vérification du numéro.
+ */
+export function OnboardingAwaitingVerification({ registrationNumber }: { registrationNumber: string | null }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => headingRef.current?.focus(), []);
+  return (
+    <Card className="mx-auto max-w-2xl p-5 sm:p-8">
+      <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-black text-animeo-dark outline-none">Votre espace est configuré</h1>
+      <p className="mt-2 text-sm text-animeo-muted">
+        Nous vérifions votre numéro RNA. Votre espace et votre page de rendez-vous s’ouvriront dès sa validation, généralement sous 48 h ouvrées. Vous recevrez un e-mail.
+      </p>
+      {registrationNumber ? (
+        <p className="mt-4 rounded-xl border border-animeo-border-soft bg-animeo-bg px-4 py-3 text-sm text-animeo-dark">
+          Numéro transmis : <strong>{registrationNumber}</strong>
+        </p>
+      ) : null}
+    </Card>
   );
 }
 
@@ -341,6 +365,7 @@ function ProfileStep({ profile, onSubmit, onBack, onDone }: { profile: BusinessP
       onSubmit={() => {
         if (!draft.firstName.trim() || !draft.lastName.trim()) return setError("Indiquez votre prénom et votre nom.");
         if (!draft.profession.trim()) return setError("Indiquez votre métier : il apparaît sous votre nom sur la page de réservation.");
+        if (requiresRna(draft.profession) && !normalizeRegistrationNumber(draft.registrationNumber)) return setError(REGISTRATION_NUMBER_REQUIRED_ERROR);
         if (!draft.company.trim()) return setError("Indiquez le nom de votre activité.");
         run(() => onSubmit({ ...draft, photo: draft.photo || `${draft.firstName.charAt(0)}${draft.lastName.charAt(0)}`.toLocaleUpperCase("fr-FR") }));
       }}
@@ -350,7 +375,11 @@ function ProfileStep({ profile, onSubmit, onBack, onDone }: { profile: BusinessP
         <TextField id="onboarding-first-name" label="Prénom" value={draft.firstName} onChange={set("firstName")} autoComplete="given-name" />
         <TextField id="onboarding-last-name" label="Nom" value={draft.lastName} onChange={set("lastName")} autoComplete="family-name" />
       </div>
-      <TextField id="onboarding-profession" label="Métier" value={draft.profession} onChange={set("profession")} placeholder="Ostéopathe animalier, comportementaliste, toiletteur…" />
+      <ProfessionField id="onboarding-profession" value={draft.profession} onChange={set("profession")} inputClassName={inputClassName} labelClassName={labelClassName} />
+      {/* Un ostéopathe animalier donne son numéro RNA, vérifié avant que son espace ouvre. */}
+      {requiresRna(draft.profession) ? (
+        <RegistrationNumberField id="onboarding-registration-number" value={draft.registrationNumber ?? ""} onChange={(value) => set("registrationNumber")(value || null)} inputClassName={inputClassName} labelClassName={labelClassName} />
+      ) : null}
       <TextField id="onboarding-company" label="Nom de l’activité" value={draft.company} onChange={set("company")} autoComplete="organization" />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField id="onboarding-phone" label="Téléphone (facultatif)" value={draft.phone} onChange={set("phone")} type="tel" autoComplete="tel" />
@@ -702,16 +731,19 @@ function TravelStep({ profile, availability, onSubmit, onBack, onDone }: {
   );
 }
 
-function LinkStep({ profile, onBack, onOpened }: { profile: BusinessProfileData; onBack: () => void; onOpened: (slug: string) => void }) {
+function LinkStep({ profile, onBack, onOpened }: { profile: BusinessProfileData; onBack: () => void; onOpened: (result: { slug: string; awaitingVerification: boolean }) => void }) {
   const [slug, setSlug] = useState(profile.slug);
-  const { error, setError, pending, run } = useStepSubmit(() => onOpened(slug));
+  // Un ostéopathe animalier termine sa configuration, mais sa page attend la
+  // vérification de son numéro RNA.
+  const awaitingVerification = requiresRna(profile.profession);
+  const { error, setError, pending, run } = useStepSubmit(() => onOpened({ slug, awaitingVerification }));
 
   return (
     <StepForm
       error={error}
       pending={pending}
       onBack={onBack}
-      submitLabel="Ouvrir ma page de réservation"
+      submitLabel={awaitingVerification ? "Terminer la configuration" : "Ouvrir ma page de réservation"}
       onSubmit={() => {
         const problem = slugProblem(slug);
         if (problem) return setError(problem);
@@ -721,7 +753,11 @@ function LinkStep({ profile, onBack, onOpened }: { profile: BusinessProfileData;
         });
       }}
     >
-      <p className="text-sm text-animeo-muted">L’adresse de votre page de réservation. Elle s’ouvre au public dès que vous validez.</p>
+      <p className="text-sm text-animeo-muted">
+        {awaitingVerification
+          ? "L’adresse de votre page de réservation. Elle s’ouvrira au public dès que votre numéro RNA aura été vérifié."
+          : "L’adresse de votre page de réservation. Elle s’ouvre au public dès que vous validez."}
+      </p>
       <div>
         <label htmlFor="onboarding-slug" className={labelClassName}>Votre lien</label>
         <input id="onboarding-slug" value={slug} onChange={(event) => setSlug(typedSlug(event.target.value))} className={inputClassName} aria-describedby="onboarding-slug-preview onboarding-slug-hint" autoCapitalize="none" autoCorrect="off" spellCheck={false} />

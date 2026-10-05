@@ -198,6 +198,7 @@ enum AuditAction {
   ORGANIZATION_DELETION_SCHEDULED
   ORGANIZATION_DELETION_CANCELLED
   ORGANIZATION_EXPORTED
+  VERIFICATION_REQUESTED
 }
 
 model User {
@@ -956,6 +957,9 @@ model BusinessProfile {
   website                  String?
   facebook                 String?
   instagram                String?
+  // Numéro RNA ou d'agrément. Unique entre espaces, en majuscules et sans
+  // espaces : index sur expression, écrit dans la migration
+  // 20261005120000_organization_verification (Prisma ne sait pas le décrire).
   registrationNumber       String?
   acceptedPayments         String?
   cabinetName              String?
@@ -1329,6 +1333,24 @@ model Organization {
   /// Modules ouverts en plus du socle (src/lib/modules.ts). Décidés par la
   /// super-administration, jamais par l'espace lui-même.
   modules String[] @default([])
+
+  // Vérification du numéro RNA (chantier C4) : manuelle, par la
+  // super-administration. verifiedByUserId sans clé étrangère, comme
+  // suspendedByUserId. verificationNote : motif d'un refus.
+  verificationStatus VerificationStatus @default(NOT_REQUIRED)
+  verifiedAt         DateTime?
+  verifiedByUserId   String?
+  verificationNote   String?
+}
+
+/// Où en est la vérification du numéro RNA d'un espace (src/lib/registration-number.ts).
+/// NOT_REQUIRED : métier sans RNA. Les espaces configurés avant son arrivée
+/// sont VERIFIED.
+enum VerificationStatus {
+  NOT_REQUIRED
+  PENDING
+  VERIFIED
+  REJECTED
 }
 
 /// Invitation à ouvrir un cabinet sur 1002 Pattes (multi-comptes, phase 4).

@@ -1,10 +1,11 @@
 "use server";
 
 import { cleanServiceArea, serviceAreaText } from "@/lib/service-area";
-import { SLUG_QUARANTINE_ERROR, slugInQuarantine } from "@/lib/organization-access";
+import { SLUG_QUARANTINE_ERROR, registrationNumberTaken, slugInQuarantine } from "@/lib/organization-access";
+import { REGISTRATION_NUMBER_TAKEN_ERROR, registrationNumberProblem } from "@/lib/registration-number";
 import { revalidatePath } from "next/cache";
 import type { ScopedPrismaClient } from "@/lib/db";
-import { currentDb, readDb } from "@/lib/organization";
+import { currentDb, currentOrganization, readDb } from "@/lib/organization";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDayAvailability } from "@/lib/availability";
@@ -86,6 +87,14 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
     if (await slugInQuarantine(slug)) return { ok: false, error: SLUG_QUARANTINE_ERROR };
   }
 
+  // Numéro RNA (C4) : exigé d'un ostéopathe tant que l'espace n'est pas
+  // vérifié, propre à un seul espace, et figé une fois vérifié.
+  const organization = await currentOrganization();
+  const registrationNumber = input.registrationNumber?.trim() || null;
+  const registrationProblem = registrationNumberProblem({ profession: input.profession, next: registrationNumber, current: existing?.registrationNumber, status: organization.verificationStatus });
+  if (registrationProblem) return { ok: false, error: registrationProblem };
+  if (await registrationNumberTaken(registrationNumber, organization.id)) return { ok: false, error: REGISTRATION_NUMBER_TAKEN_ERROR };
+
   // Seuls les champs du formulaire de profil sont écrits, nommément. Le
   // formulaire reçoit la ligne entière (horaires, rappels, brouillon de la
   // page publique…) telle qu'elle était à l'ouverture de la page : la
@@ -95,7 +104,7 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   // latitude/longitude sont recalculées ci-dessous à partir de l'adresse.
   const { cabinetAvailable, homeAvailable } = input;
   const profileFields = Object.fromEntries(PROFILE_FIELDS.map((key) => [key, input[key]])) as Pick<BusinessProfileData, (typeof PROFILE_FIELDS)[number]>;
-  const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug };
+  const data: Prisma.BusinessProfileUpdateInput = { ...profileFields, slug, registrationNumber };
 
   // Secteur d'intervention : contrôlé ici, et le texte public en est généré.
   // Sans secteur choisi, le texte libre existant reste tel quel.
@@ -147,6 +156,9 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unique constraint")) {
+      // Deux index uniques : le lien, et le numéro RNA (doublon apparu entre
+      // la vérification ci-dessus et l'écriture).
+      if (JSON.stringify(error).includes("registrationNumber")) return { ok: false, error: REGISTRATION_NUMBER_TAKEN_ERROR };
       return { ok: false, error: "Ce lien public est déjà utilisé." };
     }
     throw error;

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { dbFor, organizationIdOf, prisma, type ScopedPrismaClient } from "@/lib/db";
 import { hasModule, normalizeModules, type ModuleKey } from "@/lib/modules";
 import { getCurrentUser } from "@/lib/auth/dal";
+import type { VerificationStatus } from "@/generated/prisma/client";
 
 /**
  * Espace professionnel : l'activité d'un professionnel, propriétaire de
@@ -169,17 +170,22 @@ export async function dbForSlug(slug: string): Promise<ScopedPrismaClient | null
 /**
  * Où en est la configuration initiale du cabinet connecté. `onboardedAt`
  * vide : l'onboarding n'est pas terminé, et la page de réservation reste
- * fermée.
+ * fermée. `verificationStatus` : la vérification de son numéro RNA.
  */
-export async function currentOrganization(): Promise<Organization & { onboardedAt: Date | null }> {
+export async function currentOrganization(): Promise<Organization & { onboardedAt: Date | null; verificationStatus: VerificationStatus }> {
   const id = await currentOrganizationId();
-  return prisma.organization.findUniqueOrThrow({ where: { id }, select: { id: true, name: true, onboardedAt: true } });
+  return prisma.organization.findUniqueOrThrow({ where: { id }, select: { id: true, name: true, onboardedAt: true, verificationStatus: true } });
 }
 
-/** Fin de l'onboarding : la page de réservation s'ouvre. Ne se fait qu'une fois. */
-export async function markCurrentOrganizationOnboarded(): Promise<void> {
+/**
+ * Fin de l'onboarding. Ne se fait qu'une fois : vrai si c'est maintenant.
+ * `PENDING` pour un métier qui exige un numéro RNA (la page attend sa
+ * vérification), `NOT_REQUIRED` sinon.
+ */
+export async function markCurrentOrganizationOnboarded(verificationStatus: "PENDING" | "NOT_REQUIRED"): Promise<boolean> {
   const id = await currentOrganizationId();
-  await prisma.organization.updateMany({ where: { id, onboardedAt: null }, data: { onboardedAt: new Date() } });
+  const { count } = await prisma.organization.updateMany({ where: { id, onboardedAt: null }, data: { onboardedAt: new Date(), verificationStatus } });
+  return count > 0;
 }
 
 /**

@@ -12,6 +12,23 @@ type PublicProfileSettingsTabProps = {
   onSave: (value: ProfileSettings) => void;
 };
 
+/**
+ * Les champs de ce formulaire, et eux seuls : « Mon profil », sur le même
+ * onglet, enregistre les autres. Chacun n'envoie que les siens, pour ne pas
+ * rétablir ce que l'autre vient d'enregistrer.
+ */
+export const PUBLIC_PROFILE_FIELDS = [
+  "coverPicture", "tagline", "cabinetName", "acceptedPayments", "website", "facebook", "instagram",
+  "cabinetInstructions", "parkingInformation", "accessibilityInformation",
+  "showPhonePublicly", "showAddressPublicly", "showHoursPublicly", "showSocialsPublicly", "showPaymentsPublicly",
+] as const satisfies readonly (keyof ProfileSettings)[];
+
+export type PublicProfileFields = Pick<ProfileSettings, (typeof PUBLIC_PROFILE_FIELDS)[number]>;
+
+export function publicProfileFieldsOf(profile: ProfileSettings): PublicProfileFields {
+  return Object.fromEntries(PUBLIC_PROFILE_FIELDS.map((key) => [key, profile[key]])) as PublicProfileFields;
+}
+
 export function PublicProfileSettingsTab({ value, saving = false, canEdit = true, onSave }: PublicProfileSettingsTabProps) {
   const [draft, setDraft] = useState(value);
 
@@ -50,7 +67,6 @@ export function PublicProfileSettingsTab({ value, saving = false, canEdit = true
                 <input value={draft.cabinetName ?? ""} onChange={(event) => updateText("cabinetName", event.target.value)} className={inputClassName} />
               </Field>
             </div>
-            <Field label="N° d’agrément / certification"><input value={draft.registrationNumber ?? ""} onChange={(event) => updateText("registrationNumber", event.target.value)} className={inputClassName} placeholder="Ex. OA1951" /></Field>
             <Field label="Moyens de paiement acceptés"><input value={draft.acceptedPayments ?? ""} onChange={(event) => updateText("acceptedPayments", event.target.value)} className={inputClassName} placeholder="Ex. Chèque, espèces ou virement" /></Field>
           </div>
         </Card>

@@ -1,5 +1,7 @@
 "use client";
 
+import { ProfessionField, RegistrationNumberField } from "@/components/settings/profession-fields";
+import { registrationNumberState, requiresRna, type VerificationStatus } from "@/lib/registration-number";
 import { useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
@@ -11,6 +13,8 @@ import { ServiceAreaFields, serviceAreaFields, serviceAreaUnconfirmed, type Serv
 
 type ProfileSettingsTabProps = {
   value: ProfileSettings;
+  /** Vérification du numéro RNA de l'espace : fige le numéro une fois vérifié. */
+  verificationStatus: VerificationStatus;
   saving?: boolean;
   canEdit?: boolean;
   onSave: (value: ProfileSettings) => void;
@@ -23,9 +27,11 @@ function cleanSlug(value: string) {
 // L'ancien préfixe "animeo.fr/" (jamais un domaine réel) et l'absence du
 // segment "/reserver/" produisaient un lien copié qui ne menait nulle part.
 // Dérivé de NEXT_PUBLIC_APP_URL — inliné au build, comme dans reminder-modal.tsx.
+const fieldLabelClassName = "mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted";
+
 const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/^https?:\/\//, "");
 
-export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
+export function ProfileSettingsTab({ value, verificationStatus, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
   const [draft, setDraft] = useState(value);
   // Secteur d'intervention : choisi par commune et rayon ; le texte public en est tiré.
   const [area, setArea] = useState<ServiceAreaDraft>({ label: value.serviceAreaLabel ?? "", latitude: value.serviceAreaLatitude, longitude: value.serviceAreaLongitude, radiusKm: value.serviceAreaLabel ? value.serviceAreaRadiusKm : 30 });
@@ -71,8 +77,20 @@ export function ProfileSettingsTab({ value, saving = false, canEdit = true, onSa
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Prénom"><input value={draft.firstName} onChange={(event) => update("firstName", event.target.value)} className={inputClassName} required /></Field>
           <Field label="Nom"><input value={draft.lastName} onChange={(event) => update("lastName", event.target.value)} className={inputClassName} required /></Field>
-          <Field label="Profession"><input value={draft.profession} onChange={(event) => update("profession", event.target.value)} className={inputClassName} /></Field>
+          <ProfessionField id="settings-profession" label="Profession" value={draft.profession} onChange={(next) => update("profession", next)} inputClassName={inputClassName} labelClassName={fieldLabelClassName} />
           <Field label="Nom de l’entreprise"><input value={draft.company} onChange={(event) => update("company", event.target.value)} className={inputClassName} /></Field>
+          {/* Numéro RNA pour un ostéopathe (figé une fois vérifié), agrément facultatif sinon. */}
+          <div className="md:col-span-2">
+            <RegistrationNumberField
+              id="settings-registration-number"
+              rna={requiresRna(draft.profession)}
+              state={registrationNumberState(verificationStatus, value.registrationNumber)}
+              value={draft.registrationNumber ?? ""}
+              onChange={(next) => update("registrationNumber", next.trim() ? next : null)}
+              inputClassName={inputClassName}
+              labelClassName={fieldLabelClassName}
+            />
+          </div>
           <Field label="Téléphone"><input type="tel" value={draft.phone} onChange={(event) => update("phone", event.target.value)} className={inputClassName} /></Field>
           <Field label="Email"><input type="email" value={draft.email} onChange={(event) => update("email", event.target.value)} className={inputClassName} /></Field>
           {hasCabinet(draft.practiceMode) ? (

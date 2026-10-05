@@ -8,7 +8,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
-import { PublicProfileSettingsTab } from "@/components/settings/public-profile-settings-tab";
+import { PublicProfileSettingsTab, publicProfileFieldsOf } from "@/components/settings/public-profile-settings-tab";
+import type { VerificationStatus } from "@/lib/registration-number";
 import { ServicesSettingsShortcut } from "@/components/settings/services-settings-tab";
 import { AvailabilitySettingsTab } from "@/components/settings/availability-settings-tab";
 import { ToursSettingsTab } from "@/components/settings/tours-settings-tab";
@@ -38,6 +39,7 @@ import { departurePoint } from "@/lib/practice-mode";
 type SettingsTab = "cabinet" | "customization" | "schedule" | "tours" | "integrations";
 
 type SettingsViewProps = {
+  verificationStatus: VerificationStatus;
   tours: Tour[];
   zones: Zone[];
   businessProfile: BusinessProfileData;
@@ -73,7 +75,7 @@ const googleOAuthErrorMessages: Record<string, string> = {
 
 let sessionSettings = initialSettings;
 
-export function SettingsView({ tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaces, tourPreferences, upcomingGeneratedCounts, publicPage, publicProfessional }: SettingsViewProps) {
+export function SettingsView({ verificationStatus, tours, zones, businessProfile, availability, reminders, services, google, icsFeed, savedPlaces, tourPreferences, upcomingGeneratedCounts, publicPage, publicProfessional }: SettingsViewProps) {
   const currentUser = useCurrentUser();
   // Onglets de modules : seulement ceux ouverts à l'espace (src/lib/modules.ts).
   const visibleTabs = tabs.filter((tab) => !tab.module || hasModule(currentUser?.modules, tab.module));
@@ -227,10 +229,12 @@ export function SettingsView({ tours, zones, businessProfile, availability, remi
         // précise plutôt que « le premier bouton Enregistrer de la page ».
         <div className="space-y-8">
           <section data-testid="settings-profile">
-            <ProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil enregistré et visible sur votre page publique")} />
+            {/* Chaque formulaire n'envoie que ses champs : enregistrer l'un ne
+                rétablit pas ce que l'autre vient d'enregistrer. */}
+            <ProfileSettingsTab value={settings.profile} verificationStatus={verificationStatus} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile({ ...value, ...publicProfileFieldsOf(settings.profile) }, settings.publicColor, "Profil enregistré et visible sur votre page publique")} />
           </section>
           <section data-testid="settings-public-profile">
-            <PublicProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile(value, settings.publicColor, "Profil public enregistré et visible sur votre page de réservation")} />
+            <PublicProfileSettingsTab value={settings.profile} saving={saving} canEdit={canManagePublicSettings} onSave={(value) => saveProfile({ ...settings.profile, ...publicProfileFieldsOf(value) }, settings.publicColor, "Profil public enregistré et visible sur votre page de réservation")} />
           </section>
           <ServicesSettingsShortcut />
         </div>

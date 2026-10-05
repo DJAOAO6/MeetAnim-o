@@ -7,10 +7,11 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { getAvailability } from "@/lib/business-profile-actions";
 import { currentDb, markCurrentOrganizationOnboarded } from "@/lib/organization";
+import { normalizeRegistrationNumber, requiresRna } from "@/lib/registration-number";
 import { hasCabinet } from "@/lib/practice-mode";
 import { slugProblem } from "@/lib/slug";
 
-export type CompleteOnboardingResult = { ok: true; slug: string } | { ok: false; error: string };
+export type CompleteOnboardingResult = { ok: true; slug: string; awaitingVerification: boolean } | { ok: false; error: string };
 
 /**
  * Dernière étape de l'onboarding : le lien de réservation est choisi, et la
@@ -20,6 +21,10 @@ export type CompleteOnboardingResult = { ok: true; slug: string } | { ok: false;
  * moins une prestation active, et une adresse de cabinet quand on y reçoit.
  * Chaque manque est dit tel quel, pour que le professionnel sache quelle
  * étape reprendre.
+ *
+ * Un métier qui exige un numéro RNA termine sa configuration de la même
+ * façon, mais son espace attend ensuite la vérification du numéro
+ * (`PENDING`) : sa page ne s'ouvre qu'une fois celui-ci validé.
  */
 export async function completeOnboardingAction(rawSlug: string): Promise<CompleteOnboardingResult> {
   const user = await requireUser();
@@ -46,6 +51,10 @@ export async function completeOnboardingAction(rawSlug: string): Promise<Complet
   if ((await db.service.count({ where: { active: true } })) === 0) {
     return { ok: false, error: "Ajoutez au moins une prestation (étape « Vos prestations »)." };
   }
+  const awaitingVerification = requiresRna(profile.profession);
+  if (awaitingVerification && !normalizeRegistrationNumber(profile.registrationNumber)) {
+    return { ok: false, error: "Indiquez votre numéro RNA (étape « Votre profil »)." };
+  }
 
   if (slug !== profile.slug) {
     try {
@@ -58,10 +67,14 @@ export async function completeOnboardingAction(rawSlug: string): Promise<Complet
     }
   }
 
-  await markCurrentOrganizationOnboarded();
-  await logAudit({ userId: user.id, action: "ONBOARDING_COMPLETED", entityType: "BusinessProfile", entityId: profile.id });
+  if (await markCurrentOrganizationOnboarded(awaitingVerification ? "PENDING" : "NOT_REQUIRED")) {
+    await logAudit({ userId: user.id, action: "ONBOARDING_COMPLETED", entityType: "BusinessProfile", entityId: profile.id });
+    if (awaitingVerification) {
+      await logAudit({ userId: user.id, action: "VERIFICATION_REQUESTED", entityType: "Organization", entityId: profile.organizationId });
+    }
+  }
 
   revalidatePath("/dashboard", "layout");
   revalidatePath(`/reserver/${slug}`);
-  return { ok: true, slug };
+  return { ok: true, slug, awaitingVerification };
 }

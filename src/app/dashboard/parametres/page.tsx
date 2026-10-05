@@ -9,6 +9,7 @@ import { getOrCreateTourPreferences, getUpcomingGeneratedCounts, listSavedPlaces
 import { requireUser } from "@/lib/auth/dal";
 import { getPublicPageState } from "@/lib/public-page-actions";
 import { loadPublicProfessional } from "@/lib/public-professional";
+import { currentOrganization } from "@/lib/organization";
 
 export const metadata: Metadata = { title: "Paramètres" };
 
@@ -29,13 +30,14 @@ export default async function ParametresPage() {
   ]);
   // Mêmes données que la page publique : l'aperçu de l'éditeur doit montrer
   // ce que verront réellement les clients (voir loadPublicProfessional).
-  const [publicPage, publicProfessional] = await Promise.all([getPublicPageState(), loadPublicProfessional()]);
+  const [publicPage, publicProfessional, organization] = await Promise.all([getPublicPageState(), loadPublicProfessional(), currentOrganization()]);
   return (
     // Suspense requis par useSearchParams (retour du callback OAuth Google —
     // voir settings-view.tsx) : toutes les données sont déjà résolues
     // ci-dessus, rien ne suspend réellement ici en pratique.
     <Suspense fallback={null}>
       <SettingsView
+        verificationStatus={organization.verificationStatus}
         tours={tours}
         zones={zones}
         businessProfile={businessProfile}

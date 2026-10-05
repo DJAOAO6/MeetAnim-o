@@ -15,15 +15,21 @@ const testTagline = "Ostéopathe animalier diplômée et certifiée — E2E";
 type PublicProfileRow = { id: string; tagline: string | null; cabinetName: string | null; acceptedPayments: string | null; showPhonePublicly: boolean };
 
 let originalProfile: PublicProfileRow | null = null;
+let originalPermissions: string[] | null = null;
 
 async function grantPermission() {
   const sql = neon(process.env.DATABASE_URL!);
+  const [user] = await sql`SELECT permissions FROM "User" WHERE email = ${testEmail}`;
+  originalPermissions = (user?.permissions as string[] | undefined) ?? null;
   await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${testEmail}`;
 }
 
-async function revokePermission() {
+// Rétablit les permissions d'avant le test : les vider retirait au compte de
+// démonstration le droit de modifier ses paramètres publics.
+async function restorePermission() {
+  if (!originalPermissions) return;
   const sql = neon(process.env.DATABASE_URL!);
-  await sql`UPDATE "User" SET permissions = ARRAY[]::text[] WHERE email = ${testEmail}`;
+  await sql`UPDATE "User" SET permissions = ${originalPermissions} WHERE email = ${testEmail}`;
 }
 
 test.describe("Paramètres — onglet Profil public", () => {
@@ -39,7 +45,7 @@ test.describe("Paramètres — onglet Profil public", () => {
       const sql = neon(process.env.DATABASE_URL!);
       await sql`UPDATE "BusinessProfile" SET tagline = ${originalProfile.tagline}, "cabinetName" = ${originalProfile.cabinetName}, "acceptedPayments" = ${originalProfile.acceptedPayments}, "showPhonePublicly" = ${originalProfile.showPhonePublicly} WHERE id = ${originalProfile.id}`;
     }
-    await revokePermission();
+    await restorePermission();
   });
 
   // Session partagée (projet chromium-connecte, tests/auth.setup.ts) : se
