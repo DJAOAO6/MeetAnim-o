@@ -2,7 +2,7 @@
 
 import { cleanServiceArea, serviceAreaText } from "@/lib/service-area";
 import { SLUG_QUARANTINE_ERROR, registrationNumberTaken, slugInQuarantine } from "@/lib/organization-access";
-import { REGISTRATION_NUMBER_TAKEN_ERROR, registrationNumberProblem } from "@/lib/registration-number";
+import { REGISTRATION_NUMBER_TAKEN_ERROR, professionChangeProblem, registrationNumberProblem } from "@/lib/registration-number";
 import { revalidatePath } from "next/cache";
 import type { ScopedPrismaClient } from "@/lib/db";
 import { currentDb, currentOrganization, readDb } from "@/lib/organization";
@@ -87,9 +87,12 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
     if (await slugInQuarantine(slug)) return { ok: false, error: SLUG_QUARANTINE_ERROR };
   }
 
-  // Numéro RNA (C4) : exigé d'un ostéopathe tant que l'espace n'est pas
-  // vérifié, propre à un seul espace, et figé une fois vérifié.
+  // Métier (C4) : figé une fois l'espace configuré. Numéro RNA : exigé d'un
+  // ostéopathe tant que l'espace n'est pas vérifié, propre à un seul espace,
+  // et figé une fois vérifié.
   const organization = await currentOrganization();
+  const professionProblem = professionChangeProblem({ onboarded: Boolean(organization.onboardedAt), current: existing?.profession, next: input.profession });
+  if (professionProblem) return { ok: false, error: professionProblem };
   const registrationNumber = input.registrationNumber?.trim() || null;
   const registrationProblem = registrationNumberProblem({ profession: input.profession, next: registrationNumber, current: existing?.registrationNumber, status: organization.verificationStatus });
   if (registrationProblem) return { ok: false, error: registrationProblem };

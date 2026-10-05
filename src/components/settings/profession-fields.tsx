@@ -14,17 +14,29 @@ function presetOf(value: string): string {
   return value.trim() ? OTHER_PROFESSION : "";
 }
 
-export function ProfessionField({ id, value, onChange, inputClassName, labelClassName, label = "Métier" }: {
+export function ProfessionField({ id, value, onChange, inputClassName, labelClassName, label = "Métier", locked = false }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   inputClassName: string;
   labelClassName: string;
   label?: string;
+  /** Espace configuré : le métier ne se modifie plus (le serveur le refuse de toute façon). */
+  locked?: boolean;
 }) {
   const [choice, setChoice] = useState(() => presetOf(value));
   // Ce qui a été écrit dans « Autre » survit à un aller-retour dans le menu.
   const [other, setOther] = useState(() => (presetOf(value) === OTHER_PROFESSION ? value : ""));
+
+  if (locked) {
+    return (
+      <div>
+        <label htmlFor={id} className={labelClassName}>{label}</label>
+        <input id={id} value={value} readOnly aria-describedby={`${id}-hint`} className={`${inputClassName} cursor-not-allowed opacity-70`} />
+        <p id={`${id}-hint`} className="mt-1.5 text-xs text-animeo-muted">Choisi à la configuration de votre espace. Contactez le support pour le modifier.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

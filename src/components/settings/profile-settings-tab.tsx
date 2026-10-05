@@ -15,6 +15,8 @@ type ProfileSettingsTabProps = {
   value: ProfileSettings;
   /** Vérification du numéro RNA de l'espace : fige le numéro une fois vérifié. */
   verificationStatus: VerificationStatus;
+  /** Espace configuré : le métier ne se modifie plus. */
+  professionLocked: boolean;
   saving?: boolean;
   canEdit?: boolean;
   onSave: (value: ProfileSettings) => void;
@@ -31,7 +33,7 @@ const fieldLabelClassName = "mb-2 block text-xs font-extrabold uppercase trackin
 
 const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/^https?:\/\//, "");
 
-export function ProfileSettingsTab({ value, verificationStatus, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
+export function ProfileSettingsTab({ value, verificationStatus, professionLocked, saving = false, canEdit = true, onSave }: ProfileSettingsTabProps) {
   const [draft, setDraft] = useState(value);
   // Secteur d'intervention : choisi par commune et rayon ; le texte public en est tiré.
   const [area, setArea] = useState<ServiceAreaDraft>({ label: value.serviceAreaLabel ?? "", latitude: value.serviceAreaLatitude, longitude: value.serviceAreaLongitude, radiusKm: value.serviceAreaLabel ? value.serviceAreaRadiusKm : 30 });
@@ -77,7 +79,7 @@ export function ProfileSettingsTab({ value, verificationStatus, saving = false, 
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Prénom"><input value={draft.firstName} onChange={(event) => update("firstName", event.target.value)} className={inputClassName} required /></Field>
           <Field label="Nom"><input value={draft.lastName} onChange={(event) => update("lastName", event.target.value)} className={inputClassName} required /></Field>
-          <ProfessionField id="settings-profession" label="Profession" value={draft.profession} onChange={(next) => update("profession", next)} inputClassName={inputClassName} labelClassName={fieldLabelClassName} />
+          <ProfessionField id="settings-profession" label="Profession" locked={professionLocked} value={draft.profession} onChange={(next) => update("profession", next)} inputClassName={inputClassName} labelClassName={fieldLabelClassName} />
           <Field label="Nom de l’entreprise"><input value={draft.company} onChange={(event) => update("company", event.target.value)} className={inputClassName} /></Field>
           {/* Numéro RNA pour un ostéopathe (figé une fois vérifié), agrément facultatif sinon. */}
           <div className="md:col-span-2">

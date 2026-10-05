@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  PROFESSION_LOCKED_ERROR,
   REGISTRATION_NUMBER_LOCKED_ERROR,
   REGISTRATION_NUMBER_REQUIRED_ERROR,
   normalizeRegistrationNumber,
+  professionChangeProblem,
   registrationNumberProblem,
   registrationNumberState,
   requiresRna,
@@ -45,4 +47,10 @@ test("un numéro vérifié est figé ; un espace vérifié sans numéro peut le 
   assert.equal(registrationNumberState("VERIFIED", null), "once");
   assert.equal(registrationNumberState("NOT_REQUIRED", null), "toVerify");
   assert.equal(registrationNumberState("PENDING", "OA1951"), "toVerify");
+});
+
+test("le métier se choisit à la configuration, puis ne bouge plus", () => {
+  assert.equal(professionChangeProblem({ onboarded: false, current: "Comportementaliste", next: "Ostéopathe animalier" }), null);
+  assert.equal(professionChangeProblem({ onboarded: true, current: "Comportementaliste", next: "Ostéopathe animalier" }), PROFESSION_LOCKED_ERROR);
+  assert.equal(professionChangeProblem({ onboarded: true, current: "Toiletteur", next: " Toiletteur " }), null);
 });

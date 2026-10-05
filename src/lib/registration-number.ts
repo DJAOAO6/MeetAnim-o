@@ -29,6 +29,19 @@ export const REGISTRATION_NUMBER_REQUIRED_ERROR = "Indiquez votre numéro RNA : 
 export const REGISTRATION_NUMBER_TAKEN_ERROR = "Ce numéro est déjà associé à un compte. Contactez-nous si c’est une erreur.";
 export const REGISTRATION_NUMBER_LOCKED_ERROR = "Ce numéro a été vérifié : contactez le support pour le modifier.";
 
+export const PROFESSION_LOCKED_ERROR = "Votre métier ne se modifie plus après la configuration de votre espace : contactez le support.";
+
+/**
+ * Le métier est choisi une fois, pendant la configuration : il décide du
+ * numéro RNA et de la vérification. Le changer ensuite contournerait l'une
+ * et l'autre (un comportementaliste qui deviendrait ostéopathe sans être
+ * vérifié).
+ */
+export function professionChangeProblem(input: { onboarded: boolean; current: string | null | undefined; next: string | null | undefined }): string | null {
+  if (!input.onboarded) return null;
+  return (input.current ?? "").trim() === (input.next ?? "").trim() ? null : PROFESSION_LOCKED_ERROR;
+}
+
 export type VerificationStatus = "NOT_REQUIRED" | "PENDING" | "VERIFIED" | "REJECTED";
 
 /**

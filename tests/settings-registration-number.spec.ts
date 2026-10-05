@@ -70,14 +70,16 @@ test("un espace vérifié sans numéro le saisit une fois, puis il est figé", a
   await expect(page.getByTestId("settings-profile").getByLabel("Numéro RNA (Registre national d’aptitude)")).not.toBeEditable();
 });
 
-test("un autre métier voit un numéro d'agrément facultatif", async ({ page }) => {
+test("un autre métier voit un numéro d'agrément facultatif, et ne change plus de métier", async ({ page }) => {
   await sql`UPDATE "BusinessProfile" SET "registrationNumber" = NULL, profession = 'Toiletteur' WHERE "organizationId" = ${ORGANIZATION}`;
   await page.goto("/dashboard/parametres");
   const profile = page.getByTestId("settings-profile");
-  await expect(profile.getByLabel("Profession")).toHaveValue("Toiletteur");
   await expect(profile.getByLabel("N° d’agrément / certification (facultatif)")).toBeVisible();
   await expect(profile.getByLabel("Numéro RNA (Registre national d’aptitude)")).toHaveCount(0);
-  // Choisir « Ostéopathe animalier » fait apparaître le numéro RNA.
-  await profile.getByLabel("Profession").selectOption("Ostéopathe animalier");
-  await expect(profile.getByLabel("Numéro RNA (Registre national d’aptitude)")).toBeVisible();
+  // Le métier choisi à la configuration est figé : devenir « ostéopathe »
+  // ici contournerait la vérification du numéro RNA.
+  const profession = profile.getByLabel("Profession");
+  await expect(profession).toHaveValue("Toiletteur");
+  await expect(profession).not.toBeEditable();
+  await expect(profile.getByText("Choisi à la configuration de votre espace. Contactez le support pour le modifier.")).toBeVisible();
 });

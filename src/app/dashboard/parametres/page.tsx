@@ -38,6 +38,7 @@ export default async function ParametresPage() {
     <Suspense fallback={null}>
       <SettingsView
         verificationStatus={organization.verificationStatus}
+        professionLocked={organization.onboardedAt !== null}
         tours={tours}
         zones={zones}
         businessProfile={businessProfile}
