@@ -5,9 +5,7 @@ import { createPortal } from "react-dom";
 import { overlayRoot } from "@/components/ui/overlay-portal";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { AppointmentSummary } from "@/components/appointments/appointment-summary";
-import { useAppointments } from "@/components/appointments/appointments-context";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { notify } from "@/lib/notify";
+import { CancelAppointmentDialog } from "@/components/appointments/visit-dialogs";
 import type { Appointment } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
@@ -28,7 +26,6 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<"view" | "edit">("view");
   const popoverRef = useRef<HTMLDivElement>(null);
-  const { updateAppointmentStatus } = useAppointments();
   // Confirmation d'annulation ouverte : la fiche ne se referme ni au clic
   // dans la confirmation, ni à Échap (qui ne ferme que la confirmation).
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -85,15 +82,6 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
     return result;
   }
 
-  async function cancelAppointment() {
-    const wasRequest = appointment.status === "pending";
-    setConfirmingCancel(false);
-    const result = await updateAppointmentStatus(appointment.id, "cancelled");
-    if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
-    notify.success(wasRequest ? "Demande refusée — le créneau est de nouveau libre." : "Rendez-vous annulé — le créneau est de nouveau libre.");
-    onClose();
-  }
-
   return createPortal(
     <div className="fixed inset-0 z-[70]" role="presentation">
       <div
@@ -115,12 +103,13 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
       {/* Hors de la fiche : elle est transformée (animation), ce qui
           confinerait une fenêtre fixe à ses propres dimensions. */}
       {confirmingCancel ? (
-        <ConfirmModal
+        // Dans une visite (chantier C6) : toute la visite, ou seulement celui-ci.
+        <CancelAppointmentDialog
+          appointment={appointment}
           title={appointment.status === "pending" ? "Refuser cette demande ?" : "Annuler ce rendez-vous ?"}
           message={`${appointment.animalName} (${appointment.clientName}), ${appointment.start}. Le rendez-vous reste dans l’historique, le créneau redevient libre, et le client en est prévenu.`}
           confirmLabel={appointment.status === "pending" ? "Refuser la demande" : "Annuler le rendez-vous"}
-          cancelLabel="Garder"
-          onConfirm={cancelAppointment}
+          onCancelled={onClose}
           onClose={() => setConfirmingCancel(false)}
         />
       ) : null}

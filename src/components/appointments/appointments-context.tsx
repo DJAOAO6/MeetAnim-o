@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
-import { getAppointmentsInRangeAction, saveAppointmentAction, saveAppointmentsBatchAction, updateAppointmentStatusAction, type SaveAppointmentInput, type SaveVisitInput } from "@/lib/appointments-actions";
+import { cancelVisitAction, cancelVisitMemberAction, getAppointmentsInRangeAction, moveVisitAction, saveAppointmentAction, saveAppointmentsBatchAction, updateAppointmentStatusAction, type SaveAppointmentInput, type SaveVisitInput } from "@/lib/appointments-actions";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 
 /**
@@ -47,6 +47,10 @@ type AppointmentsContextValue = {
   closeManager: () => void;
   saveAppointment: (input: SaveAppointmentInput) => Promise<ActionOutcome>;
   saveVisit: (input: SaveVisitInput) => Promise<VisitOutcome>;
+  /** Visite (chantier C6) : déplacer ou annuler tous ses rendez-vous, ou en annuler un seul. */
+  moveVisit: (visitGroupId: string, date: string, start: string) => Promise<VisitOutcome>;
+  cancelVisit: (visitGroupId: string) => Promise<VisitOutcome>;
+  cancelVisitMember: (appointmentId: string) => Promise<ActionOutcome>;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => Promise<ActionOutcome>;
 };
 
@@ -174,6 +178,33 @@ export function AppointmentsProvider({ children, initialAppointments, initialRan
     return { ok: true, appointments: result.appointments };
   }
 
+  /** Remplace les rendez-vous renvoyés par le serveur, par identifiant. */
+  function replaceAppointments(updated: Appointment[]) {
+    const byId = new Map(updated.map((appointment) => [appointment.id, appointment]));
+    setAppointments((current) => current.map((item) => byId.get(item.id) ?? item));
+  }
+
+  async function moveVisit(visitGroupId: string, date: string, start: string): Promise<VisitOutcome> {
+    const result = await moveVisitAction(visitGroupId, date, start);
+    if (!result.ok) return { ok: false, error: result.error };
+    replaceAppointments(result.appointments);
+    return { ok: true, appointments: result.appointments };
+  }
+
+  async function cancelVisit(visitGroupId: string): Promise<VisitOutcome> {
+    const result = await cancelVisitAction(visitGroupId);
+    if (!result.ok) return { ok: false, error: result.error };
+    replaceAppointments(result.appointments);
+    return { ok: true, appointments: result.appointments };
+  }
+
+  async function cancelVisitMember(appointmentId: string): Promise<ActionOutcome> {
+    const result = await cancelVisitMemberAction(appointmentId);
+    if (!result.ok) return { ok: false, error: result.error };
+    replaceAppointments([result.appointment]);
+    return { ok: true, appointment: result.appointment };
+  }
+
   async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus): Promise<ActionOutcome> {
     const result = await updateAppointmentStatusAction(appointmentId, status);
     if (!result.ok) return { ok: false, error: result.error };
@@ -196,6 +227,9 @@ export function AppointmentsProvider({ children, initialAppointments, initialRan
     closeManager,
     saveAppointment,
     saveVisit,
+    moveVisit,
+    cancelVisit,
+    cancelVisitMember,
     updateAppointmentStatus,
   };
 

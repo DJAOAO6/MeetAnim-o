@@ -39,6 +39,15 @@ import { isWeekdayShown, type AgendaDisplay } from "@/lib/agenda-display";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
+/** Place d'un rendez-vous dans sa visite multi-animaux (chantier C6), s'il en a une. */
+function visitPositionOf(appointment: { id: string; date: string; visitGroupId?: string }, all: Array<{ id: string; date: string; start: string; status: string; visitGroupId?: string }>): { index: number; count: number } | undefined {
+  if (!appointment.visitGroupId) return undefined;
+  const members = all
+    .filter((item) => item.visitGroupId === appointment.visitGroupId && item.date === appointment.date && item.status !== "cancelled")
+    .sort((a, b) => a.start.localeCompare(b.start));
+  return members.length > 1 ? { index: members.findIndex((item) => item.id === appointment.id), count: members.length } : undefined;
+}
+
 function getCurrentWeekMonday() {
   const now = new Date();
   const day = now.getDay();
@@ -271,6 +280,7 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
       animal: appointment.animalName,
       client: appointment.clientName,
       location: appointment.mode === "cabinet" ? "Cabinet" : `Domicile · ${appointment.location}`,
+      visit: visitPositionOf(appointment, appointments),
     })), [appointments, activeDates]);
   // Indépendant de activeDates/view : une demande en attente doit rester
   // visible même quand la période actuellement affichée dans le planning ne

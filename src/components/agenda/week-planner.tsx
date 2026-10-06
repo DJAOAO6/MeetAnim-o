@@ -8,7 +8,8 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { Card } from "@/components/ui/card";
 import { ArrowLeftRight, Ban, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
 import { computeClosedRanges, getDayAvailability, isOpenAt } from "@/lib/availability";
-import { conflictsWith } from "@/lib/booking-validation";
+import { chainVisitStarts, conflictsWith } from "@/lib/booking-validation";
+import { ChoiceModal } from "@/components/appointments/visit-dialogs";
 import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
@@ -32,6 +33,8 @@ export type CalendarEvent = {
   client?: string;
   location?: string;
   title?: string;
+  /** Visite multi-animaux (chantier C6) : « 1/2 », « 2/2 ». */
+  visit?: { index: number; count: number };
 };
 
 type WeekPlannerProps = {
@@ -200,7 +203,9 @@ type DragState =
   | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
 
 export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [], display = DEFAULT_AGENDA_DISPLAY, onShiftDay }: WeekPlannerProps) {
-  const { appointments, saveAppointment } = useAppointments();
+  const { appointments, saveAppointment, moveVisit } = useAppointments();
+  // Déplacement d'un rendez-vous d'une visite (chantier C6) : en attente du choix « toute la visite » ou « seulement lui ».
+  const [pendingVisitMove, setPendingVisitMove] = useState<{ appointmentId: string; day: number; startMinutes: number } | null>(null);
   const [selection, setSelection] = useState<{ event: CalendarEvent; anchorRect: DOMRect } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const isDayView = dates.length === 1;
@@ -238,14 +243,32 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
    * Même règle que le serveur (conflictsWith : trajet et pause dans les deux
    * sens) ; un autre élément qui démarre à la même minute bloque aussi.
    */
-  function moveConflicts(appointmentId: string | undefined, eventId: string, day: number, startMinutes: number): boolean {
+  /** Les rendez-vous de la visite de ce rendez-vous, dans l'ordre ; lui seul s'il n'en a pas. */
+  function visitOf(appointment: (typeof appointments)[number]) {
+    if (!appointment.visitGroupId) return [appointment];
+    const members = appointments
+      .filter((item) => item.visitGroupId === appointment.visitGroupId && item.date === appointment.date && item.status !== "cancelled")
+      .sort((a, b) => a.start.localeCompare(b.start));
+    return members.length > 1 ? members : [appointment];
+  }
+
+  /**
+   * Le déplacement heurte-t-il un autre rendez-vous ? Un rendez-vous d'une
+   * visite emmène la visite entière (`detached` : lui seul, sorti de la
+   * visite) : chacun de ses rendez-vous est vérifié à sa nouvelle place.
+   */
+  function moveConflicts(appointmentId: string | undefined, eventId: string, day: number, startMinutes: number, detached = false): boolean {
     const moved = appointments.find((item) => item.id === appointmentId);
     const targetDateId = dateIdOf(dates[day]);
     const targetStart = minutesToTime(startMinutes);
-    if (allEvents.some((event) => event.id !== eventId && event.day === day && event.start === targetStart)) return true;
+    const members = moved && !detached ? visitOf(moved) : moved ? [moved] : [];
+    const memberIds = new Set(members.map((member) => member.id));
+    if (allEvents.some((event) => event.id !== eventId && !memberIds.has(event.appointmentId ?? "") && event.day === day && event.start === targetStart)) return true;
     if (!moved) return false;
-    return appointments.some((item) => item.id !== moved.id && item.status !== "cancelled" && item.date === targetDateId
-      && conflictsWith({ start: startMinutes, duration: moved.duration, mode: moved.mode }, { start: toMinutes(item.start), duration: item.duration, mode: item.mode }, availability));
+    const offset = toMinutes(moved.start) - toMinutes(members[0].start);
+    const starts = chainVisitStarts(startMinutes - offset, members.map((member) => member.duration));
+    return members.some((member, index) => appointments.some((item) => !memberIds.has(item.id) && item.status !== "cancelled" && item.date === targetDateId
+      && conflictsWith({ start: starts[index], duration: member.duration, mode: member.mode }, { start: toMinutes(item.start), duration: item.duration, mode: item.mode }, availability)));
   }
   // Géométrie de la grille : la hauteur d'une ligne vient de la densité, sa
   // durée de l'intervalle. Les rendez-vous, eux, gardent leur vraie durée.
@@ -551,6 +574,10 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
 
     if (state.kind === "move") {
       if (state.currentDay === state.originDay && state.currentStartMinutes === state.originStartMinutes) return;
+      if (visitOf(original).length > 1) {
+        setPendingVisitMove({ appointmentId: original.id, day: state.currentDay, startMinutes: state.currentStartMinutes });
+        return;
+      }
       const targetDate = dates[state.currentDay];
       const targetStart = minutesToTime(state.currentStartMinutes);
       const { open, intervals } = getDayAvailability(targetDate, availability);
@@ -592,6 +619,40 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
       if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
       notify.success(`Durée du rendez-vous de ${original.animalName} mise à jour (${state.currentDuration} min).`);
     }
+  }
+
+  /**
+   * Choix fait pour une visite : toute la visite (ses rendez-vous restent
+   * enchaînés, celui qu'on a glissé tombe là où on l'a lâché), ou seulement
+   * ce rendez-vous, qui quitte la visite.
+   */
+  async function applyVisitMove(scope: "visit" | "single") {
+    const pending = pendingVisitMove;
+    setPendingVisitMove(null);
+    if (!pending) return;
+    const original = appointments.find((item) => item.id === pending.appointmentId);
+    if (!original) return;
+    const targetDate = dates[pending.day];
+    const targetDateId = dateIdOf(targetDate);
+    const label = dragDateFormatter.format(targetDate);
+    const when = `${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+    if (moveConflicts(original.id, original.id, pending.day, pending.startMinutes, scope === "single")) {
+      notify.error("Ce créneau n’est pas disponible : choisissez un autre horaire.");
+      return;
+    }
+    if (scope === "visit" && original.visitGroupId) {
+      const members = visitOf(original);
+      const offset = toMinutes(original.start) - toMinutes(members[0].start);
+      const visitStart = minutesToTime(pending.startMinutes - offset);
+      const result = await moveVisit(original.visitGroupId, targetDateId, visitStart);
+      if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
+      notify.success(`Visite déplacée au ${when} à ${visitStart} (${members.map((member) => member.animalName).join(", ")}).`);
+      return;
+    }
+    const targetStart = minutesToTime(pending.startMinutes);
+    const result = await saveAppointment({ ...original, date: targetDateId, start: targetStart, detachFromVisit: true });
+    if (!result.ok) { notify.error(result.error ?? "Une erreur est survenue."); return; }
+    notify.success(`Rendez-vous de ${original.animalName} déplacé au ${when} à ${targetStart}, hors de la visite.`);
   }
 
   // Recalculé à chaque rendu du glisser : quelques comparaisons, pas de quoi mémoriser.
@@ -734,6 +795,22 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
           </div>
         </div>
       </Card>
+
+      {pendingVisitMove ? (() => {
+        const original = appointments.find((item) => item.id === pendingVisitMove.appointmentId);
+        const members = original ? visitOf(original) : [];
+        return (
+          <ChoiceModal
+            title="Déplacer la visite ?"
+            message={`${original?.animalName ?? "Ce rendez-vous"} fait partie d’une visite (${members.map((member) => member.animalName).join(", ")}).`}
+            choices={[
+              { label: "Déplacer toute la visite", tone: "primary", onSelect: () => void applyVisitMove("visit") },
+              { label: "Seulement ce rendez-vous", onSelect: () => void applyVisitMove("single") },
+            ]}
+            onClose={() => setPendingVisitMove(null)}
+          />
+        );
+      })() : null}
 
       {selection && selectedAppointment ? (
         <AgendaEventPopover
@@ -1109,7 +1186,8 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
       onKeyDown={isSelectable && !showPendingActions ? handleKeyDown : undefined}
       onPointerDown={isDraggable ? handlePointerDown : undefined}
       // Tout ce que la carte peut taire faute de place : fin, mode, client.
-      aria-label={isSelectable ? `${selectableLabel}, jusqu’à ${end}, ${mode.label.toLowerCase()}${event.client ? `, ${event.client}` : ""}` : undefined}
+      aria-label={isSelectable ? `${selectableLabel}, jusqu’à ${end}, ${mode.label.toLowerCase()}${event.client ? `, ${event.client}` : ""}${event.visit ? `, visite ${event.visit.index + 1} sur ${event.visit.count}` : ""}` : undefined}
+      data-visit={event.visit ? `${event.visit.index + 1}/${event.visit.count}` : undefined}
       title={size === "full" && showLocation && columnLayout.columns === 1 ? undefined : summary}
       data-size={size}
       className={`@container group absolute overflow-hidden border-l-4 leading-tight ${size === "tiny" ? "rounded-md px-1.5" : "rounded-lg px-1.5 py-1"} ${clippedTop ? "rounded-t-none" : ""} ${clippedBottom ? "rounded-b-none" : ""} shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
@@ -1148,7 +1226,10 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
       ) : size === "medium" ? (
         <div className={visualHeight >= STACKED_EVENT_HEIGHT ? "" : "flex items-baseline gap-1.5"}>
           <p className={`text-[11px] font-black tabular-nums ${visualHeight >= STACKED_EVENT_HEIGHT ? "hidden @min-[3rem]:block" : "hidden @min-[5.5rem]:block"}`}>{event.start}</p>
-          <p className="truncate text-xs font-extrabold">{name}</p>
+          <p className="flex items-center gap-1 truncate text-xs font-extrabold">
+            <span className="truncate">{name}</span>
+            {event.visit ? <VisitBadge visit={event.visit} /> : null}
+          </p>
         </div>
       ) : (
         <>
@@ -1160,7 +1241,10 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
             </p>
             <ModeIcon aria-hidden="true" className="hidden h-3.5 w-3.5 shrink-0 @min-[4.5rem]:block" strokeWidth={2.25} />
           </div>
-          <p className="mt-0.5 truncate text-xs font-extrabold">{name}</p>
+          <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-extrabold">
+            <span className="truncate">{name}</span>
+            {event.visit ? <VisitBadge visit={event.visit} /> : null}
+          </p>
           {/* Sans opacité sur ces lignes : appliquée à un texte de 10 px sur
               une pastille colorée, elle les faisait passer sous le seuil de
               contraste AA. Elles héritent de la couleur de la pastille. */}
@@ -1187,6 +1271,15 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
         </div>
       ) : null}
     </article>
+  );
+}
+
+/** « 1/2 » : ce rendez-vous et ses voisins forment une seule visite. */
+function VisitBadge({ visit }: { visit: { index: number; count: number } }) {
+  return (
+    <span aria-hidden="true" className="shrink-0 rounded-full bg-white/80 px-1.5 text-[10px] font-black tabular-nums leading-4 text-animeo-dark">
+      {visit.index + 1}/{visit.count}
+    </span>
   );
 }
 

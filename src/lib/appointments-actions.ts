@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { MAX_VISIT_ANIMALS } from "@/lib/visit-group";
+import { MAX_VISIT_ANIMALS, visitSummary } from "@/lib/visit-group";
 import { rateLimitKey } from "@/lib/privacy";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -107,7 +107,7 @@ async function notifyAppointmentChange(db: ScopedPrismaClient, clientId: string 
  * horaire de départ — voir handlePotentialSlotConflict ci-dessous pour le
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
-async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, mode: BufferedMode, excludeId?: string, visitGroupId?: string | null): Promise<boolean> {
+async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, mode: BufferedMode, excludeId?: string | string[], visitGroupId?: string | null): Promise<boolean> {
   // Les rendez-vous, horaires et agendas Google du cabinet concerné, et de
   // lui seul : le 9 h d'un professionnel n'occupe pas celui d'un autre.
   const [availability, googleBusyPeriods] = await Promise.all([
@@ -145,12 +145,12 @@ type AppointmentReader = {
  * qui peut être perdue dans une course, isolée pour être rejouée sous verrou
  * (withSlotLock) avec le client de la transaction.
  */
-async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, mode: BufferedMode, buffers: AppointmentBuffers, excludeId?: string, visitGroupId?: string | null): Promise<boolean> {
+async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, mode: BufferedMode, buffers: AppointmentBuffers, excludeId?: string | string[], visitGroupId?: string | null): Promise<boolean> {
   const sameDayAppointments = await db.appointment.findMany({
     where: {
       date: toDate(dateId),
       status: { not: "CANCELLED" },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
+      ...(Array.isArray(excludeId) ? { id: { notIn: excludeId } } : excludeId ? { id: { not: excludeId } } : {}),
     },
     select: { start: true, duration: true, mode: true, visitGroupId: true },
   });
@@ -338,6 +338,11 @@ export type SaveAppointmentInput = {
   city?: string;
   latitude?: number;
   longitude?: number;
+  /**
+   * Visite multi-animaux (chantier C6) : « Seulement ce rendez-vous » — il
+   * quitte sa visite et se vérifie comme un rendez-vous seul.
+   */
+  detachFromVisit?: boolean;
 };
 
 export type AppointmentActionResult =
@@ -370,7 +375,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
   const existing = input.id ? await db.appointment.findUnique({ where: { id: input.id } }) : null;
 
-  if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id, existing?.visitGroupId)) {
+  const visitGroupId = input.detachFromVisit ? null : existing?.visitGroupId;
+  if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id, visitGroupId)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
 
@@ -398,6 +404,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     price: input.price,
     status: dbStatus[input.status],
     notes: input.notes,
+    ...(input.detachFromVisit ? { visitGroupId: null } : {}),
     // Déplacé : le rappel déjà envoyé portait l'ancienne date. On le réarme
     // pour que le client soit prévenu du nouvel horaire.
     ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null } : {}),
@@ -408,7 +415,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   try {
     row = await db.$transaction(async (tx) => {
       await lockDay(tx, input.date);
-      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id, existing?.visitGroupId)) return null;
+      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id, visitGroupId)) return null;
       const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
       return input.id
         ? tx.appointment.update({ where: { id: input.id }, data, include })
@@ -430,6 +437,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     entityType: "Appointment",
     entityId: row.id,
   });
+  // Sorti de sa visite : s'il n'y reste qu'un rendez-vous, ce n'est plus une visite.
+  if (input.detachFromVisit && existing?.visitGroupId) await dissolveLoneVisit(db, existing.visitGroupId);
   revalidatePath("/dashboard");
 
   // Email de suivi au client, best-effort — uniquement sur une édition d'un
@@ -570,6 +579,133 @@ export async function saveAppointmentsBatchAction(input: SaveVisitInput): Promis
   });
 
   return { ok: true, appointments: created.map(toAppointment) };
+}
+
+/** Une visite réduite à un seul rendez-vous n'en est plus une. */
+async function dissolveLoneVisit(db: ScopedPrismaClient, visitGroupId: string): Promise<void> {
+  const remaining = await db.appointment.findMany({ where: { visitGroupId, status: { not: "CANCELLED" } }, select: { id: true } });
+  if (remaining.length <= 1) await db.appointment.updateMany({ where: { visitGroupId }, data: { visitGroupId: null } });
+}
+
+/** Les rendez-vous d'une visite (hors annulés), dans l'ordre. */
+async function visitMembers(db: ScopedPrismaClient, visitGroupId: string) {
+  return db.appointment.findMany({
+    where: { visitGroupId, status: { not: "CANCELLED" } },
+    orderBy: [{ date: "asc" }, { start: "asc" }],
+    include: { animal: { select: { species: true } }, client: { select: { phone: true } } },
+  });
+}
+
+/** Une visite vue comme un seul rendez-vous, pour un seul e-mail au client. */
+function visitEmailSnapshot(members: Awaited<ReturnType<typeof visitMembers>>): AppointmentEmailSnapshot {
+  const summary = visitSummary(members);
+  const first = members[0];
+  return { id: summary.id, date: toAppointment(first).date, start: summary.start, duration: summary.duration, mode: modeLabel[first.mode], location: first.location, animalName: summary.animalName, serviceName: summary.serviceName, animalCount: summary.animalCount };
+}
+
+export type VisitActionResult = { ok: true; appointments: Appointment[] } | { ok: false; error: string };
+
+/**
+ * Déplacer toute une visite (chantier C6) : ses rendez-vous restent enchaînés
+ * dans le même ordre, à partir de la nouvelle heure. Tout ou rien, sous le
+ * verrou de la journée ; un seul e-mail au client pour la visite.
+ */
+export async function moveVisitAction(visitGroupId: string, date: string, start: string): Promise<VisitActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
+  if (!dateIdFormat.test(date) || !/^\d{2}:\d{2}$/.test(start)) return { ok: false, error: "Date ou heure invalide." };
+
+  const members = await visitMembers(db, visitGroupId);
+  if (members.length === 0) return { ok: false, error: "Cette visite n’existe plus." };
+  const ids = members.map((member) => member.id);
+  const starts = chainVisitStarts(timeToMinutes(start), members.map((member) => member.duration));
+  if (starts[starts.length - 1] + members[members.length - 1].duration > 24 * 60) return { ok: false, error: "La visite déborderait sur le lendemain." };
+  const planned = members.map((member, index) => ({ member, start: minutesToTime(starts[index]) }));
+  const mode = modeLabel[members[0].mode];
+  const conflictMessage = (name: string, at: string) => `Le rendez-vous de ${name} (${at}) chevaucherait un autre rendez-vous : la visite n’a pas été déplacée.`;
+
+  for (const { member, start: at } of planned) {
+    if (await hasConflict(db, date, at, member.duration, mode, ids, visitGroupId)) return { ok: false, error: conflictMessage(member.animalName, at) };
+  }
+
+  const buffers = await getAvailability(db);
+  const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
+  let result;
+  try {
+    result = await db.$transaction(async (tx) => {
+      // Les deux journées concernées, toujours dans le même ordre.
+      for (const day of [...new Set([date, ...members.map((member) => member.date.toISOString().slice(0, 10))])].sort()) await lockDay(tx, day);
+      for (const { member, start: at } of planned) {
+        if (await appointmentConflictIn(tx, date, at, member.duration, mode, buffers, ids, visitGroupId)) return { conflict: { name: member.animalName, at }, updated: [] };
+      }
+      // L'index unique (date, heure de début) refuse deux rendez-vous à la même
+      // heure, même un instant : on avance dans le sens du déplacement (vers
+      // plus tard, le dernier d'abord), pour qu'aucun ne prenne la place d'un
+      // autre de la visite qui ne l'a pas encore quittée.
+      const later = members[0].date.toISOString().slice(0, 10) === date && timeToMinutes(planned[0].start) > timeToMinutes(members[0].start);
+      const order = later ? [...planned].reverse() : planned;
+      const updated = [];
+      for (const { member, start: at } of order) {
+        updated.push(await tx.appointment.update({ where: { id: member.id }, data: { date: toDate(date), start: at, reminderSentAt: null }, include }));
+      }
+      updated.sort((a, b) => a.start.localeCompare(b.start));
+      return { conflict: null, updated };
+    });
+  } catch (error) {
+    if (isSlotUniqueConstraintError(error)) return { ok: false, error: "Un de ces créneaux vient d’être pris : la visite n’a pas été déplacée." };
+    throw error;
+  }
+  if (result.conflict) return { ok: false, error: conflictMessage(result.conflict.name, result.conflict.at) };
+
+  for (const row of result.updated) await logAudit({ userId: user.id, action: "APPOINTMENT_UPDATED", entityType: "Appointment", entityId: row.id, metadata: { visitGroupId, moved: true } });
+  revalidatePath("/dashboard");
+
+  const moved = members[0].date.toISOString().slice(0, 10) !== date || members[0].start !== planned[0].start;
+  const status = statusLabel[members[0].status];
+  if (moved) await notifyAppointmentChange(db, members[0].clientId, status, status, true, visitEmailSnapshot(result.updated));
+  const updated = result.updated;
+  after(async () => {
+    for (const row of updated) await syncAppointmentToCalendars(row.organizationId, row.id, "upsert").catch(() => {});
+  });
+  return { ok: true, appointments: updated.map(toAppointment) };
+}
+
+/** Annuler toute une visite : ses rendez-vous restent dans l'historique, un seul e-mail au client. */
+export async function cancelVisitAction(visitGroupId: string): Promise<VisitActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
+  const members = await visitMembers(db, visitGroupId);
+  if (members.length === 0) return { ok: false, error: "Cette visite n’existe plus." };
+
+  await db.appointment.updateMany({ where: { id: { in: members.map((member) => member.id) } }, data: { status: "CANCELLED" } });
+  for (const member of members) await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: member.id, metadata: { status: "cancelled", visitGroupId } });
+  revalidatePath("/dashboard");
+
+  await notifyAppointmentChange(db, members[0].clientId, statusLabel[members[0].status], "cancelled", false, visitEmailSnapshot(members));
+  const rows = await db.appointment.findMany({ where: { id: { in: members.map((member) => member.id) } }, orderBy: { start: "asc" }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
+  after(async () => {
+    for (const row of rows) await syncAppointmentToCalendars(row.organizationId, row.id, "cancel").catch(() => {});
+  });
+  return { ok: true, appointments: rows.map(toAppointment) };
+}
+
+/**
+ * Annuler un seul rendez-vous d'une visite : il la quitte (les autres
+ * restent, sans recalcul), puis s'annule comme un rendez-vous seul.
+ */
+export async function cancelVisitMemberAction(id: string): Promise<AppointmentActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
+  const current = await db.appointment.findUnique({ where: { id }, select: { visitGroupId: true } });
+  if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
+  if (current.visitGroupId) {
+    await db.appointment.update({ where: { id }, data: { visitGroupId: null } });
+    await dissolveLoneVisit(db, current.visitGroupId);
+  }
+  return updateAppointmentStatusAction(id, "cancelled");
 }
 
 export async function updateAppointmentStatusAction(id: string, status: AppointmentStatus): Promise<AppointmentActionResult> {

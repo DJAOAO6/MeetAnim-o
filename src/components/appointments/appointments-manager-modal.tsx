@@ -1,12 +1,12 @@
 "use client";
 
+import { CancelAppointmentDialog } from "@/components/appointments/visit-dialogs";
 import { useEffect, useMemo, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { useRouter } from "next/navigation";
 import { CalendarPlus, CalendarX } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
 import {
   AppointmentFilters,
   defaultFilters,
@@ -220,15 +220,12 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
       {actions.reminderDialog}
 
       {confirming ? (
-        <ConfirmModal
+        <CancelAppointmentDialog
+          appointment={confirming}
           title="Annuler ce rendez-vous ?"
           message={`Le rendez-vous de ${confirming.animalName} (${confirming.clientName}) du ${formatShortDate(confirming.date)} à ${confirming.start} passera en « Annulé ». Il restera dans l’historique, et le créneau redeviendra libre.`}
           confirmLabel="Annuler le rendez-vous"
-          onConfirm={async () => {
-            const appointment = confirming;
-            setConfirming(null);
-            await onStatusChange(appointment, "cancelled");
-          }}
+          onCancelled={() => {}}
           onClose={() => setConfirming(null)}
         />
       ) : null}

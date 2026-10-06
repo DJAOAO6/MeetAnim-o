@@ -1,5 +1,6 @@
 "use client";
 
+import { useVisitMembers } from "@/components/appointments/visit-dialogs";
 import { useAppointmentActions } from "@/components/appointments/use-appointment-actions";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
@@ -32,6 +33,8 @@ type AppointmentSummaryProps = {
  */
 export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onCancel }: AppointmentSummaryProps) {
   const isHomeVisit = appointment.mode === "home";
+  // Visite multi-animaux (chantier C6) : les autres animaux vus à la suite.
+  const visitMembers = useVisitMembers(appointment);
   // Mêmes gestes que dans le centre de gestion, par le même hook : « terminer »
   // crée la consultation au dossier et propose un rappel, et le compte rendu
   // rouvre celui qui existe déjà. Deux implémentations d'un même geste
@@ -54,6 +57,12 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
             {appointment.animalName}{appointment.animalSpecies ? ` · ${appointment.animalSpecies}` : ""}
           </h3>
           <p className="truncate text-sm font-bold text-animeo-muted">{appointment.clientName}</p>
+          {visitMembers.length > 1 ? (
+            <p className="mt-1.5 text-xs font-bold text-animeo-dark">
+              Visite {visitMembers.findIndex((member) => member.id === appointment.id) + 1}/{visitMembers.length} · avec{" "}
+              {visitMembers.filter((member) => member.id !== appointment.id).map((member) => `${member.animalName} (${member.start})`).join(", ")}
+            </p>
+          ) : null}
         </div>
         {!backLabel ? (
           <button type="button" onClick={onBack} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
