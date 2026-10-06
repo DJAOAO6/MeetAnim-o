@@ -93,6 +93,41 @@ test("le rendez-vous confirmé qui approche reçoit son rappel, une seule fois, 
   }
 });
 
+test("une visite de deux animaux ne reçoit qu'un rappel (chantier C6)", async () => {
+  test.skip(!secret, "CRON_SECRET absent");
+  await cleanup();
+  const [profile] = await sql`SELECT id, "reminderSettings" FROM "BusinessProfile" LIMIT 1`;
+  const settings = { ...(profile.reminderSettings ?? {}), appointmentReminderEnabled: true, appointmentReminderDelay: "24 heures avant" };
+  await sql`UPDATE "BusinessProfile" SET "reminderSettings" = ${JSON.stringify(settings)}::jsonb WHERE id = ${profile.id}`;
+  try {
+    // Un premier passage règle ce qui attendait déjà : le suivant ne compte que la visite.
+    await runJobs();
+    const [client] = await sql`
+      INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, "updatedAt")
+      VALUES (${`e2e-rappel-visite-${Date.now()}`}, 'Audit', ${`${MARKER}Visite`}, '0600000000', 'rappel-visite-e2e@example.fr', 'Rouen', '1 rue Test', now())
+      RETURNING id`;
+    const first = parisSlot(3);
+    const visitGroupId = `e2e-visite-${Date.now()}`;
+    const ids: string[] = [];
+    for (const [index, animal] of ["Mirsa", "Pacha"].entries()) {
+      const start = index === 0 ? first.start : `${String((Number(first.start.slice(0, 2)) + Math.floor((Number(first.start.slice(3)) + 50) / 60)) % 24).padStart(2, "0")}:${String((Number(first.start.slice(3)) + 50) % 60).padStart(2, "0")}`;
+      const [row] = await sql`
+        INSERT INTO "Appointment" (id, "clientId", "clientName", "animalName", "serviceName", date, start, duration, mode, location, price, status, notes, "visitGroupId", "createdAt", "updatedAt")
+        VALUES (${`${visitGroupId}-${index}`}, ${client.id}, ${`${MARKER} visite`}, ${animal}, 'Ostéopathie', ${first.date}::date, ${start}, 50, 'DOMICILE', '1 rue Test', 60, 'CONFIRMED', '', ${visitGroupId}, now(), now())
+        RETURNING id`;
+      ids.push(row.id as string);
+    }
+
+    const result = await runJobs();
+    expect(result.appointmentReminders?.sent, "un seul e-mail pour la visite").toBe(1);
+    const rows = await sql`SELECT "reminderSentAt" FROM "Appointment" WHERE id IN (${ids[0]}, ${ids[1]})`;
+    expect(rows.every((row) => row.reminderSentAt !== null), "ses deux rendez-vous sont marqués rappelés").toBe(true);
+  } finally {
+    await cleanup();
+    await sql`UPDATE "BusinessProfile" SET "reminderSettings" = ${profile.reminderSettings === null ? null : JSON.stringify(profile.reminderSettings)}::jsonb WHERE id = ${profile.id}`;
+  }
+});
+
 test("rappel désactivé dans les paramètres : rien ne part", async () => {
   test.skip(!secret, "CRON_SECRET absent");
   const [profile] = await sql`SELECT id, "reminderSettings" FROM "BusinessProfile" LIMIT 1`;

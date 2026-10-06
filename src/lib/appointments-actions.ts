@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { MAX_VISIT_ANIMALS } from "@/lib/visit-group";
 import { rateLimitKey } from "@/lib/privacy";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -36,7 +38,9 @@ import {
   BOOKING_WINDOW_DAYS,
   computeTotalPrice,
   findServiceById,
+  chainVisitStarts,
   conflictsWith,
+  conflictsWithVisit,
   fitsWithinOpenHours,
   type AppointmentBuffers,
   type BufferedMode,
@@ -49,6 +53,7 @@ import {
   parseDateIdToLocalNoon,
   passesMinimumFillTime,
   publicBookingCoreSchema,
+  minutesToTime,
   timeToMinutes,
   toLocalDateId,
 } from "@/lib/booking-validation";
@@ -102,7 +107,7 @@ async function notifyAppointmentChange(db: ScopedPrismaClient, clientId: string 
  * horaire de départ — voir handlePotentialSlotConflict ci-dessous pour le
  * cas où cette vérification applicative perdrait malgré tout la course.
  */
-async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, mode: BufferedMode, excludeId?: string): Promise<boolean> {
+async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string, duration: number, mode: BufferedMode, excludeId?: string, visitGroupId?: string | null): Promise<boolean> {
   // Les rendez-vous, horaires et agendas Google du cabinet concerné, et de
   // lui seul : le 9 h d'un professionnel n'occupe pas celui d'un autre.
   const [availability, googleBusyPeriods] = await Promise.all([
@@ -113,7 +118,7 @@ async function hasConflict(db: ScopedPrismaClient, dateId: string, start: string
     getGoogleBusyPeriods(organizationIdOf(db), `${dateId}T00:00:00.000Z`, `${dateId}T23:59:59.999Z`),
   ]);
 
-  if (await appointmentConflictIn(db, dateId, start, duration, mode, availability, excludeId)) return true;
+  if (await appointmentConflictIn(db, dateId, start, duration, mode, availability, excludeId, visitGroupId)) return true;
 
   const startMinutes = timeToMinutes(start);
   const googleIntervals = mapBusyPeriodsToOccupiedIntervals(googleBusyPeriods)[dateId] ?? [];
@@ -130,8 +135,8 @@ type AppointmentReader = {
   appointment: {
     findMany(args: {
       where: Prisma.AppointmentWhereInput;
-      select: { start: true; duration: true; mode: true };
-    }): Promise<Array<{ start: string; duration: number; mode: VisitMode }>>;
+      select: { start: true; duration: true; mode: true; visitGroupId: true };
+    }): Promise<Array<{ start: string; duration: number; mode: VisitMode; visitGroupId: string | null }>>;
   };
 };
 
@@ -140,22 +145,23 @@ type AppointmentReader = {
  * qui peut être perdue dans une course, isolée pour être rejouée sous verrou
  * (withSlotLock) avec le client de la transaction.
  */
-async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, mode: BufferedMode, buffers: AppointmentBuffers, excludeId?: string): Promise<boolean> {
+async function appointmentConflictIn(db: AppointmentReader, dateId: string, start: string, duration: number, mode: BufferedMode, buffers: AppointmentBuffers, excludeId?: string, visitGroupId?: string | null): Promise<boolean> {
   const sameDayAppointments = await db.appointment.findMany({
     where: {
       date: toDate(dateId),
       status: { not: "CANCELLED" },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
-    select: { start: true, duration: true, mode: true },
+    select: { start: true, duration: true, mode: true, visitGroupId: true },
   });
 
   // Trajet et pause comptent après chaque rendez-vous, l'existant comme le
   // nouveau (conflictsWith) : un rendez-vous à domicile placé juste avant un
-  // autre doit lui aussi laisser le temps de revenir.
-  const candidate = { start: timeToMinutes(start), duration, mode };
+  // autre doit lui aussi laisser le temps de revenir. Sauf entre deux
+  // rendez-vous d'une même visite (chantier C6), enchaînés sans tampon.
+  const candidate = { start: timeToMinutes(start), duration, mode, visitGroupId };
   return sameDayAppointments.some((appointment) =>
-    conflictsWith(candidate, { start: timeToMinutes(appointment.start), duration: appointment.duration, mode: appointment.mode }, buffers));
+    conflictsWithVisit(candidate, { start: timeToMinutes(appointment.start), duration: appointment.duration, mode: appointment.mode, visitGroupId: appointment.visitGroupId }, buffers));
 }
 
 /**
@@ -364,7 +370,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
   const existing = input.id ? await db.appointment.findUnique({ where: { id: input.id } }) : null;
 
-  if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id)) {
+  if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id, existing?.visitGroupId)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
 
@@ -402,7 +408,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   try {
     row = await db.$transaction(async (tx) => {
       await lockDay(tx, input.date);
-      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id)) return null;
+      if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id, existing?.visitGroupId)) return null;
       const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
       return input.id
         ? tx.appointment.update({ where: { id: input.id }, data, include })
@@ -446,6 +452,126 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   return { ok: true, appointment: toAppointment(row) };
 }
 
+export type VisitItemInput = {
+  animalId?: string | null;
+  animalName: string;
+  animalSpecies?: string | null;
+  serviceName: string;
+  duration: number;
+  price: number;
+};
+
+/** Une visite : un client, un lieu, une date, une heure de début, puis un rendez-vous par animal. */
+export type SaveVisitInput = Omit<SaveAppointmentInput, "id" | "duration" | "animalId" | "animalName" | "animalSpecies" | "serviceName" | "price"> & {
+  items: VisitItemInput[];
+};
+
+export type SaveVisitResult =
+  | { ok: true; appointments: Appointment[] }
+  | { ok: false; error: string };
+
+/**
+ * Plusieurs animaux du même client vus à la suite (chantier C6) : un
+ * rendez-vous par animal, enchaînés sans tampon entre eux, reliés par un
+ * même visitGroupId. Trajet et pause ne comptent qu'après le dernier.
+ *
+ * Tout ou rien : chaque créneau est vérifié sous le même verrou de journée,
+ * et tout est créé dans une seule transaction. Si un seul ne peut pas être
+ * placé, rien n'est créé, et le message dit lequel.
+ */
+export async function saveAppointmentsBatchAction(input: SaveVisitInput): Promise<SaveVisitResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
+
+  const items = input.items;
+  if (items.length === 0) return { ok: false, error: "Choisissez au moins un animal." };
+  if (items.length > MAX_VISIT_ANIMALS) return { ok: false, error: `Une visite compte au plus ${MAX_VISIT_ANIMALS} animaux.` };
+  if (!dateIdFormat.test(input.date) || !/^\d{2}:\d{2}$/.test(input.start)) return { ok: false, error: "Date ou heure invalide." };
+  for (const item of items) {
+    if (!item.animalName.trim()) return { ok: false, error: "Chaque rendez-vous doit nommer son animal." };
+    if (!item.serviceName.trim()) return { ok: false, error: `Choisissez une prestation pour ${item.animalName}.` };
+    if (!Number.isInteger(item.duration) || item.duration < 5 || item.duration > 480) return { ok: false, error: `Durée invalide pour ${item.animalName}.` };
+    if (!Number.isFinite(item.price) || item.price < 0) return { ok: false, error: `Tarif invalide pour ${item.animalName}.` };
+  }
+  // Les animaux d'une fiche appartiennent à ce client (et à cet espace).
+  const animalIds = items.map((item) => item.animalId).filter((id): id is string => Boolean(id));
+  if (animalIds.length > 0) {
+    const owned = await db.animal.count({ where: { id: { in: animalIds }, ...(input.clientId ? { clientId: input.clientId } : {}) } });
+    if (owned !== new Set(animalIds).size) return { ok: false, error: "Un des animaux n’appartient pas à ce client." };
+  }
+
+  const starts = chainVisitStarts(timeToMinutes(input.start), items.map((item) => item.duration));
+  if (starts[starts.length - 1] + items[items.length - 1].duration > 24 * 60) return { ok: false, error: "La visite déborderait sur le lendemain : commencez plus tôt." };
+  const planned = items.map((item, index) => ({ ...item, start: minutesToTime(starts[index]) }));
+  // Un seul animal : un rendez-vous ordinaire, sans visite.
+  const visitGroupId = planned.length > 1 ? randomUUID() : null;
+  const conflictMessage = (item: (typeof planned)[number]) => planned.length > 1
+    ? `Le rendez-vous de ${item.animalName} (${item.start}) chevaucherait un autre rendez-vous. Rien n’a été créé : choisissez une autre heure.`
+    : "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure.";
+
+  // Hors verrou d'abord (agendas externes compris), comme pour un rendez-vous seul.
+  for (const item of planned) {
+    if (await hasConflict(db, input.date, item.start, item.duration, input.mode, undefined, visitGroupId)) return { ok: false, error: conflictMessage(item) };
+  }
+
+  const geoFields = input.mode === "home" ? sanitizeGeoFields(input) : {};
+  const buffers = await getAvailability(db);
+  const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
+  let rows;
+  try {
+    rows = await db.$transaction(async (tx) => {
+      await lockDay(tx, input.date);
+      for (const item of planned) {
+        if (await appointmentConflictIn(tx, input.date, item.start, item.duration, input.mode, buffers, undefined, visitGroupId)) return { conflict: item, created: [] };
+      }
+      const created = [];
+      for (const item of planned) {
+        created.push(await tx.appointment.create({
+          data: {
+            date: toDate(input.date),
+            start: item.start,
+            duration: item.duration,
+            clientId: input.clientId ?? null,
+            clientName: input.clientName,
+            animalId: item.animalId ?? null,
+            animalName: item.animalName,
+            animalSpecies: item.animalSpecies ?? null,
+            serviceName: item.serviceName,
+            mode: dbMode[input.mode],
+            location: input.location,
+            postalCode: geoFields.postalCode ?? null,
+            city: geoFields.city ?? null,
+            latitude: geoFields.latitude ?? null,
+            longitude: geoFields.longitude ?? null,
+            price: item.price,
+            status: dbStatus[input.status],
+            notes: input.notes,
+            visitGroupId,
+          },
+          include,
+        }));
+      }
+      return { conflict: null, created };
+    });
+  } catch (error) {
+    if (isSlotUniqueConstraintError(error)) return { ok: false, error: "Un de ces créneaux vient d’être pris par un autre rendez-vous. Rien n’a été créé : choisissez une autre heure." };
+    throw error;
+  }
+  if (rows.conflict) return { ok: false, error: conflictMessage(rows.conflict) };
+
+  for (const row of rows.created) {
+    await logAudit({ userId: user.id, action: "APPOINTMENT_CREATED", entityType: "Appointment", entityId: row.id, ...(visitGroupId ? { metadata: { visitGroupId } } : {}) });
+  }
+  revalidatePath("/dashboard");
+  const created = rows.created;
+  after(async () => {
+    for (const row of created) await syncAppointmentToCalendars(row.organizationId, row.id, input.status === "cancelled" ? "cancel" : "upsert").catch(() => {});
+  });
+
+  return { ok: true, appointments: created.map(toAppointment) };
+}
+
 export async function updateAppointmentStatusAction(id: string, status: AppointmentStatus): Promise<AppointmentActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
@@ -454,7 +580,7 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   const current = await db.appointment.findUnique({ where: { id } });
   if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
 
-  if (status !== "cancelled" && await hasConflict(db, current.date.toISOString().slice(0, 10), current.start, current.duration, current.mode, id)) {
+  if (status !== "cancelled" && await hasConflict(db, current.date.toISOString().slice(0, 10), current.start, current.duration, current.mode, id, current.visitGroupId)) {
     return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 

@@ -664,6 +664,9 @@ model Appointment {
   // l'envoi : un rendez-vous déjà rappelé ne l'est jamais une seconde fois,
   // même si la tâche quotidienne tourne deux fois.
   reminderSentAt DateTime?
+  /// Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot,
+  /// enchaînés sans tampon entre eux. Vide pour un rendez-vous seul.
+  visitGroupId   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -679,6 +682,7 @@ model Appointment {
   @@index([clientId])
   @@index([animalId])
   @@index([date])
+  @@index([organizationId, visitGroupId])
   @@index([organizationId])
 }
 

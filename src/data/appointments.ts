@@ -28,6 +28,8 @@ export type Appointment = {
   city?: string;
   latitude?: number;
   longitude?: number;
+  /** Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot la partagent. */
+  visitGroupId?: string;
 };
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {

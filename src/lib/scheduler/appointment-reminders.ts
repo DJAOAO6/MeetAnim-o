@@ -3,6 +3,7 @@ import type { ScopedPrismaClient } from "@/lib/db";
 import { reminderSettingsOf } from "@/lib/business-profile-actions";
 import { sendAppointmentReminder, type AppointmentEmailSnapshot } from "@/lib/email/appointment-status-notifications";
 import { parisDateId, parisWallTimeToDate } from "@/lib/paris-time";
+import { groupByVisit, visitSummary } from "@/lib/visit-group";
 
 export type AppointmentRemindersResult = { enabled: boolean; sent: number; failed: number; withoutEmail: number };
 
@@ -25,6 +26,9 @@ export type AppointmentRemindersResult = { enabled: boolean; sent: number; faile
  * (reminderSentAt) avant l'envoi, par une écriture conditionnelle. Si l'envoi
  * échoue, la réservation est levée et le passage suivant réessaie ; s'il n'y
  * a pas d'adresse, elle est gardée, inutile de réessayer chaque heure.
+ *
+ * Une visite multi-animaux (chantier C6) ne reçoit qu'un rappel, qui liste
+ * les animaux : ses rendez-vous sont réservés et levés ensemble.
  */
 export async function sendDueAppointmentReminders(db: ScopedPrismaClient, now: Date = new Date()): Promise<AppointmentRemindersResult> {
   const settings = await reminderSettingsOf(db);
@@ -41,33 +45,46 @@ export async function sendDueAppointmentReminders(db: ScopedPrismaClient, now: D
       clientId: { not: null },
       date: { gte: new Date(`${parisDateId(now)}T00:00:00.000Z`), lte: new Date(`${parisDateId(now, 3)}T00:00:00.000Z`) },
     },
-    select: { id: true, date: true, start: true, duration: true, mode: true, location: true, animalName: true, serviceName: true, clientId: true },
+    select: { id: true, date: true, start: true, duration: true, mode: true, location: true, animalName: true, serviceName: true, clientId: true, visitGroupId: true },
   });
 
+  // Une visite par jour : son identifiant ne suffit pas à lui seul si un
+  // rendez-vous du lot a été déplacé à un autre jour.
+  const byDay = new Map<string, typeof candidates>();
   for (const appointment of candidates) {
     const dateId = appointment.date.toISOString().slice(0, 10);
-    const startsIn = parisWallTimeToDate(dateId, appointment.start).getTime() - now.getTime();
-    if (startsIn <= 0 || startsIn > windowMs) continue;
+    byDay.set(dateId, [...(byDay.get(dateId) ?? []), appointment]);
+  }
 
-    const claimed = await db.appointment.updateMany({ where: { id: appointment.id, reminderSentAt: null }, data: { reminderSentAt: now } });
-    if (claimed.count === 0) continue;
+  for (const [dateId, appointments] of byDay) {
+    for (const members of groupByVisit(appointments)) {
+      const first = members[0];
+      const startsIn = parisWallTimeToDate(dateId, first.start).getTime() - now.getTime();
+      if (startsIn <= 0 || startsIn > windowMs) continue;
 
-    const snapshot: AppointmentEmailSnapshot = {
-      id: appointment.id,
-      date: dateId,
-      start: appointment.start,
-      duration: appointment.duration,
-      mode: appointment.mode === "CABINET" ? "cabinet" : "home",
-      location: appointment.location,
-      animalName: appointment.animalName,
-      serviceName: appointment.serviceName,
-    };
-    const outcome = await sendAppointmentReminder(db, appointment.clientId, snapshot);
-    if (outcome === "sent") result.sent += 1;
-    else if (outcome === "no-recipient") result.withoutEmail += 1;
-    else {
-      result.failed += 1;
-      await db.appointment.update({ where: { id: appointment.id }, data: { reminderSentAt: null } });
+      const ids = members.map((member) => member.id);
+      const claimed = await db.appointment.updateMany({ where: { id: { in: ids }, reminderSentAt: null }, data: { reminderSentAt: now } });
+      if (claimed.count === 0) continue;
+
+      const summary = visitSummary(members);
+      const snapshot: AppointmentEmailSnapshot = {
+        id: summary.id,
+        date: dateId,
+        start: summary.start,
+        duration: summary.duration,
+        mode: first.mode === "CABINET" ? "cabinet" : "home",
+        location: first.location,
+        animalName: summary.animalName,
+        serviceName: summary.serviceName,
+        animalCount: summary.animalCount,
+      };
+      const outcome = await sendAppointmentReminder(db, first.clientId, snapshot);
+      if (outcome === "sent") result.sent += 1;
+      else if (outcome === "no-recipient") result.withoutEmail += 1;
+      else {
+        result.failed += 1;
+        await db.appointment.updateMany({ where: { id: { in: ids } }, data: { reminderSentAt: null } });
+      }
     }
   }
 

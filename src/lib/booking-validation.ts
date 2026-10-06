@@ -178,6 +178,36 @@ export function conflictsWith(
   );
 }
 
+/**
+ * Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot se
+ * suivent sans tampon (une seule visite, une seule adresse). Entre eux, seul
+ * un vrai chevauchement compte ; face aux autres, les règles de
+ * conflictsWith. Le lot se comporte ainsi comme un seul bloc : le tampon
+ * d'un rendez-vous du lot retombe dans le suivant, seul celui du dernier
+ * dépasse.
+ */
+export function conflictsWithVisit(
+  candidate: { start: number; duration: number; mode: BufferedMode; visitGroupId?: string | null },
+  existing: { start: number; duration: number; mode?: BufferedMode; visitGroupId?: string | null },
+  settings: AppointmentBuffers,
+): boolean {
+  if (candidate.visitGroupId && candidate.visitGroupId === existing.visitGroupId) {
+    return intervalsOverlap(candidate.start, candidate.duration, existing.start, existing.duration);
+  }
+  return conflictsWith(candidate, existing, settings);
+}
+
+/** Heures de début des rendez-vous d'une visite, enchaînés à partir de `start` (minutes). */
+export function chainVisitStarts(start: number, durations: number[]): number[] {
+  const starts: number[] = [];
+  let cursor = start;
+  for (const duration of durations) {
+    starts.push(cursor);
+    cursor += duration;
+  }
+  return starts;
+}
+
 /** Le créneau candidat ne heurte aucun des intervalles occupés du jour. */
 export function isSlotFree(candidate: { start: number; duration: number; mode: BufferedMode }, occupied: OccupiedInterval[], settings: AppointmentBuffers): boolean {
   return !occupied.some((item) => conflictsWith(candidate, { start: timeToMinutes(item.start), duration: item.duration, mode: item.mode }, settings));

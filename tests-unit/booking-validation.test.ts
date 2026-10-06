@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  chainVisitStarts,
+  conflictsWithVisit,
   addMonths,
   buildIcsCalendar,
   buildIcsContent,
@@ -443,4 +445,33 @@ test("buildIcsCalendar with no events still produces a valid empty calendar", ()
   const ics = buildIcsCalendar([], "1002 Pattes — Agenda", new Date("2026-10-01T10:00:00.000Z"));
   assert.match(ics, /^BEGIN:VCALENDAR\r\n[\s\S]*\r\nEND:VCALENDAR$/);
   assert.equal((ics.match(/BEGIN:VEVENT/g) ?? []).length, 0);
+});
+
+// Visites multi-animaux (chantier C6) : enchaînées sans tampon, un seul bloc face aux autres.
+const visitBuffers = { travelBuffer: 30, breakAfterAppointment: 0 };
+
+test("une visite s'enchaîne : chaque rendez-vous commence à la fin du précédent", () => {
+  assert.deepEqual(chainVisitStarts(600, [50, 45, 30]), [600, 650, 695]);
+  assert.deepEqual(chainVisitStarts(600, [60]), [600]);
+});
+
+test("deux rendez-vous d'une même visite ne se gênent pas par leurs tampons", () => {
+  const first = { start: 600, duration: 50, mode: "home" as const, visitGroupId: "v1" };
+  const second = { start: 650, duration: 45, mode: "home" as const, visitGroupId: "v1" };
+  assert.equal(conflictsWithVisit(second, first, visitBuffers), false, "trajet ignoré entre membres de la visite");
+  assert.equal(conflictsWithVisit({ ...second, start: 640 }, first, visitBuffers), true, "mais pas un vrai chevauchement");
+  // Hors visite, le trajet après le premier compte.
+  assert.equal(conflictsWithVisit({ ...second, visitGroupId: null }, first, visitBuffers), true);
+  assert.equal(conflictsWithVisit({ ...second, visitGroupId: "autre" }, first, visitBuffers), true);
+});
+
+test("face aux autres rendez-vous, la visite est un seul bloc : le trajet ne compte qu'après le dernier", () => {
+  // Deux chevaux, 50 + 45 min à domicile à 10 h, trajet 30 min : fin 11 h 35, libre à 12 h 05.
+  const lot = chainVisitStarts(600, [50, 45]).map((start, index) => ({ start, duration: [50, 45][index], mode: "home" as const, visitGroupId: "v1" }));
+  const blocked = (candidate: { start: number; duration: number; mode: "home" | "cabinet" }) => lot.some((member) => conflictsWithVisit(candidate, member, visitBuffers));
+  assert.equal(blocked({ start: 725, duration: 30, mode: "home" }), false, "12 h 05 : libre");
+  assert.equal(blocked({ start: 715, duration: 30, mode: "home" }), true, "11 h 55 : dans le trajet");
+  assert.equal(blocked({ start: 540, duration: 40, mode: "home" }), true, "9 h – 9 h 40 à domicile : son trajet empiète sur la visite");
+  assert.equal(blocked({ start: 540, duration: 40, mode: "cabinet" }), false, "9 h – 9 h 40 au cabinet : pas de trajet");
+  assert.equal(blocked({ start: 530, duration: 40, mode: "home" }), false, "8 h 50 : trajet fini à 10 h pile");
 });

@@ -400,6 +400,8 @@ export function reminderEmailTemplate(params: { professionalCompany: string; mes
 export type AppointmentEmailParams = {
   clientFirstName: string;
   animalName: string;
+  /** Plusieurs animaux vus à la suite (visite, chantier C6) : « ont rendez-vous ». */
+  animalCount?: number;
   serviceName: string;
   dateLabel: string;
   time: string;
@@ -454,6 +456,7 @@ export function appointmentConfirmedClientTemplate(params: AppointmentEmailParam
  */
 export function appointmentReminderClientTemplate(params: AppointmentEmailParams): EmailContent {
   const { clientFirstName, animalName, serviceName, dateLabel, time, modeLabel, locationLabel, professionalFirstName, professionalCompany, professionalPhone } = params;
+  const verb = (params.animalCount ?? 1) > 1 ? "ont" : "a";
   const contact = contactLine(professionalFirstName, professionalPhone);
   // « le lundi 21 septembre » : pas de majuscule au milieu d'une phrase.
   const dateInSentence = dateLabel.charAt(0).toLocaleLowerCase("fr-FR") + dateLabel.slice(1);
@@ -462,9 +465,9 @@ export function appointmentReminderClientTemplate(params: AppointmentEmailParams
     text: [
       `Bonjour ${clientFirstName},`,
       "",
-      `Petit rappel : ${animalName} a rendez-vous avec ${professionalFirstName} (${professionalCompany}).`,
+      `Petit rappel : ${animalName} ${verb} rendez-vous avec ${professionalFirstName} (${professionalCompany}).`,
       "",
-      `Prestation : ${serviceName}`,
+      `${verb === "ont" ? "Prestations" : "Prestation"} : ${serviceName}`,
       `Date : ${dateLabel} à ${time}`,
       `Mode : ${modeValue(modeLabel, locationLabel)}`,
       "",
@@ -476,9 +479,9 @@ export function appointmentReminderClientTemplate(params: AppointmentEmailParams
       title: "Rappel de rendez-vous",
       body: [
         paragraph(`Bonjour ${escapeHtml(clientFirstName)},`),
-        paragraph(`Petit rappel : <strong>${escapeHtml(animalName)}</strong> a rendez-vous avec ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}).`),
+        paragraph(`Petit rappel : <strong>${escapeHtml(animalName)}</strong> ${verb} rendez-vous avec ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}).`),
         detailsTable([
-          ["Prestation", serviceName],
+          [verb === "ont" ? "Prestations" : "Prestation", serviceName],
           ["Date", `${dateLabel} à ${time}`],
           ["Mode", modeValue(modeLabel, locationLabel)],
         ]),

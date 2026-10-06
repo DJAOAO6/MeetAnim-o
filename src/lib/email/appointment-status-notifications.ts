@@ -28,6 +28,8 @@ export type AppointmentEmailSnapshot = {
   location: string;
   animalName: string;
   serviceName: string;
+  /** Visite multi-animaux résumée en un envoi (chantier C6) : plusieurs animaux. */
+  animalCount?: number;
 };
 
 type TemplateBuilder = (params: AppointmentEmailParams) => Pick<EmailMessage, "subject" | "html" | "text">;
@@ -61,6 +63,7 @@ async function sendAppointmentEmail(db: ScopedPrismaClient, clientId: string | n
     const params: AppointmentEmailParams = {
       clientFirstName: client.firstName,
       animalName: appointment.animalName,
+      animalCount: appointment.animalCount ?? 1,
       serviceName: appointment.serviceName,
       dateLabel,
       time: appointment.start,
