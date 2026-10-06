@@ -44,7 +44,42 @@ export type AppointmentDraft = {
   city: string;
   latitude?: number;
   longitude?: number;
+  /**
+   * Visite multi-animaux (chantier C6) : les animaux cochés après le
+   * premier, chacun avec sa prestation, sa durée et son tarif. Le premier
+   * reste dans les champs ci-dessus : un seul animal coché, rien ne change.
+   */
+  extraAnimals: VisitLine[];
 };
+
+/** Un animal d'une visite et son rendez-vous. */
+export type VisitLine = {
+  animalId?: string;
+  animalName: string;
+  animalSpecies?: AnimalSpecies;
+  animalDetail: string;
+  serviceName: string;
+  duration: number;
+  price: number;
+};
+
+/** Les rendez-vous de la visite, dans l'ordre : le premier animal, puis les suivants. */
+export function visitLines(draft: AppointmentDraft): VisitLine[] {
+  const first: VisitLine = { animalId: draft.animalId, animalName: draft.animalName, animalSpecies: draft.animalSpecies, animalDetail: draft.animalDetail, serviceName: draft.serviceName, duration: draft.duration, price: draft.price };
+  return draft.animalName ? [first, ...draft.extraAnimals] : draft.extraAnimals;
+}
+
+/** Réécrit le brouillon à partir des lignes : la première dans les champs, les autres à la suite. */
+function withLines(draft: AppointmentDraft, lines: VisitLine[]): AppointmentDraft {
+  const [first, ...rest] = lines;
+  if (!first) return { ...draft, animalId: undefined, animalName: "", animalSpecies: undefined, animalDetail: "", extraAnimals: [] };
+  return { ...draft, animalId: first.animalId, animalName: first.animalName, animalSpecies: first.animalSpecies, animalDetail: first.animalDetail, serviceName: first.serviceName, duration: first.duration, price: first.price, extraAnimals: rest };
+}
+
+/** Durée totale de la visite (ou du rendez-vous seul). */
+export function visitDuration(draft: AppointmentDraft): number {
+  return visitLines(draft).reduce((total, line) => total + line.duration, 0) || draft.duration;
+}
 
 /**
  * Adresse d'un rendez-vous à domicile, tirée du lieu où vit l'animal (haras,
@@ -131,6 +166,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
         city: appointment.city ?? "",
         latitude: appointment.latitude,
         longitude: appointment.longitude,
+        extraAnimals: [],
       };
     }
 
@@ -171,6 +207,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       city: client?.city ?? "",
       latitude: undefined,
       longitude: undefined,
+      extraAnimals: [],
       ...placeAddress(firstAnimal),
     };
   });
@@ -187,6 +224,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       clientId: client.id,
       clientName: `${client.firstName} ${client.lastName}`,
       clientPhone: client.phone,
+      extraAnimals: [],
       animalId: firstAnimal?.id,
       animalName: firstAnimal?.name ?? "",
       animalSpecies: (firstAnimal?.species as AnimalSpecies) ?? undefined,
@@ -214,6 +252,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       clientId: undefined,
       clientName: name.trim(),
       clientPhone: "",
+      extraAnimals: [],
       animalId: undefined,
       animalName: "",
       animalSpecies: undefined,
@@ -224,6 +263,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
   const setFreeformAnimal = useCallback((name: string, species: AnimalSpecies) => {
     setDraft((current) => ({
       ...current,
+      extraAnimals: [],
       animalId: undefined,
       animalName: name,
       animalSpecies: species,
@@ -234,6 +274,7 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
   const clearClient = useCallback(() => {
     setDraft((current) => ({
       ...current,
+      extraAnimals: [],
       clientId: undefined,
       clientName: "",
       clientPhone: "",
@@ -276,12 +317,65 @@ export function useAppointmentDraft({ appointment, template, defaultDate, prefil
       ...current,
       place,
       tourRunId: place === "tour" ? current.tourRunId : null,
-      // Le tarif suit le lieu, comme il suit la prestation.
+      // Le tarif suit le lieu, comme il suit la prestation — pour chaque animal de la visite.
       price: service ? (place === "cabinet" ? service.cabinetPrice : service.homePrice) : current.price,
+      extraAnimals: current.extraAnimals.map((line) => {
+        const lineService = services.find((item) => item.name === line.serviceName);
+        return lineService ? { ...line, price: place === "cabinet" ? lineService.cabinetPrice : lineService.homePrice } : line;
+      }),
     }));
+  }, [services]);
+
+  /**
+   * Cocher ou décocher un animal (création seulement). Le premier coché tient
+   * le rendez-vous comme avant ; les suivants rejoignent la visite avec la
+   * même prestation que lui, réglable ensuite.
+   */
+  const toggleVisitAnimal = useCallback((animal: { id: string; name: string; species: string; breed?: string; age?: string; place?: ClientPickerAnimal["place"] }) => {
+    setDraft((current) => {
+      const lines = visitLines(current);
+      if (lines.some((line) => line.animalId === animal.id)) return withLines(current, lines.filter((line) => line.animalId !== animal.id));
+      if (lines.length === 0) {
+        return { ...current, animalId: animal.id, animalName: animal.name, animalSpecies: animal.species as AnimalSpecies, animalDetail: animalDetailOf(animal), ...placeAddress(animal as ClientPickerAnimal) };
+      }
+      const service = services.find((item) => item.name === current.serviceName);
+      const line: VisitLine = {
+        animalId: animal.id,
+        animalName: animal.name,
+        animalSpecies: animal.species as AnimalSpecies,
+        animalDetail: animalDetailOf(animal),
+        serviceName: current.serviceName,
+        duration: service?.duration ?? current.duration,
+        price: service ? (current.place === "cabinet" ? service.cabinetPrice : service.homePrice) : current.price,
+      };
+      return { ...current, extraAnimals: [...current.extraAnimals, line] };
+    });
+  }, [services]);
+
+  /** Régler le rendez-vous d'un animal de la visite (durée, tarif). */
+  const updateVisitLine = useCallback((index: number, change: Partial<VisitLine>) => {
+    setDraft((current) => withLines(current, visitLines(current).map((line, position) => (position === index ? { ...line, ...change } : line))));
   }, []);
 
-  return { draft, setDraft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal };
+  const selectVisitLineService = useCallback((index: number, service: ServiceSettings) => {
+    setDraft((current) => withLines(current, visitLines(current).map((line, position) => (position === index
+      ? { ...line, serviceName: service.name, duration: service.duration, price: current.place === "cabinet" ? service.cabinetPrice : service.homePrice }
+      : line))));
+  }, []);
+
+  /** Monter ou descendre un animal dans le déroulé. */
+  const moveVisitLine = useCallback((index: number, delta: -1 | 1) => {
+    setDraft((current) => {
+      const lines = visitLines(current);
+      const target = index + delta;
+      if (target < 0 || target >= lines.length) return current;
+      const next = [...lines];
+      [next[index], next[target]] = [next[target], next[index]];
+      return withLines(current, next);
+    });
+  }, []);
+
+  return { draft, setDraft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal, toggleVisitAnimal, updateVisitLine, selectVisitLineService, moveVisitLine };
 }
 
 /** Adresse composée telle qu'elle est enregistrée (reprise de l'ancien formulaire). */

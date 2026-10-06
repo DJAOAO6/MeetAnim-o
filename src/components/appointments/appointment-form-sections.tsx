@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Building2, Car, ChevronDown, MapPin, PawPrint, Plus, Route, UserPlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Building2, Car, Check, ChevronDown, MapPin, PawPrint, Plus, Route, UserPlus, X } from "lucide-react";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { ClientSearch } from "@/components/appointments/client-search";
 import { AppointmentAvailabilityIndicator } from "@/components/appointments/appointment-availability-indicator";
-import { useDurationOptions, type AppointmentDraft, type AppointmentPlace } from "@/components/appointments/use-appointment-draft";
+import { useDurationOptions, visitLines, type AppointmentDraft, type AppointmentPlace, type VisitLine } from "@/components/appointments/use-appointment-draft";
+import { chainVisitStarts, minutesToTime, timeToMinutes } from "@/lib/booking-validation";
 import { appointmentStatusLabels, type AppointmentStatus } from "@/data/appointments";
 import { initialsFor } from "@/lib/format";
 import { listTourRunsForDateAction, type TourRunOption } from "@/lib/appointment-tour-actions";
@@ -45,8 +46,14 @@ export function FormSection({ step, title, description, children }: {
 
 /* ------------------------------------------------------------------ 1 */
 
-export function ClientAnimalSection({ draft, clients, onSelectClient, onClearClient, onSelectAnimal, onCreateClient, onCreateAnimal, onUseWithoutFile, onFreeformAnimal }: {
+export function ClientAnimalSection({ draft, clients, multiple = false, onToggleAnimal, onSelectClient, onClearClient, onSelectAnimal, onCreateClient, onCreateAnimal, onUseWithoutFile, onFreeformAnimal }: {
   draft: AppointmentDraft;
+  /**
+   * Création : plusieurs animaux se cochent (visite, chantier C6). En
+   * modification, un rendez-vous garde son animal unique.
+   */
+  multiple?: boolean;
+  onToggleAnimal?: (animal: { id: string; name: string; species: string; breed?: string; age?: string }) => void;
   clients: ClientPickerOption[];
   onSelectClient: (client: ClientPickerOption) => void;
   onClearClient: () => void;
@@ -58,6 +65,7 @@ export function ClientAnimalSection({ draft, clients, onSelectClient, onClearCli
 }) {
   const selectedClient = clients.find((client) => client.id === draft.clientId);
   const animals = selectedClient?.animals ?? [];
+  const selectedIds = visitLines(draft).map((line) => line.animalId).filter((id): id is string => Boolean(id));
   // Client saisi sans fiche : il a un nom mais aucun identifiant. Son animal
   // se saisit alors librement lui aussi — il n'y a pas de liste où le choisir.
   const freeform = !draft.clientId && draft.clientName.trim().length > 0;
@@ -141,9 +149,35 @@ export function ClientAnimalSection({ draft, clients, onSelectClient, onClearCli
 
       {draft.clientId ? (
         <div className="mt-4">
-          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Animal</p>
+          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">{multiple ? "Animaux" : "Animal"}</p>
+          {multiple && animals.length > 1 ? (
+            <p className="-mt-1 mb-2 text-xs text-animeo-muted">Plusieurs animaux vus à la suite ? Cochez-les : les rendez-vous s’enchaînent.</p>
+          ) : null}
 
-          {animals.length > 0 ? (
+          {animals.length > 0 && multiple ? (
+            <div role="group" aria-label="Animaux du rendez-vous" className="grid gap-2 sm:grid-cols-2">
+              {animals.map((animal) => {
+                const checked = selectedIds.includes(animal.id);
+                return (
+                  <label
+                    key={animal.id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-animeo ${checked ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-bg hover:bg-white"}`}
+                  >
+                    <input type="checkbox" checked={checked} onChange={() => onToggleAnimal?.(animal)} className="sr-only" />
+                    <span aria-hidden="true" className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${checked ? "bg-animeo text-white" : "bg-white text-animeo-dark"}`}>
+                      {checked ? <Check className="h-4 w-4" /> : <PawPrint className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-extrabold text-animeo-dark">{animal.name}</span>
+                      <span className="block truncate text-xs text-animeo-muted">
+                        {[animal.species, animal.breed, animal.age].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          ) : animals.length > 0 ? (
             <div className="grid gap-2 sm:grid-cols-2">
               {animals.map((animal) => {
                 const selected = animal.id === draft.animalId;
@@ -190,20 +224,31 @@ export function ClientAnimalSection({ draft, clients, onSelectClient, onClearCli
 
 /* ------------------------------------------------------------------ 2 */
 
-export function AppointmentDetailsSection({ draft, services, appointmentId, onSelectService, onUpdate }: {
+export type VisitPlanHandlers = {
+  onUpdateLine: (index: number, change: Partial<VisitLine>) => void;
+  onSelectLineService: (index: number, service: ServiceSettings) => void;
+  onMoveLine: (index: number, delta: -1 | 1) => void;
+};
+
+export function AppointmentDetailsSection({ draft, services, appointmentId, onSelectService, onUpdate, visit }: {
   draft: AppointmentDraft;
   services: ServiceSettings[];
   appointmentId?: string;
   onSelectService: (service: ServiceSettings) => void;
   onUpdate: (change: Partial<AppointmentDraft>) => void;
+  /** Visite (plusieurs animaux cochés) : un déroulé remplace prestation, durée et prix. */
+  visit?: VisitPlanHandlers;
 }) {
   const durations = useDurationOptions(services, draft.duration);
   const activeServices = services.filter((service) => service.active || service.name === draft.serviceName);
+  const lines = visitLines(draft);
+  const isVisit = Boolean(visit) && lines.length > 1;
+  const totalDuration = isVisit ? lines.reduce((total, line) => total + line.duration, 0) : draft.duration;
 
   return (
-    <FormSection step={2} title="Rendez-vous" description="Durée et tarif viennent de la prestation, et restent modifiables.">
+    <FormSection step={2} title="Rendez-vous" description={isVisit ? "Un rendez-vous par animal, enchaînés : réglez la durée de chacun." : "Durée et tarif viennent de la prestation, et restent modifiables."}>
       <div className="grid gap-4">
-        <Field label="Prestation">
+        {isVisit ? null : <Field label="Prestation">
           {activeServices.length > 0 ? (
             <select
               value={draft.serviceName}
@@ -232,7 +277,7 @@ export function AppointmentDetailsSection({ draft, services, appointmentId, onSe
               </span>
             </>
           )}
-        </Field>
+        </Field>}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Date">
@@ -241,7 +286,7 @@ export function AppointmentDetailsSection({ draft, services, appointmentId, onSe
           <Field label="Heure">
             <input type="time" value={draft.start} onChange={(event) => onUpdate({ start: event.target.value })} className={inputClassName} required />
           </Field>
-          <Field label="Durée">
+          {isVisit ? null : <><Field label="Durée">
             <select value={draft.duration} onChange={(event) => onUpdate({ duration: Number(event.target.value) })} className={inputClassName}>
               {durations.map((duration) => <option key={duration} value={duration}>{formatDuration(duration)}</option>)}
             </select>
@@ -258,12 +303,92 @@ export function AppointmentDetailsSection({ draft, services, appointmentId, onSe
               />
               <span aria-hidden="true" className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-animeo-muted">€</span>
             </div>
-          </Field>
+          </Field></>}
         </div>
 
-        <AppointmentAvailabilityIndicator date={draft.date} start={draft.start} duration={draft.duration} mode={draft.place === "cabinet" ? "cabinet" : "home"} excludeId={appointmentId} />
+        {isVisit && visit ? <VisitPlan lines={lines} start={draft.start} services={activeServices} handlers={visit} /> : null}
+
+        <AppointmentAvailabilityIndicator date={draft.date} start={draft.start} duration={totalDuration} mode={draft.place === "cabinet" ? "cabinet" : "home"} excludeId={appointmentId} />
       </div>
     </FormSection>
+  );
+}
+
+/**
+ * Déroulé d'une visite : un rendez-vous par animal, dans l'ordre (flèches
+ * pour le changer), chacun avec sa prestation, sa durée et son tarif ;
+ * l'heure de chacun se déduit des précédents.
+ */
+function VisitPlan({ lines, start, services, handlers }: { lines: VisitLine[]; start: string; services: ServiceSettings[]; handlers: VisitPlanHandlers }) {
+  const starts = chainVisitStarts(timeToMinutes(start), lines.map((line) => line.duration));
+  const total = lines.reduce((sum, line) => sum + line.duration, 0);
+  const end = minutesToTime(timeToMinutes(start) + total);
+  return (
+    <section aria-label="Déroulé de la visite" className="rounded-2xl border border-animeo-border bg-animeo-bg p-3 sm:p-4">
+      <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Déroulé</p>
+      <ol className="grid gap-2">
+        {lines.map((line, index) => (
+          <VisitPlanRow
+            key={line.animalId ?? `${line.animalName}-${index}`}
+            line={line}
+            index={index}
+            count={lines.length}
+            startLabel={minutesToTime(starts[index])}
+            services={services}
+            handlers={handlers}
+          />
+        ))}
+      </ol>
+      <p className="mt-3 text-sm font-bold text-animeo-dark" aria-live="polite">
+        Durée totale : {formatDuration(total)} · fin à {end}
+      </p>
+    </section>
+  );
+}
+
+function VisitPlanRow({ line, index, count, startLabel, services, handlers }: { line: VisitLine; index: number; count: number; startLabel: string; services: ServiceSettings[]; handlers: VisitPlanHandlers }) {
+  const durations = useDurationOptions(services, line.duration);
+  const name = line.animalName;
+  return (
+    <li className="grid gap-2 rounded-xl border border-animeo-border-soft bg-white p-3">
+      <div className="flex items-center gap-2">
+        <span className="w-12 shrink-0 text-sm font-black tabular-nums text-animeo-dark">{startLabel}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-animeo-dark">{name}</span>
+        <span className="flex shrink-0 gap-1">
+          <button type="button" onClick={() => handlers.onMoveLine(index, -1)} disabled={index === 0} aria-label={`Monter ${name}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-soft disabled:opacity-30">
+            <ArrowUp aria-hidden="true" className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => handlers.onMoveLine(index, 1)} disabled={index === count - 1} aria-label={`Descendre ${name}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-soft disabled:opacity-30">
+            <ArrowDown aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </span>
+      </div>
+      {/* Prestation sur toute la largeur sur téléphone ; durée et tarif dessous. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_6rem] [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
+        {services.length > 0 ? (
+          <select
+            aria-label={`Prestation pour ${name}`}
+            value={line.serviceName}
+            onChange={(event) => {
+              const service = services.find((item) => item.name === event.target.value);
+              if (service) handlers.onSelectLineService(index, service);
+            }}
+            className={inputClassName}
+          >
+            {services.map((service) => <option key={service.id} value={service.name}>{service.name}</option>)}
+          </select>
+        ) : (
+          <input aria-label={`Prestation pour ${name}`} value={line.serviceName} onChange={(event) => handlers.onUpdateLine(index, { serviceName: event.target.value })} className={inputClassName} />
+        )}
+        <select aria-label={`Durée pour ${name}`} value={line.duration} onChange={(event) => handlers.onUpdateLine(index, { duration: Number(event.target.value) })} className={inputClassName}>
+          {durations.map((duration) => <option key={duration} value={duration}>{formatDuration(duration)}</option>)}
+        </select>
+        <div className="relative">
+          <input type="number" min="0" step="0.01" aria-label={`Tarif pour ${name}`} value={line.price} onChange={(event) => handlers.onUpdateLine(index, { price: Number(event.target.value) })} className={`${inputClassName} pr-7`} />
+          <span aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm font-black text-animeo-muted">€</span>
+        </div>
+      </div>
+    </li>
   );
 }
 

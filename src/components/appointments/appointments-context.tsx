@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
-import { getAppointmentsInRangeAction, saveAppointmentAction, updateAppointmentStatusAction, type SaveAppointmentInput } from "@/lib/appointments-actions";
+import { getAppointmentsInRangeAction, saveAppointmentAction, saveAppointmentsBatchAction, updateAppointmentStatusAction, type SaveAppointmentInput, type SaveVisitInput } from "@/lib/appointments-actions";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 
 /**
@@ -10,6 +10,9 @@ import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/app
   * à une tournée a besoin de son identifiant, qui n'existe pas avant.
   */
 type ActionOutcome = { ok: boolean; error?: string; appointment?: Appointment };
+
+/** Visite multi-animaux enregistrée (chantier C6) : ses rendez-vous, dans l'ordre. */
+export type VisitOutcome = { ok: boolean; error?: string; appointments?: Appointment[] };
 
 /** Période de rendez-vous, bornes incluses (YYYY-MM-DD). */
 export type AppointmentRange = { from: string; to: string };
@@ -43,6 +46,7 @@ type AppointmentsContextValue = {
   openNewAppointment: (defaultDate?: string, prefill?: AppointmentPrefill) => void;
   closeManager: () => void;
   saveAppointment: (input: SaveAppointmentInput) => Promise<ActionOutcome>;
+  saveVisit: (input: SaveVisitInput) => Promise<VisitOutcome>;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => Promise<ActionOutcome>;
 };
 
@@ -161,6 +165,15 @@ export function AppointmentsProvider({ children, initialAppointments, initialRan
     return { ok: true, appointment: result.appointment };
   }
 
+  async function saveVisit(input: SaveVisitInput): Promise<VisitOutcome> {
+    const result = await saveAppointmentsBatchAction(input);
+    if (!result.ok) return { ok: false, error: result.error };
+    setAppointments((current) => [...current, ...result.appointments]);
+    setSelectedAppointmentId(result.appointments[0]?.id ?? null);
+    setCreatingAppointment(false);
+    return { ok: true, appointments: result.appointments };
+  }
+
   async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus): Promise<ActionOutcome> {
     const result = await updateAppointmentStatusAction(appointmentId, status);
     if (!result.ok) return { ok: false, error: result.error };
@@ -182,6 +195,7 @@ export function AppointmentsProvider({ children, initialAppointments, initialRan
     openNewAppointment,
     closeManager,
     saveAppointment,
+    saveVisit,
     updateAppointmentStatus,
   };
 

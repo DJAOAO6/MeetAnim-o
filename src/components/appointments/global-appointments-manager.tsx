@@ -30,6 +30,7 @@ export function GlobalAppointmentsManager({ context }: { context: AppointmentMod
     openNewAppointment,
     closeManager,
     saveAppointment,
+    saveVisit,
     updateAppointmentStatus,
   } = useAppointments();
 
@@ -70,6 +71,7 @@ export function GlobalAppointmentsManager({ context }: { context: AppointmentMod
         prefill={duplicating || editing ? undefined : newAppointmentPrefill}
         context={context}
         onSave={saveAppointment}
+        onSaveVisit={saveVisit}
         onClose={() => {
           if (editing || duplicating) {
             // Retour à la liste plutôt que fermeture complète : on y était

@@ -4,7 +4,7 @@ import { CalendarDays, Clock, HandHeart, MapPin, PawPrint, User } from "lucide-r
 import { appointmentStatusLabels } from "@/data/appointments";
 import { formatEuros } from "@/lib/format";
 import { minutesToTime, timeToMinutes } from "@/lib/booking-validation";
-import type { AppointmentDraft } from "@/components/appointments/use-appointment-draft";
+import type { AppointmentDraft, VisitLine } from "@/components/appointments/use-appointment-draft";
 import { composeLocation } from "@/components/appointments/use-appointment-draft";
 import { statusTone } from "@/components/appointments/appointment-status";
 
@@ -15,8 +15,10 @@ import { statusTone } from "@/components/appointments/appointment-status";
  * 9 h pour Rex, au cabinet » — avant de valider. Chaque ligne absente est
  * dite absente plutôt que laissée vide : un aperçu à trous ne se relit pas.
  */
-export function AppointmentSummaryPanel({ draft, cabinetAddress }: { draft: AppointmentDraft; cabinetAddress: string }) {
-  const endTime = minutesToTime(timeToMinutes(draft.start) + draft.duration);
+export function AppointmentSummaryPanel({ draft, cabinetAddress, visit }: { draft: AppointmentDraft; cabinetAddress: string; visit?: VisitLine[] }) {
+  // Visite (chantier C6) : la durée de bout en bout, et chaque animal avec sa prestation.
+  const totalDuration = visit ? visit.reduce((total, line) => total + line.duration, 0) : draft.duration;
+  const endTime = minutesToTime(timeToMinutes(draft.start) + totalDuration);
   const tone = statusTone(draft.status);
 
   return (
@@ -30,12 +32,21 @@ export function AppointmentSummaryPanel({ draft, cabinetAddress }: { draft: Appo
       <p className="mt-0.5 flex items-center gap-2 text-sm font-bold text-animeo-dark">
         <Clock aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />
         {draft.start} → {endTime}
-        <span className="font-semibold text-animeo-muted">({draft.duration} min)</span>
+        <span className="font-semibold text-animeo-muted">({totalDuration} min)</span>
       </p>
 
       <dl className="mt-5 space-y-4 border-t border-animeo-border-soft pt-5 text-sm">
-        <SummaryRow icon={<PawPrint aria-hidden="true" className="h-4 w-4" />} label="Animal">
-          {draft.animalName ? (
+        <SummaryRow icon={<PawPrint aria-hidden="true" className="h-4 w-4" />} label={visit ? "Animaux" : "Animal"}>
+          {visit ? (
+            <ul className="space-y-1">
+              {visit.map((line) => (
+                <li key={line.animalId ?? line.animalName}>
+                  <span className="block font-extrabold text-animeo-dark">{line.animalName}</span>
+                  <span className="block text-xs text-animeo-muted">{line.serviceName} · {line.duration} min · {formatEuros(line.price)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : draft.animalName ? (
             <>
               <span className="block font-extrabold text-animeo-dark">{draft.animalName}</span>
               {draft.animalDetail ? <span className="block text-xs text-animeo-muted">{draft.animalDetail}</span> : null}
@@ -52,14 +63,14 @@ export function AppointmentSummaryPanel({ draft, cabinetAddress }: { draft: Appo
           ) : <Missing>Aucun client choisi</Missing>}
         </SummaryRow>
 
-        <SummaryRow icon={<HandHeart aria-hidden="true" className="h-4 w-4" />} label="Prestation">
+        {visit ? null : <SummaryRow icon={<HandHeart aria-hidden="true" className="h-4 w-4" />} label="Prestation">
           {draft.serviceName ? (
             <>
               <span className="block font-extrabold text-animeo-dark">{draft.serviceName}</span>
               <span className="block text-xs text-animeo-muted">{formatEuros(draft.price)}</span>
             </>
           ) : <Missing>Aucune prestation choisie</Missing>}
-        </SummaryRow>
+        </SummaryRow>}
 
         <SummaryRow icon={<MapPin aria-hidden="true" className="h-4 w-4" />} label="Lieu">
           <span className="block font-extrabold text-animeo-dark">

@@ -18,13 +18,15 @@ import {
   composeLocation,
   modeOf,
   useAppointmentDraft,
+  visitDuration,
+  visitLines,
   type AppointmentPlace,
 } from "@/components/appointments/use-appointment-draft";
 import { addAppointmentStopsAction } from "@/lib/tour-runs-actions";
-import { checkGeographicWarningAction, type GeoWarning, type SaveAppointmentInput } from "@/lib/appointments-actions";
+import { checkGeographicWarningAction, type GeoWarning, type SaveAppointmentInput, type SaveVisitInput } from "@/lib/appointments-actions";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
-import type { AppointmentPrefill } from "@/components/appointments/appointments-context";
+import type { AppointmentPrefill, VisitOutcome } from "@/components/appointments/appointments-context";
 import type { Appointment } from "@/data/appointments";
 import type { ClientPickerAnimal, ClientPickerOption } from "@/data/clients";
 import type { ServiceSettings } from "@/data/settings";
@@ -50,7 +52,7 @@ export type AppointmentModalContext = {
  * Le brouillon vit ici, au-dessus des sous-fenêtres de création rapide :
  * ouvrir « Créer un client » au milieu de la saisie ne perd donc rien.
  */
-export function AppointmentModal({ appointment, template, defaultDate, prefill, context, onSave, onClose, onCreated }: {
+export function AppointmentModal({ appointment, template, defaultDate, prefill, context, onSave, onSaveVisit, onClose, onCreated }: {
   appointment?: Appointment;
   /** Duplication : les valeurs de départ viennent de ce rendez-vous, mais on en crée un nouveau. */
   template?: Appointment;
@@ -59,6 +61,8 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
   prefill?: AppointmentPrefill;
   context: AppointmentModalContext;
   onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string; appointment?: Appointment }>;
+  /** Plusieurs animaux cochés (chantier C6) : un rendez-vous par animal, enchaînés. */
+  onSaveVisit?: (input: SaveVisitInput) => Promise<VisitOutcome>;
   onClose: () => void;
   /** Appelé après une création réussie, pour enchaîner (retour à la liste…). */
   onCreated?: () => void;
@@ -66,7 +70,12 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
   const router = useRouter();
   const { clients, services, cabinetAddress, practiceMode, reminderSummary } = context;
   const prefillClient = prefill?.clientId ? clients.find((client) => client.id === prefill.clientId) : undefined;
-  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal } = useAppointmentDraft({ appointment, template, defaultDate, prefill, prefillClient, services, practiceMode });
+  const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal, toggleVisitAnimal, updateVisitLine, selectVisitLineService, moveVisitLine } = useAppointmentDraft({ appointment, template, defaultDate, prefill, prefillClient, services, practiceMode });
+  // Plusieurs animaux à la suite : seulement à la création, et si la page sait enregistrer une visite.
+  const canVisit = !appointment && Boolean(onSaveVisit);
+  const lines = visitLines(draft);
+  const isVisit = canVisit && lines.length > 1;
+  const totalDuration = isVisit ? visitDuration(draft) : draft.duration;
 
   // Clients et animaux créés pendant la saisie : ils n'existent pas encore
   // dans la liste venue du serveur, qui ne sera rafraîchie qu'au prochain
@@ -106,7 +115,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
       checkGeographicWarningAction({
         date: draft.date,
         start: draft.start,
-        duration: draft.duration,
+        duration: totalDuration,
         mode: "home",
         latitude: draft.latitude,
         longitude: draft.longitude,
@@ -116,7 +125,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
         .catch(() => { if (!cancelled) setGeoWarnings([]); });
     }, 400);
     return () => { cancelled = true; clearTimeout(timeout); };
-  }, [draft.place, draft.date, draft.start, draft.duration, draft.latitude, draft.longitude, appointment?.id]);
+  }, [draft.place, draft.date, draft.start, totalDuration, draft.latitude, draft.longitude, appointment?.id]);
 
   function buildInput(date: string): SaveAppointmentInput {
     return {
@@ -155,6 +164,39 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
     setError(null);
     setPending(true);
 
+    if (isVisit && onSaveVisit) {
+      if (lines.some((line) => !line.serviceName.trim())) { setPending(false); setError("Choisissez une prestation pour chaque animal."); return; }
+      const single = buildInput(draft.date);
+      const visit = await onSaveVisit({
+        date: single.date,
+        start: single.start,
+        clientId: single.clientId,
+        clientName: single.clientName,
+        mode: single.mode,
+        location: single.location,
+        postalCode: single.postalCode,
+        city: single.city,
+        latitude: single.latitude,
+        longitude: single.longitude,
+        status: single.status,
+        notes: single.notes,
+        items: lines.map((line) => ({ animalId: line.animalId ?? null, animalName: line.animalName.trim(), animalSpecies: line.animalSpecies ?? null, serviceName: line.serviceName.trim(), duration: line.duration, price: line.price })),
+      });
+      if (!visit.ok || !visit.appointments) {
+        setPending(false);
+        setError(visit.error ?? "Une erreur est survenue.");
+        return;
+      }
+      if (draft.place === "tour" && draft.tourRunId) await attachToTourRun(draft.tourRunId, visit.appointments.map((created) => created.id));
+      setPending(false);
+      const dateId = draft.date;
+      const names = visit.appointments.map((created) => created.animalName).join(", ");
+      notify.success(`${visit.appointments.length} rendez-vous créés (${names})`, { action: { label: "Voir dans l’agenda", onClick: () => router.push(`/dashboard/agenda?date=${dateId}`) } });
+      onCreated?.();
+      onClose();
+      return;
+    }
+
     const result = await onSave(buildInput(draft.date));
     if (!result.ok) {
       setPending(false);
@@ -165,7 +207,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
     // Rattachement à la tournée choisie, après coup : l'arrêt a besoin de
     // l'identifiant du rendez-vous, qui n'existe qu'une fois enregistré.
     if (draft.place === "tour" && draft.tourRunId && result.appointment) {
-      await attachToTourRun(draft.tourRunId, result.appointment.id);
+      await attachToTourRun(draft.tourRunId, [result.appointment.id]);
     }
 
     setPending(false);
@@ -199,7 +241,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
               {pending ? (
                 <><Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> Enregistrement…</>
               ) : (
-                <><CalendarPlus aria-hidden="true" className="h-4 w-4" /> {appointment ? "Enregistrer les modifications" : "Créer le rendez-vous"}</>
+                <><CalendarPlus aria-hidden="true" className="h-4 w-4" /> {appointment ? "Enregistrer les modifications" : isVisit ? `Créer ${lines.length} rendez-vous` : "Créer le rendez-vous"}</>
               )}
             </Button>
           </div>
@@ -214,6 +256,8 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
             <ClientAnimalSection
               draft={draft}
               clients={allClients}
+              multiple={canVisit}
+              onToggleAnimal={toggleVisitAnimal}
               onSelectClient={selectClient}
               onClearClient={clearClient}
               onSelectAnimal={selectAnimal}
@@ -229,6 +273,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
               appointmentId={appointment?.id}
               onSelectService={(service) => selectService(service, draft.place)}
               onUpdate={update}
+              visit={canVisit ? { onUpdateLine: updateVisitLine, onSelectLineService: selectVisitLineService, onMoveLine: moveVisitLine } : undefined}
             />
 
             <AppointmentLocationSection
@@ -256,7 +301,7 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
               téléphone il vient après le formulaire, juste avant le bouton,
               là où on le relit avant de valider. */}
           <div className="min-w-0 lg:sticky lg:top-0 lg:self-start">
-            <AppointmentSummaryPanel draft={draft} cabinetAddress={cabinetAddress} />
+            <AppointmentSummaryPanel draft={draft} cabinetAddress={cabinetAddress} visit={isVisit ? lines : undefined} />
           </div>
         </form>
       </Modal>
@@ -284,7 +329,9 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
           onCreated={(animal) => {
             const clientId = draft.clientId!;
             setAddedAnimals((current) => ({ ...current, [clientId]: [...(current[clientId] ?? []), animal] }));
-            selectAnimal(animal);
+            // En création, il est coché : il rejoint les animaux déjà choisis.
+            if (canVisit && draft.animalId) toggleVisitAnimal(animal);
+            else selectAnimal(animal);
             setCreatingAnimal(false);
           }}
         />
@@ -299,8 +346,8 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
  * n'existe pas — il existe, il est simplement à placer depuis l'écran
  * Tournées.
  */
-export async function attachToTourRun(tourRunId: string, appointmentId: string): Promise<void> {
-  const result = await addAppointmentStopsAction({ tourRunId, appointmentIds: [appointmentId] });
+export async function attachToTourRun(tourRunId: string, appointmentIds: string[]): Promise<void> {
+  const result = await addAppointmentStopsAction({ tourRunId, appointmentIds });
   if (!result.ok) notify.warning("Rendez-vous créé, mais il n’a pas pu être ajouté à la tournée. Ajoutez-le depuis l’écran Tournées.");
 }
 

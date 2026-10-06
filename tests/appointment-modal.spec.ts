@@ -75,8 +75,10 @@ test("chercher un client remplit l’aperçu avec ses vraies données", async ({
   // L'aperçu se met à jour immédiatement, sans validation intermédiaire.
   await expect(preview.getByText("Aucun client choisi")).toHaveCount(0);
   await expect(preview.getByText(/Dupont/)).toBeVisible();
-  // L'animal du client est proposé avec son espèce, sa race et son âge.
-  await expect(page.getByRole("button", { name: /Chien/ }).first()).toBeVisible();
+  // L'animal du client est proposé avec son espèce, sa race et son âge — à cocher (visite, chantier C6).
+  const animals = page.getByRole("group", { name: "Animaux du rendez-vous" });
+  await expect(animals.getByText(/Chien/).first()).toBeVisible();
+  await expect(animals.getByRole("checkbox").first()).toBeChecked();
 });
 
 test("la durée et le tarif viennent des prestations réglées, jamais d\u2019une valeur codée en dur", async ({ page }) => {
