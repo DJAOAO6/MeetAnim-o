@@ -114,6 +114,14 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
         <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
           Modifier
         </button>
+        {appointment.status === "completed" && appointment.completedAutomatically ? (
+          <p className="mb-2 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-bold text-animeo-muted">Réalisé automatiquement une fois l’heure passée.</p>
+        ) : null}
+        {onCancel && appointment.status === "completed" ? (
+          <button type="button" onClick={onCancel} className="mt-2 min-h-11 w-full rounded-xl px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
+            Client absent — annuler
+          </button>
+        ) : null}
         {onCancel && (appointment.status === "confirmed" || appointment.status === "pending") ? (
           <button type="button" onClick={onCancel} className="mt-2 min-h-11 w-full rounded-xl px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
             {appointment.status === "pending" ? "Refuser la demande" : "Annuler le rendez-vous"}

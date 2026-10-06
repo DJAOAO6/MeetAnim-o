@@ -106,8 +106,10 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
         // Dans une visite (chantier C6) : toute la visite, ou seulement celui-ci.
         <CancelAppointmentDialog
           appointment={appointment}
-          title={appointment.status === "pending" ? "Refuser cette demande ?" : "Annuler ce rendez-vous ?"}
-          message={`${appointment.animalName} (${appointment.clientName}), ${appointment.start}. Le rendez-vous reste dans l’historique, le créneau redevient libre, et le client en est prévenu.`}
+          title={appointment.status === "pending" ? "Refuser cette demande ?" : appointment.status === "completed" ? "Client absent ?" : "Annuler ce rendez-vous ?"}
+          message={appointment.status === "completed"
+            ? `${appointment.animalName} (${appointment.clientName}), ${appointment.start}. Le rendez-vous passe en « annulé » et sa consultation est retirée du dossier de l’animal.`
+            : `${appointment.animalName} (${appointment.clientName}), ${appointment.start}. Le rendez-vous reste dans l’historique, le créneau redevient libre, et le client en est prévenu.`}
           confirmLabel={appointment.status === "pending" ? "Refuser la demande" : "Annuler le rendez-vous"}
           onCancelled={onClose}
           onClose={() => setConfirmingCancel(false)}

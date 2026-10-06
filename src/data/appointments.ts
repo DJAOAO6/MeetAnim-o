@@ -30,6 +30,8 @@ export type Appointment = {
   longitude?: number;
   /** Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot la partagent. */
   visitGroupId?: string;
+  /** Réalisé par la tâche planifiée, l'heure passée (chantier C7). */
+  completedAutomatically?: boolean;
 };
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {

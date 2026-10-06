@@ -643,37 +643,39 @@ model Appointment {
   animalId String?
   animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
 
-  clientName     String
-  animalName     String
-  animalSpecies  String?
-  serviceName    String
-  date           DateTime
-  start          String
-  duration       Int
-  mode           VisitMode
-  location       String
-  postalCode     String?
-  city           String?
-  inseeCode      String?
-  latitude       Float?
-  longitude      Float?
-  price          Float
-  status         AppointmentStatus @default(PENDING)
-  notes          String            @db.Text
+  clientName             String
+  animalName             String
+  animalSpecies          String?
+  serviceName            String
+  date                   DateTime
+  start                  String
+  duration               Int
+  mode                   VisitMode
+  location               String
+  postalCode             String?
+  city                   String?
+  inseeCode              String?
+  latitude               Float?
+  longitude              Float?
+  price                  Float
+  status                 AppointmentStatus @default(PENDING)
+  notes                  String            @db.Text
   // Horodatage réel de clôture (bouton "Consultation réalisée"), distinct de
   // updatedAt qui bouge à chaque modification du rendez-vous — sert au mode
   // tournée (refonte tournées, phase 2) pour l'indicateur de retard et
   // l'heure de fin réelle affichée sous un arrêt terminé.
-  completedAt    DateTime?
+  completedAt            DateTime?
+  /// Réalisé par la tâche planifiée, l'heure passée (chantier C7), et non à la main.
+  completedAutomatically Boolean           @default(false)
   // Rappel envoyé au client la veille du rendez-vous. Posé au moment de
   // l'envoi : un rendez-vous déjà rappelé ne l'est jamais une seconde fois,
   // même si la tâche quotidienne tourne deux fois.
-  reminderSentAt DateTime?
+  reminderSentAt         DateTime?
   /// Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot,
   /// enchaînés sans tampon entre eux. Vide pour un rendez-vous seul.
-  visitGroupId   String?
+  visitGroupId           String?
   /// Consultation créée quand ce rendez-vous a été réalisé (chantier C7).
-  consultation   Consultation?
+  consultation           Consultation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

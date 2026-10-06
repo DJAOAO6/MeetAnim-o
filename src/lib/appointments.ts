@@ -30,7 +30,7 @@ export function toAppointment(row: {
   id: string; date: Date; start: string; duration: number; clientId: string | null; clientName: string;
   animalId: string | null; animalName: string; animalSpecies: string | null; animal: { species: string } | null;
   serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
-  postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; visitGroupId?: string | null;
+  postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; visitGroupId?: string | null; completedAutomatically?: boolean;
   client?: { phone: string } | null;
 }): Appointment {
   return {
@@ -55,6 +55,7 @@ export function toAppointment(row: {
     latitude: row.latitude ?? undefined,
     longitude: row.longitude ?? undefined,
     visitGroupId: row.visitGroupId ?? undefined,
+    completedAutomatically: row.completedAutomatically || undefined,
   };
 }
 

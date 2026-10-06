@@ -64,8 +64,13 @@ type AuditAction =
 // lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
 // des ~15 sites d'appel de logAudit() la passe explicitement.
 async function requestIp(): Promise<string | null> {
-  const headerList = await headers();
-  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  // Hors d'une requête (tâche planifiée du serveur), il n'y a pas d'en-têtes.
+  try {
+    const headerList = await headers();
+    return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function logAudit(entry: {

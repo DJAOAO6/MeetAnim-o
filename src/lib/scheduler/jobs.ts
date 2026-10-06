@@ -7,6 +7,7 @@ import { OPEN_ORGANIZATION_WHERE } from "@/lib/organization-status";
 import { hasModule } from "@/lib/modules";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { sendDueAppointmentReminders } from "@/lib/scheduler/appointment-reminders";
+import { completePastAppointments } from "@/lib/scheduler/auto-complete";
 
 /**
  * Relances de suivi (« revoir dans 6 mois ») arrivées à échéance : elles
@@ -48,22 +49,29 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   let followUpsDue = 0;
   let tourRunsGenerated = 0;
   let appointmentReminders: Awaited<ReturnType<typeof sendDueAppointmentReminders>> | null = null;
+  // Rendez-vous passés marqués « réalisés » (chantier C7), tous espaces confondus.
+  const autoCompleted = { completed: 0, failed: 0 };
 
   for (const organization of organizations) {
     const db = dbFor(organization.id);
     // Les relances et les journées de tournée n'ont lieu que si l'espace a
     // le module ; le rappel de rendez-vous fait partie du socle.
-    const [followUps, tourRuns, reminders] = await Promise.allSettled([
+    const [followUps, tourRuns, reminders, completions] = await Promise.allSettled([
       hasModule(organization.modules, "REMINDERS") ? markDueFollowUps(db, now) : Promise.resolve(0),
       hasModule(organization.modules, "TOURS") ? generateUpcomingTourRuns(db, organization.id) : Promise.resolve({ created: 0 }),
       sendDueAppointmentReminders(db, now),
+      completePastAppointments(db, now),
     ]);
 
-    for (const result of [followUps, tourRuns, reminders]) {
+    for (const result of [followUps, tourRuns, reminders, completions]) {
       if (result.status === "rejected") errors.push(`${organization.id} : ${redactEmails(String(result.reason))}`);
     }
     if (followUps.status === "fulfilled") followUpsDue += followUps.value;
     if (tourRuns.status === "fulfilled") tourRunsGenerated += tourRuns.value.created;
+    if (completions.status === "fulfilled") {
+      autoCompleted.completed += completions.value.completed;
+      autoCompleted.failed += completions.value.failed;
+    }
     if (reminders.status === "fulfilled") {
       // Cumul sur l'ensemble des cabinets ; « activé » vaut pour au moins un.
       appointmentReminders = appointmentReminders
@@ -84,6 +92,7 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
     followUpsDue,
     tourRunsGenerated,
     appointmentReminders,
+    autoCompleted,
     errors,
   };
 }

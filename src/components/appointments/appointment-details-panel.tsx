@@ -161,6 +161,10 @@ export function AppointmentDetailsPanel({ appointment, onEdit, onAction, actions
           </Button>
         ) : null}
 
+        {appointment.status === "completed" && appointment.completedAutomatically ? (
+          <p className="rounded-xl bg-animeo-bg px-3 py-2 text-xs font-bold text-animeo-muted">Réalisé automatiquement une fois l’heure passée.</p>
+        ) : null}
+
         {appointment.status === "completed" && canCreateDocument ? (
           <Button type="button" variant="secondary" onClick={() => createDocument(appointment)} disabled={creatingDocument}>
             <FileText aria-hidden="true" className="h-4 w-4" />

@@ -345,7 +345,8 @@ export async function getReminderSettings(): Promise<ReminderSettings> {
 export async function reminderSettingsOf(db: ScopedPrismaClient): Promise<ReminderSettings> {
   const row = await db.businessProfile.findFirst({ select: { reminderSettings: true } });
   if (!row?.reminderSettings) return initialSettings.reminders;
-  return row.reminderSettings as unknown as ReminderSettings;
+  // Réglages enregistrés avant l'arrivée d'une clé : ils prennent sa valeur par défaut.
+  return { ...initialSettings.reminders, ...(row.reminderSettings as unknown as Partial<ReminderSettings>) };
 }
 
 export async function updateReminderSettingsAction(input: ReminderSettings): Promise<BusinessProfileActionResult> {
@@ -354,6 +355,14 @@ export async function updateReminderSettingsAction(input: ReminderSettings): Pro
   if (!hasPermission(user, "MANAGE_PUBLIC_SETTINGS")) {
     return { ok: false, error: "Vous n'avez pas la permission de modifier les réglages de rappels." };
   }
+
+  // La mise en service de la réalisation automatique ne vient pas du
+  // formulaire : gardée telle quelle, ou remise à maintenant quand on la
+  // réactive (ce qui s'est terminé pendant qu'elle était coupée n'est pas
+  // rattrapé d'un coup).
+  const previous = await reminderSettingsOf(db);
+  const reactivated = input.autoCompleteAppointments && !previous.autoCompleteAppointments;
+  input = { ...input, autoCompleteSince: reactivated ? new Date().toISOString() : previous.autoCompleteSince ?? null };
 
   const existing = await db.businessProfile.findFirst({ select: { id: true } });
   if (existing) {

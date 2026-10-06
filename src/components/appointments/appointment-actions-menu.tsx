@@ -18,6 +18,7 @@ export type AppointmentAction =
   | "edit"
   | "confirm"
   | "complete"
+  | "absent"
   | "cancel"
   | "decline"
   | "reschedule"
@@ -53,6 +54,8 @@ const entries: MenuEntry[] = [
   { action: "openAnimal", label: "Voir la fiche animal", icon: PawPrint, available: (appointment) => Boolean(appointment.clientId && appointment.animalId) },
   { action: "decline", label: "Refuser la demande", icon: XCircle, destructive: true, available: (appointment) => appointment.status === "pending" },
   { action: "cancel", label: "Annuler le rendez-vous", icon: XCircle, destructive: true, available: (appointment) => appointment.status === "confirmed" },
+  // Réalisé à tort (client absent), à la main ou automatiquement : la consultation est retirée.
+  { action: "absent", label: "Client absent — annuler", icon: XCircle, destructive: true, available: (appointment) => appointment.status === "completed" },
 ];
 
 /** Hauteur approximative du menu déplié (six entrées). */

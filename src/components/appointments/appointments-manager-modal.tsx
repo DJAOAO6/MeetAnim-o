@@ -140,7 +140,7 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
     // et non un changement de statut qui aurait l'air identique de l'extérieur
     // tout en perdant l'essentiel.
     if (action === "complete") { await actions.complete(appointment); return; }
-    if (action === "cancel") { setConfirming(appointment); return; }
+    if (action === "cancel" || action === "absent") { setConfirming(appointment); return; }
 
     // Quitter la fenêtre pour une fiche : la navigation ferme le centre de
     // gestion, sinon il resterait ouvert par-dessus la page d'arrivée.
@@ -222,8 +222,8 @@ export function AppointmentsManagerModal({ appointments, initialSelectedId, onCl
       {confirming ? (
         <CancelAppointmentDialog
           appointment={confirming}
-          title="Annuler ce rendez-vous ?"
-          message={`Le rendez-vous de ${confirming.animalName} (${confirming.clientName}) du ${formatShortDate(confirming.date)} à ${confirming.start} passera en « Annulé ». Il restera dans l’historique, et le créneau redeviendra libre.`}
+          title={confirming.status === "completed" ? "Client absent ?" : "Annuler ce rendez-vous ?"}
+          message={`Le rendez-vous de ${confirming.animalName} (${confirming.clientName}) du ${formatShortDate(confirming.date)} à ${confirming.start} passera en « Annulé ». ${confirming.status === "completed" ? "Sa consultation sera retirée du dossier de l’animal." : "Il restera dans l’historique, et le créneau redeviendra libre."}`}
           confirmLabel="Annuler le rendez-vous"
           onCancelled={() => {}}
           onClose={() => setConfirming(null)}

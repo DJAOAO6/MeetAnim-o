@@ -99,12 +99,12 @@ export async function getStatsData(filters: StatsFilters): Promise<StatsData> {
     ...(serviceName ? { serviceName } : {}),
     ...(species ? { animal: { species } } : {}),
   };
-  // Aucune action de l'app ne fait jamais passer un rendez-vous au statut
-  // COMPLETED (vérifié : absent de tout onClick/server action, seulement
-  // lu/filtré) — le baser uniquement dessus laisserait cette page vide en
-  // permanence. Un rendez-vous CONFIRMED dont la date est passée sans
-  // annulation est considéré comme réellement tenu, en plus de COMPLETED
-  // pour le jour où ce statut serait vraiment posé quelque part.
+  // Réalisé = COMPLETED (bouton « Consultation réalisée », ou réalisation
+  // automatique une fois l'heure passée — chantier C7). Un rendez-vous
+  // CONFIRMED déjà passé compte aussi : l'automatisme ne rebascule jamais
+  // l'historique d'avant sa mise en service, ni ce qui s'est terminé pendant
+  // qu'il était désactivé ; sans cela, ces séances bien tenues
+  // disparaîtraient des statistiques.
   const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const realizedOr: Prisma.AppointmentWhereInput[] = [{ status: "COMPLETED" }, { status: "CONFIRMED", date: { lt: todayUtc } }];
   const completedWhere: Prisma.AppointmentWhereInput = { ...baseWhere, OR: realizedOr };

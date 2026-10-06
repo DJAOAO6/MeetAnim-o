@@ -35,14 +35,14 @@ export async function ensureConsultation(tx: Tx, appointmentId: string): Promise
  */
 export async function undoCompletion(tx: Tx, appointmentId: string): Promise<boolean> {
   const { count } = await tx.consultation.deleteMany({ where: { appointmentId } });
-  await tx.appointment.update({ where: { id: appointmentId }, data: { completedAt: null } });
+  await tx.appointment.update({ where: { id: appointmentId }, data: { completedAt: null, completedAutomatically: false } });
   return count > 0;
 }
 
 /** Dans une transaction en cours : vrai si c'est cet appel qui l'a réalisé. */
-export async function completeInTransaction(tx: Tx, appointmentId: string, completedAt: Date): Promise<boolean> {
+export async function completeInTransaction(tx: Tx, appointmentId: string, completedAt: Date, automatic = false): Promise<boolean> {
   // Conditionnel : deux appels simultanés, un seul passe.
-  const { count } = await tx.appointment.updateMany({ where: { id: appointmentId, status: "CONFIRMED" }, data: { status: "COMPLETED", completedAt } });
+  const { count } = await tx.appointment.updateMany({ where: { id: appointmentId, status: "CONFIRMED" }, data: { status: "COMPLETED", completedAt, completedAutomatically: automatic } });
   if (count === 0) return false;
   await ensureConsultation(tx, appointmentId);
   return true;
@@ -52,6 +52,6 @@ export async function completeInTransaction(tx: Tx, appointmentId: string, compl
  * Réalise un rendez-vous confirmé, consultation comprise. Ne fait rien (et
  * renvoie faux) s'il est déjà réalisé, annulé ou encore en attente.
  */
-export async function markAppointmentCompleted(db: ScopedPrismaClient, appointmentId: string, options: { completedAt?: Date } = {}): Promise<boolean> {
-  return db.$transaction((tx) => completeInTransaction(tx, appointmentId, options.completedAt ?? new Date()));
+export async function markAppointmentCompleted(db: ScopedPrismaClient, appointmentId: string, options: { completedAt?: Date; automatic?: boolean } = {}): Promise<boolean> {
+  return db.$transaction((tx) => completeInTransaction(tx, appointmentId, options.completedAt ?? new Date(), options.automatic ?? false));
 }

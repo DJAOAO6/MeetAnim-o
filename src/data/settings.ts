@@ -171,6 +171,13 @@ export type ReminderSettings = {
   messageTemplate: string;
   appointmentReminderEnabled: boolean;
   appointmentReminderDelay: "24 heures avant" | "48 heures avant";
+  /** Rendez-vous confirmés passés marqués « réalisés » automatiquement (chantier C7). */
+  autoCompleteAppointments: boolean;
+  /**
+   * Mise en service de l'automatisme (ISO), posée par son premier passage
+   * ou quand on le réactive : rien de terminé avant n'est touché.
+   */
+  autoCompleteSince?: string | null;
 };
 
 export type SettingsState = {
@@ -317,6 +324,7 @@ export const initialSettings: SettingsState = {
     messageTemplate: "Bonjour [Prénom],\n\nCela fait bientôt [Durée] depuis la dernière séance de [Animal].\n\nSi vous souhaitez prévoir une nouvelle consultation, vous pouvez prendre rendez-vous ici :\n\n[Lien de réservation]",
     appointmentReminderEnabled: true,
     appointmentReminderDelay: "24 heures avant",
+    autoCompleteAppointments: true,
   },
   publicColor: "#2F7A6E",
   kilometricFeesEnabled: false,

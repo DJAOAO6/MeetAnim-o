@@ -36,11 +36,25 @@ export function RemindersSettingsTab({ value, slug, onSave }: { value: ReminderS
       </Card>
 
       <Card className="p-5 sm:p-6">
-        <SectionTitle title="Rappel avant rendez-vous" description="Ce réglage sera utilisé plus tard pour automatiser les notifications de rendez-vous." />
+        <SectionTitle title="Rappel avant rendez-vous" description="Un e-mail rappelle au client son rendez-vous confirmé, au délai choisi." />
         <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <Toggle checked={draft.appointmentReminderEnabled} onChange={(checked) => setDraft((current) => ({ ...current, appointmentReminderEnabled: checked }))} label={draft.appointmentReminderEnabled ? "Rappel automatique activé" : "Rappel automatique désactivé"} />
           {draft.appointmentReminderEnabled ? <div className="w-full sm:max-w-xs"><Field label="Délai"><select value={draft.appointmentReminderDelay} onChange={(event) => setDraft((current) => ({ ...current, appointmentReminderDelay: event.target.value as ReminderSettings["appointmentReminderDelay"] }))} className={inputClassName}><option>24 heures avant</option><option>48 heures avant</option></select></Field></div> : null}
         </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6">
+        <SectionTitle title="Rendez-vous passés" description="Une fois l’heure de fin passée, un rendez-vous confirmé devient « réalisé », et sa consultation est ajoutée au dossier de l’animal — comme avec le bouton « Consultation réalisée »." />
+        <Toggle
+          checked={draft.autoCompleteAppointments}
+          onChange={(checked) => setDraft((current) => ({ ...current, autoCompleteAppointments: checked }))}
+          label="Marquer automatiquement comme réalisés les rendez-vous confirmés une fois passés"
+        />
+        <ul className="mt-3 space-y-1 text-xs text-animeo-muted">
+          <li>Vous pouvez toujours repasser un rendez-vous en « annulé » si le client était absent : sa consultation est alors retirée.</li>
+          <li>Le passage se fait dans l’heure qui suit la fin du rendez-vous (sur un hébergement Vercel, le lendemain matin). Les demandes en attente ne sont jamais concernées.</li>
+          <li>Les rendez-vous terminés avant l’activation ne sont pas modifiés.</li>
+        </ul>
       </Card>
 
       <div className="flex justify-end"><button type="submit" className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-sm">Enregistrer les rappels</button></div>
