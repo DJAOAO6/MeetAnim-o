@@ -30,7 +30,7 @@ export function startScheduler() {
     running = true;
     try {
       const summary = await runScheduledJobs();
-      if (!summary.ok || (summary.appointmentReminders && summary.appointmentReminders.sent + summary.appointmentReminders.failed > 0) || summary.autoCompleted.completed + summary.autoCompleted.failed > 0) {
+      if (!summary.ok || (summary.appointmentReminders && summary.appointmentReminders.sent + summary.appointmentReminders.failed > 0) || summary.autoCompleted.completed + summary.autoCompleted.failed > 0 || summary.requestsExpired.expired + summary.requestsExpired.failed > 0) {
         console.info("[planificateur]", JSON.stringify(summary));
       }
     } catch (error) {

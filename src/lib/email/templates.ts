@@ -673,3 +673,63 @@ Numéro RNA : ${params.registrationNumber}
     }),
   };
 }
+
+/** Demande à plusieurs horaires expirée sans réponse (chantier C8) : le client peut en refaire une. */
+export function requestExpiredClientTemplate(params: { clientFirstName: string; animalName: string; professionalFirstName: string; professionalCompany: string; professionalPhone: string; bookingUrl: string }): EmailContent {
+  const { clientFirstName, animalName, professionalFirstName, professionalCompany, professionalPhone, bookingUrl } = params;
+  const contact = contactLine(professionalFirstName, professionalPhone);
+  return {
+    subject: `Votre demande de rendez-vous auprès de ${professionalCompany} a expiré`,
+    text: [
+      `Bonjour ${clientFirstName},`,
+      "",
+      `Aucun des horaires proposés pour ${animalName} n'a pu être confirmé à temps par ${professionalFirstName} (${professionalCompany}). Ils ne sont plus réservés pour vous.`,
+      "",
+      `Vous pouvez faire une nouvelle demande : ${bookingUrl}`,
+      "",
+      contact.text,
+    ].join("\n"),
+    html: layout({
+      preheader: "Aucun des horaires proposés n'a pu être confirmé à temps : vous pouvez faire une nouvelle demande.",
+      title: "Demande expirée",
+      body: [
+        paragraph(`Bonjour ${escapeHtml(clientFirstName)},`),
+        paragraph(`Aucun des horaires proposés pour <strong>${escapeHtml(animalName)}</strong> n’a pu être confirmé à temps par ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}). Ils ne sont plus réservés pour vous.`),
+        button(bookingUrl, "Faire une nouvelle demande"),
+        paragraph(contact.html),
+      ].join(""),
+      footer: professionalFooter(professionalCompany, professionalPhone),
+    }),
+  };
+}
+
+/** La même expiration, annoncée au professionnel : ses créneaux sont de nouveau libres. */
+export function requestExpiredProfessionalTemplate(params: { professionalFirstName: string; clientName: string; animalName: string; slotLabels: string[] }): EmailContent {
+  const { professionalFirstName, clientName, animalName, slotLabels } = params;
+  const dashboardUrl = `${appUrl()}/dashboard/agenda`;
+  return {
+    subject: `Demande expirée — ${clientName} (${animalName})`,
+    text: [
+      `Bonjour ${professionalFirstName},`,
+      "",
+      `La demande de ${clientName} pour ${animalName} proposait ${slotLabels.length} horaires et n'a pas reçu de réponse à temps. Elle est annulée, et ces créneaux sont de nouveau libres :`,
+      ...slotLabels.map((label) => `- ${label}`),
+      "",
+      "Le client en a été prévenu et peut refaire une demande.",
+      "",
+      `Votre agenda : ${dashboardUrl}`,
+    ].join("\n"),
+    html: layout({
+      preheader: `La demande de ${clientName} a expiré : ses créneaux sont de nouveau libres.`,
+      title: "Demande expirée",
+      body: [
+        paragraph(`Bonjour ${escapeHtml(professionalFirstName)},`),
+        paragraph(`La demande de <strong>${escapeHtml(clientName)}</strong> pour ${escapeHtml(animalName)} proposait ${slotLabels.length} horaires et n’a pas reçu de réponse à temps. Elle est annulée, et ces créneaux sont de nouveau libres.`),
+        detailsTable(slotLabels.map((label, index): [string, string] => [`${index + 1}${index === 0 ? "er" : "e"} choix`, label])),
+        mutedParagraph("Le client en a été prévenu et peut refaire une demande."),
+        button(dashboardUrl, "Voir mon agenda"),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}

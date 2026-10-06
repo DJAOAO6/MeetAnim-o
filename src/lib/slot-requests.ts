@@ -4,6 +4,8 @@
  * ordre de préférence ; le professionnel en retient un.
  */
 
+import { parisWallTimeToDate } from "@/lib/paris-time";
+
 export const MAX_SLOT_CHOICES = 3;
 export const MIN_SLOT_CHOICES = 2;
 
@@ -26,6 +28,32 @@ export function toggleSlotChoice(choices: SlotChoice[], choice: SlotChoice): { c
 /** « 1er choix », « 2e choix », « 3e choix ». */
 export function choiceRankLabel(rank: number): string {
   return rank === 1 ? "1er choix" : `${rank}e choix`;
+}
+
+/** Sans réponse, une demande à plusieurs horaires expire au bout de 72 h… */
+export const REQUEST_EXPIRY_MS = 72 * 60 * 60 * 1000;
+/** … ou 24 h avant son premier horaire proposé, si c'est plus tôt. */
+export const REQUEST_EXPIRY_BEFORE_SLOT_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Échéance d'une demande à plusieurs horaires : 72 h après sa création, ou
+ * 24 h avant le plus proche de ses horaires (heure de Paris), le premier des
+ * deux. Sans cela, une demande oubliée bloquerait trois créneaux
+ * indéfiniment.
+ */
+export function requestExpiresAt(request: { createdAt: Date; slots: Array<{ date: string; start: string }> }): Date {
+  const byAge = request.createdAt.getTime() + REQUEST_EXPIRY_MS;
+  const earliest = Math.min(...request.slots.map((slot) => parisWallTimeToDate(slot.date, slot.start).getTime()));
+  return new Date(Math.min(byAge, Number.isFinite(earliest) ? earliest - REQUEST_EXPIRY_BEFORE_SLOT_MS : byAge));
+}
+
+/** « expire dans 5 h », « expire dans 40 min » ; null au-delà de 24 h (rien d'urgent à signaler). */
+export function expiryNotice(expiresAt: Date, now: Date): string | null {
+  const remaining = expiresAt.getTime() - now.getTime();
+  if (remaining > 24 * 60 * 60 * 1000) return null;
+  if (remaining <= 0) return "expire d’un instant à l’autre";
+  const minutes = Math.round(remaining / 60000);
+  return minutes < 60 ? `expire dans ${Math.max(1, minutes)} min` : `expire dans ${Math.round(minutes / 60)} h`;
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

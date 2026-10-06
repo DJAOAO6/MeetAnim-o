@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { getRequestOptionsAction, type RequestOptionState } from "@/lib/appointments-actions";
-import { choiceRankLabel } from "@/lib/slot-requests";
+import { choiceRankLabel, expiryNotice } from "@/lib/slot-requests";
 import { notify } from "@/lib/notify";
 import type { Appointment } from "@/data/appointments";
 
@@ -35,6 +35,10 @@ export function RequestSlotChoices({ appointment, onConfirmed, compact = false }
   const { confirmRequestSlot } = useAppointments();
   const [states, setStates] = useState<Record<string, RequestOptionState>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
+  // L'heure qu'il est à l'ouverture (jamais lue pendant le rendu) : dans ses
+  // dernières 24 h, la demande dit quand elle expire.
+  const [openedAt] = useState(() => new Date());
+  const expiry = appointment.expiresAt ? expiryNotice(new Date(appointment.expiresAt), openedAt) : null;
   const options = appointment.slotOptions ?? [];
 
   useEffect(() => {
@@ -63,7 +67,10 @@ export function RequestSlotChoices({ appointment, onConfirmed, compact = false }
 
   return (
     <section aria-label={`Horaires proposés pour ${appointment.animalName}`} className={compact ? "" : "rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft/60 p-3"}>
-      <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{options.length} horaires proposés — retenez-en un</p>
+      <p className="flex flex-wrap items-center gap-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">
+        {options.length} horaires proposés — retenez-en un
+        {expiry ? <span className="rounded-full bg-animeo-danger-soft px-2 py-0.5 normal-case tracking-normal text-animeo-danger" title="Sans réponse, la demande est annulée et ses horaires se libèrent">{expiry}</span> : null}
+      </p>
       <ol className="mt-2 grid gap-2">
         {options.map((option) => {
           const day = dateFormatter.format(new Date(`${option.date}T12:00:00`));

@@ -37,6 +37,8 @@ export type Appointment = {
    * par ordre de préférence, tant que le professionnel n'en a pas retenu un.
    */
   slotOptions?: AppointmentSlotOption[];
+  /** Échéance d'une demande à plusieurs horaires (ISO) : sans réponse d'ici là, elle expire. */
+  expiresAt?: string;
 };
 
 export type AppointmentSlotOption = { id: string; date: string; start: string; rank: number };

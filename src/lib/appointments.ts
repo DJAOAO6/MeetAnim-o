@@ -1,4 +1,5 @@
 import "server-only";
+import { requestExpiresAt } from "@/lib/slot-requests";
 import { currentDb } from "@/lib/organization";
 import type { AnimalSpecies } from "@/data/species";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
@@ -32,6 +33,7 @@ export function toAppointment(row: {
   serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
   postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; visitGroupId?: string | null; completedAutomatically?: boolean;
   slotOptions?: Array<{ id: string; date: Date; start: string; rank: number }>;
+  createdAt?: Date;
   client?: { phone: string } | null;
 }): Appointment {
   return {
@@ -60,6 +62,9 @@ export function toAppointment(row: {
     // Seulement pour une demande en attente qui en propose plusieurs.
     slotOptions: row.slotOptions && row.slotOptions.length > 1
       ? [...row.slotOptions].sort((a, b) => a.rank - b.rank).map((option) => ({ id: option.id, date: toIsoDate(option.date), start: option.start, rank: option.rank }))
+      : undefined,
+    expiresAt: row.status === "PENDING" && row.createdAt && row.slotOptions && row.slotOptions.length > 1
+      ? requestExpiresAt({ createdAt: row.createdAt, slots: row.slotOptions.map((option) => ({ date: toIsoDate(option.date), start: option.start })) }).toISOString()
       : undefined,
   };
 }

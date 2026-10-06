@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { choiceRankLabel, requestedSlots, toggleSlotChoice } from "../src/lib/slot-requests";
+import { choiceRankLabel, expiryNotice, requestExpiresAt, requestedSlots, toggleSlotChoice } from "../src/lib/slot-requests";
 
 const a = { date: "2026-10-12", time: "10:00" };
 const b = { date: "2026-10-13", time: "14:30" };
@@ -33,4 +33,28 @@ test("horaires reçus par le serveur : 1 à 3, au bon format, sans doublon", () 
   assert.equal(requestedSlots({ date: "2026-10-12", start: "10:00", slots: [...three, { date: "2026-10-14", start: "09:00" }] }), null);
   assert.equal(requestedSlots({ date: "2026-10-12", start: "10:00", slots: [three[0], three[0]] }), null);
   assert.equal(requestedSlots({ date: "2026-10-12", start: "10:00", slots: [{ date: "12/10/2026", start: "10:00" }] }), null);
+});
+
+test("échéance : 72 h après la demande, si les horaires sont lointains", () => {
+  const createdAt = new Date("2026-10-06T08:00:00.000Z");
+  const expires = requestExpiresAt({ createdAt, slots: [{ date: "2026-10-20", start: "10:00" }, { date: "2026-10-21", start: "09:00" }] });
+  assert.equal(expires.toISOString(), "2026-10-09T08:00:00.000Z");
+});
+
+test("échéance : 24 h avant le premier horaire proposé, à l'heure de Paris", () => {
+  const createdAt = new Date("2026-10-06T08:00:00.000Z");
+  // Le plus proche : jeudi 8 octobre à 10 h à Paris (heure d'été, 8 h UTC) → la veille à 10 h.
+  const expires = requestExpiresAt({ createdAt, slots: [{ date: "2026-10-12", start: "09:00" }, { date: "2026-10-08", start: "10:00" }] });
+  assert.equal(expires.toISOString(), "2026-10-07T08:00:00.000Z");
+  // En hiver (UTC+1) : 10 h à Paris = 9 h UTC.
+  const winter = requestExpiresAt({ createdAt: new Date("2026-12-01T08:00:00.000Z"), slots: [{ date: "2026-12-03", start: "10:00" }] });
+  assert.equal(winter.toISOString(), "2026-12-02T09:00:00.000Z");
+});
+
+test("signalement côté professionnel dans les dernières 24 h", () => {
+  const now = new Date("2026-10-06T08:00:00.000Z");
+  assert.equal(expiryNotice(new Date("2026-10-08T08:00:00.000Z"), now), null, "encore 48 h : rien");
+  assert.equal(expiryNotice(new Date("2026-10-06T13:00:00.000Z"), now), "expire dans 5 h");
+  assert.equal(expiryNotice(new Date("2026-10-06T08:40:00.000Z"), now), "expire dans 40 min");
+  assert.equal(expiryNotice(new Date("2026-10-06T07:00:00.000Z"), now), "expire d’un instant à l’autre");
 });

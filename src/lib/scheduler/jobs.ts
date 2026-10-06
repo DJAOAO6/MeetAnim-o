@@ -8,6 +8,7 @@ import { hasModule } from "@/lib/modules";
 import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { sendDueAppointmentReminders } from "@/lib/scheduler/appointment-reminders";
 import { completePastAppointments } from "@/lib/scheduler/auto-complete";
+import { expireUnansweredRequests } from "@/lib/scheduler/expire-requests";
 
 /**
  * Relances de suivi (« revoir dans 6 mois ») arrivées à échéance : elles
@@ -51,23 +52,30 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   let appointmentReminders: Awaited<ReturnType<typeof sendDueAppointmentReminders>> | null = null;
   // Rendez-vous passés marqués « réalisés » (chantier C7), tous espaces confondus.
   const autoCompleted = { completed: 0, failed: 0 };
+  // Demandes à plusieurs horaires expirées sans réponse (chantier C8).
+  const requestsExpired = { expired: 0, failed: 0 };
 
   for (const organization of organizations) {
     const db = dbFor(organization.id);
     // Les relances et les journées de tournée n'ont lieu que si l'espace a
     // le module ; le rappel de rendez-vous fait partie du socle.
-    const [followUps, tourRuns, reminders, completions] = await Promise.allSettled([
+    const [followUps, tourRuns, reminders, completions, expirations] = await Promise.allSettled([
       hasModule(organization.modules, "REMINDERS") ? markDueFollowUps(db, now) : Promise.resolve(0),
       hasModule(organization.modules, "TOURS") ? generateUpcomingTourRuns(db, organization.id) : Promise.resolve({ created: 0 }),
       sendDueAppointmentReminders(db, now),
       completePastAppointments(db, now),
+      expireUnansweredRequests(db, now),
     ]);
 
-    for (const result of [followUps, tourRuns, reminders, completions]) {
+    for (const result of [followUps, tourRuns, reminders, completions, expirations]) {
       if (result.status === "rejected") errors.push(`${organization.id} : ${redactEmails(String(result.reason))}`);
     }
     if (followUps.status === "fulfilled") followUpsDue += followUps.value;
     if (tourRuns.status === "fulfilled") tourRunsGenerated += tourRuns.value.created;
+    if (expirations.status === "fulfilled") {
+      requestsExpired.expired += expirations.value.expired;
+      requestsExpired.failed += expirations.value.failed;
+    }
     if (completions.status === "fulfilled") {
       autoCompleted.completed += completions.value.completed;
       autoCompleted.failed += completions.value.failed;
@@ -93,6 +101,7 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
     tourRunsGenerated,
     appointmentReminders,
     autoCompleted,
+    requestsExpired,
     errors,
   };
 }
