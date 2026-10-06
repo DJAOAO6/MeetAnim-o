@@ -1,6 +1,6 @@
 "use client";
 
-import { hasSlotOptions } from "@/components/appointments/request-slot-choices";
+import { EXPIRY_HINT, hasSlotOptions, useExpiryNotice } from "@/components/appointments/request-slot-choices";
 import { Building2, Car, CalendarClock, CalendarDays, Check, X } from "lucide-react";
 import { appointmentStatusLabels, type Appointment } from "@/data/appointments";
 import { statusTone } from "@/components/appointments/appointment-status";
@@ -55,6 +55,8 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
   const PlaceIcon = appointment.mode === "cabinet" ? Building2 : Car;
 
   const cancelled = appointment.status === "cancelled";
+  const multiSlot = hasSlotOptions(appointment);
+  const expiry = useExpiryNotice(appointment);
 
   return (
     // Un rendez-vous annulé reste lisible : fond neutre et heure barrée,
@@ -93,9 +95,12 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
           <span className="truncate">{appointment.mode === "cabinet" ? "Cabinet" : "Domicile"}</span>
         </span>
 
-        <span className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-extrabold sm:inline-flex ${tone.chip}`}>
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-          {appointmentStatusLabels[appointment.status]}
+        {/* Demande à plusieurs horaires : la pastille de statut dit combien,
+            puis, dans ses dernières 24 h, quand elle expire — une seule
+            pastille courte, pour laisser leur place aux noms. */}
+        <span title={expiry ? `${appointment.slotOptions?.length} horaires proposés. ${EXPIRY_HINT}.` : multiSlot ? "En attente — ouvrez la demande pour retenir un horaire" : undefined} className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-extrabold sm:inline-flex ${expiry ? "bg-animeo-danger-soft text-animeo-danger" : tone.chip}`}>
+          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${expiry ? "bg-current" : tone.dot}`} />
+          {expiry ?? (multiSlot ? `${appointment.slotOptions?.length} horaires` : appointmentStatusLabels[appointment.status])}
         </span>
       </button>
 
@@ -103,8 +108,9 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
           refuser — sans passer par le menu. */}
       {appointment.status === "pending" ? (
         <div className="flex shrink-0 items-center gap-1">
-          {hasSlotOptions(appointment)
-            ? <span className="rounded-full bg-animeo-warning-soft px-2 py-1 text-[11px] font-black text-animeo-warning" title="Ouvrez la demande pour retenir un horaire">{appointment.slotOptions?.length} horaires</span>
+          {multiSlot
+            // Sous sm la pastille de statut est masquée : le nombre d'horaires reste dit ici.
+            ? <span className="rounded-full bg-animeo-warning-soft px-2 py-1 text-[11px] font-black text-animeo-warning sm:hidden" title="Ouvrez la demande pour retenir un horaire">{appointment.slotOptions?.length} horaires</span>
             : <QuickAction label={`Accepter la demande de ${appointment.animalName}`} title="Accepter" icon={Check} tone="bg-animeo text-white hover:bg-animeo-hover" onClick={() => onAction("confirm")} />}
           <QuickAction label={`Proposer un autre horaire à ${appointment.clientName}`} title="Décaler" icon={CalendarClock} tone="border border-animeo-border bg-white text-animeo-dark hover:border-animeo" onClick={() => onAction("reschedule")} />
           <QuickAction label={`Refuser la demande de ${appointment.animalName}`} title="Refuser" icon={X} tone="bg-animeo-danger-soft text-animeo-danger hover:bg-animeo-danger-soft/70" onClick={() => onAction("decline")} />

@@ -87,6 +87,20 @@ test("dans ses dernières 24 h, la demande dit quand elle expire", async ({ page
   const requestCard = page.locator("article").filter({ hasText: REQUESTER }).first();
   await expect(requestCard).toContainText("2 horaires proposés");
   await expect(requestCard).toContainText("expire dans 5 h");
+
+  // La cloche le dit aussi, à la place de l'heure du seul premier horaire…
+  await page.getByRole("button", { name: /^Notifications/ }).first().click();
+  const notification = page.getByRole("button", { name: "Masquer la notification de Sablier" }).locator("xpath=ancestor::div[contains(@class,'group')][1]");
+  await expect(notification).toContainText("2 horaires");
+  await expect(notification).toContainText("expire dans 5 h");
+  await page.keyboard.press("Escape");
+
+  // … et la liste du centre de gestion, dans la pastille de statut.
+  await page.getByRole("button", { name: /^Gestion des rendez-vous/ }).click();
+  const manager = page.getByRole("dialog", { name: "Gestion des rendez-vous" });
+  await manager.getByLabel("Filtrer par date").selectOption("all");
+  await manager.getByLabel("Filtrer par statut").selectOption("pending");
+  await expect(manager.getByRole("listitem").filter({ hasText: REQUESTER })).toContainText("expire dans 5 h");
 });
 
 test("sans réponse au bout de 72 h : annulée, horaires libérés, une seule fois", async () => {

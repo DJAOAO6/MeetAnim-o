@@ -31,14 +31,34 @@ export function hasSlotOptions(appointment: Pick<Appointment, "status" | "slotOp
   return appointment.status === "pending" && (appointment.slotOptions?.length ?? 0) > 1;
 }
 
+/**
+ * « expire dans 5 h » : dans ses dernières 24 h, une demande à plusieurs
+ * horaires dit quand elle expire ; rien avant. L'heure est relue chaque
+ * minute (jamais pendant le rendu) : un écran resté ouvert reste juste.
+ */
+export function useExpiryNotice(appointment: Pick<Appointment, "expiresAt">): string | null {
+  const [now, setNow] = useState(() => new Date());
+  const expiresAt = appointment.expiresAt;
+  useEffect(() => {
+    if (!expiresAt) return;
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, [expiresAt]);
+  return expiresAt ? expiryNotice(new Date(expiresAt), now) : null;
+}
+
+export const EXPIRY_HINT = "Sans réponse, la demande est annulée et ses horaires se libèrent";
+
+export function RequestExpiryBadge({ appointment, className = "" }: { appointment: Pick<Appointment, "expiresAt">; className?: string }) {
+  const expiry = useExpiryNotice(appointment);
+  if (!expiry) return null;
+  return <span className={`whitespace-nowrap rounded-full bg-animeo-danger-soft px-2 py-0.5 text-xs font-extrabold normal-case tracking-normal text-animeo-danger ${className}`} title={EXPIRY_HINT}>{expiry}</span>;
+}
+
 export function RequestSlotChoices({ appointment, onConfirmed, compact = false }: { appointment: Appointment; onConfirmed?: () => void; compact?: boolean }) {
   const { confirmRequestSlot } = useAppointments();
   const [states, setStates] = useState<Record<string, RequestOptionState>>({});
   const [pendingId, setPendingId] = useState<string | null>(null);
-  // L'heure qu'il est à l'ouverture (jamais lue pendant le rendu) : dans ses
-  // dernières 24 h, la demande dit quand elle expire.
-  const [openedAt] = useState(() => new Date());
-  const expiry = appointment.expiresAt ? expiryNotice(new Date(appointment.expiresAt), openedAt) : null;
   const options = appointment.slotOptions ?? [];
 
   useEffect(() => {
@@ -69,7 +89,7 @@ export function RequestSlotChoices({ appointment, onConfirmed, compact = false }
     <section aria-label={`Horaires proposés pour ${appointment.animalName}`} className={compact ? "" : "rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft/60 p-3"}>
       <p className="flex flex-wrap items-center gap-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">
         {options.length} horaires proposés — retenez-en un
-        {expiry ? <span className="rounded-full bg-animeo-danger-soft px-2 py-0.5 normal-case tracking-normal text-animeo-danger" title="Sans réponse, la demande est annulée et ses horaires se libèrent">{expiry}</span> : null}
+        <RequestExpiryBadge appointment={appointment} />
       </p>
       <ol className="mt-2 grid gap-2">
         {options.map((option) => {

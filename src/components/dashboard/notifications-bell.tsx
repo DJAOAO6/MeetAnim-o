@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
+import { RequestExpiryBadge, hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import { relativeDayLabel } from "@/components/dashboard/dashboard-date";
 import { useReminders } from "@/components/dashboard/reminders-context";
 import { Icon } from "@/components/ui/icon";
@@ -225,7 +226,11 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                               <span className="block truncate text-sm font-extrabold text-animeo-dark">{appointment.animalName}</span>
                               <span className="block truncate text-xs text-animeo-muted">{appointment.clientName}</span>
                             </span>
-                            <span className="shrink-0 text-xs font-bold text-animeo-muted">{appointment.start}</span>
+                            {/* Plusieurs horaires proposés : l'heure du premier seul tromperait. */}
+                            <span className="flex shrink-0 flex-col items-end gap-1 text-xs font-bold text-animeo-muted">
+                              {hasSlotOptions(appointment) ? `${appointment.slotOptions?.length} horaires` : appointment.start}
+                              <RequestExpiryBadge appointment={appointment} />
+                            </span>
                           </div>
                           <button
                             type="button"
@@ -237,7 +242,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                           </button>
                         </div>
                         <div className="flex items-center gap-1.5 px-3 pb-2.5 pl-8">
-                          {(appointment.slotOptions?.length ?? 0) > 1 ? (
+                          {hasSlotOptions(appointment) ? (
                             // Plusieurs horaires proposés (C8) : le choix se fait dans la demande.
                             <button
                               type="button"
