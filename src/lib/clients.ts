@@ -96,6 +96,7 @@ export function mapClient(client: DbClientWithAnimals): Client {
     postalCode: client.postalCode ?? "",
     address: client.address,
     status: client.status === "ACTIF" ? "Actif" : "Inactif",
+    archivedAt: client.archivedAt ? client.archivedAt.toISOString() : null,
     lastConsultation: lastConsultation ? formatFrenchDate(lastConsultation) : "Aucune consultation",
     createdAt: client.createdAt.toISOString(),
     animals: client.animals.map(mapAnimal),
@@ -122,6 +123,8 @@ export async function getClients(): Promise<Client[]> {
 export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption[]> => {
   const db = await currentDb();
   const clients = await db.client.findMany({
+    // Archivés exclus : ni proposés pour un rendez-vous, ni dans la recherche de l'en-tête.
+    where: { archivedAt: null },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true,

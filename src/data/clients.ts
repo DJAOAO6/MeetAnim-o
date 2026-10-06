@@ -59,6 +59,8 @@ export type Client = {
   postalCode: string;
   address: string;
   status: "Actif" | "Inactif";
+  /** Archivé (chantier C5) : hors de la liste courante, restaurable. */
+  archivedAt: string | null;
   lastConsultation: string;
   createdAt: string;
   animals: Animal[];

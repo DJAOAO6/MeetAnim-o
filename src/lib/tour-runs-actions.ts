@@ -357,7 +357,7 @@ export async function createTourFromClientsAction(input: z.infer<typeof createTo
   if (existing) return { ok: false, error: "Une journée existe déjà pour cette date : ajoutez-y ces clients depuis Tournées, ou choisissez une autre date." };
 
   const found = await db.client.findMany({
-    where: { id: { in: data.clientIds } },
+    where: { id: { in: data.clientIds }, archivedAt: null },
     select: {
       id: true, firstName: true, lastName: true, address: true, postalCode: true, city: true, latitude: true, longitude: true,
       animals: { select: { place: { select: { id: true, name: true, address: true, postalCode: true, city: true, latitude: true, longitude: true } } } },

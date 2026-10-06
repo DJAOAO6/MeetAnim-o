@@ -296,8 +296,10 @@ export async function getMapClients(near?: { lat: number; lng: number; radiusKm:
   const bbox = near ? boundingBoxAround(near, near.radiusKm) : null;
 
   const animals = await db.animal.findMany({
+    // Clients archivés : jamais proposés pour une tournée.
     where: bbox
       ? {
+          client: { archivedAt: null },
           OR: [
             // Coordonnées propres à la fiche client (géocodage manuel).
             { client: { latitude: { gte: bbox.minLat, lte: bbox.maxLat }, longitude: { gte: bbox.minLng, lte: bbox.maxLng } } },
@@ -308,7 +310,7 @@ export async function getMapClients(near?: { lat: number; lng: number; radiusKm:
             { client: { latitude: null }, appointments: { none: { mode: "DOMICILE", latitude: { not: null } } } },
           ],
         }
-      : undefined,
+      : { client: { archivedAt: null } },
     include: {
       client: true,
       consultations: { orderBy: { date: "desc" }, take: 1 },

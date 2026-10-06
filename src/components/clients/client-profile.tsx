@@ -15,7 +15,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { hasPermission } from "@/lib/auth/permissions";
-import { deleteAnimalAction, deleteClientAction, updateClientAction, type ClientContactInput } from "@/lib/clients-actions";
+import { archiveClientsAction, deleteAnimalAction, deleteClientAction, restoreClientsAction, updateClientAction, upcomingAppointmentsOfClientsAction, type ClientContactInput } from "@/lib/clients-actions";
+import { archiveConfirmationMessage, archivedOnLabel } from "@/lib/client-archive";
 import { toTelHref } from "@/lib/phone";
 import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
@@ -51,6 +52,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   });
   const [animalPhotos, setAnimalPhotos] = useState<Record<string, string>>({});
   const [deletingClient, startDeletingClient] = useTransition();
+  const [archiving, startArchiving] = useTransition();
   const [editingClient, setEditingClient] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
   const [addingAnimal, setAddingAnimal] = useState(false);
@@ -109,6 +111,30 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
         return;
       }
       router.push("/dashboard/clients");
+      router.refresh();
+    });
+  }
+
+  /** Archiver : la fiche sort de la liste, de la recherche et des relances ; rien n'est supprimé. */
+  function archiveClient() {
+    startArchiving(async () => {
+      const name = `${clientInfo.firstName} ${clientInfo.lastName}`;
+      const upcoming = await upcomingAppointmentsOfClientsAction([clientInfo.id]);
+      if (!window.confirm(archiveConfirmationMessage(1, name, upcoming))) return;
+      const result = await archiveClientsAction([clientInfo.id]);
+      if (!result.ok) return void notify.error(result.error);
+      setClientInfo((current) => ({ ...current, archivedAt: new Date().toISOString() }));
+      notify.success(`${name} est archivé.`, { action: { label: "Annuler", onClick: restoreClient } });
+      router.refresh();
+    });
+  }
+
+  function restoreClient() {
+    startArchiving(async () => {
+      const result = await restoreClientsAction([clientInfo.id]);
+      if (!result.ok) return void notify.error(result.error);
+      setClientInfo((current) => ({ ...current, archivedAt: null }));
+      notify.success(`${clientInfo.firstName} ${clientInfo.lastName} est de retour dans la liste.`);
       router.refresh();
     });
   }
@@ -184,6 +210,18 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
         description={`${capitalizeFirst(pluralizeAnimals(animals.length))} associé${animals.length > 1 ? "s" : ""} à cette fiche propriétaire.`}
       />
 
+      {clientInfo.archivedAt ? (
+        <div role="status" className="mb-6 flex flex-col gap-3 rounded-2xl border border-animeo-border bg-animeo-bg px-5 py-4 text-sm text-animeo-dark sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <strong className="font-extrabold">{archivedOnLabel(clientInfo.archivedAt)}.</strong>{" "}
+            Il n’apparaît plus dans la liste, la recherche, la carte ni les relances. Son historique est conservé.
+          </p>
+          <button type="button" onClick={restoreClient} disabled={archiving} className="shrink-0 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
+            {archiving ? "Restauration…" : "Restaurer"}
+          </button>
+        </div>
+      ) : null}
+
       <Card className="mb-6 p-5 sm:p-6">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -193,10 +231,14 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-2xl font-black text-animeo-dark">{clientInfo.firstName} {clientInfo.lastName}</h2>
-                <span className="inline-flex items-center gap-2 rounded-full bg-animeo-positive-soft px-3 py-1 text-xs font-extrabold text-animeo-hover">
-                  <span className="h-2 w-2 rounded-full bg-animeo" />
-                  Client actif
-                </span>
+                {clientInfo.archivedAt ? (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-animeo-bg px-3 py-1 text-xs font-extrabold text-animeo-muted ring-1 ring-inset ring-animeo-border">Archivé</span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-animeo-positive-soft px-3 py-1 text-xs font-extrabold text-animeo-hover">
+                    <span className="h-2 w-2 rounded-full bg-animeo" />
+                    {clientInfo.status === "Actif" ? "Client actif" : "Client inactif"}
+                  </span>
+                )}
               </div>
               <div className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                 <ContactItem icon={<PhoneIcon />} value={clientInfo.phone} href={toTelHref(clientInfo.phone) ?? undefined} />
@@ -217,6 +259,11 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
               <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>
               Nouveau rendez-vous
             </button>
+            {clientInfo.archivedAt ? null : (
+              <button type="button" onClick={archiveClient} disabled={archiving} className="rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft disabled:opacity-60">
+                {archiving ? "Archivage…" : "Archiver"}
+              </button>
+            )}
             {canDelete ? (
               <button
                 type="button"

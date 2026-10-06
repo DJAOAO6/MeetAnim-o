@@ -67,7 +67,7 @@ test("chercher un client remplit l’aperçu avec ses vraies données", async ({
   const preview = page.getByRole("complementary", { name: "Aperçu du rendez-vous" });
   await expect(preview.getByText("Aucun client choisi")).toBeVisible();
 
-  await page.getByRole("combobox", { name: /rechercher un client/i }).fill("Dupont");
+  await page.getByRole("combobox", { name: /rechercher un client par nom/i }).fill("Dupont");
   const results = page.getByRole("listbox", { name: "Clients trouvés" });
   await expect(results.getByRole("option").first()).toBeVisible();
   await results.getByRole("option").first().click();
@@ -140,7 +140,7 @@ test("créer un client puis son animal sans quitter le rendez-vous, et enregistr
   await page.getByLabel("Date").fill(dateId);
   await page.getByLabel("Heure").fill("16:30");
 
-  await page.getByRole("combobox", { name: /rechercher un client/i }).fill("Tournesol");
+  await page.getByRole("combobox", { name: /rechercher un client par nom/i }).fill("Tournesol");
   await page.getByRole("button", { name: /Créer « Tournesol »/ }).click();
 
   await expect(page.getByRole("heading", { name: "Création rapide d’un nouveau client" })).toBeVisible();
@@ -290,7 +290,7 @@ test("après création, « Voir dans l’agenda » ouvre la semaine du rendez-vo
   await openCreate(page);
   await page.getByLabel("Date").fill(dateId);
   await page.getByLabel("Heure").fill("11:00");
-  await page.getByRole("combobox", { name: /rechercher un client/i }).fill("E2E-Modal Agenda");
+  await page.getByRole("combobox", { name: /rechercher un client par nom/i }).fill("E2E-Modal Agenda");
   await page.getByRole("button", { name: "Utiliser ce nom sans créer de fiche" }).click();
   const animalName = page.getByLabel(/Nom de l’animal|Animal/).first();
   if (await animalName.isVisible().catch(() => false)) await animalName.fill("ToastE2E");

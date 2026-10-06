@@ -32,6 +32,8 @@ function toIsoDate(date: Date): string {
 export const getReminders = cache(async (): Promise<Reminder[]> => {
   const db = await currentDb();
   const reminders = await db.reminder.findMany({
+    // Relances d'un client archivé : hors de la liste, aucune ne part.
+    where: { client: { archivedAt: null } },
     include: { client: true, animal: true },
     orderBy: { dueDate: "asc" },
   });
@@ -68,6 +70,7 @@ export async function getReminderStats() {
 export async function getReminderClientOptions(): Promise<ReminderClientOption[]> {
   const db = await currentDb();
   const clients = await db.client.findMany({
+    where: { archivedAt: null },
     include: { animals: true },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });

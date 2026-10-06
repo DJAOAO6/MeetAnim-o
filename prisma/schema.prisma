@@ -201,6 +201,8 @@ enum AuditAction {
   VERIFICATION_REQUESTED
   VERIFICATION_APPROVED
   VERIFICATION_REJECTED
+  CLIENT_ARCHIVED
+  CLIENT_RESTORED
 }
 
 model User {
@@ -404,6 +406,9 @@ model Client {
   postalCode String?
   address    String
   status     ClientStatus @default(ACTIF)
+  /// Archivé (chantier C5) : hors de la liste courante, de la recherche, du
+  /// sélecteur de rendez-vous, de la carte et des relances ; rien n'est supprimé.
+  archivedAt DateTime?
 
   // Coordonnées réelles, géocodées automatiquement à la création/
   // modification (adresse changée) — jamais de repli par ville qui
@@ -445,6 +450,7 @@ model Client {
   @@index([importId])
   @@index([latitude, longitude])
   @@index([organizationId])
+  @@index([organizationId, archivedAt])
 }
 
 model Animal {

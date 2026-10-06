@@ -136,6 +136,8 @@ export async function sendReminderAction(id: string, message: string): Promise<R
 
   const reminder = await db.reminder.findUnique({ where: { id }, include: { client: true } });
   if (!reminder) return { ok: false, error: "Ce rappel n'existe plus." };
+  // Un client archivé ne reçoit aucune relance (chantier C5).
+  if (reminder.client.archivedAt) return { ok: false, error: `${reminder.client.firstName} ${reminder.client.lastName} est archivé : restaurez sa fiche pour lui écrire.` };
   if (!reminder.client.email) {
     return { ok: false, error: `${reminder.client.firstName} ${reminder.client.lastName} n'a pas d'adresse email enregistrée.` };
   }
@@ -203,7 +205,7 @@ export async function sendRemindersBulkAction(ids: string[]): Promise<BulkSendRe
   const db = await currentDb();
 
   const reminders = await db.reminder.findMany({
-    where: { id: { in: ids }, status: "DUE" },
+    where: { id: { in: ids }, status: "DUE", client: { archivedAt: null } },
     include: { client: true, animal: true },
   });
 
@@ -235,7 +237,7 @@ export async function sendZoneReminderCampaignAction(reminderIds: string[], zone
   if (reminderIds.length === 0) return { sentIds: [], failedNames: [] };
 
   const reminders = await db.reminder.findMany({
-    where: { id: { in: reminderIds }, status: { in: ["DUE", "UPCOMING"] } },
+    where: { id: { in: reminderIds }, status: { in: ["DUE", "UPCOMING"] }, client: { archivedAt: null } },
     include: { client: true, animal: true },
   });
 

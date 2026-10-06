@@ -772,6 +772,12 @@ async function findOrCreateClientAndAnimal(db: ScopedPrismaClient, input: Public
 
     let client = await db.client.findFirst({ where: { email: { equals: owner.email, mode: "insensitive" } } });
     let createdClientId: string | null = null;
+    // Un client archivé qui réserve de nouveau revient dans la liste
+    // (chantier C5) : il est de nouveau un client.
+    if (client?.archivedAt) {
+      client = await db.client.update({ where: { id: client.id }, data: { archivedAt: null } });
+      await logAudit({ action: "CLIENT_RESTORED", entityType: "Client", entityId: client.id, organizationId: organizationIdOf(db), metadata: { source: "public_booking" } });
+    }
     if (!client) {
       client = await db.client.create({
         data: {

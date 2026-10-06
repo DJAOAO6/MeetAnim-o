@@ -13,7 +13,8 @@ import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
-import { deleteClientsAction } from "@/lib/clients-actions";
+import { archiveClientsAction, deleteClientsAction, restoreClientsAction, upcomingAppointmentsOfClientsAction } from "@/lib/clients-actions";
+import { archiveConfirmationMessage } from "@/lib/client-archive";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 import { hasModule } from "@/lib/modules";
@@ -27,7 +28,9 @@ type ClientsListProps = {
 };
 
 type SpeciesFilter = "Tous" | AnimalSpecies;
-type StatusFilter = "Tous les statuts" | "Actif" | "Inactif";
+// « Archivés » (chantier C5) : les seuls à montrer les fiches archivées,
+// qu'aucun autre filtre ne fait réapparaître.
+type StatusFilter = "Tous les statuts" | "Actif" | "Inactif" | "Archivés";
 type SortOption = "name" | "recent";
 
 const sortLabels: Record<SortOption, string> = { name: "Nom (A → Z)", recent: "Ajout récent" };
@@ -71,6 +74,8 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deletingSelected, startDeleteSelected] = useTransition();
+  const [archiving, startArchiving] = useTransition();
+  const archivedCount = localClients.filter((client) => client.archivedAt !== null).length;
 
   function exitSelectionMode() {
     setSelectionMode(false);
@@ -95,7 +100,9 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         scores.set(client.id, score);
       }
       const matchesSpecies = speciesFilter === "Tous" || client.animals.some((animal) => animal.species === speciesFilter);
-      const matchesStatus = statusFilter === "Tous les statuts" || client.status === statusFilter;
+      const matchesStatus = statusFilter === "Archivés"
+        ? client.archivedAt !== null
+        : client.archivedAt === null && (statusFilter === "Tous les statuts" || client.status === statusFilter);
       return matchesSpecies && matchesStatus;
     });
 
@@ -164,6 +171,51 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
     });
   }
 
+  /** Marque localement les fiches archivées ou restaurées, sans attendre le rechargement. */
+  function markArchived(ids: string[], archivedAt: string | null) {
+    const changed = new Set(ids);
+    setLocalClients((current) => current.map((client) => (changed.has(client.id) ? { ...client, archivedAt } : client)));
+    setSelectedIds((current) => new Set([...current].filter((id) => !changed.has(id))));
+  }
+
+  function restore(ids: string[], message: string) {
+    startArchiving(async () => {
+      const result = await restoreClientsAction(ids);
+      if (!result.ok) return void notify.error(result.error);
+      markArchived(ids, null);
+      notify.success(message);
+      router.refresh();
+    });
+  }
+
+  /**
+   * Archivage groupé : la confirmation annonce les rendez-vous à venir (ils
+   * sont conservés), puis un toast propose « Annuler » pendant 8 s.
+   */
+  function archiveSelected() {
+    const ids = Array.from(selectedIds);
+    startArchiving(async () => {
+      const upcoming = await upcomingAppointmentsOfClientsAction(ids);
+      const single = ids.length === 1 ? localClients.find((client) => client.id === ids[0]) : undefined;
+      if (!window.confirm(archiveConfirmationMessage(ids.length, single ? `${single.firstName} ${single.lastName}` : null, upcoming))) return;
+      const result = await archiveClientsAction(ids);
+      if (!result.ok) return void notify.error(result.error);
+      markArchived(result.ids, new Date().toISOString());
+      setSelectionMode(false);
+      const count = result.ids.length;
+      notify.success(count > 1 ? `${count} clients archivés.` : "Client archivé.", {
+        action: { label: "Annuler", onClick: () => restore(result.ids, count > 1 ? `${count} clients restaurés.` : "Client restauré.") },
+      });
+      router.refresh();
+    });
+  }
+
+  function restoreSelected() {
+    const ids = Array.from(selectedIds);
+    restore(ids, ids.length > 1 ? `${ids.length} clients restaurés.` : "Client restauré.");
+    setSelectionMode(false);
+  }
+
   /** Nouveau client (et ses animaux) enregistré : sa fiche s'ouvre. */
   function openNewClient(client: Client) {
     setLocalClients((current) => [client, ...current]);
@@ -225,7 +277,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
               <Icon name="clients" className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xl font-black leading-none text-animeo-dark">{localClients.length}</p>
+              <p className="text-xl font-black leading-none text-animeo-dark">{localClients.length - archivedCount}</p>
               <p className="mt-1 text-xs font-bold text-animeo-muted">clients au total</p>
             </div>
           </div>
@@ -246,10 +298,11 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
               Statut
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} className="h-10 rounded-xl border border-animeo-border bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo">
+              <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as StatusFilter); setSelectedIds(new Set()); }} className="h-10 rounded-xl border border-animeo-border bg-animeo-bg px-3 text-xs font-extrabold text-animeo-dark outline-none focus:border-animeo">
                 <option>Tous les statuts</option>
                 <option>Actif</option>
                 <option>Inactif</option>
+                <option value="Archivés">Archivés ({archivedCount})</option>
               </select>
             </label>
             <label className="flex items-center gap-2 text-xs font-extrabold text-animeo-muted">
@@ -262,7 +315,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         </div>
       </Card>
 
-      {canDelete && selectionMode && selectedIds.size > 0 ? (
+      {selectionMode && selectedIds.size > 0 ? (
         <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.22)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white/10 px-2 font-black">{selectedIds.size}</span>
@@ -270,10 +323,22 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Désélectionner</button>
-            <button type="button" onClick={deleteSelected} disabled={deletingSelected} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-error px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#c23a3a] disabled:cursor-not-allowed disabled:opacity-60">
-              <TrashIcon />
-              {deletingSelected ? "Suppression…" : "Supprimer"}
-            </button>
+            {/* Archiver : réversible, ouvert à tous. Supprimer : définitif, sur permission. */}
+            {statusFilter === "Archivés" ? (
+              <button type="button" onClick={restoreSelected} disabled={archiving} className="rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
+                {archiving ? "Restauration…" : "Restaurer"}
+              </button>
+            ) : (
+              <button type="button" onClick={archiveSelected} disabled={archiving} className="rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
+                {archiving ? "Archivage…" : "Archiver"}
+              </button>
+            )}
+            {canDelete ? (
+              <button type="button" onClick={deleteSelected} disabled={deletingSelected} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-error px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#c23a3a] disabled:cursor-not-allowed disabled:opacity-60">
+                <TrashIcon />
+                {deletingSelected ? "Suppression…" : "Supprimer"}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -286,7 +351,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
               {filteredClients.length} résultat{filteredClients.length > 1 ? "s" : ""}
             </p>
           </div>
-          {canDelete ? (
+          {filteredClients.length > 0 || selectionMode ? (
             <button
               type="button"
               onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
@@ -309,7 +374,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
               <table className="w-full min-w-[880px] border-collapse text-left">
                 <thead className="bg-animeo-surface-alt text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
                   <tr>
-                    {canDelete && selectionMode ? (
+                    {selectionMode ? (
                       <th className="w-12 px-6 py-3.5">
                         <input
                           type="checkbox"
@@ -333,7 +398,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
                     <ClientTableRow
                       key={client.id}
                       client={client}
-                      selectionMode={canDelete && selectionMode}
+                      selectionMode={selectionMode}
                       selected={selectedIds.has(client.id)}
                       onToggleSelected={() => toggleSelected(client.id)}
                     />
@@ -347,7 +412,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
                 <ClientMobileCard
                   key={client.id}
                   client={client}
-                  selectionMode={canDelete && selectionMode}
+                  selectionMode={selectionMode}
                   selected={selectedIds.has(client.id)}
                   onToggleSelected={() => toggleSelected(client.id)}
                 />
@@ -402,7 +467,7 @@ function ClientTableRow({ client, selectionMode, selected, onToggleSelected }: {
             ) : (
               <Link href={`/dashboard/clients/${client.id}`} className="font-extrabold text-animeo-dark outline-none after:absolute after:inset-0 after:content-[''] focus-visible:underline">{name}</Link>
             )}
-            <p className="mt-0.5 text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
+            <p className="mt-0.5 text-xs font-bold text-animeo">{client.archivedAt ? "Client archivé" : client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
           </div>
         </div>
       </td>
@@ -459,7 +524,7 @@ function ClientMobileCard({ client, selectionMode, selected, onToggleSelected }:
               <Link href={`/dashboard/clients/${client.id}`} className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:underline">{name}</Link>
             )}
           </h3>
-          <p className="text-xs font-bold text-animeo">{client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
+          <p className="text-xs font-bold text-animeo">{client.archivedAt ? "Client archivé" : client.status === "Actif" ? "Client actif" : "Client inactif"}</p>
         </div>
       </div>
       <div className="mt-4">

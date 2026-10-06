@@ -11,6 +11,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
 import { clientInclude, mapAnimal, mapClient } from "@/lib/clients";
 import { clientSearchQuerySchema, rankClientsAndAnimals } from "@/lib/client-search";
+import { MAX_ARCHIVE_BATCH, type UpcomingAppointments } from "@/lib/client-archive";
 import { geocodeClientAddress, type PreciseGeocode } from "@/lib/geocoding";
 import { avatarBackgroundFor, avatarForSpecies } from "@/data/animal-visuals";
 import type { Animal, Client } from "@/data/clients";
@@ -67,6 +68,58 @@ export async function deleteClientAction(clientId: string): Promise<ClientAction
   revalidatePath("/dashboard/rappels");
 
   return { ok: true };
+}
+
+export type ClientArchiveResult = { ok: true; ids: string[] } | { ok: false; error: string };
+
+/** Rendez-vous à venir (confirmés ou en attente) de ces clients, pour la confirmation d'archivage. */
+export async function upcomingAppointmentsOfClientsAction(clientIds: string[]): Promise<UpcomingAppointments[]> {
+  await requireUser();
+  const db = await currentDb();
+  const ids = clientIds.slice(0, MAX_ARCHIVE_BATCH);
+  if (ids.length === 0) return [];
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const [clients, counts] = await Promise.all([
+    db.client.findMany({ where: { id: { in: ids } }, select: { id: true, firstName: true, lastName: true } }),
+    db.appointment.groupBy({ by: ["clientId"], where: { clientId: { in: ids }, status: { in: ["CONFIRMED", "PENDING"] }, date: { gte: today } }, _count: { _all: true } }),
+  ]);
+  const countOf = new Map(counts.map((row) => [row.clientId, row._count._all]));
+  return clients.map((client) => ({ name: `${client.firstName} ${client.lastName}`.trim(), count: countOf.get(client.id) ?? 0 }));
+}
+
+/**
+ * Archive des clients : ils sortent de la liste courante, de la recherche,
+ * du sélecteur de rendez-vous, de la carte et des relances. Rien n'est
+ * supprimé, aucun rendez-vous n'est annulé ; restoreClientsAction les
+ * ramène. Ouvert à tout membre de l'espace : c'est réversible.
+ */
+export async function archiveClientsAction(clientIds: string[]): Promise<ClientArchiveResult> {
+  return setClientsArchived(clientIds, true);
+}
+
+export async function restoreClientsAction(clientIds: string[]): Promise<ClientArchiveResult> {
+  return setClientsArchived(clientIds, false);
+}
+
+async function setClientsArchived(clientIds: string[], archived: boolean): Promise<ClientArchiveResult> {
+  const user = await requireUser();
+  const db = await currentDb();
+  const ids = [...new Set(clientIds)].slice(0, MAX_ARCHIVE_BATCH);
+  if (ids.length === 0) return { ok: false, error: "Aucun client sélectionné." };
+
+  // Seulement ceux qui changent d'état : archiver deux fois ne réécrit pas la date.
+  const targets = await db.client.findMany({ where: { id: { in: ids }, archivedAt: archived ? null : { not: null } }, select: { id: true } });
+  const changed = targets.map((client) => client.id);
+  if (changed.length > 0) {
+    await db.client.updateMany({ where: { id: { in: changed } }, data: { archivedAt: archived ? new Date() : null } });
+    for (const id of changed) {
+      await logAudit({ userId: user.id, action: archived ? "CLIENT_ARCHIVED" : "CLIENT_RESTORED", entityType: "Client", entityId: id });
+    }
+  }
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, ids: changed };
 }
 
 export type BulkDeleteClientsResult = { deletedIds: string[]; failedNames: string[] };
@@ -471,6 +524,7 @@ export async function searchClientsAndAnimalsAction(rawQuery: string): Promise<C
   // fautes) : un ILIKE ne sait faire ni l'un ni l'autre, et à l'échelle d'un
   // cabinet les classer ici reste instantané.
   const people = await db.client.findMany({
+    where: { archivedAt: null },
     select: { id: true, firstName: true, lastName: true, address: true, city: true, phone: true, animals: { select: { id: true, name: true, species: true } } },
   });
   const ranked = rankClientsAndAnimals(parsed.data, people);

@@ -37,6 +37,7 @@ export async function getMapClientSummaries(): Promise<MapClientSummary[]> {
     }
   }
   const clients = await db.client.findMany({
+    where: { archivedAt: null },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true,
