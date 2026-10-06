@@ -520,6 +520,11 @@ model Consultation {
 
   createdAt DateTime @default(now())
 
+  /// Rendez-vous réalisé qui a créé cette consultation (chantier C7) : une
+  /// au plus par rendez-vous. Vide pour une consultation saisie à la main.
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
   // Espace professionnel propriétaire (multi-comptes, phase 1).
   organizationId String       @default("org-1002-pattes")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
@@ -667,6 +672,8 @@ model Appointment {
   /// Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot,
   /// enchaînés sans tampon entre eux. Vide pour un rendez-vous seul.
   visitGroupId   String?
+  /// Consultation créée quand ce rendez-vous a été réalisé (chantier C7).
+  consultation   Consultation?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

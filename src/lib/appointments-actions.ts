@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { MAX_VISIT_ANIMALS, visitSummary } from "@/lib/visit-group";
+import { ensureConsultation, markAppointmentCompleted, undoCompletion } from "@/lib/appointment-completion";
 import { rateLimitKey } from "@/lib/privacy";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -64,6 +65,8 @@ import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
 
 const dbMode: Record<AppointmentMode, VisitMode> = { cabinet: "CABINET", home: "DOMICILE" };
 const modeLabel: Record<VisitMode, AppointmentMode> = { CABINET: "cabinet", DOMICILE: "home" };
+const COMPLETE_PENDING_ERROR = "Acceptez d’abord la demande : seul un rendez-vous confirmé peut être marqué comme réalisé.";
+
 const dbStatus: Record<AppointmentStatus, DbAppointmentStatus> = { pending: "PENDING", confirmed: "CONFIRMED", completed: "COMPLETED", cancelled: "CANCELLED" };
 const statusLabel: Record<DbAppointmentStatus, AppointmentStatus> = { PENDING: "pending", CONFIRMED: "confirmed", COMPLETED: "completed", CANCELLED: "cancelled" };
 
@@ -374,6 +377,10 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   // — ce formulaire modifie les deux à la fois, contrairement à
   // updateAppointmentStatusAction qui ne touche jamais qu'au statut.
   const existing = input.id ? await db.appointment.findUnique({ where: { id: input.id } }) : null;
+  // Réaliser passe par un rendez-vous confirmé (chantier C7), jamais par une demande en attente.
+  if (existing?.status === "PENDING" && input.status === "completed") return { ok: false, error: COMPLETE_PENDING_ERROR };
+  const entersCompleted = input.status === "completed" && existing?.status !== "COMPLETED";
+  const leavesCompleted = existing?.status === "COMPLETED" && input.status !== "completed";
 
   const visitGroupId = input.detachFromVisit ? null : existing?.visitGroupId;
   if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id, visitGroupId)) {
@@ -405,6 +412,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     status: dbStatus[input.status],
     notes: input.notes,
     ...(input.detachFromVisit ? { visitGroupId: null } : {}),
+    ...(entersCompleted ? { completedAt: new Date() } : {}),
     // Déplacé : le rappel déjà envoyé portait l'ancienne date. On le réarme
     // pour que le client soit prévenu du nouvel horaire.
     ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null } : {}),
@@ -417,9 +425,13 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
       await lockDay(tx, input.date);
       if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id, visitGroupId)) return null;
       const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
-      return input.id
-        ? tx.appointment.update({ where: { id: input.id }, data, include })
-        : tx.appointment.create({ data, include });
+      const written = input.id
+        ? await tx.appointment.update({ where: { id: input.id }, data, include })
+        : await tx.appointment.create({ data, include });
+      // Réalisé : sa consultation ; plus réalisé (client absent) : elle est retirée.
+      if (entersCompleted) await ensureConsultation(tx, written.id);
+      if (leavesCompleted) await undoCompletion(tx, written.id);
+      return written;
     });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
@@ -557,9 +569,11 @@ export async function saveAppointmentsBatchAction(input: SaveVisitInput): Promis
             status: dbStatus[input.status],
             notes: input.notes,
             visitGroupId,
+            ...(input.status === "completed" ? { completedAt: new Date() } : {}),
           },
           include,
         }));
+        if (input.status === "completed") await ensureConsultation(tx, created[created.length - 1].id);
       }
       return { conflict: null, created };
     });
@@ -679,7 +693,10 @@ export async function cancelVisitAction(visitGroupId: string): Promise<VisitActi
   const members = await visitMembers(db, visitGroupId);
   if (members.length === 0) return { ok: false, error: "Cette visite n’existe plus." };
 
-  await db.appointment.updateMany({ where: { id: { in: members.map((member) => member.id) } }, data: { status: "CANCELLED" } });
+  await db.$transaction(async (tx) => {
+    for (const member of members) if (member.status === "COMPLETED") await undoCompletion(tx, member.id);
+    await tx.appointment.updateMany({ where: { id: { in: members.map((member) => member.id) } }, data: { status: "CANCELLED" } });
+  });
   for (const member of members) await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: member.id, metadata: { status: "cancelled", visitGroupId } });
   revalidatePath("/dashboard");
 
@@ -720,8 +737,24 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
     return { ok: false, error: "Impossible : un autre rendez-vous occupe déjà ce créneau." };
   }
 
-  const row = await db.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
-  await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status } });
+  const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
+  let row;
+  let consultationRemoved = false;
+  if (status === "completed") {
+    // Réaliser : le même cœur que le bouton « Consultation réalisée ».
+    if (current.status === "PENDING") return { ok: false, error: COMPLETE_PENDING_ERROR };
+    if (!(await markAppointmentCompleted(db, id)) && current.status !== "COMPLETED") return { ok: false, error: "Ce rendez-vous ne peut plus être marqué comme réalisé." };
+    row = await db.appointment.findUniqueOrThrow({ where: { id }, include });
+  } else if (current.status === "COMPLETED") {
+    // Réalisé à tort (client absent) : la consultation créée est retirée.
+    row = await db.$transaction(async (tx) => {
+      consultationRemoved = await undoCompletion(tx, id);
+      return tx.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include });
+    });
+  } else {
+    row = await db.appointment.update({ where: { id }, data: { status: dbStatus[status] }, include });
+  }
+  await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: consultationRemoved ? { status, consultationRemoved: true } : { status } });
   revalidatePath("/dashboard");
 
   // Email de suivi au client, best-effort. AUDIT-PRODUIT-2026-08-30.md,
@@ -768,18 +801,14 @@ export async function completeAppointmentAction(id: string): Promise<CompleteApp
 
   const current = await db.appointment.findUnique({ where: { id } });
   if (!current) return { ok: false, error: "Ce rendez-vous n'existe plus." };
-  if (current.status === "COMPLETED" || current.status === "CANCELLED") {
+  if (current.status === "PENDING") return { ok: false, error: COMPLETE_PENDING_ERROR };
+
+  // Statut et consultation ensemble, une seule fois même sur un double clic.
+  if (!(await markAppointmentCompleted(db, id))) {
     return { ok: false, error: "Ce rendez-vous ne peut plus être marqué comme réalisé." };
   }
-
-  const row = await db.appointment.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date() }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
+  const row = await db.appointment.findUniqueOrThrow({ where: { id }, include: { animal: { select: { species: true } }, client: { select: { phone: true } } } });
   await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: id, metadata: { status: "completed" } });
-
-  if (current.animalId) {
-    await db.consultation.create({
-      data: { animalId: current.animalId, date: current.date, service: current.serviceName, mode: current.mode, price: current.price, summary: "" },
-    });
-  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/clients");
