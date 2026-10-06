@@ -153,6 +153,11 @@ export type AvailabilitySettings = {
   closures: ExceptionalClosure[];
   /** Ouvertures exceptionnelles (absentes des profils plus anciens : [] à la lecture). */
   openings: ExceptionalOpening[];
+  /**
+   * Réservation publique (chantier C8) : le client peut proposer 2 ou 3
+   * horaires, que le professionnel départage. Désactivé par défaut.
+   */
+  allowMultipleSlotRequests?: boolean;
   vacations: Vacation[];
   // Valeur pré-remplie à la création d'une nouvelle prestation (Prestations) —
   // chaque prestation reste ensuite librement modifiable individuellement,
@@ -312,6 +317,7 @@ export const initialSettings: SettingsState = {
       { id: "sunday", label: "Dimanche", enabled: false, slots: [] },
     ],
     openings: [],
+    allowMultipleSlotRequests: false,
     closures: [
       { id: "closure-1", date: "2026-09-14", start: "14:00", end: "18:00", scope: "Cabinet uniquement", reason: "Formation" },
     ],

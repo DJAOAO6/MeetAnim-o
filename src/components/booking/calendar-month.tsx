@@ -217,6 +217,7 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
                   aria-selected={isSelected}
                   aria-disabled={!isSelectable}
                   aria-label={accessibleName}
+                  data-date={dateId}
                   onFocus={() => setFocusedDateId(dateId)}
                   onKeyDown={(event) => handleKeyDown(event, dateId)}
                   onClick={() => { if (isSelectable) selectDate(dateId); }}

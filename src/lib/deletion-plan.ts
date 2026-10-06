@@ -24,6 +24,7 @@ export const ORGANIZATION_TABLES = [
   "AnimalDocument",
   "StudioDocument",
   "StudioDocumentTemplate",
+  "AppointmentSlotOption",
   "Appointment",
   "Animal",
   "AnimalPlace",

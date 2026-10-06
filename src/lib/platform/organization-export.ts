@@ -31,6 +31,7 @@ function readers(): Record<(typeof ORGANIZATION_TABLES)[number], Reader> {
     StudioDocument: prisma.studioDocument as unknown as Reader,
     StudioDocumentTemplate: prisma.studioDocumentTemplate as unknown as Reader,
     Appointment: prisma.appointment as unknown as Reader,
+    AppointmentSlotOption: prisma.appointmentSlotOption as unknown as Reader,
     Animal: prisma.animal as unknown as Reader,
     AnimalPlace: prisma.animalPlace as unknown as Reader,
     Client: prisma.client as unknown as Reader,

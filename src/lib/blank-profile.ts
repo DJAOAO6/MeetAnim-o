@@ -92,6 +92,7 @@ export function blankAvailability(): AvailabilitySettings {
     breakAfterAppointment: 0,
     closures: [],
     openings: [],
+    allowMultipleSlotRequests: false,
     vacations: [],
     defaultAppointmentDuration: 60,
     slotInterval: 30,

@@ -60,7 +60,16 @@ async function clickColumnAt(page: Page, hour: number, day = 6) {
 
 const menu = (page: Page) => page.getByRole("dialog", { name: "Actions du créneau sélectionné" });
 
+// Le compte de test règle les horaires : la permission lui est donnée le
+// temps de la spec, puis ses permissions d'origine rétablies (d'autres specs
+// la lui retirent).
+let savedPermissions: string[] | null = null;
+const PRACTITIONER_EMAIL = "praticien-test@pf-osteo-animale.fr";
+
 test.beforeAll(async () => {
+  const [account] = await sql`SELECT permissions FROM "User" WHERE email = ${PRACTITIONER_EMAIL}`;
+  savedPermissions = (account?.permissions as string[] | undefined) ?? null;
+  await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${PRACTITIONER_EMAIL}`;
   const [row] = await sql`SELECT availability, "practiceMode"::text AS "practiceMode" FROM "BusinessProfile" WHERE slug = ${SLUG}`;
   saved = row as typeof saved;
   const days = WEEKDAYS.map(([id, label], index) => ({ id, label, enabled: index < 5, slots: index < 5 ? [{ id: `${id}-1`, start: "09:00", end: "18:00", cabinet: true, home: true }] : [] }));
@@ -69,6 +78,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  if (savedPermissions) await sql`UPDATE "User" SET permissions = ${savedPermissions} WHERE email = ${PRACTITIONER_EMAIL}`;
   if (!saved) return;
   await sql`UPDATE "BusinessProfile" SET availability = ${saved.availability === null ? null : JSON.stringify(saved.availability)}::jsonb, "practiceMode" = ${saved.practiceMode}::"PracticeMode" WHERE slug = ${SLUG}`;
 });

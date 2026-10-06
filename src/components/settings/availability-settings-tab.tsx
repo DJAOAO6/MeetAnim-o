@@ -146,6 +146,17 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
             </select>
           </Field>
         </div>
+        {/* Réservation en ligne à plusieurs horaires (chantier C8). */}
+        <div className="mt-5 border-t border-animeo-border-soft pt-5">
+          <Toggle
+            checked={draft.allowMultipleSlotRequests ?? false}
+            onChange={(checked) => setDraft((current) => ({ ...current, allowMultipleSlotRequests: checked }))}
+            label="Le client peut proposer plusieurs horaires"
+          />
+          <p className="mt-2 max-w-2xl text-xs text-animeo-muted">
+            Sur votre page de réservation, le client peut cocher « Je suis disponible à plusieurs horaires » et en proposer jusqu’à 3. Ils restent réservés jusqu’à ce que vous reteniez l’un d’eux ; sans réponse, la demande expire après 72 h (ou 24 h avant le premier horaire).
+          </p>
+        </div>
       </Card>
 
       <Card className="p-5 sm:p-6">

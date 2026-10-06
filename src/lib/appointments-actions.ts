@@ -141,7 +141,27 @@ type AppointmentReader = {
       select: { start: true; duration: true; mode: true; visitGroupId: true };
     }): Promise<Array<{ start: string; duration: number; mode: VisitMode; visitGroupId: string | null }>>;
   };
+  appointmentSlotOption: {
+    findMany(args: {
+      where: Prisma.AppointmentSlotOptionWhereInput;
+      select: { start: true; appointment: { select: { duration: true; mode: true } } };
+    }): Promise<Array<{ start: string; appointment: { duration: number; mode: VisitMode } }>>;
+  };
 };
+
+/**
+ * Horaires proposés par les demandes en attente (chantier C8) : chacun est
+ * occupé comme un rendez-vous, avec les tampons du mode de la demande, tant
+ * qu'elle attend. Une demande annulée ou confirmée ne retient plus rien.
+ * `excludeAppointmentIds` : la demande elle-même, quand on retient l'un de
+ * ses horaires.
+ */
+async function pendingOptionsOn(db: Pick<AppointmentReader, "appointmentSlotOption">, range: Prisma.DateTimeFilter | Date, excludeAppointmentIds: string[] = []) {
+  return db.appointmentSlotOption.findMany({
+    where: { date: range, appointment: { status: "PENDING", ...(excludeAppointmentIds.length > 0 ? { id: { notIn: excludeAppointmentIds } } : {}) } },
+    select: { start: true, appointment: { select: { duration: true, mode: true } } },
+  });
+}
 
 /**
  * Chevauchement avec un rendez-vous déjà en base — la partie de hasConflict
@@ -163,8 +183,13 @@ async function appointmentConflictIn(db: AppointmentReader, dateId: string, star
   // autre doit lui aussi laisser le temps de revenir. Sauf entre deux
   // rendez-vous d'une même visite (chantier C6), enchaînés sans tampon.
   const candidate = { start: timeToMinutes(start), duration, mode, visitGroupId };
-  return sameDayAppointments.some((appointment) =>
-    conflictsWithVisit(candidate, { start: timeToMinutes(appointment.start), duration: appointment.duration, mode: appointment.mode, visitGroupId: appointment.visitGroupId }, buffers));
+  if (sameDayAppointments.some((appointment) =>
+    conflictsWithVisit(candidate, { start: timeToMinutes(appointment.start), duration: appointment.duration, mode: appointment.mode, visitGroupId: appointment.visitGroupId }, buffers))) return true;
+
+  // Les horaires verrouillés par une demande à plusieurs horaires (C8).
+  const excluded = Array.isArray(excludeId) ? excludeId : excludeId ? [excludeId] : [];
+  const options = await pendingOptionsOn(db, toDate(dateId), excluded);
+  return options.some((option) => conflictsWith(candidate, { start: timeToMinutes(option.start), duration: option.appointment.duration, mode: option.appointment.mode }, buffers));
 }
 
 /**
@@ -194,8 +219,10 @@ async function blockedSlotConflictIn(db: ScopedPrismaClient, dateId: string, sta
  * la seule rapide (la base) : la disponibilité Google, appel réseau, reste
  * vérifiée avant, pour ne jamais tenir un verrou pendant un appel extérieur.
  */
-async function lockDay(tx: Pick<Prisma.TransactionClient, "$executeRaw">, dateId: string): Promise<void> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-day:${dateId}`}))`;
+async function lockDay(tx: Pick<Prisma.TransactionClient, "$executeRaw">, organizationId: string, dateId: string): Promise<void> {
+  // L'espace fait partie de la clé : deux cabinets ne s'attendent jamais l'un
+  // l'autre le même jour (bug B8).
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-day:${organizationId}:${dateId}`}))`;
 }
 
 export type GeoWarning = {
@@ -422,7 +449,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   let row;
   try {
     row = await db.$transaction(async (tx) => {
-      await lockDay(tx, input.date);
+      await lockDay(tx, organizationIdOf(db), input.date);
       if (await appointmentConflictIn(tx, input.date, input.start, input.duration, input.mode, buffers, input.id, visitGroupId)) return null;
       const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
       const written = input.id
@@ -542,7 +569,7 @@ export async function saveAppointmentsBatchAction(input: SaveVisitInput): Promis
   let rows;
   try {
     rows = await db.$transaction(async (tx) => {
-      await lockDay(tx, input.date);
+      await lockDay(tx, organizationIdOf(db), input.date);
       for (const item of planned) {
         if (await appointmentConflictIn(tx, input.date, item.start, item.duration, input.mode, buffers, undefined, visitGroupId)) return { conflict: item, created: [] };
       }
@@ -649,7 +676,7 @@ export async function moveVisitAction(visitGroupId: string, date: string, start:
   try {
     result = await db.$transaction(async (tx) => {
       // Les deux journées concernées, toujours dans le même ordre.
-      for (const day of [...new Set([date, ...members.map((member) => member.date.toISOString().slice(0, 10))])].sort()) await lockDay(tx, day);
+      for (const day of [...new Set([date, ...members.map((member) => member.date.toISOString().slice(0, 10))])].sort()) await lockDay(tx, organizationIdOf(db), day);
       for (const { member, start: at } of planned) {
         if (await appointmentConflictIn(tx, date, at, member.duration, mode, buffers, ids, visitGroupId)) return { conflict: { name: member.animalName, at }, updated: [] };
       }
@@ -1275,7 +1302,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
     // Réservation publique : pas de session, donc pas encore de client
     // cloisonné — le cabinet sera résolu par le slug à la phase 3.
     row = await db.$transaction(async (tx) => {
-      await lockDay(tx, core.date);
+      await lockDay(tx, organizationIdOf(db), core.date);
       // Rejouée sous verrou : une demande concurrente a pu être enregistrée
       // depuis la vérification du haut (voir withSlotLock).
       if (await appointmentConflictIn(tx, core.date, core.start, service.duration, core.mode, availability)) return null;
@@ -1427,8 +1454,9 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
 
   const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
 
-  const [appointmentRows, blockedRows, availability] = await Promise.all([
+  const [appointmentRows, optionRows, blockedRows, availability] = await Promise.all([
     db.appointment.findMany({ where: { status: { not: "CANCELLED" }, date: range }, select: { date: true, start: true, duration: true, mode: true } }),
+    db.appointmentSlotOption.findMany({ where: { date: range, appointment: { status: "PENDING" } }, select: { date: true, start: true, appointment: { select: { duration: true, mode: true } } } }),
     db.blockedSlot.findMany({ where: { date: range }, select: { date: true, startTime: true, endTime: true } }),
     getAvailability(db),
   ]);
@@ -1437,6 +1465,11 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
   for (const row of appointmentRows) {
     const id = row.date.toISOString().slice(0, 10);
     (result[id] ??= []).push({ start: row.start, duration: row.duration, mode: row.mode });
+  }
+  // Horaires verrouillés par une demande en attente (C8) : occupés, sans dire par qui.
+  for (const row of optionRows) {
+    const id = row.date.toISOString().slice(0, 10);
+    (result[id] ??= []).push({ start: row.start, duration: row.appointment.duration, mode: row.appointment.mode });
   }
   for (const row of blockedRows) {
     const id = row.date.toISOString().slice(0, 10);

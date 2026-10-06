@@ -75,6 +75,7 @@ async function seed(db: SqlTag, marker: string): Promise<Seeded> {
     VALUES (${id("rdv")}, ${org}, ${id("client")}, ${id("animal")}, ${`Client ${marker}`}, ${`Filou ${marker}`}, 'Séance', ${day}::date, '10:00', 45, 'DOMICILE', ${`1 rue ${marker}`}, 60, 'CONFIRMED', ${marker}, now())`;
   await db`INSERT INTO "StudioDocument" (id, "organizationId", title, "clientId", "animalId", "appointmentId", "templateId", "createdByUserId", "contentJson", "updatedAt")
     VALUES (${id("doc")}, ${org}, ${marker}, ${id("client")}, ${id("animal")}, ${id("rdv")}, ${id("template")}, ${u1}, '{}'::jsonb, now())`;
+  await db`INSERT INTO "AppointmentSlotOption" (id, "organizationId", "appointmentId", date, start, rank) VALUES (${id("option")}, ${org}, ${id("rdv")}, now(), '10:00', 2)`;
   await db`INSERT INTO "AppointmentCalendarEvent" (id, "organizationId", "appointmentId", "connectionId", "externalEventId", "updatedAt") VALUES (${id("event")}, ${org}, ${id("rdv")}, ${id("cal")}, ${id("google-event")}, now())`;
   await db`INSERT INTO "BlockedSlot" (id, "organizationId", "userId", date, "startTime", "endTime", reason) VALUES (${id("blocked")}, ${org}, ${u1}, ${day}::date, '08:00', '09:00', ${marker})`;
   await db`INSERT INTO "Reminder" (id, "organizationId", "clientId", "animalId", "lastConsultation", delay, "dueDate", note, "updatedAt") VALUES (${id("reminder")}, ${org}, ${id("client")}, ${id("animal")}, now(), 'SIX_MONTHS', now(), ${marker}, now())`;

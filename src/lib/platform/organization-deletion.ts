@@ -75,6 +75,7 @@ export async function purgeOrganization(organizationId: string, options: { reque
     counts.AnimalDocument = (await tx.animalDocument.deleteMany({ where })).count;
     counts.StudioDocument = (await tx.studioDocument.deleteMany({ where })).count;
     counts.StudioDocumentTemplate = (await tx.studioDocumentTemplate.deleteMany({ where })).count;
+    counts.AppointmentSlotOption = (await tx.appointmentSlotOption.deleteMany({ where })).count;
     counts.Appointment = (await tx.appointment.deleteMany({ where })).count;
     counts.Animal = (await tx.animal.deleteMany({ where })).count;
     counts.AnimalPlace = (await tx.animalPlace.deleteMany({ where })).count;

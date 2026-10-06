@@ -658,15 +658,15 @@ model Appointment {
   latitude               Float?
   longitude              Float?
   price                  Float
-  status                 AppointmentStatus @default(PENDING)
-  notes                  String            @db.Text
+  status                 AppointmentStatus       @default(PENDING)
+  notes                  String                  @db.Text
   // Horodatage réel de clôture (bouton "Consultation réalisée"), distinct de
   // updatedAt qui bouge à chaque modification du rendez-vous — sert au mode
   // tournée (refonte tournées, phase 2) pour l'indicateur de retard et
   // l'heure de fin réelle affichée sous un arrêt terminé.
   completedAt            DateTime?
   /// Réalisé par la tâche planifiée, l'heure passée (chantier C7), et non à la main.
-  completedAutomatically Boolean           @default(false)
+  completedAutomatically Boolean                 @default(false)
   // Rappel envoyé au client la veille du rendez-vous. Posé au moment de
   // l'envoi : un rendez-vous déjà rappelé ne l'est jamais une seconde fois,
   // même si la tâche quotidienne tourne deux fois.
@@ -676,6 +676,8 @@ model Appointment {
   visitGroupId           String?
   /// Consultation créée quand ce rendez-vous a été réalisé (chantier C7).
   consultation           Consultation?
+  /// Horaires proposés par une demande à plusieurs horaires (chantier C8).
+  slotOptions            AppointmentSlotOption[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1319,6 +1321,7 @@ model Organization {
   animalDocuments           AnimalDocument[]
   studioDocuments           StudioDocument[]
   appointments              Appointment[]
+  appointmentSlotOptions    AppointmentSlotOption[]
   appointmentCalendarEvents AppointmentCalendarEvent[]
   blockedSlots              BlockedSlot[]
   reminders                 Reminder[]
@@ -1374,6 +1377,27 @@ enum VerificationStatus {
   PENDING
   VERIFIED
   REJECTED
+}
+
+/// Un horaire proposé par une demande à plusieurs horaires (chantier C8).
+/// Tant que la demande attend, il est occupé comme un rendez-vous ; le
+/// professionnel en retient un, et les autres se libèrent. `rank` : l'ordre
+/// de préférence du client (1 = premier choix).
+model AppointmentSlotOption {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  date          DateTime
+  start         String
+  rank          Int
+
+  createdAt DateTime @default(now())
+
+  organizationId String       @default("org-1002-pattes")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, date])
+  @@index([appointmentId])
 }
 
 /// Invitation à ouvrir un cabinet sur 1002 Pattes (multi-comptes, phase 4).

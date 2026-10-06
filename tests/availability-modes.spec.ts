@@ -47,7 +47,16 @@ async function callAction(request: APIRequestContext, id: string, args: unknown[
   return response.text();
 }
 
+// Le compte de test règle les horaires : la permission lui est donnée le
+// temps de la spec, puis ses permissions d'origine rétablies (d'autres specs
+// la lui retirent).
+let savedPermissions: string[] | null = null;
+const PRACTITIONER_EMAIL = "praticien-test@pf-osteo-animale.fr";
+
 test.beforeAll(async () => {
+  const [account] = await sql`SELECT permissions FROM "User" WHERE email = ${PRACTITIONER_EMAIL}`;
+  savedPermissions = (account?.permissions as string[] | undefined) ?? null;
+  await sql`UPDATE "User" SET permissions = ARRAY['MANAGE_PUBLIC_SETTINGS'] WHERE email = ${PRACTITIONER_EMAIL}`;
   const [row] = await sql`SELECT availability, "cabinetAvailable", "homeAvailable", "practiceMode"::text AS "practiceMode" FROM "BusinessProfile" WHERE slug = ${SLUG}`;
   saved = row as typeof saved;
   const days = WEEKDAYS.map(([id, label], index) => ({ id, label, enabled: index < 5, slots: index < 5 ? [{ id: `${id}-1`, start: "09:00", end: "18:00", cabinet: true, home: true }] : [] }));
@@ -56,6 +65,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  if (savedPermissions) await sql`UPDATE "User" SET permissions = ${savedPermissions} WHERE email = ${PRACTITIONER_EMAIL}`;
   if (!saved) return;
   await sql`UPDATE "BusinessProfile" SET availability = ${saved.availability === null ? null : JSON.stringify(saved.availability)}::jsonb,
     "cabinetAvailable" = ${saved.cabinetAvailable}, "homeAvailable" = ${saved.homeAvailable}, "practiceMode" = ${saved.practiceMode}::"PracticeMode" WHERE slug = ${SLUG}`;

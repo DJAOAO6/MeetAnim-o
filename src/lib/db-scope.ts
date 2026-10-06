@@ -44,6 +44,7 @@ export const TENANT_MODELS = new Set([
   "AnimalDocument",
   "StudioDocument",
   "Appointment",
+  "AppointmentSlotOption",
   "AppointmentCalendarEvent",
   "BlockedSlot",
   "Reminder",

@@ -241,6 +241,7 @@ export async function getAvailability(scoped?: ScopedPrismaClient): Promise<Avai
     slotInterval: stored.slotInterval ?? initialSettings.availability.slotInterval,
     breakAfterAppointment: stored.breakAfterAppointment ?? 0,
     openings: stored.openings ?? [],
+    allowMultipleSlotRequests: stored.allowMultipleSlotRequests ?? false,
   };
 }
 
