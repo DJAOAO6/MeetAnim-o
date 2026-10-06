@@ -126,8 +126,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   Quels que soient ses z-index (recherche, carte, en-têtes
                   collants), il ne passe jamais au-dessus du menu latéral,
                   de l'en-tête mobile ni de la barre du bas. Les fenêtres
-                  superposées sortent de ce plan par OverlayPortal. */}
-              <main className="isolate mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10">
+                  superposées sortent de ce plan par OverlayPortal.
+                  À partir de md, même dégagement pour les deux boutons
+                  flottants quand ils sont affichés (`:has`) : en bas de
+                  page, ils recouvraient le coin droit du contenu — « Enregistrer
+                  les rappels », les menus « Plus d’actions »… */}
+              <main className="isolate mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10 md:has-[~[data-floating-actions]]:pb-48">
                 {user.assistance ? (
                   <AssistanceBanner
                     assistedName={`${user.firstName} ${user.lastName}`.trim()}

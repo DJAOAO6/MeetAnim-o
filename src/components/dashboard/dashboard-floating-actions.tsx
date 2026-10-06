@@ -22,8 +22,9 @@ export function DashboardFloatingActions() {
     // Masqué sous md : la barre de navigation du bas (MobileBottomNav) et le
     // bouton principal de chaque page couvrent ces deux actions sur mobile,
     // où ce cluster flottant recouvrait du contenu réel — ici les cartes de
-    // statistiques et les filtres de l'agenda.
-    <div className="fixed bottom-8 right-8 z-40 hidden flex-col items-end gap-4 md:flex">
+    // statistiques et les filtres de l'agenda. `data-floating-actions` :
+    // la mise en page réserve le bas de page à ces boutons (layout.tsx).
+    <div data-floating-actions className="fixed bottom-8 right-8 z-40 hidden flex-col items-end gap-4 md:flex">
       <FloatingAction
         label="Nouveau rendez-vous"
         onClick={() => openNewAppointment()}
