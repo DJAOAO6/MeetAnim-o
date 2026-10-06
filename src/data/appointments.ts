@@ -32,7 +32,14 @@ export type Appointment = {
   visitGroupId?: string;
   /** Réalisé par la tâche planifiée, l'heure passée (chantier C7). */
   completedAutomatically?: boolean;
+  /**
+   * Demande à plusieurs horaires (chantier C8) : ceux proposés par le client,
+   * par ordre de préférence, tant que le professionnel n'en a pas retenu un.
+   */
+  slotOptions?: AppointmentSlotOption[];
 };
+
+export type AppointmentSlotOption = { id: string; date: string; start: string; rank: number };
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
   pending: "En attente",

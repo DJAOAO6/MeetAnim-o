@@ -31,6 +31,7 @@ export function toAppointment(row: {
   animalId: string | null; animalName: string; animalSpecies: string | null; animal: { species: string } | null;
   serviceName: string; mode: VisitMode; location: string; price: number; status: DbAppointmentStatus; notes: string;
   postalCode?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; visitGroupId?: string | null; completedAutomatically?: boolean;
+  slotOptions?: Array<{ id: string; date: Date; start: string; rank: number }>;
   client?: { phone: string } | null;
 }): Appointment {
   return {
@@ -56,6 +57,10 @@ export function toAppointment(row: {
     longitude: row.longitude ?? undefined,
     visitGroupId: row.visitGroupId ?? undefined,
     completedAutomatically: row.completedAutomatically || undefined,
+    // Seulement pour une demande en attente qui en propose plusieurs.
+    slotOptions: row.slotOptions && row.slotOptions.length > 1
+      ? [...row.slotOptions].sort((a, b) => a.rank - b.rank).map((option) => ({ id: option.id, date: toIsoDate(option.date), start: option.start, rank: option.rank }))
+      : undefined,
   };
 }
 
@@ -85,7 +90,7 @@ export async function getAppointments(range: AppointmentRange): Promise<Appointm
   const appointments = await db.appointment.findMany({
     where: { date: { gte: new Date(`${range.from}T00:00:00.000Z`), lte: new Date(`${range.to}T00:00:00.000Z`) } },
     orderBy: { date: "asc" },
-    include: { animal: { select: { species: true } }, client: { select: { phone: true } } },
+    include: { animal: { select: { species: true } }, client: { select: { phone: true } }, slotOptions: { select: { id: true, date: true, start: true, rank: true } } },
   });
 
   // Même conversion que partout ailleurs (toAppointment) : une copie qui

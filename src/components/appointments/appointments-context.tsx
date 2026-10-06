@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
-import { cancelVisitAction, cancelVisitMemberAction, getAppointmentsInRangeAction, moveVisitAction, saveAppointmentAction, saveAppointmentsBatchAction, updateAppointmentStatusAction, type SaveAppointmentInput, type SaveVisitInput } from "@/lib/appointments-actions";
+import { cancelVisitAction, cancelVisitMemberAction, confirmRequestSlotAction, getAppointmentsInRangeAction, moveVisitAction, saveAppointmentAction, saveAppointmentsBatchAction, updateAppointmentStatusAction, type SaveAppointmentInput, type SaveVisitInput } from "@/lib/appointments-actions";
 import type { Appointment, AppointmentMode, AppointmentStatus } from "@/data/appointments";
 
 /**
@@ -51,6 +51,8 @@ type AppointmentsContextValue = {
   moveVisit: (visitGroupId: string, date: string, start: string) => Promise<VisitOutcome>;
   cancelVisit: (visitGroupId: string) => Promise<VisitOutcome>;
   cancelVisitMember: (appointmentId: string) => Promise<ActionOutcome>;
+  /** Demande à plusieurs horaires (chantier C8) : retenir l'un d'eux. */
+  confirmRequestSlot: (appointmentId: string, optionId: string) => Promise<ActionOutcome>;
   updateAppointmentStatus: (appointmentId: string, status: AppointmentStatus) => Promise<ActionOutcome>;
 };
 
@@ -205,6 +207,13 @@ export function AppointmentsProvider({ children, initialAppointments, initialRan
     return { ok: true, appointment: result.appointment };
   }
 
+  async function confirmRequestSlot(appointmentId: string, optionId: string): Promise<ActionOutcome> {
+    const result = await confirmRequestSlotAction(appointmentId, optionId);
+    if (!result.ok) return { ok: false, error: result.error };
+    replaceAppointments([result.appointment]);
+    return { ok: true, appointment: result.appointment };
+  }
+
   async function updateAppointmentStatus(appointmentId: string, status: AppointmentStatus): Promise<ActionOutcome> {
     const result = await updateAppointmentStatusAction(appointmentId, status);
     if (!result.ok) return { ok: false, error: result.error };
@@ -230,6 +239,7 @@ export function AppointmentsProvider({ children, initialAppointments, initialRan
     moveVisit,
     cancelVisit,
     cancelVisitMember,
+    confirmRequestSlot,
     updateAppointmentStatus,
   };
 

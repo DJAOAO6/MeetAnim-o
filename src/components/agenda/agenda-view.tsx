@@ -1,5 +1,7 @@
 "use client";
 
+import type { Appointment } from "@/data/appointments";
+import { RequestSlotChoices, hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import { outsideServiceArea, type ServiceArea } from "@/lib/service-area";
 import { useEffect, useMemo, useState } from "react";
 import { Lock, Plus } from "lucide-react";
@@ -140,6 +142,8 @@ function minutesBetween(start: string, end: string) {
 type PendingRequest = {
   id: string;
   appointmentId: string;
+  /** La demande entière : ses horaires proposés s'y lisent (chantier C8). */
+  appointment: Appointment;
   date: string;
   start: string;
   animal: string;
@@ -268,13 +272,19 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
 
   const appointmentEvents: CalendarEvent[] = useMemo(() => appointments
     .filter((appointment) => appointment.status !== "cancelled")
-    .map((appointment) => ({ appointment, day: activeDates.findIndex((date) => dateId(date) === appointment.date) }))
+    // Demande à plusieurs horaires (C8) : un bloc provisoire par horaire
+    // proposé, à la place du rendez-vous lui-même.
+    .flatMap((appointment) => (appointment.status === "pending" && appointment.slotOptions && appointment.slotOptions.length > 1
+      ? appointment.slotOptions.map((option) => ({ appointment, date: option.date, start: option.start, option: { rank: option.rank, count: appointment.slotOptions!.length } }))
+      : [{ appointment, date: appointment.date, start: appointment.start, option: undefined as { rank: number; count: number } | undefined }]))
+    .map((entry) => ({ ...entry, day: activeDates.findIndex((date) => dateId(date) === entry.date) }))
     .filter(({ day }) => day >= 0)
-    .map(({ appointment, day }) => ({
-      id: appointment.id,
+    .map(({ appointment, day, start, option }) => ({
+      id: option ? `${appointment.id}:option-${option.rank}` : appointment.id,
       appointmentId: appointment.id,
       day,
-      start: appointment.start,
+      start,
+      option,
       duration: appointment.duration,
       kind: appointment.status === "pending" ? "pending" : appointment.mode === "cabinet" ? "cabinet" : "domicile",
       animal: appointment.animalName,
@@ -291,6 +301,7 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
     .map((appointment) => ({
       id: appointment.id,
       appointmentId: appointment.id,
+      appointment,
       date: appointment.date,
       start: appointment.start,
       animal: appointment.animalName,
@@ -857,7 +868,9 @@ function PendingRequestsPanel({ requests, onAction }: {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-animeo-warning-border bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.08em] text-animeo-warning">En attente</span>
-                  <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>
+                  {hasSlotOptions(request.appointment)
+                    ? <span className="text-xs font-extrabold text-animeo-muted">{request.appointment.slotOptions?.length} horaires proposés</span>
+                    : <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>}
                   {request.outsideKm !== null ? (
                     <span className="rounded-full bg-animeo-danger-soft px-2.5 py-1 text-xs font-black text-animeo-error" title="Adresse au-delà de votre secteur d’intervention">Hors secteur · {request.outsideKm} km</span>
                   ) : null}
@@ -866,12 +879,14 @@ function PendingRequestsPanel({ requests, onAction }: {
                 <p className="text-sm font-bold text-animeo-muted">{request.client}</p>
                 <p className="mt-1 text-xs text-animeo-muted">{request.location}</p>
               </div>
-              <div className="grid shrink-0 grid-cols-3 gap-2 sm:flex">
-                <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Accepter</button>
+              <div className={`grid shrink-0 gap-2 sm:flex ${hasSlotOptions(request.appointment) ? "grid-cols-2" : "grid-cols-3"}`}>
+                {/* Plusieurs horaires proposés : on en retient un ci-dessous, pas d'« Accepter ». */}
+                {hasSlotOptions(request.appointment) ? null : <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Accepter</button>}
                 <button type="button" onClick={() => onAction("Décalage demandé", request)} className="rounded-xl border border-animeo-border bg-white px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">Décaler</button>
                 <button type="button" onClick={() => onAction("Refusé", request)} className="rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">Refuser</button>
               </div>
             </div>
+            {hasSlotOptions(request.appointment) ? <div className="mt-3"><RequestSlotChoices appointment={request.appointment} compact /></div> : null}
           </article>
         ))}
       </div>

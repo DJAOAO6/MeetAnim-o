@@ -1,5 +1,6 @@
 "use client";
 
+import { RequestSlotChoices, hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import { useVisitMembers } from "@/components/appointments/visit-dialogs";
 import { useAppointmentActions } from "@/components/appointments/use-appointment-actions";
 import { Icon, type IconName } from "@/components/ui/icon";
@@ -70,6 +71,8 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
       </div>
 
       <div className="flex-1 space-y-2.5 overflow-y-auto p-4 sm:p-5">
+        {/* Plusieurs horaires proposés (C8) : le professionnel en retient un. */}
+        {hasSlotOptions(appointment) ? <RequestSlotChoices appointment={appointment} onConfirmed={onBack} /> : null}
         <SummaryRow icon="calendar" label="Date et heure" value={`${formatFullDate(appointment.date)} · ${appointment.start} (${appointment.duration} min)`} />
         <SummaryRow icon="services" label="Prestation" value={appointment.serviceName} />
         <SummaryRow icon="map" label="Lieu" value={isHomeVisit ? `Domicile · ${appointment.location}` : "Cabinet"} />

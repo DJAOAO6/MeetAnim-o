@@ -35,6 +35,8 @@ export type CalendarEvent = {
   title?: string;
   /** Visite multi-animaux (chantier C6) : « 1/2 », « 2/2 ». */
   visit?: { index: number; count: number };
+  /** Horaire proposé par une demande à plusieurs horaires (chantier C8) : bloc provisoire. */
+  option?: { rank: number; count: number };
 };
 
 type WeekPlannerProps = {
@@ -1110,7 +1112,8 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
   const isTournee = event.kind === "tournee";
   const isPending = event.kind === "pending";
   const isSelectable = Boolean(event.appointmentId || event.tourId || event.blockedSlotId);
-  const isDraggable = Boolean(event.appointmentId);
+  // Un horaire en option ne se déplace pas : on en retient un, dans la demande.
+  const isDraggable = Boolean(event.appointmentId) && !event.option;
   // Vraie durée, toujours : aucune hauteur minimale qui ferait croire qu'un
   // rendez-vous de 15 min en dure 45. Seul un plancher de lisibilité reste.
   // À cheval sur le début ou la fin de la plage affichée : la carte est
@@ -1127,8 +1130,12 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
   // la grille, la cloche ou sa fiche.
   // Partagée avec un autre rendez-vous, la carte est trop étroite pour trois
   // boutons lisibles : un clic l'ouvre, comme les autres.
-  const showPendingActions = isPending && height >= PENDING_ACTIONS_MIN_HEIGHT && columnLayout.columns === 1;
-  const selectableLabel = isUnavailable
+  // Un horaire en option (C8) n'a pas ces boutons : on en retient un dans la demande.
+  const showPendingActions = isPending && !event.option && height >= PENDING_ACTIONS_MIN_HEIGHT && columnLayout.columns === 1;
+  const optionLabel = event.option ? `Option ${event.option.rank}/${event.option.count}` : null;
+  const selectableLabel = event.option
+    ? `Ouvrir la demande de ${event.client ?? "ce client"} : option ${event.option.rank} sur ${event.option.count} à ${event.start}`
+    : isUnavailable
     ? `Ouvrir le créneau bloqué : ${event.title ?? "Indisponible"} à ${event.start}`
     : isTournee
       ? `Ouvrir la tournée ${event.title ?? ""} à ${event.start}`
@@ -1139,7 +1146,14 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
   const columnWidthPercent = 100 / columns;
   const mode = eventModes[event.kind];
   const ModeIcon = mode.icon;
-  const name = (isUnavailable || isTournee ? event.title : event.animal) ?? mode.label;
+  const name = optionLabel ? `${optionLabel} · ${event.client ?? event.animal ?? ""}` : (isUnavailable || isTournee ? event.title : event.animal) ?? mode.label;
+  // Un horaire en option : son rang ne se coupe jamais, même dans une colonne étroite.
+  const nameNode = event.option ? (
+    <>
+      <span className="shrink-0"><span className="hidden @min-[6rem]:inline">Option </span>{event.option.rank}/{event.option.count}</span>
+      <span className="truncate">· {event.client ?? event.animal ?? ""}</span>
+    </>
+  ) : <span className="truncate">{name}</span>;
   const end = minutesToTime(toMinutes(event.start) + event.duration);
   const visualHeight = height - inset * 2;
   const size = visualHeight < TINY_EVENT_HEIGHT ? "tiny" : visualHeight < FULL_EVENT_HEIGHT ? "medium" : "full";
@@ -1188,6 +1202,7 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
       // Tout ce que la carte peut taire faute de place : fin, mode, client.
       aria-label={isSelectable ? `${selectableLabel}, jusqu’à ${end}, ${mode.label.toLowerCase()}${event.client ? `, ${event.client}` : ""}${event.visit ? `, visite ${event.visit.index + 1} sur ${event.visit.count}` : ""}` : undefined}
       data-visit={event.visit ? `${event.visit.index + 1}/${event.visit.count}` : undefined}
+      data-option={event.option ? `${event.option.rank}/${event.option.count}` : undefined}
       title={size === "full" && showLocation && columnLayout.columns === 1 ? undefined : summary}
       data-size={size}
       className={`@container group absolute overflow-hidden border-l-4 leading-tight ${size === "tiny" ? "rounded-md px-1.5" : "rounded-lg px-1.5 py-1"} ${clippedTop ? "rounded-t-none" : ""} ${clippedBottom ? "rounded-b-none" : ""} shadow-[0_4px_12px_rgb(var(--theme-shadow-rgb)/0.08)] transition ${eventStyles[event.kind]} ${
@@ -1211,6 +1226,8 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
         // Un appui long sur du texte déclenche sinon la sélection et le menu
         // système du navigateur mobile, qui annulent le pointeur en cours :
         // l'armement du déplacement n'atteignait jamais son délai.
+        // Bloc provisoire : hachuré, pour ne pas le prendre pour un rendez-vous posé.
+        ...(event.option ? { backgroundImage: "repeating-linear-gradient(135deg, transparent 0 6px, rgb(var(--theme-shadow-rgb) / 0.07) 6px 12px)" } : {}),
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
@@ -1221,13 +1238,13 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
         <p className="flex h-full items-center gap-1 truncate text-[11px] font-extrabold">
           {/* Carte étroite : le nom d'abord, l'heure se lit sur la grille. */}
           <span className="hidden font-black tabular-nums @min-[5.5rem]:inline">{event.start}</span>
-          <span className="truncate">{name}</span>
+          {nameNode}
         </p>
       ) : size === "medium" ? (
         <div className={visualHeight >= STACKED_EVENT_HEIGHT ? "" : "flex items-baseline gap-1.5"}>
           <p className={`text-[11px] font-black tabular-nums ${visualHeight >= STACKED_EVENT_HEIGHT ? "hidden @min-[3rem]:block" : "hidden @min-[5.5rem]:block"}`}>{event.start}</p>
           <p className="flex items-center gap-1 truncate text-xs font-extrabold">
-            <span className="truncate">{name}</span>
+            {nameNode}
             {event.visit ? <VisitBadge visit={event.visit} /> : null}
           </p>
         </div>
@@ -1242,7 +1259,7 @@ function CalendarEventCard({ event, startHour, plannerHeight, pxPerMinute, colum
             <ModeIcon aria-hidden="true" className="hidden h-3.5 w-3.5 shrink-0 @min-[4.5rem]:block" strokeWidth={2.25} />
           </div>
           <p className="mt-0.5 flex items-center gap-1 truncate text-xs font-extrabold">
-            <span className="truncate">{name}</span>
+            {nameNode}
             {event.visit ? <VisitBadge visit={event.visit} /> : null}
           </p>
           {/* Sans opacité sur ces lignes : appliquée à un texte de 10 px sur

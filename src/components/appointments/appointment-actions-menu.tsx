@@ -45,7 +45,8 @@ type MenuEntry = {
  * fiche : un rendez-vous peut avoir été saisi avec un simple nom.
  */
 const entries: MenuEntry[] = [
-  { action: "confirm", label: "Accepter la demande", icon: CalendarCheck, available: (appointment) => appointment.status === "pending" },
+  // Plusieurs horaires proposés (C8) : on en retient un dans la fiche, pas d'acceptation d'un bloc.
+  { action: "confirm", label: "Accepter la demande", icon: CalendarCheck, available: (appointment) => appointment.status === "pending" && (appointment.slotOptions?.length ?? 0) <= 1 },
   { action: "reschedule", label: "Proposer un autre horaire", icon: CalendarClock, available: (appointment) => appointment.status === "pending" },
   { action: "edit", label: "Modifier", icon: Pencil, available: (appointment) => appointment.status !== "pending" },
   { action: "complete", label: "Marquer comme terminé", icon: CheckCircle, available: (appointment) => appointment.status === "confirmed" },

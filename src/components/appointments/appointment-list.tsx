@@ -1,5 +1,6 @@
 "use client";
 
+import { hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import { Building2, Car, CalendarClock, CalendarDays, Check, X } from "lucide-react";
 import { appointmentStatusLabels, type Appointment } from "@/data/appointments";
 import { statusTone } from "@/components/appointments/appointment-status";
@@ -102,7 +103,9 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
           refuser — sans passer par le menu. */}
       {appointment.status === "pending" ? (
         <div className="flex shrink-0 items-center gap-1">
-          <QuickAction label={`Accepter la demande de ${appointment.animalName}`} title="Accepter" icon={Check} tone="bg-animeo text-white hover:bg-animeo-hover" onClick={() => onAction("confirm")} />
+          {hasSlotOptions(appointment)
+            ? <span className="rounded-full bg-animeo-warning-soft px-2 py-1 text-[11px] font-black text-animeo-warning" title="Ouvrez la demande pour retenir un horaire">{appointment.slotOptions?.length} horaires</span>
+            : <QuickAction label={`Accepter la demande de ${appointment.animalName}`} title="Accepter" icon={Check} tone="bg-animeo text-white hover:bg-animeo-hover" onClick={() => onAction("confirm")} />}
           <QuickAction label={`Proposer un autre horaire à ${appointment.clientName}`} title="Décaler" icon={CalendarClock} tone="border border-animeo-border bg-white text-animeo-dark hover:border-animeo" onClick={() => onAction("reschedule")} />
           <QuickAction label={`Refuser la demande de ${appointment.animalName}`} title="Refuser" icon={X} tone="bg-animeo-danger-soft text-animeo-danger hover:bg-animeo-danger-soft/70" onClick={() => onAction("decline")} />
         </div>

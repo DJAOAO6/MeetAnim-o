@@ -1,5 +1,6 @@
 "use server";
 
+import { parisWallTimeToDate } from "@/lib/paris-time";
 import { randomUUID } from "node:crypto";
 import { MAX_VISIT_ANIMALS, visitSummary } from "@/lib/visit-group";
 import { requestedSlots } from "@/lib/slot-requests";
@@ -191,6 +192,25 @@ async function appointmentConflictIn(db: AppointmentReader, dateId: string, star
   const excluded = Array.isArray(excludeId) ? excludeId : excludeId ? [excludeId] : [];
   const options = await pendingOptionsOn(db, toDate(dateId), excluded);
   return options.some((option) => conflictsWith(candidate, { start: timeToMinutes(option.start), duration: option.appointment.duration, mode: option.appointment.mode }, buffers));
+}
+
+/**
+ * Le créneau est-il retenu en option par une demande en attente ? Renvoie le
+ * nom du client de cette demande : le professionnel qui pose lui-même un
+ * rendez-vous dessus doit savoir à quelle demande répondre d'abord.
+ */
+async function optionHolderOn(db: ScopedPrismaClient, dateId: string, start: string, duration: number, mode: BufferedMode, buffers: AppointmentBuffers, excludeAppointmentIds: string[] = []): Promise<string | null> {
+  const options = await db.appointmentSlotOption.findMany({
+    where: { date: toDate(dateId), appointment: { status: "PENDING", ...(excludeAppointmentIds.length > 0 ? { id: { notIn: excludeAppointmentIds } } : {}) } },
+    select: { start: true, appointment: { select: { duration: true, mode: true, clientName: true } } },
+  });
+  const candidate = { start: timeToMinutes(start), duration, mode };
+  const held = options.find((option) => conflictsWith(candidate, { start: timeToMinutes(option.start), duration: option.appointment.duration, mode: option.appointment.mode }, buffers));
+  return held ? held.appointment.clientName : null;
+}
+
+function optionHeldError(clientName: string): string {
+  return `Ce créneau est réservé en option par la demande de ${clientName} — répondez-y d’abord.`;
 }
 
 /**
@@ -411,6 +431,9 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   const leavesCompleted = existing?.status === "COMPLETED" && input.status !== "completed";
 
   const visitGroupId = input.detachFromVisit ? null : existing?.visitGroupId;
+  // Un horaire retenu en option par une demande en attente (C8) : refus qui la nomme.
+  const optionHolder = await optionHolderOn(db, input.date, input.start, input.duration, input.mode, await getAvailability(db), input.id ? [input.id] : []);
+  if (optionHolder) return { ok: false, error: optionHeldError(optionHolder) };
   if (await hasConflict(db, input.date, input.start, input.duration, input.mode, input.id, visitGroupId)) {
     return { ok: false, error: "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure." };
   }
@@ -459,6 +482,9 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
       // Réalisé : sa consultation ; plus réalisé (client absent) : elle est retirée.
       if (entersCompleted) await ensureConsultation(tx, written.id);
       if (leavesCompleted) await undoCompletion(tx, written.id);
+      // Une demande à plusieurs horaires reprise à la main : le professionnel
+      // a fixé l'horaire lui-même, ses options se libèrent.
+      if (existing?.status === "PENDING") await tx.appointmentSlotOption.deleteMany({ where: { appointmentId: written.id } });
       return written;
     });
   } catch (error) {
@@ -560,7 +586,10 @@ export async function saveAppointmentsBatchAction(input: SaveVisitInput): Promis
     : "Ce créneau chevauche un autre rendez-vous (cabinet ou domicile). Choisissez une autre heure.";
 
   // Hors verrou d'abord (agendas externes compris), comme pour un rendez-vous seul.
+  const visitBuffers = await getAvailability(db);
   for (const item of planned) {
+    const optionHolder = await optionHolderOn(db, input.date, item.start, item.duration, input.mode, visitBuffers);
+    if (optionHolder) return { ok: false, error: optionHeldError(optionHolder) };
     if (await hasConflict(db, input.date, item.start, item.duration, input.mode, undefined, visitGroupId)) return { ok: false, error: conflictMessage(item) };
   }
 
@@ -643,6 +672,84 @@ function visitEmailSnapshot(members: Awaited<ReturnType<typeof visitMembers>>): 
   const summary = visitSummary(members);
   const first = members[0];
   return { id: summary.id, date: toAppointment(first).date, start: summary.start, duration: summary.duration, mode: modeLabel[first.mode], location: first.location, animalName: summary.animalName, serviceName: summary.serviceName, animalCount: summary.animalCount };
+}
+
+export type RequestOptionState = "available" | "taken" | "past" | "outside-hours";
+export type RequestOptionStatus = { id: string; date: string; start: string; rank: number; state: RequestOptionState };
+
+/**
+ * Où en est chaque horaire proposé par une demande (chantier C8) : libre,
+ * pris depuis par un autre rendez-vous, passé, ou hors des horaires du
+ * cabinet (ce qui n'empêche pas de le retenir : le professionnel décide).
+ */
+export async function getRequestOptionsAction(appointmentId: string): Promise<RequestOptionStatus[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const db = await currentDb();
+  const request = await db.appointment.findUnique({ where: { id: appointmentId }, include: { slotOptions: { orderBy: { rank: "asc" } } } });
+  if (!request || request.status !== "PENDING") return [];
+  const availability = await getAvailability(db);
+  const now = Date.now();
+  const statuses: RequestOptionStatus[] = [];
+  for (const option of request.slotOptions) {
+    const date = option.date.toISOString().slice(0, 10);
+    let state: RequestOptionState = "available";
+    if (parisWallTimeToDate(date, option.start).getTime() <= now) state = "past";
+    else if (await hasConflict(db, date, option.start, request.duration, request.mode, appointmentId)) state = "taken";
+    else if (!fitsWithinOpenHours(getDayAvailability(parseDateIdToLocalNoon(date), availability).intervals, modeLabel[request.mode], timeToMinutes(option.start), request.duration)) state = "outside-hours";
+    statuses.push({ id: option.id, date, start: option.start, rank: option.rank, state });
+  }
+  return statuses;
+}
+
+/**
+ * Le professionnel retient l'un des horaires proposés : la demande devient
+ * un rendez-vous confirmé à cet horaire, et tous ses horaires en option se
+ * libèrent aussitôt. Revérifié sous verrou : un autre rendez-vous a pu être
+ * posé entre-temps.
+ */
+export async function confirmRequestSlotAction(appointmentId: string, optionId: string): Promise<AppointmentActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
+  const db = await currentDb();
+
+  const request = await db.appointment.findUnique({ where: { id: appointmentId }, include: { slotOptions: true } });
+  if (!request) return { ok: false, error: "Cette demande n'existe plus." };
+  if (request.status !== "PENDING") return { ok: false, error: "Cette demande a déjà reçu une réponse." };
+  const option = request.slotOptions.find((item) => item.id === optionId);
+  if (!option) return { ok: false, error: "Cet horaire n’est plus proposé." };
+
+  const dateId = option.date.toISOString().slice(0, 10);
+  const taken = "Cet horaire vient d’être pris par un autre rendez-vous : retenez-en un autre.";
+  if (parisWallTimeToDate(dateId, option.start).getTime() <= Date.now()) return { ok: false, error: "Cet horaire est passé : retenez-en un autre." };
+  if (await hasConflict(db, dateId, option.start, request.duration, request.mode, appointmentId)) return { ok: false, error: taken };
+
+  const buffers = await getAvailability(db);
+  const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
+  let row;
+  try {
+    row = await db.$transaction(async (tx) => {
+      for (const day of [...new Set([dateId, request.date.toISOString().slice(0, 10)])].sort()) await lockDay(tx, organizationIdOf(db), day);
+      if (await appointmentConflictIn(tx, dateId, option.start, request.duration, request.mode, buffers, appointmentId)) return null;
+      // Toutes les options, la retenue comprise : les autres créneaux se libèrent.
+      await tx.appointmentSlotOption.deleteMany({ where: { appointmentId } });
+      return tx.appointment.update({ where: { id: appointmentId }, data: { date: option.date, start: option.start, status: "CONFIRMED", reminderSentAt: null }, include });
+    });
+  } catch (error) {
+    if (isSlotUniqueConstraintError(error)) return { ok: false, error: taken };
+    throw error;
+  }
+  if (!row) return { ok: false, error: taken };
+
+  await logAudit({ userId: user.id, action: "APPOINTMENT_STATUS_CHANGED", entityType: "Appointment", entityId: appointmentId, metadata: { status: "confirmed", chosenRank: option.rank, proposed: request.slotOptions.length } });
+  revalidatePath("/dashboard");
+
+  // Confirmation au client, avec l'événement d'agenda de l'horaire retenu.
+  const snapshot: AppointmentEmailSnapshot = { id: row.id, date: toAppointment(row).date, start: row.start, duration: row.duration, mode: modeLabel[row.mode], location: row.location, animalName: row.animalName, serviceName: row.serviceName };
+  await notifyAppointmentChange(db, request.clientId, "pending", "confirmed", false, snapshot);
+  after(() => syncAppointmentToCalendars(row.organizationId, row.id, "upsert").catch(() => {}));
+
+  return { ok: true, appointment: toAppointment(row) };
 }
 
 export type VisitActionResult = { ok: true; appointments: Appointment[] } | { ok: false; error: string };
@@ -766,6 +873,13 @@ export async function updateAppointmentStatusAction(id: string, status: Appointm
   }
 
   const include = { animal: { select: { species: true } }, client: { select: { phone: true } } } as const;
+  if (current.status === "PENDING") {
+    const options = await db.appointmentSlotOption.count({ where: { appointmentId: id } });
+    // Plusieurs horaires proposés : « accepter » ne dit pas lequel.
+    if (status === "confirmed" && options > 1) return { ok: false, error: "Cette demande propose plusieurs horaires : retenez celui qui vous convient." };
+    // Refusée : ses horaires se libèrent.
+    if (status === "cancelled" && options > 0) await db.appointmentSlotOption.deleteMany({ where: { appointmentId: id } });
+  }
   let row;
   let consultationRemoved = false;
   if (status === "completed") {

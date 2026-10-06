@@ -237,13 +237,24 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                           </button>
                         </div>
                         <div className="flex items-center gap-1.5 px-3 pb-2.5 pl-8">
-                          <button
-                            type="button"
-                            onClick={() => respondToRequest(appointment, "confirmed")}
-                            className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover"
-                          >
-                            Valider
-                          </button>
+                          {(appointment.slotOptions?.length ?? 0) > 1 ? (
+                            // Plusieurs horaires proposés (C8) : le choix se fait dans la demande.
+                            <button
+                              type="button"
+                              onClick={() => { markRead(key); close(); openManager(appointment.id); }}
+                              className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover"
+                            >
+                              Choisir l’horaire
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => respondToRequest(appointment, "confirmed")}
+                              className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover"
+                            >
+                              Valider
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => respondToRequest(appointment, "cancelled")}

@@ -1,0 +1,94 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAppointments } from "@/components/appointments/appointments-context";
+import { getRequestOptionsAction, type RequestOptionState } from "@/lib/appointments-actions";
+import { choiceRankLabel } from "@/lib/slot-requests";
+import { notify } from "@/lib/notify";
+import type { Appointment } from "@/data/appointments";
+
+/**
+ * Demande à plusieurs horaires (chantier C8) : ceux que le client propose,
+ * par ordre de préférence, chacun avec « Retenir cet horaire ». Il n'y a pas
+ * de bouton « Accepter » pour ces demandes : il ne dirait pas lequel.
+ *
+ * Chaque horaire est revérifié à l'affichage (pris depuis, passé, hors des
+ * horaires du cabinet) ; le serveur revérifie de toute façon au moment de
+ * retenir.
+ */
+
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+
+const STATE_NOTES: Record<RequestOptionState, string | null> = {
+  available: null,
+  taken: "Pris depuis par un autre rendez-vous",
+  past: "Horaire passé",
+  "outside-hours": "Hors de vos horaires",
+};
+
+/** La demande propose-t-elle plusieurs horaires ? */
+export function hasSlotOptions(appointment: Pick<Appointment, "status" | "slotOptions">): boolean {
+  return appointment.status === "pending" && (appointment.slotOptions?.length ?? 0) > 1;
+}
+
+export function RequestSlotChoices({ appointment, onConfirmed, compact = false }: { appointment: Appointment; onConfirmed?: () => void; compact?: boolean }) {
+  const { confirmRequestSlot } = useAppointments();
+  const [states, setStates] = useState<Record<string, RequestOptionState>>({});
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const options = appointment.slotOptions ?? [];
+
+  useEffect(() => {
+    let cancelled = false;
+    getRequestOptionsAction(appointment.id)
+      .then((rows) => { if (!cancelled) setStates(Object.fromEntries(rows.map((row) => [row.id, row.state]))); })
+      .catch(() => { /* Sans vérification préalable, le serveur tranchera au clic. */ });
+    return () => { cancelled = true; };
+  }, [appointment.id]);
+
+  async function retain(optionId: string, label: string) {
+    setPendingId(optionId);
+    const result = await confirmRequestSlot(appointment.id, optionId);
+    setPendingId(null);
+    if (!result.ok) {
+      notify.error(result.error ?? "Une erreur est survenue.");
+      // L'état des horaires a pu changer : on le relit.
+      getRequestOptionsAction(appointment.id).then((rows) => setStates(Object.fromEntries(rows.map((row) => [row.id, row.state])))).catch(() => {});
+      return;
+    }
+    notify.success(`Rendez-vous de ${appointment.animalName} confirmé : ${label}. Les autres horaires sont de nouveau libres.`);
+    onConfirmed?.();
+  }
+
+  if (options.length === 0) return null;
+
+  return (
+    <section aria-label={`Horaires proposés pour ${appointment.animalName}`} className={compact ? "" : "rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft/60 p-3"}>
+      <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{options.length} horaires proposés — retenez-en un</p>
+      <ol className="mt-2 grid gap-2">
+        {options.map((option) => {
+          const day = dateFormatter.format(new Date(`${option.date}T12:00:00`));
+          const label = `${day.charAt(0).toLocaleUpperCase("fr-FR")}${day.slice(1)} à ${option.start}`;
+          const state = states[option.id] ?? "available";
+          const blocked = state === "taken" || state === "past";
+          return (
+            <li key={option.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2">
+              <span className="min-w-0 text-sm text-animeo-dark">
+                <strong className="font-extrabold">{choiceRankLabel(option.rank)}</strong> · {label}
+                {STATE_NOTES[state] ? <span className={`mt-0.5 block text-xs font-bold ${blocked ? "text-animeo-danger" : "text-animeo-warning"}`}>{STATE_NOTES[state]}</span> : null}
+              </span>
+              <button
+                type="button"
+                onClick={() => retain(option.id, label)}
+                disabled={blocked || pendingId !== null}
+                aria-label={`Retenir le ${choiceRankLabel(option.rank)} : ${label}`}
+                className="min-h-9 shrink-0 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pendingId === option.id ? "Confirmation…" : "Retenir cet horaire"}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}

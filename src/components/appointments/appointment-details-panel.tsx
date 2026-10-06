@@ -1,5 +1,6 @@
 "use client";
 
+import { RequestSlotChoices, hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import Link from "next/link";
 import { Building2, CalendarClock, Car, Check, CheckCircle, Clock, FileText, MapPin, HandHeart, Navigation, PawPrint, Pencil, Phone, User, X } from "lucide-react";
 import type { AppointmentAction } from "@/components/appointments/appointment-actions-menu";
@@ -131,12 +132,16 @@ export function AppointmentDetailsPanel({ appointment, onEdit, onAction, actions
       </div>
 
       <div className="grid shrink-0 gap-2 border-t border-animeo-border-soft p-4">
+        {hasSlotOptions(appointment) ? <RequestSlotChoices appointment={appointment} /> : null}
         {appointment.status === "pending" && onAction ? (
-          <div className="grid grid-cols-3 gap-2">
-            <Button type="button" onClick={() => onAction("confirm")}>
-              <Check aria-hidden="true" className="h-4 w-4" />
-              Accepter
-            </Button>
+          <div className={`grid gap-2 ${hasSlotOptions(appointment) ? "grid-cols-2" : "grid-cols-3"}`}>
+            {/* Pas d'« Accepter » quand plusieurs horaires sont proposés : il ne dirait pas lequel. */}
+            {hasSlotOptions(appointment) ? null : (
+              <Button type="button" onClick={() => onAction("confirm")}>
+                <Check aria-hidden="true" className="h-4 w-4" />
+                Accepter
+              </Button>
+            )}
             <Button type="button" variant="secondary" onClick={() => onAction("reschedule")}>
               <CalendarClock aria-hidden="true" className="h-4 w-4" />
               Décaler
