@@ -1,5 +1,6 @@
 "use client";
 
+import { choiceRankLabel, type SlotChoice } from "@/lib/slot-requests";
 import { useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicBookingRequest, PublicProfessional, PublicService } from "@/data/public-booking";
@@ -13,6 +14,8 @@ type BookingSummaryProps = {
   address: BookingAddress;
   dateId: string;
   time: string;
+  /** Plusieurs horaires proposés (C8), par ordre de préférence. */
+  choices?: SlotChoice[];
   owner: OwnerInformation;
   animal: AnimalInformation;
   consultationPrice: number;
@@ -29,7 +32,7 @@ function addMinutes(time: string, minutes: number) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-export function BookingSummary({ professional, mode, service, address, dateId, time, owner, animal, consultationPrice, travelFee, submitting = false, submitError, onBack, onSubmit }: BookingSummaryProps) {
+export function BookingSummary({ professional, mode, service, address, dateId, time, choices, owner, animal, consultationPrice, travelFee, submitting = false, submitError, onBack, onSubmit }: BookingSummaryProps) {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const date = formatBookingDateLabels(dateId);
 
@@ -51,8 +54,16 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
         <div className="grid gap-0 bg-white sm:grid-cols-2">
           <SummarySection title="Date et lieu">
             <SummaryLine label="Mode" value={mode === "CABINET" ? "Au cabinet" : "À domicile"} />
-            <SummaryLine label="Date" value={date.fullLabel} />
-            <SummaryLine label="Horaire" value={`${time} – ${addMinutes(time, service.duration)}`} />
+            {choices && choices.length > 1 ? (
+              choices.map((choice, index) => (
+                <SummaryLine key={`${choice.date}-${choice.time}`} label={choiceRankLabel(index + 1)} value={`${formatBookingDateLabels(choice.date).fullLabel} · ${choice.time} – ${addMinutes(choice.time, service.duration)}`} />
+              ))
+            ) : (
+              <>
+                <SummaryLine label="Date" value={date.fullLabel} />
+                <SummaryLine label="Horaire" value={`${time} – ${addMinutes(time, service.duration)}`} />
+              </>
+            )}
             <div className="mt-3 rounded-xl bg-animeo-bg p-3 text-sm font-bold leading-5 text-animeo-dark">
               {mode === "HOME" ? <>{address.address}{address.addressExtra ? <><br />{address.addressExtra}</> : null}<br />{address.postalCode} {address.city}</> : <>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>}
             </div>
@@ -85,7 +96,11 @@ export function BookingSummary({ professional, mode, service, address, dateId, t
           </a>
         </span>
       </label>
-      <p className="mt-3 rounded-2xl bg-animeo-warning-soft p-3 text-sm font-bold text-animeo-warning">Cette demande sera envoyée en attente de validation par {professional.firstName}.</p>
+      <p className="mt-3 rounded-2xl bg-animeo-warning-soft p-3 text-sm font-bold text-animeo-warning">
+        {choices && choices.length > 1
+          ? `${professional.firstName} retiendra l’un de ces ${choices.length} horaires ; ils restent réservés pour vous jusque-là.`
+          : `Cette demande sera envoyée en attente de validation par ${professional.firstName}.`}
+      </p>
       {submitError ? <p role="alert" aria-live="polite" className="mt-3 rounded-2xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">{submitError} Revenez à l’étape précédente pour choisir un autre horaire.</p> : null}
       <BookingActions onBack={onBack} nextLabel={submitting ? "Réservation en cours…" : "Réserver mon rendez-vous"} nextDisabled={!privacyAccepted} loading={submitting} />
     </form>
@@ -132,6 +147,8 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
   // calendrier) — voir client-calendar-links.ts.
   const googleCalendarHref = buildGoogleCalendarLink(calendarLinkInput);
   const outlookCalendarHref = buildOutlookCalendarLink(calendarLinkInput);
+  // Plusieurs horaires (C8) : rien à ajouter à l'agenda tant qu'aucun n'est retenu.
+  const proposed = request.slots && request.slots.length > 1 ? request.slots : null;
 
   return (
     <div role="status" aria-live="polite" className="py-4 text-center sm:py-8">
@@ -142,11 +159,22 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
 
       <div className="mx-auto mt-6 max-w-md rounded-[18px] bg-animeo-soft p-5 text-left">
         <p className="text-lg font-black text-animeo-dark">{request.animal.name} · {service.name}</p>
-        <p className="mt-2 text-sm font-extrabold text-animeo-dark">{date.fullLabel} à {request.time}</p>
+        {proposed ? (
+          <>
+            <p className="mt-2 text-sm text-animeo-dark">Votre demande porte sur {proposed.length} horaires. Vous recevrez un email dès que {professional.firstName} en aura retenu un.</p>
+            <ol className="mt-2 space-y-1">
+              {proposed.map((choice, index) => (
+                <li key={`${choice.date}-${choice.time}`} className="text-sm font-extrabold text-animeo-dark">{choiceRankLabel(index + 1)} · {formatBookingDateLabels(choice.date).fullLabel} à {choice.time}</li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <p className="mt-2 text-sm font-extrabold text-animeo-dark">{date.fullLabel} à {request.time}</p>
+        )}
         <p className="mt-1 text-sm text-animeo-muted">{request.mode === "CABINET" ? "Au cabinet" : "À domicile"}{lieu ? ` · ${lieu}` : ""}</p>
       </div>
 
-      <div className="mt-7">
+      {proposed ? null : <div className="mt-7">
         <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Ajouter à mon agenda</p>
         <div className="flex flex-wrap items-center justify-center gap-2.5">
           <a
@@ -176,7 +204,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
             Outlook
           </a>
         </div>
-      </div>
+      </div>}
 
       <button type="button" onClick={onReset} className="mt-5 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-animeo-hover focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
     </div>

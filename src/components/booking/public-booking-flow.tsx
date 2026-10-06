@@ -1,5 +1,6 @@
 "use client";
 
+import type { SlotChoice } from "@/lib/slot-requests";
 import { useEffect, useRef, useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
@@ -42,6 +43,9 @@ type PersistedBookingState = {
   zoneId: string | null;
   dateId: string | null;
   time: string | null;
+  /** Plusieurs horaires proposés (C8). Absents des sessions plus anciennes. */
+  multiSlot?: boolean;
+  slotChoices?: SlotChoice[];
   owner: OwnerInformation;
   animal: AnimalInformation;
   bookingStartedAt: number;
@@ -101,6 +105,10 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
   const [zoneId, setZoneId] = useState<string | null>(null);
   const [dateId, setDateId] = useState<string | null>(null);
   const [time, setTime] = useState<string | null>(null);
+  // « Je suis disponible à plusieurs horaires » (C8) : les horaires proposés,
+  // par ordre de préférence. Le premier devient date/heure en quittant l'étape.
+  const [multiSlot, setMultiSlot] = useState(false);
+  const [slotChoices, setSlotChoices] = useState<SlotChoice[]>([]);
   const [owner, setOwner] = useState<OwnerInformation>(emptyOwner);
   const [animal, setAnimal] = useState<AnimalInformation>(emptyAnimal);
   const [request, setRequest] = useState<PublicBookingRequest | null>(null);
@@ -145,6 +153,8 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
         setZoneId(saved.zoneId);
         setDateId(saved.dateId);
         setTime(saved.time);
+        setMultiSlot(saved.multiSlot ?? false);
+        setSlotChoices(saved.slotChoices ?? []);
         setOwner(saved.owner);
         setAnimal(saved.animal);
         setBookingStartedAt(saved.bookingStartedAt);
@@ -166,8 +176,8 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
       clearPersistedBooking(professional.slug);
       return;
     }
-    savePersistedBooking(professional.slug, { screen, mode, serviceId, address, zoneId, dateId, time, owner, animal, bookingStartedAt });
-  }, [restored, professional.slug, screen, mode, serviceId, address, zoneId, dateId, time, owner, animal, bookingStartedAt]);
+    savePersistedBooking(professional.slug, { screen, mode, serviceId, address, zoneId, dateId, time, multiSlot, slotChoices, owner, animal, bookingStartedAt });
+  }, [restored, professional.slug, screen, mode, serviceId, address, zoneId, dateId, time, multiSlot, slotChoices, owner, animal, bookingStartedAt]);
 
   // Une entrée d'historique par étape (corrige le P0 "le bouton Retour du
   // navigateur quitte la page") : chaque changement d'écran qui ne vient pas
@@ -250,6 +260,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     : 0;
 
   function resetBooking() {
+    setMultiSlot(false);
     setScreen("consultation");
     setMode(null);
     setServiceId(null);
@@ -257,6 +268,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     setZoneId(null);
     setDateId(null);
     setTime(null);
+    setSlotChoices([]);
     setOwner(emptyOwner);
     setAnimal(emptyAnimal);
     setRequest(null);
@@ -277,6 +289,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     setZoneId(null);
     setDateId(null);
     setTime(null);
+    setSlotChoices([]);
   }
 
   function changeMode(nextMode: BookingMode) {
@@ -292,6 +305,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     setZoneId(null);
     setDateId(null);
     setTime(null);
+    setSlotChoices([]);
   }
 
   function changeAddress(value: BookingAddress) {
@@ -313,10 +327,12 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     const homeLocation = [address.address, address.addressExtra].filter(Boolean).join(" ")
       + (address.postalCode || address.city ? `, ${[address.postalCode, address.city].filter(Boolean).join(" ")}` : "");
 
+    const proposedSlots = multiSlot && slotChoices.length > 1 ? slotChoices : null;
     const result = await submitPublicBookingAction(professional.slug, {
       serviceId: service.id,
       date: dateId,
       start: time,
+      slots: proposedSlots ? proposedSlots.map((choice) => ({ date: choice.date, start: choice.time })) : undefined,
       clientName: `${owner.firstName} ${owner.lastName}`.trim(),
       animalName: animal.name,
       mode: mode === "CABINET" ? "cabinet" : "home",
@@ -357,6 +373,7 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
       zoneId: mode === "HOME" ? zoneId ?? undefined : undefined,
       date: dateId,
       time,
+      slots: proposedSlots ?? undefined,
       owner,
       animal,
       consultationPrice,
@@ -441,12 +458,30 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
               time={time}
               onDateChange={(value) => { setDateId(value); setTime(null); }}
               onTimeChange={setTime}
+              allowMultiple={professional.allowMultipleSlots ?? false}
+              multiple={multiSlot}
+              choices={slotChoices}
+              onChoicesChange={setSlotChoices}
+              onMultipleChange={(on) => {
+                setMultiSlot(on);
+                if (on) setSlotChoices(dateId && time ? [{ date: dateId, time }] : []);
+                else {
+                  // Retour au parcours d'un seul horaire : le premier choix le reste.
+                  const first = slotChoices[0];
+                  if (first) { setDateId(first.date); setTime(first.time); }
+                  setSlotChoices([]);
+                }
+              }}
               // Au cabinet, le calendrier reste strictement celui d'avant :
               // les tournées n'y changent rien.
               tourWeekdays={mode === "HOME" ? scheduleZone?.tourDays ?? [] : []}
               tourZoneName={scheduleZone?.name ?? null}
               onBack={goToPreviousScreen}
-              onNext={() => setScreen("details")}
+              onNext={() => {
+                // Plusieurs horaires : le premier choix porte la demande.
+                if (multiSlot && slotChoices[0]) { setDateId(slotChoices[0].date); setTime(slotChoices[0].time); }
+                setScreen("details");
+              }}
             />
           ) : null}
           {screen === "details" && mode && service && dateId && time ? (
@@ -463,13 +498,18 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
               zoneId={zoneId}
               onZoneChange={setZoneId}
               onSlotChange={(nextDateId, nextTime) => { setDateId(nextDateId); setTime(nextTime); }}
+              choices={multiSlot ? slotChoices : undefined}
+              onChoicesChange={(next) => {
+                setSlotChoices(next);
+                if (next[0]) { setDateId(next[0].date); setTime(next[0].time); }
+              }}
               animal={animal}
               onAnimalChange={setAnimal}
               onBack={goToPreviousScreen}
               onNext={() => setScreen("summary")}
             />
           ) : null}
-          {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} submitting={submitting} submitError={submitError} onBack={goToPreviousScreen} onSubmit={submitRequest} /> : null}
+          {screen === "summary" && mode && service && dateId && time ? <BookingSummary professional={professional} mode={mode} service={service} address={address} dateId={dateId} time={time} choices={multiSlot && slotChoices.length > 1 ? slotChoices : undefined} owner={owner} animal={animal} consultationPrice={consultationPrice} travelFee={travelFee} submitting={submitting} submitError={submitError} onBack={goToPreviousScreen} onSubmit={submitRequest} /> : null}
           {screen === "success" && request && service ? <BookingSuccess professional={professional} request={request} service={service} onReset={resetBooking} /> : null}
         </section>
           </div>

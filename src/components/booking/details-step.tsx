@@ -1,5 +1,6 @@
 "use client";
 
+import type { SlotChoice } from "@/lib/slot-requests";
 import { outsideServiceArea, outsideServiceAreaMessage } from "@/lib/service-area";
 import { useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent } from "react";
 import { BirthDatePicker } from "@/components/booking/birth-date-picker";
@@ -74,6 +75,9 @@ type DetailsStepProps = {
   service: PublicService;
   dateId: string;
   time: string;
+  /** Plusieurs horaires proposés (C8) : tous revérifiés avant de continuer. */
+  choices?: SlotChoice[];
+  onChoicesChange?: (choices: SlotChoice[]) => void;
   owner: OwnerInformation;
   onOwnerChange: (value: OwnerInformation) => void;
   address: BookingAddress;
@@ -91,7 +95,7 @@ type DetailsStepProps = {
   onNext: () => void;
 };
 
-export function DetailsStep({ professional, mode, service, dateId, time, owner, onOwnerChange, address, onAddressChange, zoneId, onZoneChange, onSlotChange, animal, onAnimalChange, onBack, onNext }: DetailsStepProps) {
+export function DetailsStep({ professional, mode, service, dateId, time, choices, onChoicesChange, owner, onOwnerChange, address, onAddressChange, zoneId, onZoneChange, onSlotChange, animal, onAnimalChange, onBack, onNext }: DetailsStepProps) {
   /**
    * Passage retenu, et zone dans laquelle il l'a été.
    *
@@ -293,6 +297,19 @@ export function DetailsStep({ professional, mode, service, dateId, time, owner, 
     setRevalidationError(null);
     setRevalidating(true);
     try {
+      if (choices && choices.length > 1) {
+        // Plusieurs horaires : celui qui vient d'être pris est retiré de la liste.
+        const dates = choices.map((choice) => choice.date).sort();
+        const fresh = await getOccupiedSlotsAction(professional.slug, dates[0], dates[dates.length - 1]);
+        const taken = choices.filter((choice) => !isSlotFree({ start: timeToMinutes(choice.time), duration: service.duration, mode }, fresh.byDate[choice.date] ?? [], fresh.buffers));
+        if (taken.length > 0) {
+          onChoicesChange?.(choices.filter((choice) => !taken.includes(choice)));
+          setRevalidationError(`${taken.map((choice) => `L’horaire du ${formatBookingDateLabels(choice.date).fullLabel.toLocaleLowerCase("fr-FR")} à ${choice.time}`).join(" et ")} vient d’être réservé : retiré de vos choix. Revenez à l’étape précédente pour en choisir un autre.`);
+          return;
+        }
+        onNext();
+        return;
+      }
       const freshOccupied = await getOccupiedSlotsAction(professional.slug, dateId, dateId);
       const stillFree = isSlotFree({ start: timeToMinutes(time), duration: service.duration, mode }, freshOccupied.byDate[dateId] ?? [], freshOccupied.buffers);
       if (!stillFree) {

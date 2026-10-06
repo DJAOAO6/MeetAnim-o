@@ -1,5 +1,6 @@
 "use client";
 
+import { MAX_SLOT_CHOICES, MIN_SLOT_CHOICES, choiceRankLabel, toggleSlotChoice, type SlotChoice } from "@/lib/slot-requests";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import { CalendarMonth, type CalendarDayStatus } from "@/components/booking/calendar-month";
@@ -27,12 +28,30 @@ type ScheduleStepProps = {
   tourZoneName?: string | null;
   onBack: () => void;
   onNext: () => void;
+  /**
+   * Plusieurs horaires (chantier C8) : proposé si le cabinet le permet.
+   * `choices` : les horaires retenus, par ordre de préférence.
+   */
+  allowMultiple?: boolean;
+  multiple?: boolean;
+  choices?: SlotChoice[];
+  onMultipleChange?: (multiple: boolean) => void;
+  onChoicesChange?: (choices: SlotChoice[]) => void;
 };
 
 const periodLabels = { morning: "Matin", afternoon: "Après-midi" } as const;
 const NO_OCCUPIED_SLOTS: OccupiedSlots = { buffers: { travelBuffer: 0, breakAfterAppointment: 0 }, byDate: {} };
 
-export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, onTimeChange, tourWeekdays = [], tourZoneName, onBack, onNext }: ScheduleStepProps) {
+export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, onTimeChange, tourWeekdays = [], tourZoneName, onBack, onNext, allowMultiple = false, multiple = false, choices = [], onMultipleChange, onChoicesChange }: ScheduleStepProps) {
+  const isChosen = (slot: string) => Boolean(dateId) && choices.some((choice) => choice.date === dateId && choice.time === slot);
+  const choicesFull = choices.length >= MAX_SLOT_CHOICES;
+
+  function pickSlot(slot: string) {
+    if (!multiple) { onTimeChange(slot); return; }
+    if (!dateId) return;
+    onChoicesChange?.(toggleSlotChoice(choices, { date: dateId, time: slot }).choices);
+  }
+
   // Comparaison insensible à la casse : le jour d'un motif de tournée est
   // saisi côté professionnel, le libellé d'une date est produit par Intl.
   const tourWeekdaySet = new Set(tourWeekdays.map((day) => day.toLocaleLowerCase("fr-FR")));
@@ -177,6 +196,7 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
   // d'étape est le palliatif minimal explicitement accepté par l'audit).
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (multiple) { await submitChoices(); return; }
     if (!dateId || !time || !selectedDate) return;
     setRevalidationError(null);
     setRevalidating(true);
@@ -192,6 +212,32 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
       onNext();
     } catch {
       setRevalidationError("Impossible de vérifier ce créneau pour le moment. Réessayez.");
+    } finally {
+      setRevalidating(false);
+    }
+  }
+
+  /**
+   * Plusieurs horaires : chacun est revérifié ; celui qui vient d'être pris
+   * est retiré de la liste, avec un message, pour en choisir un autre.
+   */
+  async function submitChoices() {
+    if (choices.length < MIN_SLOT_CHOICES) return;
+    setRevalidationError(null);
+    setRevalidating(true);
+    try {
+      const dates = choices.map((choice) => choice.date).sort();
+      const fresh = await getOccupiedSlotsAction(slug, dates[0], dates[dates.length - 1]);
+      const taken = choices.filter((choice) => !isSlotFree(candidateAt(choice.time), fresh.byDate[choice.date] ?? [], fresh.buffers));
+      if (taken.length > 0) {
+        setOccupiedSlots((current) => ({ buffers: fresh.buffers, byDate: { ...current.byDate, ...fresh.byDate } }));
+        onChoicesChange?.(choices.filter((choice) => !taken.includes(choice)));
+        setRevalidationError(`${taken.map((choice) => `L’horaire du ${formatBookingDateLabels(choice.date).fullLabel.toLocaleLowerCase("fr-FR")} à ${choice.time}`).join(" et ")} vient d’être réservé : retiré de vos choix. Choisissez-en un autre.`);
+        return;
+      }
+      onNext();
+    } catch {
+      setRevalidationError("Impossible de vérifier ces créneaux pour le moment. Réessayez.");
     } finally {
       setRevalidating(false);
     }
@@ -228,6 +274,22 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
               isTourDay={showsTourDays ? isTourDay : undefined}
             />
 
+            {allowMultiple ? (
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-animeo-border p-3.5">
+                <input
+                  type="checkbox"
+                  checked={multiple}
+                  onChange={(event) => onMultipleChange?.(event.target.checked)}
+                  aria-describedby="schedule-multiple-help"
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-animeo-brand"
+                />
+                <span>
+                  <span className="block text-sm font-extrabold text-animeo-dark">Je suis disponible à plusieurs horaires</span>
+                  <span id="schedule-multiple-help" className="mt-0.5 block text-xs leading-5 text-animeo-muted">Choisissez jusqu’à 3 horaires, par ordre de préférence. Le professionnel retiendra celui qui lui convient.</span>
+                </span>
+              </label>
+            ) : null}
+
             {/* Légende : un repère sans légende laisse deviner. Affichée
                 seulement quand il y a quelque chose à expliquer. */}
             {showsTourDays ? (
@@ -263,9 +325,11 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
                             <button
                               key={slot}
                               type="button"
-                              onClick={() => onTimeChange(slot)}
-                              aria-pressed={time === slot}
-                              className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 ${time === slot ? "border-animeo-dark bg-animeo-dark text-white" : "border-animeo-border text-animeo-dark hover:border-animeo-border-strong"}`}
+                              onClick={() => pickSlot(slot)}
+                              aria-pressed={multiple ? isChosen(slot) : time === slot}
+                              // Trois horaires choisis : les autres attendent qu'on en retire un.
+                              disabled={multiple && choicesFull && !isChosen(slot)}
+                              className={`touch-manipulation min-h-12 rounded-2xl border-2 px-4 py-3 font-black transition outline-none focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 ${(multiple ? isChosen(slot) : time === slot) ? "border-animeo-dark bg-animeo-dark text-white" : "border-animeo-border text-animeo-dark hover:border-animeo-border-strong"}`}
                             >
                               {slot}
                             </button>
@@ -290,9 +354,33 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
         </div>
       ) : null}
 
+      {multiple ? (
+        <section aria-label="Vos horaires" className="mt-6 rounded-2xl border border-animeo-border bg-animeo-bg p-4">
+          <p className="text-sm font-black text-animeo-dark">Vos horaires</p>
+          {choices.length === 0 ? (
+            <p className="mt-1 text-sm text-animeo-muted">Choisissez un jour puis une heure : elle s’ajoute ici. Vous pouvez changer de jour entre deux choix.</p>
+          ) : (
+            <ol className="mt-2 grid gap-2">
+              {choices.map((choice, index) => {
+                const label = `${formatBookingDateLabels(choice.date).fullLabel} à ${choice.time}`;
+                return (
+                  <li key={`${choice.date}-${choice.time}`} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                    <span className="text-sm text-animeo-dark"><strong className="font-extrabold">{choiceRankLabel(index + 1)}</strong> · {label}</span>
+                    <button type="button" onClick={() => onChoicesChange?.(choices.filter((_, position) => position !== index))} aria-label={`Retirer le ${choiceRankLabel(index + 1)} : ${label}`} className="min-h-9 shrink-0 rounded-lg px-2.5 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft">Retirer</button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          {/* Trois horaires : les autres créneaux sont désactivés, et on dit pourquoi. */}
+          {choicesFull ? <p role="status" className="mt-2 text-xs font-bold text-animeo-warning">Vous avez choisi 3 horaires : retirez-en un pour en choisir un autre.</p> : null}
+          {choices.length < MIN_SLOT_CHOICES ? <p className="mt-2 text-xs text-animeo-muted">Choisissez au moins 2 horaires — ou décochez la case pour n’en réserver qu’un.</p> : null}
+        </section>
+      ) : null}
+
       {revalidationError ? <p role="alert" aria-live="polite" className="mt-5 rounded-2xl bg-animeo-danger-soft p-3 text-sm font-bold text-animeo-danger">{revalidationError}</p> : null}
       <div ref={actionsRef} className="scroll-mt-6">
-        <BookingActions onBack={onBack} nextDisabled={!dateId || !time} loading={revalidating} />
+        <BookingActions onBack={onBack} nextDisabled={multiple ? choices.length < MIN_SLOT_CHOICES : !dateId || !time} loading={revalidating} />
       </div>
     </form>
   );

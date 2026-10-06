@@ -53,6 +53,8 @@ export type BookingDate = {
 
 export type PublicProfessional = {
   slug: string;
+  /** Le client peut proposer plusieurs horaires (chantier C8). */
+  allowMultipleSlots?: boolean;
   firstName: string;
   lastName: string;
   profession: string;
@@ -154,6 +156,8 @@ export type PublicBookingRequest = {
   zoneId?: string;
   date: string;
   time: string;
+  /** Demande à plusieurs horaires (C8) : ceux proposés, par ordre de préférence. */
+  slots?: Array<{ date: string; time: string }>;
   owner: OwnerInformation;
   animal: AnimalInformation;
   consultationPrice: number;

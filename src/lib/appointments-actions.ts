@@ -2,6 +2,7 @@
 
 import { randomUUID } from "node:crypto";
 import { MAX_VISIT_ANIMALS, visitSummary } from "@/lib/visit-group";
+import { requestedSlots } from "@/lib/slot-requests";
 import { ensureConsultation, markAppointmentCompleted, undoCompletion } from "@/lib/appointment-completion";
 import { rateLimitKey } from "@/lib/privacy";
 import { headers } from "next/headers";
@@ -961,6 +962,11 @@ export async function swapAppointmentTimesAction(appointmentIdA: string, appoint
 }
 
 export type PublicBookingInput = {
+  /**
+   * Demande à plusieurs horaires (chantier C8) : 2 ou 3, par ordre de
+   * préférence, si le cabinet le permet. Le premier est aussi `date`/`start`.
+   */
+  slots?: Array<{ date: string; start: string }>;
   // Référence vers une prestation existante : le prix, la durée et le nom
   // affiché sont toujours relus depuis getPublicServices() côté serveur,
   // jamais acceptés tels quels depuis le client (cf. doc Next.js sur les
@@ -1233,7 +1239,14 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   if (!parsedCore.success) {
     return { ok: false, error: "Demande invalide. Merci de recommencer depuis le début du formulaire." };
   }
-  const core = parsedCore.data;
+  // Un horaire, ou jusqu'à 3 proposés (C8) : le premier tient le rendez-vous
+  // tant que le professionnel n'a pas choisi.
+  const slots = requestedSlots({ date: parsedCore.data.date, start: parsedCore.data.start, slots: input.slots });
+  if (!slots) return { ok: false, error: "Demande invalide. Merci de recommencer depuis le début du formulaire." };
+  const core = { ...parsedCore.data, date: slots[0].date, start: slots[0].start };
+  const multiple = slots.length > 1;
+  const slotLabel = (slot: { date: string; start: string }) => `${formatBookingDateLabels(slot.date).fullLabel} à ${slot.start}`;
+  const unavailable = (slot: { date: string; start: string }, fallback: string) => (multiple ? `L’horaire du ${slotLabel(slot)} n’est plus disponible. Merci d’en choisir un autre.` : fallback);
 
   // Même fenêtre que celle réellement proposée par getPublicScheduleAction
   // (src/lib/public-schedule.ts) : demain (au fuseau du praticien, pas celui
@@ -1244,8 +1257,10 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   const limitDate = parseDateIdToLocalNoon(startId);
   limitDate.setDate(limitDate.getDate() + BOOKING_WINDOW_DAYS - 1);
   const limitId = toLocalDateId(limitDate);
-  if (!isBookingDateAcceptable(core.date, startId, limitId)) {
-    return { ok: false, error: "Cette date n’est plus disponible. Merci de choisir une date à venir." };
+  for (const slot of slots) {
+    if (!isBookingDateAcceptable(slot.date, startId, limitId)) {
+      return { ok: false, error: unavailable(slot, "Cette date n’est plus disponible. Merci de choisir une date à venir.") };
+    }
   }
 
   const services = await getPublicServices(db);
@@ -1277,14 +1292,20 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   // hors créneaux bloqués. La page publique ne propose que ceux-là ; une
   // requête envoyée directement n'y est pas tenue.
   const availability = await getAvailability(db);
-  const { intervals } = getDayAvailability(parseDateIdToLocalNoon(core.date), availability);
-  if (!fitsWithinOpenHours(intervals, core.mode, timeToMinutes(core.start), service.duration)
-    || await blockedSlotConflictIn(db, core.date, core.start, service.duration)) {
-    return { ok: false, error: "Ce créneau n’est pas disponible. Merci d’en choisir un autre." };
+  // Plusieurs horaires seulement si le cabinet l'a permis : une requête
+  // envoyée directement n'y échappe pas.
+  if (multiple && !availability.allowMultipleSlotRequests) {
+    return { ok: false, error: "Ce cabinet ne propose pas de réserver sur plusieurs horaires. Merci de n’en choisir qu’un." };
   }
-
-  if (await hasConflict(db, core.date, core.start, service.duration, core.mode)) {
-    return { ok: false, error: "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre." };
+  for (const slot of slots) {
+    const { intervals } = getDayAvailability(parseDateIdToLocalNoon(slot.date), availability);
+    if (!fitsWithinOpenHours(intervals, core.mode, timeToMinutes(slot.start), service.duration)
+      || await blockedSlotConflictIn(db, slot.date, slot.start, service.duration)) {
+      return { ok: false, error: unavailable(slot, "Ce créneau n’est pas disponible. Merci d’en choisir un autre.") };
+    }
+    if (await hasConflict(db, slot.date, slot.start, service.duration, core.mode)) {
+      return { ok: false, error: unavailable(slot, "Ce créneau vient d’être réservé par quelqu’un d’autre. Merci d’en choisir un autre.") };
+    }
   }
 
   const geoFields = sanitizeGeoFields(input);
@@ -1302,11 +1323,15 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
     // Réservation publique : pas de session, donc pas encore de client
     // cloisonné — le cabinet sera résolu par le slug à la phase 3.
     row = await db.$transaction(async (tx) => {
-      await lockDay(tx, organizationIdOf(db), core.date);
+      // Toutes les journées concernées, toujours dans le même ordre : deux
+      // demandes qui se croisent ne s'attendent jamais l'une l'autre.
+      for (const day of [...new Set(slots.map((slot) => slot.date))].sort()) await lockDay(tx, organizationIdOf(db), day);
       // Rejouée sous verrou : une demande concurrente a pu être enregistrée
       // depuis la vérification du haut (voir withSlotLock).
-      if (await appointmentConflictIn(tx, core.date, core.start, service.duration, core.mode, availability)) return null;
-      return tx.appointment.create({
+      for (const slot of slots) {
+        if (await appointmentConflictIn(tx, slot.date, slot.start, service.duration, core.mode, availability)) return null;
+      }
+      const created = await tx.appointment.create({
       data: {
         clientId,
         animalId,
@@ -1329,6 +1354,13 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
         notes: core.notes,
       },
       });
+      // Les horaires proposés, verrouillés jusqu'au choix du professionnel.
+      if (multiple) {
+        await tx.appointmentSlotOption.createMany({
+          data: slots.map((slot, index) => ({ appointmentId: created.id, date: toDate(slot.date), start: slot.start, rank: index + 1 })),
+        });
+      }
+      return created;
     });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) {
@@ -1374,6 +1406,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
             professionalPhone: professional.phone,
             totalPrice: price,
             reference,
+            ...(multiple ? { slotLabels: slots.map(slotLabel) } : {}),
           }),
           replyTo: professionalReplyTo(professional),
         })
@@ -1395,6 +1428,7 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
         modeLabel: modeLabelText,
         locationLabel,
         notes: core.notes,
+        ...(multiple ? { slotLabels: slots.map(slotLabel) } : {}),
       }),
     }),
   ]);

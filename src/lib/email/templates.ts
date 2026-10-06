@@ -256,6 +256,8 @@ export type BookingRequestClientParams = {
   professionalPhone: string;
   totalPrice: number;
   reference: string;
+  /** Demande à plusieurs horaires (C8) : ceux proposés, par ordre de préférence. */
+  slotLabels?: string[];
 };
 
 /**
@@ -267,6 +269,9 @@ export type BookingRequestClientParams = {
 export function bookingRequestClientTemplate(params: BookingRequestClientParams): EmailContent {
   const { clientFirstName, animalName, serviceName, dateLabel, time, modeLabel, locationLabel, professionalFirstName, professionalCompany, professionalPhone, totalPrice, reference } = params;
   const contact = contactLine(professionalFirstName, professionalPhone);
+  const slots = params.slotLabels && params.slotLabels.length > 1 ? params.slotLabels : null;
+  const slotsText = slots ? slots.map((label, index) => `${index + 1}. ${label}`).join("\n") : "";
+  const slotsNotice = slots ? `Votre demande porte sur ${slots.length} horaires. Vous recevrez un email dès que ${professionalFirstName} en aura retenu un.` : "";
   return {
     subject: `Demande de rendez-vous envoyée à ${professionalCompany}`,
     text: [
@@ -274,8 +279,9 @@ export function bookingRequestClientTemplate(params: BookingRequestClientParams)
       "",
       `Votre demande de rendez-vous pour ${animalName} a bien été envoyée à ${professionalFirstName} (${professionalCompany}). Elle est en attente de validation : vous recevrez un email dès qu'elle sera confirmée.`,
       "",
+      ...(slots ? [slotsNotice, "", "Horaires proposés, par ordre de préférence :", slotsText, ""] : []),
       `Prestation : ${serviceName}`,
-      `Date : ${dateLabel} à ${time}`,
+      ...(slots ? [] : [`Date : ${dateLabel} à ${time}`]),
       `Mode : ${modeValue(modeLabel, locationLabel)}`,
       `Tarif estimé : ${totalPrice} €`,
       `Référence : ${reference}`,
@@ -288,9 +294,10 @@ export function bookingRequestClientTemplate(params: BookingRequestClientParams)
       body: [
         paragraph(`Bonjour ${escapeHtml(clientFirstName)},`),
         paragraph(`Votre demande de rendez-vous pour <strong>${escapeHtml(animalName)}</strong> a bien été envoyée à ${escapeHtml(professionalFirstName)} (${escapeHtml(professionalCompany)}). Elle est <strong>en attente de validation</strong> : vous recevrez un email dès qu'elle sera confirmée.`),
+        slots ? paragraph(escapeHtml(slotsNotice)) : "",
         detailsTable([
           ["Prestation", serviceName],
-          ["Date", `${dateLabel} à ${time}`],
+          ...(slots ? slots.map((label, index): [string, string] => [`${index + 1}${index === 0 ? "er" : "e"} choix`, label]) : [["Date", `${dateLabel} à ${time}`] as [string, string]]),
           ["Mode", modeValue(modeLabel, locationLabel)],
           ["Tarif estimé", `${totalPrice} €`],
           ["Référence", reference],
@@ -315,12 +322,17 @@ export type BookingRequestProfessionalParams = {
   modeLabel: string;
   locationLabel: string;
   notes: string;
+  /** Demande à plusieurs horaires (C8) : ceux proposés, par ordre de préférence. */
+  slotLabels?: string[];
 };
 
 /** Notification envoyée au praticien à chaque nouvelle demande publique. */
 export function bookingRequestProfessionalTemplate(params: BookingRequestProfessionalParams): EmailContent {
   const { professionalFirstName, clientName, clientPhone, clientEmail, animalName, animalSpecies, serviceName, dateLabel, time, modeLabel, locationLabel, notes } = params;
   const dashboardUrl = `${appUrl()}/dashboard`;
+  // Demande à plusieurs horaires (C8) : le choix revient au professionnel.
+  const slots = params.slotLabels && params.slotLabels.length > 1 ? params.slotLabels : null;
+  const slotRows: Array<[string, string]> = slots ? slots.map((label, index) => [`${index + 1}${index === 0 ? "er" : "e"} choix`, label]) : [["Date", `${dateLabel} à ${time}`]];
   const animalValue = animalSpecies ? `${animalName} (${animalSpecies})` : animalName;
   return {
     subject: `Nouvelle demande de rendez-vous — ${clientName} (${animalName})`,
@@ -334,11 +346,11 @@ export function bookingRequestProfessionalTemplate(params: BookingRequestProfess
       clientEmail ? `Email : ${clientEmail}` : "",
       `Animal : ${animalValue}`,
       `Prestation : ${serviceName}`,
-      `Date : ${dateLabel} à ${time}`,
+      ...slotRows.map(([label, value]) => `${slots ? `${label} : ` : "Date : "}${value}`),
       `Mode : ${modeValue(modeLabel, locationLabel)}`,
       notes ? `Motif : ${notes}` : "",
       "",
-      `Confirmez ou refusez cette demande depuis votre tableau de bord : ${dashboardUrl}`,
+      slots ? `Le client propose ${slots.length} horaires : retenez celui qui vous convient depuis votre tableau de bord (${dashboardUrl}). Ils restent réservés jusque-là.` : `Confirmez ou refusez cette demande depuis votre tableau de bord : ${dashboardUrl}`,
       clientEmail ? "Répondre à cet email écrit directement au client." : "",
     ].filter(Boolean).join("\n"),
     html: layout({
@@ -353,10 +365,11 @@ export function bookingRequestProfessionalTemplate(params: BookingRequestProfess
           ["Email", clientEmail],
           ["Animal", animalValue],
           ["Prestation", serviceName],
-          ["Date", `${dateLabel} à ${time}`],
+          ...slotRows,
           ["Mode", modeValue(modeLabel, locationLabel)],
           ["Motif", notes],
         ]),
+        slots ? paragraph(`Le client propose ${slots.length} horaires, par ordre de préférence : retenez celui qui vous convient. Ils restent réservés jusque-là.`) : "",
         button(dashboardUrl, "Voir la demande"),
         clientEmail ? mutedParagraph("Répondre à cet email écrit directement au client.") : "",
       ].join(""),
