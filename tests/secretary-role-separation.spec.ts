@@ -56,6 +56,6 @@ test.describe("Séparation des rôles — compte Secrétariat", () => {
     await page.goto("/dashboard/prestations");
     await page.waitForTimeout(800);
     await expect(page.getByText("Vous n’avez pas la permission de modifier les prestations")).toBeVisible();
-    await expect(page.getByRole("button", { name: "+ Nouvelle prestation" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Nouvelle prestation" })).toHaveCount(0);
   });
 });
