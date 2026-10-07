@@ -384,6 +384,13 @@ a {
    `disabled:cursor-not-allowed`. Le curseur en patte, lui, s'impose par
    `!important` (ui/paw-cursor.tsx). */
 @layer base {
+  /* Un <fieldset> refuse par défaut de rétrécir sous la largeur de son
+     contenu (`min-inline-size: min-content`) : sur téléphone, il élargissait
+     les cartes des Paramètres au-delà de l'écran, boutons coupés compris. */
+  fieldset {
+    min-inline-size: 0;
+  }
+
   /* Tailwind 4 ne met plus la main sur les boutons. */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

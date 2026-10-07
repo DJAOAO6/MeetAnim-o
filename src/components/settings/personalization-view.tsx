@@ -86,7 +86,9 @@ export function PersonalizationView({ profile, services, saving = false, canEdit
   const showThemePreview = activeSection === "theme";
 
   return (
-    <div className={`grid gap-6 ${showThemePreview ? "xl:grid-cols-[260px_minmax(0,1fr)_360px]" : "xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
+    // grid-cols-1 : sans colonne déclarée sur téléphone, l'aperçu du thème
+    // (un en-tête qui ne se replie pas) élargissait toute la grille.
+    <div className={`grid grid-cols-1 gap-6 ${showThemePreview ? "xl:grid-cols-[260px_minmax(0,1fr)_360px]" : "xl:grid-cols-[260px_minmax(0,1fr)]"}`}>
       <nav aria-label="Sections de personnalisation" className="space-y-2 xl:sticky xl:top-6 xl:self-start">
         {sections.filter((section) => section.id !== "booking" || hasModule(modules, "PUBLIC_PAGE")).map((section) => {
           const active = section.id === activeSection;

@@ -167,7 +167,10 @@ export function ProfileSettingsTab({ value, verificationStatus, professionLocked
       <Card className="overflow-hidden">
         <div className="bg-gradient-to-r from-animeo-soft to-white p-5 sm:p-6">
           <SectionTitle title="Votre lien de réservation" description="Partagez ce lien avec vos clients pour recevoir leurs demandes de rendez-vous." />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+          {/* grid-cols-1 : sans colonne déclarée, la grille prend la largeur
+              minimale de son contenu — ici le domaine, insécable — et la
+              ligne dépassait de l'écran sur téléphone. */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
             <Field label="Slug public" hint="Lettres minuscules, chiffres et tirets uniquement.">
               <div className="flex overflow-hidden rounded-xl border border-animeo-border bg-white focus-within:border-animeo">
                 {/* Le domaine est une chaîne insécable : sans troncature, sa
