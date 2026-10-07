@@ -92,7 +92,7 @@ test("ouvrir exceptionnellement un dimanche à domicile, puis supprimer l'ouvert
   // Dimanche fermé : le menu propose l'ouverture exceptionnelle.
   await clickColumnAt(page, 10.25);
   await expect(menu(page)).toContainText("Cette période est fermée aux réservations.");
-  await menu(page).getByRole("button", { name: "Ouvrir exceptionnellement" }).click();
+  await menu(page).getByRole("menuitem", { name: "Ouvrir exceptionnellement" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Ouvrir exceptionnellement" });
   await expect(dialog).toBeVisible();
@@ -148,7 +148,7 @@ test("dans une fermeture ponctuelle, l'agenda propose de rouvrir la sélection p
   await page.goto(`/dashboard/agenda?date=${sunday}`, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
   await clickColumnAt(page, 11.25, 2);
-  await menu(page).getByRole("button", { name: "Ouvrir exceptionnellement" }).click();
+  await menu(page).getByRole("menuitem", { name: "Ouvrir exceptionnellement" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Rouvrir ce créneau" });
   await expect(dialog).toContainText("« Indisponible », de 10:00 à 15:00");

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { overlayRoot } from "@/components/ui/overlay-portal";
 import type { BlockedSlot } from "@/lib/blocked-slots-actions";
 
@@ -88,20 +90,15 @@ export function BlockedSlotPopover({ slot, anchorRect, onDelete, onClose }: Bloc
             <h3 className="mt-2 truncate text-sm font-black text-animeo-dark">{formatDate(slot.date)}</h3>
             <p className="text-sm font-bold text-animeo-muted">{slot.startTime} – {slot.endTime}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-lg text-animeo-muted">×</button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <div className="p-4">
           {slot.reason ? <p className="mb-3 rounded-xl bg-animeo-bg px-3 py-2.5 text-sm font-semibold text-animeo-dark">{slot.reason}</p> : null}
           {error ? <p className="mb-3 rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-sm font-bold text-animeo-danger">{error}</p> : null}
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={pending}
-            className="w-full rounded-xl border border-animeo-danger-border px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button type="button" variant="danger" onClick={handleDelete} disabled={pending} className="w-full">
             {pending ? "Déblocage…" : "Débloquer ce créneau"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

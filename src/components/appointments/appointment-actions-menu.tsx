@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck,
   CalendarClock,
   CheckCircle,
   Copy,
-  MoreHorizontal,
   PawPrint,
   Pencil,
   User,
   XCircle,
 } from "lucide-react";
+import { ActionMenuButton } from "@/components/ui/action-menu";
 import type { Appointment } from "@/data/appointments";
 
 export type AppointmentAction =
@@ -59,9 +58,6 @@ const entries: MenuEntry[] = [
   { action: "absent", label: "Client absent — annuler", icon: XCircle, destructive: true, available: (appointment) => appointment.status === "completed" },
 ];
 
-/** Hauteur approximative du menu déplié (six entrées). */
-const MENU_HEIGHT_ESTIMATE = 290;
-
 /**
  * Menu d'actions d'une ligne de rendez-vous.
  *
@@ -69,88 +65,27 @@ const MENU_HEIGHT_ESTIMATE = 290;
  * l'historique du client et de l'animal, et sert aux statistiques. « Annuler »
  * conserve la trace, ce que la suppression ne permettrait pas — c'est déjà le
  * choix fait ailleurs dans le logiciel, on ne l'inverse pas ici.
+ *
+ * Le menu lui-même est celui de tout le produit (`ActionMenuButton`) : il
+ * s'ouvre vers le haut en bas d'une liste qui défile, et en feuille basse sur
+ * téléphone.
  */
 export function AppointmentActionsMenu({ appointment, onAction }: {
   appointment: Appointment;
   onAction: (action: AppointmentAction) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  // Vers le haut quand la place manque dessous (bas d'une liste qui défile) :
-  // sinon le menu était coupé par le bord de la liste.
-  const [openUpward, setOpenUpward] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  function toggle() {
-    if (!open && containerRef.current) {
-      const button = containerRef.current.getBoundingClientRect();
-      let limit = window.innerHeight;
-      for (let parent = containerRef.current.parentElement; parent; parent = parent.parentElement) {
-        const { overflowY } = getComputedStyle(parent);
-        if (overflowY === "auto" || overflowY === "scroll") { limit = parent.getBoundingClientRect().bottom; break; }
-      }
-      setOpenUpward(limit - button.bottom < MENU_HEIGHT_ESTIMATE && button.top > MENU_HEIGHT_ESTIMATE);
-    }
-    setOpen((current) => !current);
-  }
-
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      // Échap referme le menu sans refermer la fenêtre qui le contient.
-      if (event.key === "Escape") { event.stopPropagation(); setOpen(false); }
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown, true);
-    };
-  }, [open]);
-
-  const visible = entries.filter((entry) => entry.available(appointment));
+  const items = entries
+    .filter((entry) => entry.available(appointment))
+    .map((entry) => {
+      const EntryIcon = entry.icon;
+      return { label: entry.label, icon: <EntryIcon aria-hidden="true" className="h-4 w-4 shrink-0" />, destructive: entry.destructive, onSelect: () => onAction(entry.action) };
+    });
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={`Actions pour le rendez-vous de ${appointment.animalName} à ${appointment.start}`}
-        className="flex h-9 w-9 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark"
-      >
-        <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className={`absolute right-0 z-20 w-60 ${openUpward ? "bottom-[calc(100%+4px)]" : "top-[calc(100%+4px)]"} rounded-2xl border border-animeo-border bg-white p-1.5 shadow-[0_16px_40px_rgb(var(--theme-shadow-rgb)/0.18)]`}
-        >
-          {visible.map((entry) => {
-            const EntryIcon = entry.icon;
-            return (
-              <button
-                key={entry.action}
-                type="button"
-                role="menuitem"
-                onClick={() => { setOpen(false); onAction(entry.action); }}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-bold transition ${
-                  entry.destructive
-                    ? "mt-1 border-t border-animeo-border-soft pt-3 text-animeo-danger hover:bg-animeo-danger-soft"
-                    : "text-animeo-dark hover:bg-animeo-bg"
-                }`}
-              >
-                <EntryIcon aria-hidden="true" className="h-4 w-4 shrink-0" />
-                {entry.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
+    <ActionMenuButton
+      label={`Actions pour le rendez-vous de ${appointment.animalName} à ${appointment.start}`}
+      sheetTitle={`${appointment.animalName} · ${appointment.start}`}
+      items={items}
+    />
   );
 }

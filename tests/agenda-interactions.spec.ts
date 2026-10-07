@@ -26,7 +26,7 @@ async function openFreeSlotMenu(page: Page) {
     for (let step = 0; step < 40; step += 1) {
       await page.keyboard.press("Enter");
       if (await menu(page).isVisible().catch(() => false)) {
-        if (await menu(page).getByRole("button", { name: "Nouveau rendez-vous" }).count()) return;
+        if (await menu(page).getByRole("menuitem", { name: "Nouveau rendez-vous" }).count()) return;
         await page.keyboard.press("Escape");
       }
       await page.keyboard.press("ArrowDown");
@@ -127,7 +127,7 @@ test("au clavier : flèches entre les créneaux, Entrée ouvre les trois actions
 
   await openFreeSlotMenu(page);
   await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByRole("button")).toHaveText(["Nouveau rendez-vous", "Bloquer le créneau", /^Indisponible \/ Fermé/]);
+  await expect(menu(page).getByRole("menuitem")).toHaveText(["Nouveau rendez-vous", "Bloquer le créneau", /^Indisponible \/ Fermé/]);
   await page.keyboard.press("Escape");
   await expect(menu(page)).toHaveCount(0);
   await expect(grid, "le focus revient dans la grille").toBeFocused();
@@ -150,7 +150,7 @@ test("sans le droit de modifier les horaires, « Indisponible / Fermé » est gr
     await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
     await page.getByRole("region", { name: "Planning de la semaine" }).focus();
     await openFreeSlotMenu(page);
-    const close = menu(page).getByRole("button", { name: /Indisponible \/ Fermé/ });
+    const close = menu(page).getByRole("menuitem", { name: /Indisponible \/ Fermé/ });
     await expect(close).toHaveAttribute("aria-disabled", "true");
     await expect(close).toContainText("Réservé aux comptes autorisés à modifier les horaires");
   } finally {
@@ -171,7 +171,7 @@ test("« Indisponible / Fermé » ferme vraiment le créneau", async ({ page }) 
   const grid = page.getByRole("region", { name: "Planning de la semaine" });
   await grid.focus();
   await openFreeSlotMenu(page);
-  await menu(page).getByRole("button", { name: "Indisponible / Fermé" }).click();
+  await menu(page).getByRole("menuitem", { name: "Indisponible / Fermé" }).click();
   await expect(page.getByText(/Indisponible de \d{2}:\d{2} à \d{2}:\d{2}/)).toBeVisible();
   const [row] = await sql`SELECT availability FROM "BusinessProfile" WHERE "organizationId" = 'org-1002-pattes'`;
   const closures = (row.availability as { closures: { reason: string; scope: string }[] }).closures;

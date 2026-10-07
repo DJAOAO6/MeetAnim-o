@@ -95,11 +95,11 @@ test("un clic sur une zone libre sélectionne un créneau et ouvre les actions",
   await expect(menu(page)).toBeVisible();
   // L'horaire est calé sur le pas de temps réglé : jamais 13:07.
   await expect(menu(page)).toContainText(/\d{2}:(00|15|30|45) → \d{2}:(00|15|30|45)/);
-  await expect(menu(page).getByRole("button", { name: "Nouveau rendez-vous" })).toBeVisible();
-  await expect(menu(page).getByRole("button", { name: "Bloquer le créneau" })).toBeVisible();
-  await expect(menu(page).getByRole("button", { name: "Indisponible / Fermé" })).toBeVisible();
+  await expect(menu(page).getByRole("menuitem", { name: "Nouveau rendez-vous" })).toBeVisible();
+  await expect(menu(page).getByRole("menuitem", { name: "Bloquer le créneau" })).toBeVisible();
+  await expect(menu(page).getByRole("menuitem", { name: "Indisponible / Fermé" })).toBeVisible();
   // Trois actions, dans cet ordre, pas davantage : le menu doit rester lisible.
-  await expect(menu(page).getByRole("button")).toHaveText(["Nouveau rendez-vous", "Bloquer le créneau", /^Indisponible \/ Fermé/]);
+  await expect(menu(page).getByRole("menuitem")).toHaveText(["Nouveau rendez-vous", "Bloquer le créneau", /^Indisponible \/ Fermé/]);
 });
 
 test("un glissement trace une plage plus longue qu’un simple clic", async ({ page }) => {
@@ -170,7 +170,7 @@ test("« Créer un rendez-vous » ouvre le formulaire déjà rempli du créneau 
   await clickInColumn(page, slotLayer(page, 2), 200);
 
   const range = (await menu(page).textContent())!.match(/(\d{2}:\d{2}) → (\d{2}:\d{2})/)!;
-  await menu(page).getByRole("button", { name: "Nouveau rendez-vous" }).click();
+  await menu(page).getByRole("menuitem", { name: "Nouveau rendez-vous" }).click();
 
   await expect(page.getByRole("heading", { name: "Nouveau rendez-vous" })).toBeVisible();
   // L'horaire choisi dans la grille n'est pas à ressaisir.
@@ -186,7 +186,7 @@ test("« Bloquer le créneau » enregistre vraiment le blocage", async ({ page }
   await clickInColumn(page, slotLayer(page, 3), 250);
 
   const range = (await menu(page).textContent())!.match(/(\d{2}:\d{2}) → (\d{2}:\d{2})/)!;
-  await menu(page).getByRole("button", { name: "Bloquer le créneau" }).click();
+  await menu(page).getByRole("menuitem", { name: "Bloquer le créneau" }).click();
   await expect(page.getByText(/Créneau bloqué le/)).toBeVisible({ timeout: 15000 });
 
   const rows = await sql`SELECT "startTime", "endTime" FROM "BlockedSlot" WHERE "startTime" = ${range[1]} AND "endTime" = ${range[2]} ORDER BY "createdAt" DESC LIMIT 1`;
@@ -202,12 +202,12 @@ test("une zone fermée propose d’autres actions, et prévient avant d’y pose
   await clickInColumn(page, slotLayer(page, 2), 6);
 
   await expect(menu(page)).toContainText("Cette période est fermée aux réservations.");
-  await expect(menu(page).getByRole("button", { name: "Ouvrir exceptionnellement" })).toBeVisible();
-  await expect(menu(page).getByRole("button", { name: "Modifier les horaires" })).toBeVisible();
+  await expect(menu(page).getByRole("menuitem", { name: "Ouvrir exceptionnellement" })).toBeVisible();
+  await expect(menu(page).getByRole("menuitem", { name: "Modifier les horaires" })).toBeVisible();
   // « Bloquer » n'a aucun sens sur une période déjà fermée.
-  await expect(menu(page).getByRole("button", { name: "Bloquer le créneau" })).toHaveCount(0);
+  await expect(menu(page).getByRole("menuitem", { name: "Bloquer le créneau" })).toHaveCount(0);
 
-  await menu(page).getByRole("button", { name: "Ajouter un rendez-vous" }).click();
+  await menu(page).getByRole("menuitem", { name: "Ajouter un rendez-vous" }).click();
   await expect(page.getByText("Créneau normalement fermé")).toBeVisible();
   await expect(page.getByText(/ne changera pas vos horaires habituels/)).toBeVisible();
 

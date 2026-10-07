@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { formatDistanceMeters, formatDurationSeconds } from "@/lib/maps/map-utils";
 import { formatEuros } from "@/lib/format";
@@ -354,25 +355,16 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
     setProvider(readStoredNavProvider());
   }
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   function choose(next: NavProvider) {
     setProvider(next);
     persistNavProvider(next);
-    setOpen(false);
   }
 
   return (
-    <div ref={menuRef} className="relative inline-flex">
+    <div ref={containerRef} className="relative inline-flex">
       <a
         href={buildNavUrl(provider, coordinates)}
         target="_blank"
@@ -382,6 +374,7 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
         <Icon name="car" className="h-3.5 w-3.5" /> Y aller
       </a>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
         aria-haspopup="menu"
@@ -391,23 +384,22 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
       >
         <Icon name="arrow" className="h-3 w-3 rotate-90" />
       </button>
-      {open ? (
-        <div role="menu" className="absolute left-0 top-[calc(100%+4px)] z-10 w-40 rounded-lg border border-animeo-border-soft bg-white p-1 shadow-[0_12px_28px_rgb(var(--theme-shadow-rgb)/0.16)]">
-          {navProviders.map((option) => (
-            <a
-              key={option}
-              role="menuitem"
-              href={buildNavUrl(option, coordinates)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => choose(option)}
-              className={`block rounded-md px-2.5 py-1.5 text-left text-xs font-bold ${option === provider ? "bg-animeo-soft text-animeo-dark" : "text-animeo-dark hover:bg-animeo-bg"}`}
-            >
-              {navProviderLabels[option]}
-            </a>
-          ))}
-        </div>
-      ) : null}
+      {/* Chaque entrée ouvre l'itinéraire dans l'application choisie, qui
+          devient celle de « Y aller ». */}
+      <ActionMenu
+        open={open}
+        onClose={(returnFocus) => { setOpen(false); if (returnFocus) triggerRef.current?.focus(); }}
+        label="Application de navigation"
+        containerRef={containerRef}
+        align="start"
+        items={navProviders.map((option) => ({
+          label: navProviderLabels[option],
+          href: buildNavUrl(option, coordinates),
+          external: true,
+          checked: option === provider,
+          onSelect: () => choose(option),
+        }))}
+      />
     </div>
   );
 }

@@ -95,7 +95,7 @@ test.describe("Carte clients — sélection multiple", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openOnFixtures(page);
     await page.getByRole("button", { name: "Outils de carte" }).click();
-    await page.getByRole("button", { name: "Sélectionner une zone" }).click();
+    await page.getByRole("menuitem", { name: "Sélectionner une zone" }).click();
     await expect(page.getByText("Tracez un rectangle sur la carte")).toBeVisible();
 
     // Carte à l'écran : la souris ne trace que dans la fenêtre.
@@ -131,8 +131,8 @@ test.describe("Carte clients — sélection multiple", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openOnFixtures(page);
     await page.getByRole("button", { name: "Outils de carte" }).click();
-    await expect(page.getByRole("button", { name: "Sélectionner une zone" }), "pas de tracé au doigt").toHaveCount(0);
-    await page.getByRole("button", { name: "Choisir des clients un par un" }).click();
+    await expect(page.getByRole("menuitem", { name: "Sélectionner une zone" }), "pas de tracé au doigt").toHaveCount(0);
+    await page.getByRole("menuitem", { name: "Choisir des clients un par un" }).click();
     await expect(page.getByText("Touchez des clients")).toBeVisible();
     await row(page, "SelUnE2E").getByRole("button").first().click();
     await row(page, "SelTroisE2E").getByRole("button").first().click();
@@ -140,7 +140,7 @@ test.describe("Carte clients — sélection multiple", () => {
     await expect(page.getByTestId("map-sheet"), "le panneau reste une liste").toHaveAttribute("data-snap", "compact");
 
     await page.getByRole("button", { name: "Outils de carte" }).click();
-    await page.getByRole("button", { name: "Sélectionner les clients visibles" }).click();
+    await page.getByRole("menuitem", { name: "Sélectionner les clients visibles" }).click();
     await expect(bar(page)).toContainText("3 clients sélectionnés");
   });
 });

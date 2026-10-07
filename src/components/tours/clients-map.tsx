@@ -23,6 +23,7 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { ActionMenu } from "@/components/ui/action-menu";
 import { deleteMapViewAction, saveMapViewAction } from "@/lib/map-views-actions";
 import type { MapViewSummary } from "@/lib/map-views";
 import type { AnimalSpecies } from "@/data/tours";
@@ -407,7 +408,6 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
-      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) setToolsOpen(false);
       if (viewsRef.current && !viewsRef.current.contains(event.target as Node)) setViewsOpen(false);
       if (qualityRef.current && !qualityRef.current.contains(event.target as Node)) setQualityOpen(false);
     }
@@ -1641,30 +1641,27 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 <button
                   type="button"
                   onClick={() => setToolsOpen((current) => !current)}
-                  aria-haspopup="true"
+                  aria-haspopup="menu"
                   aria-expanded={toolsOpen}
                   className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${areaTool || selectMode ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
                 >
                   <SquareDashedMousePointer aria-hidden="true" className="h-3.5 w-3.5" />
                   Outils de carte
                 </button>
-                {toolsOpen ? (
-                  <div role="group" aria-label="Outils de carte" className="absolute left-0 z-30 mt-1.5 w-72 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
-                    {/* Tracer au doigt est peu fiable : sur téléphone, les clients visibles et le mode sélection suffisent. */}
-                    {!isPhone ? (
-                      <button type="button" onClick={() => { setAreaTool(true); setSelectedId(null); setToolsOpen(false); }} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
-                        <SquareDashedMousePointer aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />Sélectionner une zone
-                      </button>
-                    ) : null}
-                    <button type="button" onClick={selectVisibleClients} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
-                      <ListChecks aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />Sélectionner les clients visibles
-                    </button>
-                    <button type="button" aria-pressed={selectMode} onClick={() => { setSelectMode((current) => !current); setSelectedId(null); setToolsOpen(false); }} className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg">
-                      <MousePointerClick aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />{selectMode ? "Quitter le mode sélection" : "Choisir des clients un par un"}
-                    </button>
-                    {!isPhone ? <p className="px-2.5 pb-1.5 pt-1 text-xs text-animeo-muted">Astuce : Ctrl + clic (⌘ + clic sur Mac) ajoute un client à la sélection.</p> : null}
-                  </div>
-                ) : null}
+                <ActionMenu
+                  open={toolsOpen}
+                  onClose={() => setToolsOpen(false)}
+                  label="Outils de carte"
+                  containerRef={toolsRef}
+                  align="start"
+                  items={[
+                    // Tracer au doigt est peu fiable : sur téléphone, les clients visibles et le mode sélection suffisent.
+                    ...(isPhone ? [] : [{ label: "Sélectionner une zone", icon: <SquareDashedMousePointer aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />, onSelect: () => { setAreaTool(true); setSelectedId(null); } }]),
+                    { label: "Sélectionner les clients visibles", icon: <ListChecks aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />, onSelect: selectVisibleClients },
+                    { label: selectMode ? "Quitter le mode sélection" : "Choisir des clients un par un", icon: <MousePointerClick aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />, onSelect: () => { setSelectMode((current) => !current); setSelectedId(null); } },
+                  ]}
+                  footer={!isPhone ? <p className="px-3 pb-1.5 pt-1 text-xs text-animeo-muted">Astuce : Ctrl + clic (⌘ + clic sur Mac) ajoute un client à la sélection.</p> : undefined}
+                />
               </div>
             ) : null}
             <button type="button" onClick={recenter} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark">

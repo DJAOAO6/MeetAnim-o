@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { ActionMenuButton } from "@/components/ui/action-menu";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type { Reminder, ReminderStatus } from "@/data/reminders";
@@ -144,28 +143,22 @@ function StatusBadge({ status }: { status: ReminderStatus }) {
 }
 
 function RowActions({ reminder, onRemind, onEdit, onIgnore }: Pick<RemindersTableProps, "onRemind" | "onEdit" | "onIgnore"> & { reminder: Reminder }) {
-  const [open, setOpen] = useState(false);
-  const profileHref = `/dashboard/clients/${reminder.clientId}`;
-
   return (
-    <div className="relative flex items-center justify-end gap-2">
+    <div className="flex items-center justify-end gap-2">
       {reminder.status === "À relancer" ? (
         <button type="button" onClick={() => onRemind(reminder)} className="rounded-xl bg-animeo px-3 py-2 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Relancer</button>
       ) : null}
-      <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} aria-label={`Plus d’actions pour ${reminder.animalName}`} className="flex h-8 w-8 items-center justify-center rounded-xl border border-animeo-border bg-white font-black text-animeo-muted transition hover:border-animeo hover:text-animeo-dark">•••</button>
-      {open ? (
-        <div className="absolute right-0 top-10 z-40 w-48 rounded-2xl border border-animeo-border bg-white p-2 text-left shadow-[0_12px_30px_rgb(var(--theme-shadow-rgb)/0.16)]">
-          <MenuButton label="Modifier la date" onClick={() => { setOpen(false); onEdit(reminder); }} />
-          <MenuButton label="Ignorer" disabled={reminder.status === "Ignoré"} onClick={() => { setOpen(false); onIgnore(reminder); }} />
-          <Link href={profileHref} className="block rounded-xl px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft" onClick={() => setOpen(false)}>Voir la fiche animal</Link>
-        </div>
-      ) : null}
+      <ActionMenuButton
+        label={`Plus d’actions pour ${reminder.animalName}`}
+        sheetTitle={`Rappel de ${reminder.animalName}`}
+        items={[
+          { label: "Modifier la date", onSelect: () => onEdit(reminder) },
+          { label: "Ignorer", disabled: reminder.status === "Ignoré", onSelect: () => onIgnore(reminder) },
+          { label: "Voir la fiche animal", href: `/dashboard/clients/${reminder.clientId}` },
+        ]}
+      />
     </div>
   );
-}
-
-function MenuButton({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
-  return <button type="button" onClick={onClick} disabled={disabled} className="block w-full rounded-xl px-3 py-2 text-left text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40">{label}</button>;
 }
 
 function InfoLine({ label, value }: { label: string; value: string }) {

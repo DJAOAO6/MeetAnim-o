@@ -113,7 +113,7 @@ test.describe("Rappels clients (réel, non simulé)", () => {
     await expect(row).toBeVisible();
 
     await row.getByRole("button", { name: "Plus d’actions pour RappelE2E" }).click();
-    await row.getByRole("button", { name: "Ignorer" }).click();
+    await row.getByRole("menuitem", { name: "Ignorer" }).click();
     await expect(row.getByText("Ignoré")).toBeVisible({ timeout: 10000 });
 
     const [reminder] = await sql`SELECT status FROM "Reminder" WHERE id = 'tmp-reminder-ignore'`;

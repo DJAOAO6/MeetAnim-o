@@ -12,7 +12,6 @@ import { AgendaViewSwitcher, type AgendaViewMode } from "@/components/agenda/age
 import { AgendaFilterBar } from "@/components/agenda/agenda-filter-bar";
 import { BlockedSlotModal } from "@/components/agenda/blocked-slot-modal";
 import { SlotActionMenu, type SlotAction } from "@/components/agenda/slot-action-menu";
-import { SlotActionSheet } from "@/components/agenda/slot-action-sheet";
 import { ExceptionalOpeningModal } from "@/components/agenda/exceptional-opening-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { availableDurations, formatMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
@@ -762,6 +761,7 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
 
       {slotSelection && (slotSelection.pointerType === "mouse" || slotSelection.pointerType === "keyboard") ? (
         <SlotActionMenu
+          presentation="popover"
           canClose={canCloseSlots}
           selection={slotSelection.selection}
           date={slotSelection.date}
@@ -773,7 +773,8 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
       ) : null}
 
       {slotSelection && slotSelection.pointerType !== "mouse" && slotSelection.pointerType !== "keyboard" ? (
-        <SlotActionSheet
+        <SlotActionMenu
+          presentation="sheet"
           canClose={canCloseSlots}
           selection={slotSelection.selection}
           date={slotSelection.date}

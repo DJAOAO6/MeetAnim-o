@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { ChevronDown, Settings2 } from "lucide-react";
 import { Toggle } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import { saveAgendaDisplayAction } from "@/lib/agenda-preferences-actions";
 import { MAX_DAY_HOUR, MIN_DAY_HOUR, SLOT_LABELS, SLOT_MINUTES, type AgendaDisplay, type Density } from "@/lib/agenda-display";
 import { notify } from "@/lib/notify";
@@ -66,7 +67,7 @@ export function AgendaDisplayMenu({ value, onChange }: { value: AgendaDisplay; o
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-controls={panelId}
-        className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo ${open ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-white"}`}
+        className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo ${open ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-white"}`}
       >
         <Settings2 aria-hidden="true" className="h-4 w-4" />
         Affichage
@@ -110,14 +111,9 @@ export function AgendaDisplayMenu({ value, onChange }: { value: AgendaDisplay; o
             <SwitchRow label="Afficher les zones fermées" checked={value.showClosedZones} onChange={(next) => set("showClosedZones", next)} />
           </div>
 
-          <button
-            type="button"
-            onClick={saveAsDefault}
-            disabled={saving}
-            className="mt-4 w-full rounded-xl border border-animeo-dark px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:opacity-60"
-          >
+          <Button type="button" variant="secondary" onClick={saveAsDefault} disabled={saving} className="mt-4 w-full">
             {saving ? "Enregistrement…" : "Définir comme affichage par défaut"}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -144,7 +140,7 @@ function Segmented<T extends string | number>({ label, options, value, onChange 
               type="button"
               aria-pressed={active}
               onClick={() => onChange(option.value)}
-              className={`min-h-11 flex-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-extrabold transition sm:min-h-9 ${active ? "bg-animeo text-white shadow-sm" : "text-animeo-dark hover:bg-white"}`}
+              className={`min-h-11 flex-1 whitespace-nowrap rounded-lg px-1.5 text-xs font-extrabold transition ${active ? "bg-animeo text-white shadow-sm" : "text-animeo-dark hover:bg-white"}`}
             >
               {option.label}
             </button>
@@ -161,7 +157,7 @@ function HourSelect({ label, value, hours, onChange }: { label: string; value: n
       aria-label={`${label} des horaires visibles`}
       value={value}
       onChange={(event) => onChange(Number(event.target.value))}
-      className="h-10 flex-1 rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark outline-none focus:border-animeo"
+      className="h-11 flex-1 rounded-xl border border-animeo-border bg-white px-3 text-sm font-bold text-animeo-dark outline-none focus:border-animeo"
     >
       {hours.map((hour) => <option key={hour} value={hour}>{hourLabel(hour)}</option>)}
     </select>

@@ -3,6 +3,8 @@
 import { RequestSlotChoices, hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import { useVisitMembers } from "@/components/appointments/visit-dialogs";
 import { useAppointmentActions } from "@/components/appointments/use-appointment-actions";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import { toTelHref } from "@/lib/phone";
@@ -66,7 +68,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
           ) : null}
         </div>
         {!backLabel ? (
-          <button type="button" onClick={onBack} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
+          <CloseButton onClick={onBack} />
         ) : null}
       </div>
 
@@ -104,31 +106,26 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
           </div>
         ) : null}
         {appointment.status === "confirmed" ? (
-          <button type="button" onClick={() => complete(appointment)} disabled={completing} className="mb-2 w-full rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
+          <Button type="button" variant="secondary" onClick={() => complete(appointment)} disabled={completing} className="mb-2 w-full">
             {completing ? "…" : "Consultation réalisée"}
-          </button>
+          </Button>
         ) : null}
         {appointment.status === "completed" && canCreateDocument ? (
-          <button type="button" onClick={() => createDocument(appointment)} disabled={creatingDocument} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong disabled:cursor-not-allowed disabled:opacity-60">
-            <Icon name="document" className="h-4 w-4" />
+          <Button type="button" variant="secondary" icon={<Icon name="document" className="h-4 w-4" />} onClick={() => createDocument(appointment)} disabled={creatingDocument} className="mb-2 w-full">
             {creatingDocument ? "…" : "Créer le compte rendu"}
-          </button>
+          </Button>
         ) : null}
-        <button type="button" onClick={onEdit} className="w-full rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
-          Modifier
-        </button>
+        <Button type="button" onClick={onEdit} className="w-full">Modifier</Button>
         {appointment.status === "completed" && appointment.completedAutomatically ? (
           <p className="mb-2 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-bold text-animeo-muted">Réalisé automatiquement une fois l’heure passée.</p>
         ) : null}
         {onCancel && appointment.status === "completed" ? (
-          <button type="button" onClick={onCancel} className="mt-2 min-h-11 w-full rounded-xl px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
-            Client absent — annuler
-          </button>
+          <Button type="button" variant="danger" onClick={onCancel} className="mt-2 w-full">Client absent — annuler</Button>
         ) : null}
         {onCancel && (appointment.status === "confirmed" || appointment.status === "pending") ? (
-          <button type="button" onClick={onCancel} className="mt-2 min-h-11 w-full rounded-xl px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
+          <Button type="button" variant="danger" onClick={onCancel} className="mt-2 w-full">
             {appointment.status === "pending" ? "Refuser la demande" : "Annuler le rendez-vous"}
-          </button>
+          </Button>
         ) : null}
       </div>
 
