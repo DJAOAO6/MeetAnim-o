@@ -641,7 +641,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                     type="button"
                     onClick={() => runAction(() => addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [appointment.id] }))}
                     disabled={busy}
-                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-white/70 disabled:opacity-60"
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:opacity-60"
                   >
                     Ajouter à la tournée
                   </button>

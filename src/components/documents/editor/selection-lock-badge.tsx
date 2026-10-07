@@ -54,7 +54,7 @@ export function SelectionLockBadge({ readOnly }: { readOnly: boolean }) {
         pointerEvents: "auto",
       }}
       className={`flex items-center justify-center rounded-full border shadow-sm transition ${
-        locked ? "border-animeo bg-animeo text-white" : "border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-50"
+        locked ? "border-animeo bg-animeo text-white" : "border-neutral-200 bg-white text-neutral-500 hover:bg-animeo-soft"
       }`}
     >
       {locked ? <LockIcon /> : <UnlockIcon />}

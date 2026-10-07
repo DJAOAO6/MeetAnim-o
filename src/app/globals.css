@@ -270,14 +270,30 @@ html {
   transform: translateX(0);
 }
 
-[data-dashboard-theme] .bg-white {
-  background-color: var(--theme-surface);
-}
+/* Dans le tableau de bord, « blanc » veut dire « surface du thème » — y
+   compris en sombre.
 
-/* Fiches flottantes de la carte (fond translucide) : même surface que le
-   reste du tableau de bord, y compris en mode sombre. */
-[data-dashboard-theme] .bg-white\/95 {
-  background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+   Dans la couche des utilitaires, et sans poids propre (`:where`) : écrite
+   hors de toute couche, cette règle l'emportait sur *tous* les utilitaires
+   de Tailwind, donc aussi sur `hover:bg-*` — un bouton blanc ne réagissait
+   plus au survol. Ici elle pèse autant que `.bg-white`, qu'elle remplace
+   parce qu'elle vient après, et moins qu'un `hover:bg-*`, qui reprend la
+   main. Une carte blanche sans classe de survol ne bouge pas.
+
+   Le blanc demandé au survol ou au focus (`hover:bg-white`, `focus:bg-white`)
+   suit la même surface : en sombre, il allumait un rectangle blanc. */
+@layer utilities {
+  :where([data-dashboard-theme]) .bg-white,
+  :where([data-dashboard-theme]) .hover\:bg-white:hover,
+  :where([data-dashboard-theme]) .focus\:bg-white:focus {
+    background-color: var(--theme-surface);
+  }
+
+  /* Fiches flottantes de la carte (fond translucide) : même surface que le
+     reste du tableau de bord, y compris en mode sombre. */
+  :where([data-dashboard-theme]) .bg-white\/95 {
+    background-color: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+  }
 }
 
 [data-dashboard-theme] button.bg-animeo,
@@ -358,6 +374,37 @@ body {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Retour visuel de tout ce qui se clique (PLAN-BOUTONS, règle 1.6), boutons
+   écrits à la main compris.
+
+   Dans la couche de base, pour que les utilitaires gardent le dernier mot :
+   `cursor-grab` et `cursor-ns-resize` des éléments qu'on déplace,
+   `disabled:cursor-not-allowed`. Le curseur en patte, lui, s'impose par
+   `!important` (ui/paw-cursor.tsx). */
+@layer base {
+  /* Tailwind 4 ne met plus la main sur les boutons. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="switch"]:not(:disabled),
+  [role="tab"],
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+
+  /* À l'appui : la teinte fonce — et s'éclaircit en sombre, où foncer un
+     fond déjà presque noir ne se voit pas. Un filtre, pas un `transform` :
+     les cartes de l'agenda, les arrêts de tournée et les blocs du tableau de
+     bord se déplacent par `transform`, qu'une règle globale écraserait. */
+  button:not(:disabled):active {
+    filter: brightness(0.94);
+  }
+
+  [data-theme="dark"] button:not(:disabled):active {
+    filter: brightness(1.16);
+  }
 }
 
 ::selection {
