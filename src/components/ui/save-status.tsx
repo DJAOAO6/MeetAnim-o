@@ -20,7 +20,7 @@ export function SaveStatus({ state, className = "" }: { state: SaveState; classN
   if (state === "idle") return null;
 
   const tone =
-    state === "error" ? "bg-animeo-danger-soft text-animeo-error"
+    state === "error" ? "bg-animeo-danger-soft text-animeo-danger"
     : state === "saved" ? "bg-animeo-positive-soft text-animeo-positive"
     : "bg-animeo-soft text-animeo-dark";
 

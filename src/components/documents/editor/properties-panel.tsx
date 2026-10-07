@@ -35,7 +35,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
             <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
               Dupliquer
             </button>
-            <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft">
+            <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
               Supprimer
             </button>
           </div>
@@ -221,7 +221,7 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
           <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
             Dupliquer
           </button>
-          <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft">
+          <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
             Supprimer
           </button>
         </div>
@@ -305,7 +305,7 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
               <li key={marker.id} className="flex items-center justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-semibold text-animeo-dark">
                 <span className="truncate">{index + 1}. {marker.label}</span>
                 {!readOnly ? (
-                  <button type="button" onClick={() => removeMarker(marker.id)} aria-label={`Supprimer le repère ${index + 1}`} className="shrink-0 text-animeo-error">
+                  <button type="button" onClick={() => removeMarker(marker.id)} aria-label={`Supprimer le repère ${index + 1}`} className="shrink-0 text-animeo-danger">
                     ×
                   </button>
                 ) : null}

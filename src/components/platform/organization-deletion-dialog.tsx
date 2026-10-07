@@ -73,7 +73,7 @@ export function OrganizationDeletionDialog({ organizationId, organizationName, o
       }
     >
       <div className="space-y-4 text-sm">
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 font-bold text-animeo-danger">{error}</p> : null}
 
         <section aria-label="Ce qui sera effacé">
           <h3 className="font-extrabold text-animeo-dark">Ce qui sera effacé</h3>
@@ -114,7 +114,7 @@ export function OrganizationDeletionDialog({ organizationId, organizationName, o
         </label>
 
         {immediate && confirmingImmediate ? (
-          <p role="alert" className="rounded-xl border border-animeo-error bg-animeo-danger-soft px-4 py-3 font-bold text-animeo-error">
+          <p role="alert" className="rounded-xl border border-animeo-error bg-animeo-danger-soft px-4 py-3 font-bold text-animeo-danger">
             Dernière confirmation : tout sera effacé maintenant, sans aucun moyen de revenir en arrière.
           </p>
         ) : !immediate ? (

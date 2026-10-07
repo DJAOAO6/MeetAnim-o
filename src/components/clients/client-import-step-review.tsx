@@ -46,7 +46,7 @@ const STATUS_LABELS: Record<RowStatus, string> = {
 };
 
 const STATUS_CLASSES: Record<RowStatus, string> = {
-  error: "bg-animeo-danger-soft text-animeo-error",
+  error: "bg-animeo-danger-soft text-animeo-danger",
   new: "bg-animeo-soft text-animeo-dark",
   merged: "bg-animeo-warning-soft text-animeo-warning",
   ignored: "bg-animeo-border-soft text-animeo-muted",
@@ -227,7 +227,7 @@ export function ClientImportStepReview({
 function Counter({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "error" }) {
   return (
     <div className="rounded-2xl bg-animeo-bg p-4">
-      <p className={`text-2xl font-black leading-none ${tone === "error" && value > 0 ? "text-animeo-error" : "text-animeo-dark"}`}>{value}</p>
+      <p className={`text-2xl font-black leading-none ${tone === "error" && value > 0 ? "text-animeo-danger" : "text-animeo-dark"}`}>{value}</p>
       <p className="mt-1.5 text-xs font-bold text-animeo-muted">{label}</p>
     </div>
   );

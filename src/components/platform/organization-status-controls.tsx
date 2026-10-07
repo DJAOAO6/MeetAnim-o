@@ -40,7 +40,7 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
       {deletionScheduledFor ? (
-        <span className="rounded-full bg-animeo-danger-soft px-2.5 py-1 text-xs font-extrabold text-animeo-error">Suppression prévue le {dateFormatter.format(new Date(deletionScheduledFor))}</span>
+        <span className="rounded-full bg-animeo-danger-soft px-2.5 py-1 text-xs font-extrabold text-animeo-danger">Suppression prévue le {dateFormatter.format(new Date(deletionScheduledFor))}</span>
       ) : suspendedAt ? (
         <span className="rounded-full bg-animeo-warning-soft px-2.5 py-1 text-xs font-extrabold text-animeo-dark" title={suspendedReason ?? undefined}>Suspendu depuis le {dateFormatter.format(new Date(suspendedAt))}</span>
       ) : (
@@ -73,19 +73,19 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setOpen(true)} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft">
+          <button type="button" onClick={() => setOpen(true)} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft">
             Suspendre…
           </button>
         )
       ) : null}
 
       {!deletionScheduledFor && !ownSpace ? (
-        <button type="button" onClick={() => setDeleting(true)} className="min-h-9 rounded-xl px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft">
+        <button type="button" onClick={() => setDeleting(true)} className="min-h-9 rounded-xl px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft">
           Supprimer l’espace…
         </button>
       ) : null}
 
-      {error ? <p role="alert" className="text-xs font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs font-bold text-animeo-danger">{error}</p> : null}
       {deleting ? <OrganizationDeletionDialog organizationId={organizationId} organizationName={organizationName} onClose={() => setDeleting(false)} /> : null}
     </div>
   );

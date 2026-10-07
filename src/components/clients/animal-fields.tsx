@@ -86,7 +86,7 @@ function FieldBlock({ id, label, error, hint, children }: { id: string; label: s
       <label htmlFor={id} className={labelClassName}>{label}</label>
       {children}
       {hint ? <p id={`${id}-hint`} className="mt-1.5 text-xs text-animeo-muted">{hint}</p> : null}
-      {error ? <p id={`${id}-error`} className="mt-1.5 text-xs font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p id={`${id}-error`} className="mt-1.5 text-xs font-bold text-animeo-danger">{error}</p> : null}
     </div>
   );
 }
@@ -165,7 +165,7 @@ export function AnimalFields({ idPrefix, draft, onChange, errors = {}, previousS
             </label>
           ) : null}
           {legacySex && legacySex === previousSex ? <p className="mt-1.5 text-xs text-animeo-muted">Valeur enregistrée : « {legacySex} ». Choisissez Mâle ou Femelle pour la préciser.</p> : null}
-          {errors.sex ? <p id={id("sex-error")} className="mt-1.5 text-xs font-bold text-animeo-error">{errors.sex}</p> : null}
+          {errors.sex ? <p id={id("sex-error")} className="mt-1.5 text-xs font-bold text-animeo-danger">{errors.sex}</p> : null}
         </div>
         <FieldBlock id={id("birthDate")} label="Date de naissance" error={errors.birthDate}>
           <input id={id("birthDate")} type="date" value={draft.birthDate} max={today} onChange={(event) => onChange({ birthDate: event.target.value, birthDateApproximate: false })} className={inputClassName} aria-invalid={Boolean(errors.birthDate) || undefined} aria-describedby={describedBy(id("birthDate"), errors.birthDate)} />

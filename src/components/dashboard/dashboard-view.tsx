@@ -202,7 +202,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
                 <button
                   type="button"
                   onClick={() => updateWidget(widget.id, { visible: false })}
-                  className="min-h-9 rounded-xl bg-animeo-surface px-3 text-xs font-extrabold text-animeo-muted shadow-sm transition hover:text-animeo-error"
+                  className="min-h-9 rounded-xl bg-animeo-surface px-3 text-xs font-extrabold text-animeo-muted shadow-sm transition hover:text-animeo-danger"
                 >
                   Masquer
                 </button>

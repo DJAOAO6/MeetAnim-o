@@ -32,7 +32,7 @@ export function AssistanceBanner({ assistedName, impersonatorName, reason, expir
         <p className="text-animeo-dark">
           {impersonatorName} · motif : « {reason} » · fin automatique à {timeFormatter.format(new Date(expiresAt))}. Chaque action est inscrite à votre nom au journal de cet espace.
         </p>
-        {readOnly ? <p className="mt-1 font-black text-animeo-error">Espace suspendu : lecture seule. Aucune modification ne sera enregistrée.</p> : null}
+        {readOnly ? <p className="mt-1 font-black text-animeo-danger">Espace suspendu : lecture seule. Aucune modification ne sera enregistrée.</p> : null}
       </div>
       <button
         type="button"

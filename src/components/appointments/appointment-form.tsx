@@ -217,7 +217,7 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
         <h3 className="text-xl font-black text-animeo-dark">{appointment ? `Modifier le rendez-vous de ${appointment.animalName}` : "Nouveau rendez-vous"}</h3>
         <p className="mt-1 text-sm text-animeo-muted">Le cabinet et le domicile partagent un seul agenda : un créneau déjà pris ne peut pas être réutilisé.</p>
 
-        {error ? <div role="alert" className="mt-4 rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</div> : null}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">

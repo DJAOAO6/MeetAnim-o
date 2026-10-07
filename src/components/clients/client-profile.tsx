@@ -269,7 +269,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
                 type="button"
                 disabled={deletingClient}
                 onClick={deleteClient}
-                className="inline-flex items-center rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft disabled:opacity-60"
+                className="inline-flex items-center rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:opacity-60"
               >
                 {deletingClient ? "Suppression…" : "Supprimer le client"}
               </button>
@@ -367,7 +367,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
           {animals.length}
         </span>
       </div>
-      {error ? <p role="alert" className="mb-3 rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p role="alert" className="mb-3 rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-danger">{error}</p> : null}
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
         {animals.map((animal) => {
           const selected = animal.id === selectedAnimalId;
@@ -394,7 +394,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
                 </span>
               </button>
               {canDelete ? (
-                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-danger-soft text-animeo-error ring-1 ring-inset ring-transparent transition hover:bg-animeo-danger-soft hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
+                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-danger-soft text-animeo-danger ring-1 ring-inset ring-transparent transition hover:bg-animeo-danger-soft hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
                   <TrashIcon />
                 </button>
               ) : (

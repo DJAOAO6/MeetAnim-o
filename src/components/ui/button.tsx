@@ -26,14 +26,13 @@ type ButtonProps = ComponentProps<"button"> & {
 
 // `secondary` sur la surface du thème, jamais `bg-white` : la règle qui
 // repeint les fonds blancs du tableau de bord l'emportait sur le survol.
-// `dangerSolid` : rouge du thème et texte de surface — le rouge fixe
-// (#d95c5c) ne donnait que 3,7:1 sous du blanc ; ce couple-ci tient 5:1 au
-// moins dans les deux palettes, en clair comme en sombre.
+// `dangerSolid` : le rouge plein du thème (animeo-error), le même en clair
+// et en sombre, sous du texte blanc — 5,1:1 au moins dans les deux palettes.
 export const buttonVariantClassName: Record<ButtonVariant, string> = {
   primary: "bg-animeo text-white hover:bg-animeo-hover",
   secondary: "border border-animeo-border bg-animeo-surface text-animeo-dark hover:bg-animeo-soft",
   danger: "bg-animeo-danger-soft text-animeo-danger hover:bg-animeo-danger-border",
-  dangerSolid: "bg-animeo-danger text-animeo-surface hover:brightness-90",
+  dangerSolid: "bg-animeo-error text-white hover:brightness-90",
   ghost: "bg-transparent text-animeo-muted hover:bg-animeo-bg hover:text-animeo-dark",
 };
 

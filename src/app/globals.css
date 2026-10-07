@@ -73,6 +73,16 @@
   --theme-border-soft: #efe7de;
   --theme-border-strong: #e3bfa3;
   --theme-danger: #ad4236;
+  /* Rouge plein, sous du texte blanc (5,8:1) : confirmation d'une
+     suppression, message d'erreur. Le même en clair et en sombre, comme
+     --theme-action : --theme-danger, lui, pâlit en sombre pour rester
+     lisible en texte, et ne porte plus de blanc. */
+  --theme-danger-solid: #ad4236;
+  /* Texte posé sur --theme-accent (7,4:1) : du blanc n'y faisait que 2,1:1. */
+  --theme-on-accent: #3a1b0d;
+  /* Groupes de la carte « en retrait », sous un chiffre blanc (5,6:1). Fixe :
+     le fond de carte ne change pas avec le mode. */
+  --theme-map-group-muted: #7a6355;
   --theme-danger-soft: #fbe7e4;
   --theme-danger-border: #f0c8c1;
   --theme-warning: #9a6516;
@@ -173,6 +183,9 @@
   --theme-border-soft: #e5eeeb;
   --theme-border-strong: #aad5cd;
   --theme-danger: #a9573b;
+  --theme-danger-solid: #a9573b;
+  --theme-on-accent: #102f37;
+  --theme-map-group-muted: #6b7780;
   --theme-danger-soft: #fff1f1;
   --theme-danger-border: #f3c9c9;
   --theme-warning: #8c6118;
@@ -273,7 +286,10 @@
   --color-animeo-tour-soft: var(--theme-tour-soft);
   --color-animeo-sidebar: var(--theme-sidebar);
   --color-animeo-success: #36a26b;
-  --color-animeo-error: #d95c5c;
+  /* Fond plein uniquement, sous du texte blanc. En couleur de texte :
+     animeo-danger (l'ancien #d95c5c ne faisait que 3,1:1 sur fond rosé). */
+  --color-animeo-error: var(--theme-danger-solid);
+  --color-animeo-on-accent: var(--theme-on-accent);
   --color-animeo-info: #5b8def;
   --font-sans: var(--font-nunito-sans);
 }

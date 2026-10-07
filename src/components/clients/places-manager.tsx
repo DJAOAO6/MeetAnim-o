@@ -137,7 +137,7 @@ function PlaceModal({ initial, onClose, onSaved }: { initial: SavePlaceInput; on
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error sm:col-span-2">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger sm:col-span-2">{error}</p> : null}
         <Field label="Nom du lieu"><input value={draft.name} onChange={(event) => update({ name: event.target.value })} className={inputClassName} placeholder="Ex. Haras du Moulin" required /></Field>
         <Field label="Type">
           <select value={draft.kind} onChange={(event) => update({ kind: event.target.value as AnimalPlaceKind })} className={inputClassName}>

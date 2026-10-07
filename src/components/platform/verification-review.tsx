@@ -79,7 +79,7 @@ export function VerificationReview({ organizationId, organizationName, verificat
         </div>
       ) : null}
 
-      {error ? <p role="alert" className="mt-2 text-sm font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p role="alert" className="mt-2 text-sm font-bold text-animeo-danger">{error}</p> : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {rejecting ? (

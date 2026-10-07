@@ -55,7 +55,7 @@ export function SignupForm({ token, email, organizationName }: { token: string; 
         </label>
 
         {state?.error ? (
-          <p role="alert" className="rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{state.error}</p>
+          <p role="alert" className="rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{state.error}</p>
         ) : null}
 
         <button

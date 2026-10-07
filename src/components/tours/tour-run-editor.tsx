@@ -747,7 +747,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
             >
               📍 {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
             </button>
-            {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-error">{liveLocationError}</span> : null}
+            {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-danger">{liveLocationError}</span> : null}
           </div>
           <TourRunMap
             points={mapPoints}

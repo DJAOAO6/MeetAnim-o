@@ -228,7 +228,7 @@ function StepForm({ children, error, pending, busy = false, onBack, submitLabel 
       <Card className="space-y-5 p-5 sm:p-6">
         {children}
         {/* Dans le cadre, sous les champs : là où le regard se trouve. */}
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
       </Card>
       {/* Sur téléphone, l'action principale d'abord et en pleine largeur ;
           « Précédent » en dessous. Côte à côte à partir d'une tablette. */}
@@ -651,7 +651,7 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
           {cabinet && draft.offerCabinet ? <PriceField id="onboarding-service-cabinet-price" label="Tarif au cabinet" value={draft.cabinetPrice} onChange={(value) => setDraft((current) => ({ ...current, cabinetPrice: value }))} /> : null}
           {home && draft.offerHome ? <PriceField id="onboarding-service-home-price" label="Tarif à domicile" value={draft.homePrice} onChange={(value) => setDraft((current) => ({ ...current, homePrice: value }))} /> : null}
         </div>
-        {formError ? <p role="alert" className="text-sm font-bold text-animeo-error">{formError}</p> : null}
+        {formError ? <p role="alert" className="text-sm font-bold text-animeo-danger">{formError}</p> : null}
         <div className="flex flex-wrap gap-2">
           {/* Tant qu'il n'y a aucune prestation, c'est l'action attendue ; ensuite
               « Continuer » redevient la seule action principale. */}

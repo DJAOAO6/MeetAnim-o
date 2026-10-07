@@ -65,7 +65,7 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
       }
     >
       <div className="space-y-5">
-          {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+          {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
 
           <ClientContactFields draft={draft} onChange={update} />
       </div>

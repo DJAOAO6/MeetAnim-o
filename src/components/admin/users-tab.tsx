@@ -72,7 +72,7 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
               </button>
             </div>
 
-            {state?.error ? <p role="alert" className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{state.error}</p> : null}
+            {state?.error ? <p role="alert" className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{state.error}</p> : null}
             {state?.resetUrl ? (
               <div className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-animeo-soft px-4 py-3 text-sm text-animeo-dark">
                 <p className="font-extrabold">Compte créé.</p>
@@ -192,7 +192,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             disabled={pending || isSelf}
             title={isSelf ? "Vous ne pouvez pas désactiver votre propre compte" : undefined}
             onClick={() => startTransition(() => setUserActive(user.id, !user.active))}
-            className={`rounded-full px-3 py-1 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-danger-soft text-animeo-error"}`}
+            className={`rounded-full px-3 py-1 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-danger-soft text-animeo-danger"}`}
           >
             {user.active ? "Actif" : "Désactivé"}
           </button>
@@ -211,15 +211,15 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
               <button type="button" onClick={() => setEditing(true)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft">Modifier</button>
             )}
             <button type="button" onClick={() => setManagingPermissions((current) => !current)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft">Permissions</button>
-            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-xs font-extrabold text-animeo-error disabled:cursor-not-allowed disabled:opacity-60 hover:bg-animeo-danger-soft">Supprimer</button>
+            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-xs font-extrabold text-animeo-danger disabled:cursor-not-allowed disabled:opacity-60 hover:bg-animeo-danger-soft">Supprimer</button>
           </div>
         </td>
       </tr>
       {editError ? (
-        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-error">{editError}</p></td></tr>
+        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-danger">{editError}</p></td></tr>
       ) : null}
       {deleteError ? (
-        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-error">{deleteError}</p></td></tr>
+        <tr><td colSpan={6} className="px-3 pb-2"><p role="alert" className="rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-danger">{deleteError}</p></td></tr>
       ) : null}
       {managingPermissions ? (
         <tr>

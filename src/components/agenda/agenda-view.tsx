@@ -872,7 +872,7 @@ function PendingRequestsPanel({ requests, onAction }: {
                     ? <span className="text-xs font-extrabold text-animeo-muted">{request.appointment.slotOptions?.length} horaires proposés</span>
                     : <span className="text-xs font-extrabold capitalize text-animeo-muted">{dateFormatter.format(new Date(`${request.date}T12:00:00`))} · {request.start}</span>}
                   {request.outsideKm !== null ? (
-                    <span className="rounded-full bg-animeo-danger-soft px-2.5 py-1 text-xs font-black text-animeo-error" title="Adresse au-delà de votre secteur d’intervention">Hors secteur · {request.outsideKm} km</span>
+                    <span className="rounded-full bg-animeo-danger-soft px-2.5 py-1 text-xs font-black text-animeo-danger" title="Adresse au-delà de votre secteur d’intervention">Hors secteur · {request.outsideKm} km</span>
                   ) : null}
                 </div>
                 <h3 className="mt-2 text-lg font-black text-animeo-dark">{request.animal}</h3>

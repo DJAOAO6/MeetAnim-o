@@ -247,7 +247,7 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                   <Button size="sm" variant="secondary" disabled={manuallyOpen || saving} onClick={openNow} className="border-animeo-positive text-animeo-positive">
                     ▶ Ouvrir maintenant
                   </Button>
-                  <Button size="sm" variant="secondary" disabled={!manuallyOpen || saving} onClick={() => setConfirmingClose(true)} className="border-animeo-danger-border text-animeo-error">
+                  <Button size="sm" variant="secondary" disabled={!manuallyOpen || saving} onClick={() => setConfirmingClose(true)} className="border-animeo-danger-border text-animeo-danger">
                     ⏸ Fermer maintenant
                   </Button>
                   <Button
@@ -298,7 +298,7 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                         <button
                           type="button"
                           onClick={() => setDraft((current) => ({ ...current, closures: current.closures.filter((item) => item.id !== closure.id) }))}
-                          className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft"
+                          className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft"
                         >
                           Supprimer
                         </button>
@@ -333,7 +333,7 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                         type="button"
                         onClick={() => setDraft((current) => ({ ...current, openings: current.openings.filter((item) => item.id !== opening.id) }))}
                         aria-label={`Supprimer l’ouverture du ${formatDateId(opening.date)}`}
-                        className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft"
+                        className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft"
                       >
                         Supprimer
                       </button>
@@ -421,7 +421,7 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
                   {open ? (
                     <span className="text-sm font-semibold text-animeo-muted">{slotsLabel(day.slots, mode)}</span>
                   ) : (
-                    <span className="rounded-md bg-animeo-danger-soft px-2 py-0.5 text-xs font-bold text-animeo-error">Fermé</span>
+                    <span className="rounded-md bg-animeo-danger-soft px-2 py-0.5 text-xs font-bold text-animeo-danger">Fermé</span>
                   )}
                   <button
                     type="button"
@@ -460,7 +460,7 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
                       <button
                         type="button"
                         onClick={() => onChange(day.label, (current) => removeSlotForMode(current, slot.id, mode))}
-                        className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-error hover:bg-animeo-danger-soft"
+                        className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft"
                       >
                         Supprimer
                       </button>
@@ -529,7 +529,7 @@ function ClosureForm({ value, onSave, onClose }: { value: ExceptionalClosure; on
       }
     >
       <div className="space-y-4">
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
 
         <label className="block">
           <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Du</span>

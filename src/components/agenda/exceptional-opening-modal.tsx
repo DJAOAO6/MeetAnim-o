@@ -66,7 +66,7 @@ export function ExceptionalOpeningModal({ date, dateLabel, start, end, practiceM
           </>
         }
       >
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
         <p className="text-sm text-animeo-muted">Plutôt qu’une ouverture par-dessus cette fermeture, rouvrez seulement la sélection, ou retirez la fermeture entière.</p>
       </Modal>
     );
@@ -99,7 +99,7 @@ export function ExceptionalOpeningModal({ date, dateLabel, start, end, practiceM
       }
     >
       <div className="space-y-4">
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1.5 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">De</span>

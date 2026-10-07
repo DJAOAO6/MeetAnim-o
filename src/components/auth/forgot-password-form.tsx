@@ -23,7 +23,7 @@ export function ForgotPasswordForm() {
         </label>
 
         {feedback ? (
-          <p role="status" className={`rounded-[12px] px-4 py-3 text-sm font-bold ${state && "error" in state ? "bg-animeo-danger-soft text-animeo-error" : "bg-animeo-soft text-animeo-dark"}`}>{feedback}</p>
+          <p role="status" className={`rounded-[12px] px-4 py-3 text-sm font-bold ${state && "error" in state ? "bg-animeo-danger-soft text-animeo-danger" : "bg-animeo-soft text-animeo-dark"}`}>{feedback}</p>
         ) : null}
 
         <button

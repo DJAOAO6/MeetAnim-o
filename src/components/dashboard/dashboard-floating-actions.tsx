@@ -81,7 +81,7 @@ function FloatingAction({ label, onClick, className, badge, children }: {
       >
         {children}
         {badge !== undefined ? (
-          <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-animeo-accent px-1.5 text-xs font-black text-white">
+          <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-animeo-accent px-1.5 text-xs font-black text-animeo-on-accent">
             {badge}
           </span>
         ) : null}

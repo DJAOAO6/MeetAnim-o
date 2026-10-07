@@ -120,7 +120,7 @@ export function NewClientModal({ onClose, onCreated }: { onClose: () => void; on
       }
     >
       <div className="space-y-6">
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
 
         <section aria-labelledby="new-client-owner">
           <h3 id="new-client-owner" className="mb-3 text-base font-black text-animeo-dark">Propriétaire</h3>

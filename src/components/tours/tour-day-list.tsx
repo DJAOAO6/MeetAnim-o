@@ -126,7 +126,7 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
                   type="button"
                   onClick={deleteSelected}
                   disabled={bulkDeleting}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-animeo-danger-soft px-3 py-1.5 text-xs font-extrabold text-animeo-error transition hover:opacity-80 disabled:opacity-50"
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-animeo-danger-soft px-3 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:opacity-80 disabled:opacity-50"
                 >
                   <TrashIcon />
                   {bulkDeleting ? "Suppression…" : "Supprimer la sélection"}
@@ -220,7 +220,7 @@ function TodayCard({ tourRun, dateId, cabinetCoordinates, onOpen, onDelete, dele
               <h2 className="truncate text-lg font-black text-animeo-dark">{tourRun.name}</h2>
             </div>
           </div>
-          <button type="button" onClick={onDelete} disabled={deleting} aria-label="Supprimer la tournée d’aujourd’hui" title="Supprimer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-danger-soft hover:text-animeo-error disabled:opacity-50">
+          <button type="button" onClick={onDelete} disabled={deleting} aria-label="Supprimer la tournée d’aujourd’hui" title="Supprimer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-danger-soft hover:text-animeo-danger disabled:opacity-50">
             <TrashIcon />
           </button>
         </div>
@@ -292,7 +292,7 @@ function DayRow({ item, onOpen, onDelete, deleting, selected, onToggleSelected, 
             </p>
           </div>
         </button>
-        <button type="button" onClick={onDelete} disabled={deleting} aria-label={`Supprimer la tournée du ${item.dateLabel}`} title="Supprimer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-danger-soft hover:text-animeo-error disabled:opacity-50">
+        <button type="button" onClick={onDelete} disabled={deleting} aria-label={`Supprimer la tournée du ${item.dateLabel}`} title="Supprimer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-danger-soft hover:text-animeo-danger disabled:opacity-50">
           <TrashIcon />
         </button>
         <Icon name="chevron" className="h-4 w-4 shrink-0 -rotate-90 text-animeo-muted" />

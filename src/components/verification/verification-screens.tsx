@@ -81,7 +81,7 @@ export function VerificationRejected({ note, registrationNumber }: { note: strin
             spellCheck={false}
           />
         </div>
-        {error ? <p id="verification-error" role="alert" className="text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p id="verification-error" role="alert" className="text-sm font-bold text-animeo-danger">{error}</p> : null}
         <Button type="submit" disabled={pending}>{pending ? "Envoi…" : "Demander une nouvelle vérification"}</Button>
       </form>
     </Card>

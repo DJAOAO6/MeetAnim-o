@@ -103,7 +103,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
       <p className="text-xs text-animeo-muted">Pour un classeur Excel, seule la première feuille est prise en compte.</p>
 
       {reading ? <p className="text-sm font-semibold text-animeo-muted">Lecture du fichier…</p> : null}
-      {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
     </div>
   );
 }

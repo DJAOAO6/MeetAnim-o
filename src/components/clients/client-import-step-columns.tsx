@@ -106,7 +106,7 @@ export function ClientImportStepColumns({
           Retour
         </button>
         <div className="text-right">
-          {!canContinue ? <p className="mb-2 text-xs font-bold text-animeo-error">Associez au moins les colonnes Nom et Prénom pour continuer.</p> : null}
+          {!canContinue ? <p className="mb-2 text-xs font-bold text-animeo-danger">Associez au moins les colonnes Nom et Prénom pour continuer.</p> : null}
           <button
             type="button"
             disabled={!canContinue}

@@ -31,7 +31,7 @@ export function ChoiceModal({ title, message, choices, cancelLabel = "Annuler", 
   const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
   const tones = {
     primary: "bg-animeo text-white hover:bg-animeo-hover",
-    danger: "bg-animeo-error text-white hover:bg-animeo-danger",
+    danger: "bg-animeo-error text-white hover:brightness-90",
     neutral: "border border-animeo-border text-animeo-dark hover:bg-animeo-bg",
   };
   return (

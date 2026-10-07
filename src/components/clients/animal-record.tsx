@@ -64,7 +64,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
                   {photo ? "Remplacer" : "Ajouter une photo"}
                   <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhoto} className="sr-only" />
                 </label>
-                {photo ? <button type="button" onClick={() => { onPhotoChange(null); setPhotoError(null); }} className="text-xs font-bold text-animeo-muted hover:text-animeo-error">Retirer</button> : null}
+                {photo ? <button type="button" onClick={() => { onPhotoChange(null); setPhotoError(null); }} className="text-xs font-bold text-animeo-muted hover:text-animeo-danger">Retirer</button> : null}
               </div>
             </div>
             <div>
@@ -93,7 +93,7 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
               Modifier
             </button>
           </div>
-          {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{photoError}</p> : null}
+          {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{photoError}</p> : null}
         </div>
 
         <div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">

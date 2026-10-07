@@ -155,7 +155,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
               </button>
               {canDelete ? (
                 <div className="flex justify-end border-t border-animeo-border-soft px-3 py-2">
-                  <button type="button" onClick={() => setDeleteTarget(document)} disabled={deletingId === document.id} className="rounded-lg px-2.5 py-1.5 text-xs font-extrabold text-animeo-error transition hover:bg-animeo-danger-soft disabled:opacity-50">
+                  <button type="button" onClick={() => setDeleteTarget(document)} disabled={deletingId === document.id} className="rounded-lg px-2.5 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:opacity-50">
                     Supprimer
                   </button>
                 </div>

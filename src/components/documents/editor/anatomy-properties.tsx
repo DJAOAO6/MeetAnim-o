@@ -203,7 +203,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                         type="button"
                         onClick={() => removeObservation(observation.id)}
                         aria-label={`Supprimer l’observation ${node?.label ?? observation.zoneId}`}
-                        className="shrink-0 text-animeo-error"
+                        className="shrink-0 text-animeo-danger"
                       >
                         ×
                       </button>

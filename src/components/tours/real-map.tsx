@@ -281,14 +281,16 @@ function clusterIcon(count: number, flagged: number, kind: RealMapClusterKind, d
     const width = 20 + pill.chars * 7;
     icon = L.divIcon({
       className: "",
-      html: `<span style="display:flex;align-items:center;justify-content:center;gap:3px;width:${width}px;height:32px;border-radius:9999px;background:var(--theme-brand);color:#fff;font-weight:800;font-size:12px;white-space:nowrap;border:3px solid white;${clusterShadow}${fade}">${pill.html}</span>`,
+      html: `<span style="display:flex;align-items:center;justify-content:center;gap:3px;width:${width}px;height:32px;border-radius:9999px;background:var(--theme-action);color:#fff;font-weight:800;font-size:12px;white-space:nowrap;border:3px solid white;${clusterShadow}${fade}">${pill.html}</span>`,
       iconSize: [width, 32],
       iconAnchor: [width / 2, 16],
     });
   } else {
     const size = count < 10 ? 36 : count < 100 ? 42 : 50;
     // Relances sans client à relancer : groupe en retrait (rien à faire là).
-    const background = kind === "reminders" ? "var(--theme-subtle)" : "var(--theme-brand)";
+    // Sous un chiffre blanc : la teinte des boutons pleins (5:1 au moins), pas
+    // celle du logo (3,8:1 en clair, 2:1 en sombre) ; en retrait, un gris fixe.
+    const background = kind === "reminders" ? "var(--theme-map-group-muted)" : "var(--theme-action)";
     const badge = kind === "clients" && flagged > 0
       ? `<span style="position:absolute;top:-6px;right:-8px;min-width:20px;height:20px;padding:0 5px;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:#f4b860;color:#3b2a1a;font-size:11px;font-weight:800;border:2px solid white;">${short(flagged)}</span>`
       : "";

@@ -34,7 +34,7 @@ export function ClientImportStepRun({
     return (
       <div className="space-y-4 py-6">
         <p aria-live="polite" className="text-center text-sm font-bold text-animeo-dark">{runState.done} / {runState.total} lignes traitées avant l&apos;interruption</p>
-        <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-center text-sm font-bold text-animeo-error">{runState.error}</p>
+        <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-center text-sm font-bold text-animeo-danger">{runState.error}</p>
         <p className="text-center text-xs text-animeo-muted">Les lignes déjà traitées sont conservées. Vous pouvez reprendre l&apos;import là où il s&apos;est arrêté, ou l&apos;annuler entièrement.</p>
         <div className="flex flex-col-reverse justify-center gap-2 sm:flex-row">
           <button type="button" onClick={onUndo} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">

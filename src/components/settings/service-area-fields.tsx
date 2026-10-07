@@ -63,7 +63,7 @@ export function ServiceAreaFields({ idPrefix, draft, onChange, currentText }: {
             ariaDescribedBy={unconfirmed ? `${idPrefix}-from-hint` : undefined}
             ariaInvalid={unconfirmed}
           />
-          {unconfirmed ? <p id={`${idPrefix}-from-hint`} className="mt-1.5 text-xs font-bold text-animeo-error">Choisissez la commune dans la liste proposée.</p> : null}
+          {unconfirmed ? <p id={`${idPrefix}-from-hint`} className="mt-1.5 text-xs font-bold text-animeo-danger">Choisissez la commune dans la liste proposée.</p> : null}
         </div>
         <div>
           <label htmlFor={`${idPrefix}-radius`} className={labelClassName}>Jusqu’où vous déplacez-vous ?</label>

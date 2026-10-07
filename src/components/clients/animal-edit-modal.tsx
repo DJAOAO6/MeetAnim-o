@@ -91,7 +91,7 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
       }
     >
       <div className="space-y-5">
-        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-error">{error}</p> : null}
+        {error ? <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
         <AnimalFields idPrefix={ID_PREFIX} draft={draft} onChange={(patch) => { setDraft((current) => ({ ...current, ...patch })); setErrors((current) => withoutChangedErrors(current, patch)); }} errors={errors} previousSex={animal?.sex} />
         <AnimalPlacePicker value={placeChoice} onChange={setPlaceChoice} currentPlace={animal?.place} />
       </div>
