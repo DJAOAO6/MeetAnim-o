@@ -89,6 +89,10 @@
   --theme-warning-soft: #fff3df;
   --theme-warning-border: #f1d9a8;
   --theme-success: #36724a;
+  /* Verts et bleus pleins des notifications, sous du texte blanc (5,7:1 et
+     5,4:1) — fixes entre clair et sombre, comme le rouge plein. */
+  --theme-success-solid: #36724a;
+  --theme-info-solid: #3566c9;
   --theme-success-soft: #e6f4ea;
   --theme-info-soft: #dde6cf;
   /* Agenda : rendez-vous à domicile et tournées. Liseré et pastille
@@ -192,6 +196,8 @@
   --theme-warning-soft: #fff4dd;
   --theme-warning-border: #f0d8a5;
   --theme-success: #267668;
+  --theme-success-solid: #267668;
+  --theme-info-solid: #3566c9;
   --theme-success-soft: #e4f5ef;
   --theme-info-soft: #e8f1f4;
   --theme-home: #4c8190;
@@ -285,12 +291,12 @@
   --color-animeo-tour-text: var(--theme-tour-text);
   --color-animeo-tour-soft: var(--theme-tour-soft);
   --color-animeo-sidebar: var(--theme-sidebar);
-  --color-animeo-success: #36a26b;
+  --color-animeo-success: var(--theme-success-solid);
   /* Fond plein uniquement, sous du texte blanc. En couleur de texte :
      animeo-danger (l'ancien #d95c5c ne faisait que 3,1:1 sur fond rosé). */
   --color-animeo-error: var(--theme-danger-solid);
   --color-animeo-on-accent: var(--theme-on-accent);
-  --color-animeo-info: #5b8def;
+  --color-animeo-info: var(--theme-info-solid);
   --font-sans: var(--font-nunito-sans);
 }
 

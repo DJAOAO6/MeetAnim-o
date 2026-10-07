@@ -1,8 +1,10 @@
 import { config } from "dotenv";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { neon } from "./helpers/sql";
 
 config({ path: ".env.local" });
+const sql = neon(process.env.DATABASE_URL!);
 
 /**
  * Contrôle d'accessibilité automatique des écrans principaux, y compris en
@@ -52,4 +54,64 @@ test("le mode personnalisation du tableau de bord reste accessible", async ({ pa
   const handle = page.getByRole("button", { name: /déplacer le bloc/i }).first();
   await handle.focus();
   await expect(handle).toBeFocused();
+});
+
+/**
+ * Contraste du texte (règle axe « color-contrast »), dans les deux palettes,
+ * en clair et en sombre : 4,5:1, ou 3:1 pour un grand texte.
+ *
+ * Le contrôle général ci-dessus ne tourne qu'avec le thème par défaut : un
+ * texte resté foncé sur un fond devenu foncé (rendez-vous à domicile,
+ * étiquette de l'heure courante) n'y apparaît jamais. D'où ce passage par
+ * chaque thème.
+ *
+ * Exceptions voulues, et seulement elles :
+ * - les jours du mois voisin dans le mini-calendrier, atténués exprès
+ *   (`data-outside-month`) ;
+ * - les éléments désactivés, qu'axe écarte de lui-même.
+ */
+const CONTRAST_PAGES = [...PAGES, ["prestations", "/dashboard/prestations"]] as const;
+const CONTRAST_EXCEPTIONS = ["[data-outside-month]"];
+
+// Un rendez-vous à domicile dans la semaine affichée : c'est son texte qui
+// restait foncé en sombre, et l'agenda de la base de test peut être vide.
+const HOME_VISIT_ID = "e2e-contrast-home";
+const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(new Date());
+
+test.describe("contraste du texte", () => {
+  test.beforeAll(async () => {
+    await sql`DELETE FROM "Appointment" WHERE id = ${HOME_VISIT_ID}`;
+    await sql`INSERT INTO "Appointment" (id, date, start, duration, "clientName", "animalName", "serviceName", mode, location, price, status, notes, "updatedAt")
+      VALUES (${HOME_VISIT_ID}, ${`${TODAY}T00:00:00.000Z`}, '12:07', 60, 'Colette Contraste', 'Nuance', 'Ostéopathie canine', 'DOMICILE', 'Rouen', 60, 'CONFIRMED', '', now())`;
+  });
+
+  test.afterAll(async () => {
+    await sql`DELETE FROM "Appointment" WHERE id = ${HOME_VISIT_ID}`;
+  });
+
+  for (const [palette, paletteLabel] of [["1002pattes", "1002 Pattes"], ["classic", "classique"]] as const) {
+    for (const [mode, modeLabel] of [["light", "clair"], ["dark", "sombre"]] as const) {
+      test(`contraste du texte — palette ${paletteLabel}, thème ${modeLabel}`, async ({ page }) => {
+        test.setTimeout(90_000);
+        await page.addInitScript(([themeMode, themePalette]) => localStorage.setItem("1002pattes-dashboard-theme-v2", JSON.stringify({ mode: themeMode, palette: themePalette })), [mode, palette]);
+        const failures: string[] = [];
+
+        for (const [label, path] of CONTRAST_PAGES) {
+          await page.goto(path, { waitUntil: "networkidle" });
+          await page.waitForTimeout(1200);
+          await expect(page.locator("[data-dashboard-theme]").first()).toHaveAttribute("data-theme", mode);
+          if (path === "/dashboard/agenda") await expect(page.locator("[data-testid='agenda-event']").filter({ hasText: "Nuance" }).first()).toBeVisible();
+          let builder = new AxeBuilder({ page }).withRules(["color-contrast"]);
+          for (const selector of CONTRAST_EXCEPTIONS) builder = builder.exclude(selector);
+          const results = await builder.analyze();
+          for (const node of results.violations.flatMap((violation) => violation.nodes)) {
+            const data = (node.any[0]?.data ?? {}) as { fgColor?: string; bgColor?: string; contrastRatio?: number };
+            failures.push(`${label} : ${data.contrastRatio}:1 (${data.fgColor} sur ${data.bgColor}) — ${node.html.replace(/\s+/g, " ").slice(0, 120)}`);
+          }
+        }
+
+        expect(failures, `Contrastes insuffisants :\n${failures.join("\n")}`).toEqual([]);
+      });
+    }
+  }
 });

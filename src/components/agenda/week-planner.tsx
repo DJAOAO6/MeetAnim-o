@@ -910,7 +910,7 @@ function TimeColumn({ startHour, endHour, plannerHeight, pxPerMinute, nowMinutes
           qu'elle recouvre, pour rester lisible. */}
       {showNow ? (
         <span
-          className="absolute right-1.5 z-10 -translate-y-1/2 rounded-md bg-animeo-accent px-1.5 py-0.5 text-[11px] font-black tabular-nums text-animeo-dark shadow-sm"
+          className="absolute right-1.5 z-10 -translate-y-1/2 rounded-md bg-animeo-accent px-1.5 py-0.5 text-[11px] font-black tabular-nums text-animeo-on-accent shadow-sm"
           style={{ top: (nowMinutes - startHour * 60) * pxPerMinute }}
           data-testid="agenda-now-label"
         >

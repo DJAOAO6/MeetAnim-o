@@ -113,6 +113,9 @@ function MiniCalendar({ weekDates, onSelectDate }: { weekDates: Date[]; onSelect
               type="button"
               onClick={() => onSelectDate(date)}
               aria-label={new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date)}
+              // Les jours du mois voisin sont atténués exprès : le contrôle de
+              // contraste les reconnaît à cet attribut (accessibility-dashboard).
+              data-outside-month={inVisibleMonth ? undefined : ""}
               className={`mx-auto flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition hover:bg-animeo hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-animeo-dark ${
                 isToday
                   ? "bg-animeo text-white"

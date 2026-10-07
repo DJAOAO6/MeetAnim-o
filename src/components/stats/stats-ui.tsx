@@ -82,7 +82,7 @@ export function StatMetric({ label, value, detail, icon, positive = false }: { l
       <span className="min-w-0">
         <span className="block text-xs font-bold text-animeo-muted">{label}</span>
         <span className="mt-1 block text-2xl font-black text-animeo-dark">{value}</span>
-        {detail ? <span className={`mt-1 block text-xs font-bold ${positive ? "text-animeo-success" : "text-animeo-muted"}`}>{detail}</span> : null}
+        {detail ? <span className={`mt-1 block text-xs font-bold ${positive ? "text-animeo-positive" : "text-animeo-muted"}`}>{detail}</span> : null}
       </span>
     </div>
   );
