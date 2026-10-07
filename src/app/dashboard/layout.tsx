@@ -130,8 +130,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   À partir de md, même dégagement pour les deux boutons
                   flottants quand ils sont affichés (`:has`) : en bas de
                   page, ils recouvraient le coin droit du contenu — « Enregistrer
-                  les rappels », les menus « Plus d’actions »… */}
-              <main className="isolate mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10 md:has-[~[data-floating-actions]]:pb-48">
+                  les rappels », les menus « Plus d’actions »…
+                  Même principe sur téléphone pour le « + » de l'agenda. */}
+              <main className="isolate mx-auto min-h-screen max-w-[1600px] p-4 pb-24 sm:p-7 lg:p-10 md:pb-7 lg:pb-10 md:has-[~[data-floating-actions]]:pb-48 max-sm:has-[~[data-floating-mobile]]:pb-40">
                 {user.assistance ? (
                   <AssistanceBanner
                     assistedName={`${user.firstName} ${user.lastName}`.trim()}

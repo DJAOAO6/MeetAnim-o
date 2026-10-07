@@ -29,10 +29,15 @@ for (const viewport of VIEWPORTS) {
     // Rien ne déborde de la page.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 
-    // Les actions principales sont entières à l'écran. Sur ordinateur,
-    // « Bloquer un créneau » est rangé dans le menu accolé à « Nouveau
-    // rendez-vous » : c'est son chevron qui doit être à l'écran.
-    const actions = phone ? [/^Nouveau RDV$/, /^Bloquer$/, /^Affichage$/] : [/^Nouveau rendez-vous$/, /^Autres actions d’ajout$/, /^Affichage$/];
+    // Les actions principales sont entières à l'écran. « Bloquer un
+    // créneau » est rangé dans un menu : celui du bouton double sur
+    // ordinateur (son chevron doit être à l'écran), celui du « + » flottant
+    // sur téléphone — où la barre ne porte plus aucune action d'ajout.
+    const actions = phone ? [/^Ajouter à l’agenda$/, /^Affichage$/] : [/^Nouveau rendez-vous$/, /^Autres actions d’ajout$/, /^Affichage$/];
+    if (phone) {
+      const toolbar = page.getByRole("button", { name: "Aujourd’hui" }).locator("xpath=ancestor::div[contains(@class,'rounded-')][1]");
+      await expect(toolbar.getByRole("button", { name: /^(Nouveau|Bloquer)/ }).filter({ visible: true })).toHaveCount(0);
+    }
     for (const name of actions) {
       const button = page.getByRole("button", { name }).first();
       await button.scrollIntoViewIfNeeded();

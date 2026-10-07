@@ -16,9 +16,9 @@ type AgendaViewSwitcherProps = {
 
 export function AgendaViewSwitcher({ value, onChange }: AgendaViewSwitcherProps) {
   return (
-    // Sur téléphone, quatre boutons de 44 px de haut sur toute la largeur,
-    // répartie selon les libellés.
-    <div className="flex w-full rounded-xl bg-animeo-soft p-1 sm:inline-flex sm:w-fit" aria-label="Choix de la vue">
+    // Sur téléphone, quatre boutons de 44 px de haut sur la largeur restante
+    // (« Affichage » se range à leur droite), répartie selon les libellés.
+    <div className="flex min-w-0 flex-1 rounded-xl bg-animeo-soft p-1 sm:inline-flex sm:w-fit sm:flex-none" aria-label="Choix de la vue">
       {options.map((option) => (
         <button
           key={option.id}

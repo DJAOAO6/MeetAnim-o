@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
 import type { Tour, TourAppointment } from "@/data/tours";
 
@@ -79,22 +81,12 @@ function MiniCalendar({ weekDates, onSelectDate }: { weekDates: Date[]; onSelect
           <h2 className="mt-1 truncate font-extrabold capitalize text-animeo-dark">{title}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setMonthOffset((current) => current - 1)}
-            aria-label="Mois précédent"
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-animeo-dark transition hover:bg-animeo-bg"
-          >
-            <Icon name="arrow" className="h-4 w-4 rotate-180" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setMonthOffset((current) => current + 1)}
-            aria-label="Mois suivant"
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-animeo-dark transition hover:bg-animeo-bg"
-          >
-            <Icon name="arrow" className="h-4 w-4" />
-          </button>
+          <IconButton label="Mois précédent" onClick={() => setMonthOffset((current) => current - 1)} tooltipAlign="end">
+            <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
+          <IconButton label="Mois suivant" onClick={() => setMonthOffset((current) => current + 1)} tooltipAlign="end">
+            <ChevronRight aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
         </div>
       </div>
 

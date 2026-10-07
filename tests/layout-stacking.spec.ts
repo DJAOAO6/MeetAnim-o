@@ -48,8 +48,10 @@ test("une fenêtre ouverte depuis la page passe au-dessus du menu latéral", asy
 test("sur téléphone, une fenêtre passe au-dessus de la barre du bas", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: /^Nouveau (rendez-vous|RDV)$/ }).first().click();
-  await expect(page.getByRole("dialog").first()).toBeVisible();
+  // Sur téléphone, l'ajout passe par le « + » flottant, puis sa feuille.
+  await page.getByRole("button", { name: "Ajouter à l’agenda" }).click();
+  await page.getByRole("menuitem", { name: "Nouveau rendez-vous" }).click();
+  await expect(page.getByRole("dialog", { name: "Nouveau rendez-vous" })).toBeVisible();
   const nav = (await page.getByRole("navigation", { name: "Navigation principale (mobile)" }).boundingBox())!;
   expect(await topmost(page, nav.x + nav.width / 2, nav.y + nav.height / 2)).toBe("fenêtre");
 });
