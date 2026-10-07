@@ -21,6 +21,7 @@ import { MonthCalendarView, type MonthFilter } from "@/components/agenda/month-c
 import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planner";
 import { YearCalendarView, YearSidePanel, YearStatsRibbon } from "@/components/agenda/year-calendar-view";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
@@ -880,11 +881,16 @@ function PendingRequestsPanel({ requests, onAction }: {
                 <p className="text-sm font-bold text-animeo-muted">{request.client}</p>
                 <p className="mt-1 text-xs text-animeo-muted">{request.location}</p>
               </div>
-              <div className={`grid shrink-0 gap-2 sm:flex ${hasSlotOptions(request.appointment) ? "grid-cols-2" : "grid-cols-3"}`}>
-                {/* Plusieurs horaires proposés : on en retient un ci-dessous, pas d'« Accepter ». */}
-                {hasSlotOptions(request.appointment) ? null : <button type="button" onClick={() => onAction("Accepté", request)} className="rounded-xl bg-animeo px-3 py-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Accepter</button>}
-                <button type="button" onClick={() => onAction("Décalage demandé", request)} className="rounded-xl border border-animeo-border bg-white px-3 py-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">Décaler</button>
-                <button type="button" onClick={() => onAction("Refusé", request)} className="rounded-xl bg-animeo-danger-soft px-3 py-2.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">Refuser</button>
+              {/* Une seule action pleine, à droite : « Accepter ». Dans le code,
+                  les boutons suivent l'ordre de l'écran large — Décaler,
+                  Refuser, Accepter — ; sur téléphone, « Accepter » passe en
+                  tête et prend la largeur restante, sous le pouce.
+                  Plusieurs horaires proposés : pas d'« Accepter », on en
+                  retient un ci-dessous. */}
+              <div className="flex shrink-0 items-center gap-2">
+                <Button type="button" variant="secondary" onClick={() => onAction("Décalage demandé", request)} className={hasSlotOptions(request.appointment) ? "flex-1 sm:flex-none" : ""}>Décaler</Button>
+                <Button type="button" variant="danger" onClick={() => onAction("Refusé", request)} className={hasSlotOptions(request.appointment) ? "flex-1 sm:flex-none" : ""}>Refuser</Button>
+                {hasSlotOptions(request.appointment) ? null : <Button type="button" onClick={() => onAction("Accepté", request)} className="order-first flex-1 sm:order-none sm:flex-none">Accepter</Button>}
               </div>
             </div>
             {hasSlotOptions(request.appointment) ? <div className="mt-3"><RequestSlotChoices appointment={request.appointment} compact /></div> : null}
