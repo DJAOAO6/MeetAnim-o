@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Écran bas (portable en 1366 × 768, petit téléphone) : `short:` resserre
+   les marges du menu latéral pour que tous ses liens tiennent sans défiler. */
+@custom-variant short (@media (max-height: 800px));
+
 /*
  * Système de thème — deux palettes complètes, choisies par data-palette sur
  * le conteneur du thème (DashboardThemeProvider) :

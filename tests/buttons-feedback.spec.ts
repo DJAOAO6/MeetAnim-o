@@ -61,7 +61,7 @@ test("tout bouton cliquable montre la main", async ({ page }) => {
         wrong: buttons.filter((button) => getComputedStyle(button).cursor !== "pointer").map((button) => `${getComputedStyle(button).cursor} — ${(button.getAttribute("aria-label") || button.textContent || "").trim().slice(0, 50)}`),
       };
     }, CURSOR_EXCEPTIONS);
-    expect(checked, `${path} : des boutons à contrôler`).toBeGreaterThan(5);
+    expect(checked, `${path} : des boutons à contrôler`).toBeGreaterThan(0);
     expect(wrong, `${path} : boutons sans la main`).toEqual([]);
   }
 });

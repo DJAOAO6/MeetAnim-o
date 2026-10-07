@@ -4,8 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
 config({ path: ".env.local" });
 
 /**
- * Comportement de la navigation : survol, clic, et les combinaisons des deux
- * réglages.
+ * Comportement de la navigation : la barre réduite s'ouvre au survol ou
+ * seulement au bouton, selon le réglage.
  *
  * La vérification qui compte est celle-ci : le survol déplie la barre
  * **par-dessus** le contenu, donc ni la position ni la largeur du contenu ne
@@ -36,15 +36,14 @@ async function openNavigationSettings(page: Page) {
   await expect(page.getByRole("heading", { name: "Comportement de la navigation" })).toBeVisible();
 }
 
-async function setBehaviours(page: Page, sidebar: Behaviour, menus: Behaviour) {
+async function setBehaviour(page: Page, sidebar: Behaviour) {
   await openNavigationSettings(page);
   await segmented(page, "Ouverture de la barre latérale", sidebar).click();
-  await segmented(page, "Ouverture des menus", menus).click();
 }
 
 test("le survol déplie la barre sans déplacer le contenu", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await setBehaviours(page, "Automatique au survol", "Automatique au survol");
+  await setBehaviour(page, "Automatique au survol");
 
   await page.goto("/dashboard", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Réduire le menu" }).click();
@@ -60,7 +59,7 @@ test("le survol déplie la barre sans déplacer le contenu", async ({ page }) =>
   expect(hovered.asideWidth, "la barre doit se déplier au survol").toBeGreaterThan(200);
   expect(hovered.left, "le contenu ne doit pas se déplacer").toBe(collapsed.left);
   expect(hovered.width, "le contenu ne doit pas changer de largeur").toBe(collapsed.width);
-  await expect(page.getByRole("button", { name: "Planning", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Navigation principale" }).getByText("Planning", { exact: true })).toBeVisible();
 
   // La souris s'éloigne : repli après le délai de tolérance.
   await page.mouse.move(1200, 500);
@@ -84,7 +83,7 @@ test("le survol déplie la barre sans déplacer le contenu", async ({ page }) =>
 
 test("barre en manuel : le survol ne déplie rien", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await setBehaviours(page, "Manuelle au clic", "Automatique au survol");
+  await setBehaviour(page, "Manuelle au clic");
 
   await page.goto("/dashboard", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Réduire le menu" }).click();
@@ -99,64 +98,30 @@ test("barre en manuel : le survol ne déplie rien", async ({ page }) => {
   expect((await contentBox(page)).asideWidth).toBeGreaterThan(200);
 });
 
-test("une seule catégorie ouverte à la fois, au clic comme au survol", async ({ page }) => {
+test("le réglage d'ouverture des catégories a disparu, et son ancienne valeur est ignorée", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-
-  // Menus en manuel : le survol n'ouvre rien, le clic ouvre et referme.
-  await setBehaviours(page, "Manuelle au clic", "Manuelle au clic");
+  // Un navigateur qui a gardé l'ancien réglage.
   await page.goto("/dashboard", { waitUntil: "networkidle" });
+  await page.evaluate(() => localStorage.setItem("1002pattes.sidebar.preferences", JSON.stringify({ sidebarBehavior: "click", menuBehavior: "click", defaultState: "expanded" })));
 
-  const planning = page.getByRole("button", { name: "Planning", exact: true });
-  const clientele = page.getByRole("button", { name: "Clientèle", exact: true });
+  await openNavigationSettings(page);
+  await expect(page.getByRole("group", { name: "Ouverture des menus" })).toHaveCount(0);
+  // Les réglages qui restent sont repris tels quels.
+  await expect(segmented(page, "Ouverture de la barre latérale", "Manuelle au clic")).toHaveAttribute("aria-pressed", "true");
 
-  await planning.hover();
-  await page.waitForTimeout(500);
-  await expect(planning, "en manuel, le survol n’ouvre pas").toHaveAttribute("aria-expanded", "false");
-
-  await planning.click();
-  await expect(planning).toHaveAttribute("aria-expanded", "true");
-  await clientele.click();
-  await expect(clientele).toHaveAttribute("aria-expanded", "true");
-  await expect(planning, "la précédente doit se refermer").toHaveAttribute("aria-expanded", "false");
-  await clientele.click();
-  await expect(clientele, "un second clic referme").toHaveAttribute("aria-expanded", "false");
-
-  // Menus au survol : passer d'une catégorie à l'autre remplace l'ouverte.
-  await setBehaviours(page, "Manuelle au clic", "Automatique au survol");
-  await page.goto("/dashboard", { waitUntil: "networkidle" });
-
-  await page.getByRole("button", { name: "Planning", exact: true }).hover();
-  await expect(page.getByRole("button", { name: "Planning", exact: true })).toHaveAttribute("aria-expanded", "true", { timeout: 3000 });
-  await page.getByRole("button", { name: "Gestion", exact: true }).hover();
-  await expect(page.getByRole("button", { name: "Gestion", exact: true })).toHaveAttribute("aria-expanded", "true", { timeout: 3000 });
-  await expect(page.getByRole("button", { name: "Planning", exact: true })).toHaveAttribute("aria-expanded", "false");
-
-  // Descendre vers les sous-pages de la catégorie ouverte ne la referme pas.
-  await page.getByRole("link", { name: "Documents" }).hover();
-  await page.waitForTimeout(600);
-  await expect(page.getByRole("button", { name: "Gestion", exact: true })).toHaveAttribute("aria-expanded", "true");
-});
-
-test("la catégorie de la page affichée est ouverte, et peut être refermée", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await setBehaviours(page, "Automatique au survol", "Manuelle au clic");
-  await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-
-  const planning = page.getByRole("button", { name: "Planning", exact: true });
-  await expect(planning, "l’entrée active ne doit pas être cachée dans un accordéon fermé").toHaveAttribute("aria-expanded", "true");
-  await planning.click();
-  await expect(planning, "la catégorie active doit pouvoir se refermer").toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByRole("link", { name: "Tournées" })).toBeHidden();
+  // Au premier changement, l'ancienne valeur quitte le stockage.
+  await segmented(page, "Ouverture de la barre latérale", "Automatique au survol").click();
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem("1002pattes.sidebar.preferences") ?? "{}"));
+  expect(stored).toEqual({ sidebarBehavior: "hover", defaultState: "expanded" });
 });
 
 test("les réglages survivent au rechargement et suivent le bouton de la barre", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await setBehaviours(page, "Manuelle au clic", "Manuelle au clic");
+  await setBehaviour(page, "Manuelle au clic");
 
   await page.reload({ waitUntil: "networkidle" });
   await settingsSection(page, "Navigation").click();
   await expect(segmented(page, "Ouverture de la barre latérale", "Manuelle au clic")).toHaveAttribute("aria-pressed", "true");
-  await expect(segmented(page, "Ouverture des menus", "Manuelle au clic")).toHaveAttribute("aria-pressed", "true");
 
   // Le bouton de la barre et le réglage décrivent le même état : ils doivent
   // rester d'accord, quel que soit celui des deux qu'on manipule.
@@ -169,5 +134,5 @@ test("les réglages survivent au rechargement et suivent le bouton de la barre",
   await expect(page.getByRole("button", { name: "Réduire le menu" })).toBeVisible();
 
   // Remise au comportement par défaut pour ne pas influencer les autres specs.
-  await setBehaviours(page, "Automatique au survol", "Automatique au survol");
+  await setBehaviour(page, "Automatique au survol");
 });

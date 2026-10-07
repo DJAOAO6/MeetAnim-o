@@ -2,9 +2,11 @@ import type { NavigationAssetKey } from "@/data/dashboard-theme";
 import type { ModuleKey } from "@/lib/modules";
 
 /**
- * Plan de navigation du tableau de bord, regroupé par métier plutôt qu'en une
- * liste plate : huit entrées de même poids demandaient de tout relire à chaque
- * fois. « Tableau de bord » reste hors catégorie, c'est le point de départ.
+ * Plan de navigation du tableau de bord : tous les liens visibles, rangés
+ * sous trois titres par métier (PLAN-BOUTONS, 3.10). Les titres ne se
+ * cliquent pas — des catégories à déplier cachaient la moitié du logiciel
+ * derrière un geste de plus. « Tableau de bord » reste hors catégorie, c'est
+ * le point de départ.
  *
  * `assetKey` fait le lien avec les icônes personnalisées du thème
  * (Personnalisation) : une image choisie par le cabinet remplace alors
@@ -33,13 +35,10 @@ export type NavigationIconName =
   | "fileText"
   | "chartColumn";
 
-export type GroupIconName = "calendarRange" | "usersRound" | "briefcaseBusiness" | "chartTrend";
-
 export type NavigationGroup = {
   id: string;
+  /** Titre de la section, non cliquable. */
   label: string;
-  /** Icône de la catégorie, légèrement plus marquée que celles des pages. */
-  icon: GroupIconName;
   items: NavigationEntry[];
 };
 
@@ -53,7 +52,6 @@ export const dashboardEntry: NavigationEntry = {
 export const navigationGroups: NavigationGroup[] = [
   {
     id: "planning",
-    icon: "calendarRange",
     label: "Planning",
     items: [
       { label: "Agenda", href: "/dashboard/agenda", icon: "calendarDays", assetKey: "agenda" },
@@ -63,7 +61,6 @@ export const navigationGroups: NavigationGroup[] = [
   },
   {
     id: "clientele",
-    icon: "usersRound",
     label: "Clientèle",
     items: [
       { label: "Clients & animaux", href: "/dashboard/clients", icon: "users", assetKey: "clients" },
@@ -72,18 +69,10 @@ export const navigationGroups: NavigationGroup[] = [
   },
   {
     id: "gestion",
-    icon: "briefcaseBusiness",
     label: "Gestion",
     items: [
       { label: "Prestations", href: "/dashboard/prestations", icon: "briefcase", assetKey: "services" },
       { label: "Documents", href: "/dashboard/documents", icon: "fileText", assetKey: "documents", module: "DOCUMENTS" },
-    ],
-  },
-  {
-    id: "pilotage",
-    icon: "chartTrend",
-    label: "Pilotage",
-    items: [
       { label: "Statistiques", href: "/dashboard/statistiques", icon: "chartColumn", assetKey: "stats", requiresFinances: true, module: "STATISTICS" },
     ],
   },

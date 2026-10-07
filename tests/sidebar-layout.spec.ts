@@ -80,41 +80,72 @@ test("le contenu récupère l'espace quand la barre se replie", async ({ page })
   expect(failures, `Problèmes :\n${failures.join("\n")}`).toEqual([]);
 });
 
-test("catégories repliables, état actif unique et navigation au clavier", async ({ page }) => {
+test("menu à plat : tous les liens visibles, une seule page active, réglages et déconnexion à portée", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
+  const sidebar = page.locator("aside.dashboard-sidebar");
+  const nav = page.getByRole("navigation", { name: "Navigation principale" });
 
-  // La catégorie de la page courante est ouverte : l'élément actif ne peut
-  // pas être caché dans un accordéon fermé.
-  const planning = page.getByRole("button", { name: "Planning" });
-  await expect(planning).toHaveAttribute("aria-expanded", "true");
+  // Plus rien à déplier : les titres ne sont pas des boutons, et les liens
+  // sont visibles d'emblée — y compris ceux des autres sections.
+  for (const title of ["Planning", "Clientèle", "Gestion"]) {
+    await expect(nav.getByRole("group", { name: title })).toBeVisible();
+    await expect(page.getByRole("button", { name: title, exact: true })).toHaveCount(0);
+  }
+  await expect(nav.getByText("Pilotage")).toHaveCount(0);
+  for (const name of ["Tableau de bord", "Agenda", "Clients & animaux", "Prestations"]) {
+    const link = nav.getByRole("link", { name, exact: true });
+    await expect(link).toBeVisible();
+    expect((await link.boundingBox())!.height, `« ${name} » : cible de 44 px`).toBeGreaterThanOrEqual(44);
+  }
 
-  // Une seule page active dans toute la navigation.
-  const current = page.locator('nav[aria-label="Navigation principale"] [aria-current="page"]');
+  // Une seule page active dans toute la barre.
+  const current = sidebar.locator('[aria-current="page"]');
   await expect(current).toHaveCount(1);
   await expect(current).toHaveText(/Agenda/);
 
-  // Les catégories s'ouvrent et se ferment.
-  const clientele = page.getByRole("button", { name: "Clientèle" });
-  await expect(clientele).toHaveAttribute("aria-expanded", "false");
-  await clientele.click();
-  await expect(clientele).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("link", { name: "Carte clients" })).toBeVisible();
+  // En bas, sans sous-menu à ouvrir : la déconnexion, toujours confirmée…
+  await sidebar.getByRole("button", { name: "Se déconnecter" }).click();
+  const confirm = page.getByRole("dialog", { name: "Se déconnecter ?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Annuler" }).click();
+  await expect(confirm).toHaveCount(0);
 
-  // Le choix est conservé d'une page à l'autre.
-  await page.goto("/dashboard/clients", { waitUntil: "networkidle" });
-  await expect(page.getByRole("button", { name: "Clientèle" })).toHaveAttribute("aria-expanded", "true");
+  // … et les Paramètres, qui deviennent alors la page active.
+  await sidebar.getByRole("link", { name: "Paramètres" }).click();
+  await page.waitForURL("**/dashboard/parametres");
+  await expect(current).toHaveCount(1);
+  await expect(current).toHaveText(/Paramètres/);
 
-  // Barre réduite : les libellés disparaissent, les noms restent accessibles.
+  // Barre réduite : les libellés et les titres disparaissent, les noms
+  // restent accessibles.
   await page.getByRole("button", { name: "Réduire le menu" }).click();
-  await page.waitForTimeout(400);
+  await page.mouse.move(1000, 500);
+  await page.waitForTimeout(600);
   const agendaLink = page.getByRole("link", { name: "Agenda", exact: true });
   await expect(agendaLink).toBeVisible();
   await expect(agendaLink).toHaveAttribute("title", "Agenda");
-  await expect(page.getByRole("button", { name: "Planning" })).toHaveCount(0);
+  await expect(nav.getByText("Planning", { exact: true })).toHaveCount(0);
+  await expect(sidebar.getByRole("link", { name: "Paramètres" })).toHaveAttribute("title", "Paramètres");
 
   // La préférence survit au rechargement.
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByRole("button", { name: "Déployer le menu" })).toBeVisible();
   await page.getByRole("button", { name: "Déployer le menu" }).click();
+});
+
+test("sur un écran bas, la liste défile et le bloc du bas reste visible", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 520 });
+  await page.goto("/dashboard", { waitUntil: "networkidle" });
+  const sidebar = page.locator("aside.dashboard-sidebar");
+  const nav = page.getByRole("navigation", { name: "Navigation principale" });
+
+  expect(await nav.evaluate((element) => element.scrollHeight > element.clientHeight), "la liste défile").toBe(true);
+  for (const control of [sidebar.getByRole("link", { name: "Paramètres" }), sidebar.getByRole("button", { name: "Se déconnecter" })]) {
+    const box = (await control.boundingBox())!;
+    expect(box.y + box.height, "le bloc du bas reste dans l'écran").toBeLessThanOrEqual(520);
+  }
+  // Le dernier lien de la liste s'atteint en défilant.
+  await nav.getByRole("link", { name: "Prestations" }).scrollIntoViewIfNeeded();
+  await expect(nav.getByRole("link", { name: "Prestations" })).toBeInViewport();
 });

@@ -72,7 +72,9 @@ test("le tiroir de navigation garde ses libellés, même barre réduite sur gran
   // La page agenda a son propre <aside> (encarts latéraux) : on vise la barre.
   const drawer = page.locator("aside.dashboard-sidebar");
   await expect(drawer).toHaveAttribute("data-open", "true");
-  await expect(drawer.getByRole("button", { name: "Planning" })).toBeVisible();
+  // Les titres de section et les libellés des liens, pas une colonne d'icônes.
+  await expect(drawer.getByRole("group", { name: "Planning" })).toBeVisible();
+  await expect(drawer.getByText("Planning", { exact: true })).toBeVisible();
   await expect(drawer.getByRole("link", { name: "Agenda", exact: true })).toBeVisible();
 
   // Le tiroir vient se poser au bord gauche sans déborder de l'écran. Mesuré
@@ -81,12 +83,13 @@ test("le tiroir de navigation garde ses libellés, même barre réduite sur gran
   await expect.poll(async () => Math.round((await drawer.boundingBox())!.x)).toBe(0);
   expect((await drawer.boundingBox())!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
 
-  // Les catégories restent manœuvrables au doigt.
-  const clientele = drawer.getByRole("button", { name: "Clientèle" });
-  expect((await clientele.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await clientele.click();
-  await expect(drawer.getByRole("link", { name: "Carte clients" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Planning" })).toHaveAttribute("aria-expanded", "false");
+  // Menu à plat : les liens des autres sections sont là sans rien déplier,
+  // et se touchent au doigt — comme les réglages et la déconnexion, en bas.
+  for (const control of [drawer.getByRole("link", { name: "Carte clients" }), drawer.getByRole("link", { name: "Paramètres" }), drawer.getByRole("button", { name: "Se déconnecter" })]) {
+    await expect(control).toBeVisible();
+    expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  await expect(drawer.getByRole("button", { name: "Clientèle" })).toHaveCount(0);
 });
 
 test("les réglages de navigation ne proposent pas de survol sur un écran tactile", async ({ page }) => {
@@ -95,8 +98,7 @@ test("les réglages de navigation ne proposent pas de survol sur un écran tacti
 
   await expect(page.getByRole("heading", { name: "Comportement de la navigation" })).toBeVisible();
   // Un réglage sans effet est pire qu'un réglage absent : au doigt, le survol
-  // n'existe pas, donc ces deux choix ne sont pas proposés.
+  // n'existe pas, donc ce choix n'est pas proposé.
   await expect(page.getByRole("group", { name: "Ouverture de la barre latérale" })).toHaveCount(0);
-  await expect(page.getByRole("group", { name: "Ouverture des menus" })).toHaveCount(0);
   await expect(page.getByText("Cet appareil est tactile")).toBeVisible();
 });

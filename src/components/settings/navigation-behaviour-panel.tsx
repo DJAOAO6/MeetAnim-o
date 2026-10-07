@@ -39,39 +39,25 @@ export function NavigationBehaviourPanel() {
       </p>
 
       <div className="mt-6 space-y-6">
-        {/* Les deux réglages de survol ne sont proposés que là où la souris
-            existe. Au doigt, la navigation n'obéit qu'à l'appui : les afficher
-            quand même reviendrait à offrir un choix sans effet. */}
+        {/* Le réglage de survol n'est proposé que là où la souris existe. Au
+            doigt, la navigation n'obéit qu'à l'appui : l'afficher quand même
+            reviendrait à offrir un choix sans effet. */}
         {pointerFine ? (
-          <>
-            <SegmentedField
-              label="Ouverture de la barre latérale"
-              description={
-                preferences.sidebarBehavior === "hover"
-                  ? "Réduite, la navigation se déploie par-dessus le contenu au passage de la souris — sans rien déplacer."
-                  : "La navigation ne se déploie qu’avec son bouton, et le contenu s’adapte alors à sa largeur."
-              }
-              choices={behaviourChoices}
-              value={preferences.sidebarBehavior}
-              onChange={(sidebarBehavior) => updatePreferences({ sidebarBehavior })}
-            />
-
-            <SegmentedField
-              label="Ouverture des menus"
-              description={
-                preferences.menuBehavior === "hover"
-                  ? "Les catégories s’ouvrent au passage de la souris. Une seule reste ouverte à la fois."
-                  : "Les catégories ne s’ouvrent qu’au clic. Une seule reste ouverte à la fois."
-              }
-              choices={behaviourChoices}
-              value={preferences.menuBehavior}
-              onChange={(menuBehavior) => updatePreferences({ menuBehavior })}
-            />
-          </>
+          <SegmentedField
+            label="Ouverture de la barre latérale"
+            description={
+              preferences.sidebarBehavior === "hover"
+                ? "Réduite, la navigation se déploie par-dessus le contenu au passage de la souris — sans rien déplacer."
+                : "La navigation ne se déploie qu’avec son bouton, et le contenu s’adapte alors à sa largeur."
+            }
+            choices={behaviourChoices}
+            value={preferences.sidebarBehavior}
+            onChange={(sidebarBehavior) => updatePreferences({ sidebarBehavior })}
+          />
         ) : (
           <p className="rounded-2xl bg-animeo-bg p-4 text-sm leading-6 text-animeo-muted">
-            Cet appareil est tactile : la navigation s’ouvre à l’appui, et les catégories aussi. Les réglages
-            d’ouverture au survol apparaîtront ici dès que vous utiliserez cet écran avec une souris.
+            Cet appareil est tactile : la navigation s’ouvre à l’appui. Le réglage d’ouverture au survol
+            apparaîtra ici dès que vous utiliserez cet écran avec une souris.
           </p>
         )}
 
