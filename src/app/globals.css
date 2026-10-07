@@ -441,6 +441,19 @@ a {
     min-inline-size: 0;
   }
 
+  /* Une liste déroulante reste native, à 44 px au moins (zone tactile).
+     Exception : les barres d'outils denses qui le déclarent
+     (`data-dense-ui`, l'éditeur de documents sur ordinateur). */
+  select {
+    min-block-size: 2.75rem;
+  }
+
+  @media (min-width: 48rem) {
+    :where([data-dense-ui]) select {
+      min-block-size: 0;
+    }
+  }
+
   /* Tailwind 4 ne met plus la main sur les boutons. */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

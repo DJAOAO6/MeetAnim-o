@@ -103,11 +103,11 @@ test("Paramètres sur mobile : aucun élément interactif ne dépasse le bord dr
   for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/dashboard/parametres", { waitUntil: "networkidle" });
-    const tabs = await page.getByRole("navigation", { name: "Onglets des paramètres" }).getByRole("button").allTextContents();
+    const tabs = await page.getByRole("tablist", { name: "Onglets des paramètres" }).getByRole("tab").allTextContents();
     expect(tabs.length, "des onglets à parcourir").toBeGreaterThan(1);
 
     for (const tab of tabs) {
-      const button = page.getByRole("navigation", { name: "Onglets des paramètres" }).getByRole("button", { name: tab.trim(), exact: true });
+      const button = page.getByRole("tablist", { name: "Onglets des paramètres" }).getByRole("tab", { name: tab.trim(), exact: true });
       await button.scrollIntoViewIfNeeded();
       await button.click();
       await page.waitForTimeout(500);

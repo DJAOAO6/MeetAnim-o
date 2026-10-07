@@ -29,7 +29,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
-const modeButton = (page: Page, name: string) => page.getByRole("group", { name: "Mode de la carte" }).getByRole("button", { name });
+const modeButton = (page: Page, name: string) => page.getByRole("tablist", { name: "Mode de la carte" }).getByRole("tab", { name });
 const viewsButton = (page: Page) => page.getByRole("button", { expanded: false }).filter({ hasText: /Mes vues|Tous mes clients|E2E/ }).first();
 
 test.describe("Carte clients — vues enregistrées", () => {
@@ -40,7 +40,7 @@ test.describe("Carte clients — vues enregistrées", () => {
     await login(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/dashboard/carte?mode=relances&suivi=old&especes=Chien", { waitUntil: "networkidle" });
-    await expect(modeButton(page, "Relances")).toHaveAttribute("aria-pressed", "true");
+    await expect(modeButton(page, "Relances")).toHaveAttribute("aria-selected", "true");
 
     await viewsButton(page).click();
     await page.getByRole("group", { name: "Mes vues" }).getByRole("button", { name: "Enregistrer cette vue" }).click();
@@ -57,7 +57,7 @@ test.describe("Carte clients — vues enregistrées", () => {
     // Retour à la carte complète.
     await viewsButton(page).click();
     await page.getByRole("group", { name: "Mes vues" }).getByRole("button", { name: "Tous mes clients" }).click();
-    await expect(modeButton(page, "Clients")).toHaveAttribute("aria-pressed", "true");
+    await expect(modeButton(page, "Clients")).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("map-species-button")).toHaveText("Espèce");
     await expect.poll(() => new URL(page.url()).search).toBe("");
 
@@ -65,7 +65,7 @@ test.describe("Carte clients — vues enregistrées", () => {
     await page.reload({ waitUntil: "networkidle" });
     await viewsButton(page).click();
     await page.getByRole("group", { name: "Mes vues" }).getByRole("button", { name: VIEW_NAME, exact: true }).click();
-    await expect(modeButton(page, "Relances")).toHaveAttribute("aria-pressed", "true");
+    await expect(modeButton(page, "Relances")).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("group", { name: "Suivi des visites" }).getByRole("button", { name: "Plus de 12 mois ou jamais" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("map-species-button")).toHaveText("Chien");
 

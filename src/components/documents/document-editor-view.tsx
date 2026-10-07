@@ -257,7 +257,9 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
 
   return (
     <OverlayPortal>
-      <div className="fixed inset-0 z-[70] flex flex-col bg-neutral-100">
+      {/* data-dense-ui : sur ordinateur, les listes déroulantes de l'éditeur
+          gardent leur taille de barre d'outils (globals.css). */}
+      <div data-dense-ui className="fixed inset-0 z-[70] flex flex-col bg-neutral-100">
         <header className="flex flex-wrap items-center gap-3 border-b border-neutral-200 bg-white px-4 py-2.5 sm:px-5">
           <Link href="/dashboard/documents" className="flex items-center gap-1.5 text-sm font-semibold text-neutral-500 transition hover:text-neutral-800">
             <Icon name="arrow" className="h-4 w-4 rotate-180" />

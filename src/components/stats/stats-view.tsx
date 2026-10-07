@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Tabs } from "@/components/ui/tabs";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -154,7 +155,7 @@ export function StatsView({ initialStats, initialFilters, serviceOptions }: Stat
           <StatSection
             title="Races les plus suivies"
             description={breedData ? `${breedData.total} ${breedTabs.find((t) => t.value === breedSpecies)?.label.toLowerCase()}(s) suivis · ${breedData.distinct} races différentes` : "Aucun animal de cette espèce sur la période."}
-            action={<div className="flex flex-wrap gap-1 rounded-[12px] bg-animeo-bg p-1">{breedTabs.map((tab) => <button key={tab.value} type="button" onClick={() => setBreedSpecies(tab.value)} aria-pressed={breedSpecies === tab.value} className={`rounded-[9px] px-2.5 py-1.5 text-xs font-extrabold transition ${breedSpecies === tab.value ? "bg-animeo text-white" : "text-animeo-muted hover:text-animeo-dark"}`}>{tab.label}</button>)}</div>}
+            action={<div className="max-w-full rounded-2xl bg-animeo-bg p-1"><Tabs label="Espèce" size="sm" tabs={breedTabs.map((tab) => ({ id: tab.value, label: tab.label }))} value={breedSpecies} onChange={setBreedSpecies} /></div>}
           >
             {!breedData || breedData.items.length === 0 ? <EmptyState /> : <SimpleBarChart items={breedData.items} formatter={(value) => numberFormatter.format(value)} />}
           </StatSection>

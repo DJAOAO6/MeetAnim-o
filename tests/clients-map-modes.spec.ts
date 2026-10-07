@@ -81,9 +81,9 @@ test.describe("Carte clients — modes", () => {
 
   test("le choix du mode passe dans l'adresse", async ({ page }) => {
     await page.goto("/dashboard/carte", { waitUntil: "networkidle" });
-    const modes = page.getByRole("group", { name: "Mode de la carte" });
-    await expect(modes.getByRole("button", { name: "Clients" })).toHaveAttribute("aria-pressed", "true");
-    await modes.getByRole("button", { name: "Activité" }).click();
+    const modes = page.getByRole("tablist", { name: "Mode de la carte" });
+    await expect(modes.getByRole("tab", { name: "Clients" })).toHaveAttribute("aria-selected", "true");
+    await modes.getByRole("tab", { name: "Activité" }).click();
     await expect(page.getByTestId("map-mode-question")).toHaveText("Où vais-je travailler ?");
     await expect.poll(() => page.url()).toContain("mode=activite");
   });

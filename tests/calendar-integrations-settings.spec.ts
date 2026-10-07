@@ -36,7 +36,7 @@ async function login(page: Page) {
 async function openIntegrationsTab(page: Page) {
   await page.goto("/dashboard/parametres");
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: "Intégrations", exact: true }).click();
+  await page.getByRole("tab", { name: "Intégrations", exact: true }).click();
 }
 
 test.describe("Paramètres — Intégrations calendrier", () => {

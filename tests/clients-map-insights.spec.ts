@@ -55,7 +55,7 @@ async function login(page: Page) {
   await page.waitForURL("**/dashboard**", { timeout: 10000 });
 }
 
-const modeButton = (page: Page, name: string) => page.getByRole("group", { name: "Mode de la carte" }).getByRole("button", { name });
+const modeButton = (page: Page, name: string) => page.getByRole("tablist", { name: "Mode de la carte" }).getByRole("tab", { name });
 const secteur = "/dashboard/carte?lieu=49.00000,0.60000&nom=Secteur%20test&rayon=5";
 
 test.describe("Carte clients — informations d'un secteur", () => {
@@ -79,13 +79,13 @@ test.describe("Carte clients — informations d'un secteur", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Annuler" }).click();
 
     await insights.getByRole("button", { name: "Voir les RDV" }).click();
-    await expect(modeButton(page, "Activité")).toHaveAttribute("aria-pressed", "true");
+    await expect(modeButton(page, "Activité")).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("group", { name: "Période" }).getByRole("button", { name: "7 jours" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-appointment-row="tmp-insights-appt"]')).toBeVisible();
 
     await page.goto(secteur, { waitUntil: "networkidle" });
     await page.getByTestId("map-insights").getByRole("button", { name: "Voir les 3" }).click();
-    await expect(modeButton(page, "Relances")).toHaveAttribute("aria-pressed", "true");
+    await expect(modeButton(page, "Relances")).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("group", { name: "Suivi des visites" }).getByRole("button", { name: "Plus de 12 mois ou jamais" })).toHaveAttribute("aria-pressed", "true");
   });
 

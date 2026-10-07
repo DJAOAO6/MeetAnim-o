@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
+import { TabPanel, Tabs } from "@/components/ui/tabs";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
 import { PublicProfileSettingsTab, publicProfileFieldsOf } from "@/components/settings/public-profile-settings-tab";
@@ -207,23 +208,17 @@ export function SettingsView({ verificationStatus, professionLocked, tours, zone
         description="Configurez votre activité, vos disponibilités et votre page publique de réservation."
       />
 
-      <Card className="mb-6 overflow-x-auto p-1.5">
-        <nav aria-label="Onglets des paramètres" className="flex min-w-max gap-1">
-          {visibleTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              aria-pressed={activeTab === tab.id}
-              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-extrabold transition ${activeTab === tab.id ? "bg-animeo text-white shadow-sm" : "text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}
-            >
-              <Icon name={tab.icon} className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+      <Card className="mb-6 p-1.5">
+        <Tabs
+          label="Onglets des paramètres"
+          idPrefix="settings"
+          tabs={visibleTabs.map((tab) => ({ id: tab.id, label: tab.label, icon: <Icon name={tab.icon} className="h-4 w-4" /> }))}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </Card>
 
+      <TabPanel idPrefix="settings" tab={activeTab}>
       {activeTab === "cabinet" ? (
         // Deux formulaires sur un même onglet : chacun garde un repère
         // stable, pour que les liens profonds et les tests visent une section
@@ -263,6 +258,7 @@ export function SettingsView({ verificationStatus, professionLocked, tours, zone
         />
       ) : null}
       {activeTab === "integrations" && hasModule(currentUser?.modules, "CALENDAR_SYNC") ? <IntegrationsSettingsTab google={google} icsFeed={icsFeed} /> : null}
+      </TabPanel>
     </>
   );
 }

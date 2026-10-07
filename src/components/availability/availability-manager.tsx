@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Tabs } from "@/components/ui/tabs";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { Icon } from "@/components/ui/icon";
@@ -185,20 +186,14 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
         <div className="space-y-6">
           {/* Onglets Cabinet / Domicile : chaque mode a son statut, ses
               fermetures et ses créneaux, sans quitter l'écran. */}
-          <div className="mx-auto flex w-full max-w-md rounded-2xl bg-animeo-bg p-1.5" role="tablist" aria-label="Mode de consultation">
-            {modes.map((item) => (
-              <button
-                key={item}
-                type="button"
-                role="tab"
-                aria-selected={mode === item}
-                onClick={() => setMode(item)}
-                className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl text-sm font-extrabold transition ${mode === item ? "bg-animeo-surface text-animeo-dark shadow-sm" : "text-animeo-muted"}`}
-              >
-                <Icon name={item === "cabinet" ? "home" : "car"} className="h-4 w-4" />
-                {modeLabels[item]}
-              </button>
-            ))}
+          <div className="mx-auto w-full max-w-md rounded-2xl bg-animeo-bg p-1.5">
+            <Tabs
+              label="Mode de consultation"
+              stretch
+              tabs={modes.map((item) => ({ id: item, label: modeLabels[item], icon: <Icon name={item === "cabinet" ? "home" : "car"} className="h-4 w-4" /> }))}
+              value={mode}
+              onChange={setMode}
+            />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">

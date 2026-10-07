@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Building2, CalendarClock, House, Navigation, Route, UserRound } from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
+import { Tabs } from "@/components/ui/tabs";
 import { dayHeading, MAP_MODES, type MapMode, type ZoneFilter } from "@/lib/map-modes";
 import type { MapAppointment } from "@/data/map-clients";
 import type { PublicZone } from "@/data/public-booking";
@@ -60,7 +61,13 @@ export function Segmented<T extends string>({ label, options, value, onChange, s
 }
 
 export function MapModeSwitcher({ mode, onChange }: { mode: MapMode; onChange: (mode: MapMode) => void }) {
-  return <Segmented label="Mode de la carte" options={MAP_MODES} value={mode} onChange={onChange} />;
+  // Des onglets, pas un sélecteur : chaque mode change ce que montrent la
+  // carte et la liste.
+  return (
+    <div className="max-w-full rounded-2xl bg-animeo-bg p-1">
+      <Tabs label="Mode de la carte" size="sm" tabs={MAP_MODES} value={mode} onChange={onChange} />
+    </div>
+  );
 }
 
 /** Actions d'un rendez-vous : l'ouvrir, la fiche du client, l'itinéraire (seulement celles possibles). */
