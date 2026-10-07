@@ -2,6 +2,7 @@
 
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { Button } from "@/components/ui/button";
 
 type ConfirmModalProps = {
   title: string;
@@ -31,23 +32,16 @@ export function ConfirmModal({ title, message, confirmLabel = "Confirmer", cance
           aria-modal="true"
           aria-labelledby="confirm-dialog-title"
           aria-describedby="confirm-dialog-message"
-          className="w-full max-w-sm rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none"
+          className="w-full max-w-sm rounded-[18px] bg-animeo-surface shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none"
         >
           <div className="p-6">
             <h2 id="confirm-dialog-title" className="text-lg font-black text-animeo-dark">{title}</h2>
             <p id="confirm-dialog-message" className="mt-2 text-sm leading-relaxed text-animeo-muted">{message}</p>
           </div>
           <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-              {cancelLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              className={`rounded-xl px-5 py-2.5 text-sm font-extrabold text-white transition ${destructive ? "bg-animeo-error hover:bg-animeo-danger" : "bg-animeo hover:bg-animeo-hover"}`}
-            >
-              {confirmLabel}
-            </button>
+            <Button type="button" variant="secondary" onClick={onClose}>{cancelLabel}</Button>
+            {/* Le rouge plein n'existe qu'ici : dans la page, supprimer reste discret. */}
+            <Button type="button" variant={destructive ? "dangerSolid" : "primary"} onClick={onConfirm}>{confirmLabel}</Button>
           </div>
         </section>
       </div>

@@ -32,7 +32,7 @@ export function TourRunRemoveStopModal({ stopLabel, submitting, onRemoveFromTour
         // cliquer vite.
         <div className="flex w-full flex-col gap-2">
           <Button onClick={onRemoveFromTour} disabled={submitting}>Retirer de la tournée (garder le rendez-vous)</Button>
-          <Button variant="danger" onClick={onCancelAppointment} disabled={submitting}>Annuler le rendez-vous</Button>
+          <Button variant="dangerSolid" onClick={onCancelAppointment} disabled={submitting}>Annuler le rendez-vous</Button>
           <Button variant="secondary" onClick={onClose} disabled={submitting}>Ne rien faire</Button>
         </div>
       }

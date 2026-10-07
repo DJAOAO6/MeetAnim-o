@@ -3,6 +3,7 @@
 import { useEffect, useId, type FormEvent, type ReactNode } from "react";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { CloseButton } from "@/components/ui/close-button";
 
 type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl";
 
@@ -106,14 +107,7 @@ export function Modal({ title, description, onClose, size = "md", mobile = "shee
               <h2 id={titleId} className="truncate text-lg font-black text-animeo-dark">{title}</h2>
               {description ? <p id={descriptionId} className="mt-1 text-sm text-animeo-muted">{description}</p> : null}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Fermer"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl leading-none text-animeo-muted transition hover:bg-animeo-soft"
-            >
-              ×
-            </button>
+            <CloseButton onClick={onClose} />
           </header>
 
           <ModalBody onSubmit={onSubmit}>

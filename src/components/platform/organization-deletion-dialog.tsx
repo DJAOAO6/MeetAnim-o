@@ -68,7 +68,7 @@ export function OrganizationDeletionDialog({ organizationId, organizationName, o
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>Annuler</Button>
-          <Button variant="danger" onClick={submit} disabled={pending}>{pending ? "En cours…" : submitLabel}</Button>
+          <Button variant="dangerSolid" onClick={submit} disabled={pending}>{pending ? "En cours…" : submitLabel}</Button>
         </>
       }
     >
