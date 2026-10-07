@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { ChevronDown, Settings2 } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { Toggle } from "@/components/settings/settings-fields";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { saveAgendaDisplayAction } from "@/lib/agenda-preferences-actions";
 import { MAX_DAY_HOUR, MIN_DAY_HOUR, SLOT_LABELS, SLOT_MINUTES, type AgendaDisplay, type Density } from "@/lib/agenda-display";
 import { notify } from "@/lib/notify";
@@ -61,18 +62,21 @@ export function AgendaDisplayMenu({ value, onChange }: { value: AgendaDisplay; o
 
   return (
     <div ref={wrapperRef} className="relative">
-      <button
+      {/* Réglages d'affichage : icône universelle, seule. Ouvert, le bouton
+          reste marqué et son infobulle se tait — elle recouvrirait le panneau. */}
+      <IconButton
         ref={buttonRef}
-        type="button"
+        label="Affichage"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-controls={panelId}
-        className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo ${open ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-white"}`}
+        tooltipSide="bottom"
+        tooltipAlign="end"
+        active={open}
+        className={open ? "[&>[data-tooltip]]:hidden!" : ""}
       >
-        <Settings2 aria-hidden="true" className="h-4 w-4" />
-        Affichage
-        <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
+        <Settings2 aria-hidden="true" className="h-5 w-5" />
+      </IconButton>
 
       {open ? (
         <div

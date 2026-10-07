@@ -4,7 +4,7 @@ import type { Appointment } from "@/data/appointments";
 import { RequestSlotChoices, hasSlotOptions } from "@/components/appointments/request-slot-choices";
 import { outsideServiceArea, type ServiceArea } from "@/lib/service-area";
 import { useEffect, useMemo, useState } from "react";
-import { Lock, Plus } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, Lock, Plus } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { AgendaSidePanel } from "@/components/agenda/agenda-side-panel";
@@ -22,8 +22,9 @@ import { WeekPlanner, type CalendarEvent } from "@/components/agenda/week-planne
 import { YearCalendarView, YearSidePanel, YearStatsRibbon } from "@/components/agenda/year-calendar-view";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { SplitButton } from "@/components/ui/split-button";
 import { Card } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
 import { createBlockedSlotAction, deleteBlockedSlotAction, type BlockedSlot } from "@/lib/blocked-slots-actions";
 import { updateAvailabilityAction } from "@/lib/business-profile-actions";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
@@ -579,29 +580,15 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
       <Card className="mb-6 p-4 sm:p-5">
         <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={goToPrevious}
-              aria-label={navLabel(view, "précédent")}
-              className="flex h-11 w-11 items-center sm:h-10 sm:w-10 justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
-            >
-              <Icon name="arrow" className="h-4 w-4 rotate-180" />
-            </button>
-            <button
-              type="button"
-              onClick={goToNext}
-              aria-label={navLabel(view, "suivant")}
-              className="flex h-11 w-11 items-center sm:h-10 sm:w-10 justify-center rounded-xl border border-animeo-border bg-white text-animeo-dark transition hover:border-animeo hover:text-animeo"
-            >
-              <Icon name="arrow" className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={goToToday}
-              className="min-h-11 rounded-xl border sm:min-h-0 border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo"
-            >
-              Aujourd’hui
-            </button>
+            {/* Les flèches sont des icônes universelles : seules, à 44 px, leur
+                intitulé en infobulle. */}
+            <IconButton label={navLabel(view, "précédent")} onClick={goToPrevious} tooltipSide="bottom" tooltipAlign="start">
+              <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
+            <IconButton label={navLabel(view, "suivant")} onClick={goToNext} tooltipSide="bottom" tooltipAlign="start">
+              <ChevronRight aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
+            <Button type="button" variant="secondary" onClick={goToToday}>Aujourd’hui</Button>
             <h2 className="ml-1 text-lg font-extrabold capitalize text-animeo-dark sm:text-xl">
               {view === "day" ? formatDayLabel(activeDates[0])
                 : view === "week" ? formatWeekLabel(weekDates)
@@ -618,26 +605,38 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
             <AgendaViewSwitcher value={view} onChange={handleViewChange} />
             {isGridView ? <AgendaDisplayMenu value={display} onChange={setDisplay} /> : null}
 
-            {/* Téléphone : les deux actions côte à côte, libellés courts ;
-                au-delà, elles rejoignent la rangée. */}
-            <div className="grid grid-cols-2 gap-2 sm:contents">
+            {/* Une seule action pleine dans la barre. « Bloquer un créneau »,
+                plus rare, est rangé dans le menu accolé. */}
+            <SplitButton
+              className="hidden sm:inline-flex"
+              icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}
+              onClick={() => openNewAppointment(smartDefaultDateId())}
+              menuLabel="Autres actions d’ajout"
+              items={[
+                { label: "Nouveau rendez-vous", icon: <CalendarPlus aria-hidden="true" className="h-4 w-4 shrink-0" />, onSelect: () => openNewAppointment(smartDefaultDateId()) },
+                { label: "Bloquer un créneau", icon: <Lock aria-hidden="true" className="h-4 w-4 shrink-0" />, onSelect: openBlockSlotModal },
+              ]}
+            >
+              Nouveau rendez-vous
+            </SplitButton>
+
+            {/* Téléphone : les deux actions côte à côte, libellés courts. */}
+            <div className="grid grid-cols-2 gap-2 sm:hidden">
               <button
                 type="button"
                 onClick={openBlockSlotModal}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-dark px-3 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft sm:min-h-0 sm:px-4"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-animeo-dark px-3 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
               >
                 <Lock aria-hidden="true" className="h-4 w-4" />
-                <span className="sm:hidden">Bloquer</span>
-                <span className="hidden sm:inline">Bloquer un créneau</span>
+                Bloquer
               </button>
               <button
                 type="button"
                 onClick={() => openNewAppointment(smartDefaultDateId())}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-animeo px-3 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover sm:min-h-0 sm:px-4"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-animeo px-3 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover"
               >
                 <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />
-                <span className="sm:hidden">Nouveau RDV</span>
-                <span className="hidden sm:inline">Nouveau rendez-vous</span>
+                Nouveau RDV
               </button>
             </div>
           </div>

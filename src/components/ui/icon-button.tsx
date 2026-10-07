@@ -9,6 +9,8 @@ type IconButtonProps = Omit<ComponentProps<"button">, "aria-label" | "title" | "
   /** Obligatoire : c'est le nom du bouton pour les lecteurs d'écran, et son infobulle. */
   label: string;
   variant?: IconButtonVariant;
+  /** Le bouton tient quelque chose d'ouvert (un panneau, un menu) : il reste marqué. */
+  active?: boolean;
   /** Où l'infobulle s'ouvre, quand la place manque au-dessus. */
   tooltipSide?: ComponentProps<typeof TooltipBubble>["side"];
   tooltipAlign?: ComponentProps<typeof TooltipBubble>["align"];
@@ -28,13 +30,13 @@ const variantClassName: Record<IconButtonVariant, string> = {
  * icônes universelles — flèches, fermer, corbeille, aide, « ⋯ », réglages
  * d'affichage. Tout le reste garde son texte.
  */
-export function IconButton({ label, variant = "secondary", tooltipSide = "top", tooltipAlign = "center", type = "button", className = "", children, ...props }: IconButtonProps) {
+export function IconButton({ label, variant = "secondary", active = false, tooltipSide = "top", tooltipAlign = "center", type = "button", className = "", children, ...props }: IconButtonProps) {
   return (
     <button
       {...props}
       type={type}
       aria-label={label}
-      className={`${tooltipHostClassName} inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-animeo-border bg-animeo-surface transition enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${variantClassName[variant]} ${className}`}
+      className={`${tooltipHostClassName} inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${active ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-surface"} ${variantClassName[variant]} ${className}`}
     >
       {children}
       <TooltipBubble label={label} side={tooltipSide} align={tooltipAlign} />

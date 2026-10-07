@@ -29,8 +29,11 @@ for (const viewport of VIEWPORTS) {
     // Rien ne déborde de la page.
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 
-    // Les actions principales sont entières à l'écran.
-    for (const name of [/^Nouveau (rendez-vous|RDV)$/, /^Bloquer( un créneau)?$/, /^Affichage$/]) {
+    // Les actions principales sont entières à l'écran. Sur ordinateur,
+    // « Bloquer un créneau » est rangé dans le menu accolé à « Nouveau
+    // rendez-vous » : c'est son chevron qui doit être à l'écran.
+    const actions = phone ? [/^Nouveau RDV$/, /^Bloquer$/, /^Affichage$/] : [/^Nouveau rendez-vous$/, /^Autres actions d’ajout$/, /^Affichage$/];
+    for (const name of actions) {
       const button = page.getByRole("button", { name }).first();
       await button.scrollIntoViewIfNeeded();
       const box = (await button.boundingBox())!;
