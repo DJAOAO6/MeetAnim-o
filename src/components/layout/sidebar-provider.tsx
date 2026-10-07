@@ -8,6 +8,8 @@ export type SidebarDefaultState = "expanded" | "collapsed";
 export type SidebarPreferences = {
   /** Barre réduite : s'ouvre-t-elle au survol, ou seulement au bouton ? */
   sidebarBehavior: OpenBehavior;
+  /** Catégories : s'ouvrent-elles au survol, ou seulement au clic ? */
+  menuBehavior: OpenBehavior;
   /** État de la barre : le bouton de la barre écrit ici lui aussi. */
   defaultState: SidebarDefaultState;
 };
@@ -15,11 +17,16 @@ export type SidebarPreferences = {
 type SidebarContextValue = {
   /** Repli permanent choisi par l'utilisateur. */
   collapsed: boolean;
+  /** Vrai dès qu'une catégorie a été ouverte ou fermée à la main. */
+  groupChosen: boolean;
   /** Barre réduite mais affichée temporairement par-dessus le contenu. */
   hoverExpanded: boolean;
   /** Vrai quand les libellés sont visibles, pour l'une ou l'autre raison. */
   showLabels: boolean;
   toggleCollapsed: () => void;
+  openGroup: string | null;
+  setOpenGroup: (id: string | null) => void;
+  handleGroupHover: (id: string | null) => void;
   handleSidebarHover: (inside: boolean) => void;
   preferences: SidebarPreferences;
   updatePreferences: (change: Partial<SidebarPreferences>) => void;
@@ -32,10 +39,11 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
 const LEGACY_COLLAPSED_KEY = "1002pattes.sidebar.collapsed";
 const PREFERENCES_KEY = "1002pattes.sidebar.preferences";
 
-const defaultPreferences: SidebarPreferences = { sidebarBehavior: "hover", defaultState: "expanded" };
+const defaultPreferences: SidebarPreferences = { sidebarBehavior: "hover", menuBehavior: "hover", defaultState: "expanded" };
 
-// Délai choisi pour absorber les trajectoires de souris : trop court, la
-// barre clignote quand on traverse l'écran ; trop long, elle paraît lente.
+// Délais choisis pour absorber les trajectoires de souris : trop courts, la
+// barre clignote quand on traverse l'écran ; trop longs, elle paraît lente.
+const GROUP_OPEN_DELAY = 150;
 const SIDEBAR_CLOSE_DELAY = 300;
 
 function readStored<T>(key: string, fallback: T, parse: (raw: string) => T): T {
@@ -55,14 +63,7 @@ function readPreferences(): SidebarPreferences {
   // sans elle, une barre laissée réduite se rouvrirait toute seule à la mise
   // à jour.
   const legacy = readStored<SidebarDefaultState | null>(LEGACY_COLLAPSED_KEY, null, (raw) => (raw === "1" ? "collapsed" : "expanded"));
-  // Champ par champ, et pas l'objet stocké tel quel : il peut encore porter
-  // `menuBehavior`, le réglage d'ouverture des catégories, sans objet depuis
-  // que le menu est à plat. Ignoré ici, il disparaît du stockage à la
-  // prochaine écriture.
-  return {
-    sidebarBehavior: stored?.sidebarBehavior === "click" || stored?.sidebarBehavior === "hover" ? stored.sidebarBehavior : defaultPreferences.sidebarBehavior,
-    defaultState: stored?.defaultState === "collapsed" || stored?.defaultState === "expanded" ? stored.defaultState : legacy ?? defaultPreferences.defaultState,
-  };
+  return { ...defaultPreferences, ...(legacy ? { defaultState: legacy } : null), ...(stored ?? null) };
 }
 
 const POINTER_QUERY = "(hover: hover) and (pointer: fine)";
@@ -158,8 +159,11 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   const collapsed = preferences.defaultState === "collapsed";
 
   const [hoverExpanded, setHoverExpanded] = useState(false);
+  const [openGroup, setOpenGroupState] = useState<string | null>(null);
+  const [groupChosen, setGroupChosen] = useState(false);
 
   const closeTimer = useRef<number | null>(null);
+  const groupTimer = useRef<number | null>(null);
   // Voir toggleCollapsed : le survol reste neutralisé tant que le curseur n'a
   // pas quitté la barre après un repli demandé au bouton.
   const hoverSuppressed = useRef(false);
@@ -177,6 +181,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => {
     if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    if (groupTimer.current) window.clearTimeout(groupTimer.current);
   }, []);
 
   const toggleCollapsed = useCallback(() => {
@@ -196,6 +201,28 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => window.dispatchEvent(new Event("resize")), 240);
     savePreferences({ ...current, defaultState: next });
   }, []);
+
+  /**
+   * Ouvre exactement cette catégorie, ou les referme toutes avec `null`.
+   * Volontairement pas une bascule : l'appelant seul sait ce qui est affiché
+   * — la catégorie de la page courante est ouverte sans avoir été choisie, et
+   * basculer sur l'état interne l'aurait « rouverte » au lieu de la fermer.
+   */
+  const setOpenGroup = useCallback((id: string | null) => {
+    if (groupTimer.current) window.clearTimeout(groupTimer.current);
+    setGroupChosen(true);
+    setOpenGroupState(id);
+  }, []);
+
+  const handleGroupHover = useCallback((id: string | null) => {
+    if (!pointerFine || preferences.menuBehavior !== "hover") return;
+    if (groupTimer.current) window.clearTimeout(groupTimer.current);
+    // Quitter une catégorie ne la referme pas : elle ne cède la place qu'à
+    // une autre. Sans cela, descendre vers ses propres sous-pages la
+    // refermerait sous le curseur.
+    if (id === null) return;
+    groupTimer.current = window.setTimeout(() => { setGroupChosen(true); setOpenGroupState(id); }, GROUP_OPEN_DELAY);
+  }, [pointerFine, preferences.menuBehavior]);
 
   const handleSidebarHover = useCallback((inside: boolean) => {
     if (!pointerFine || preferences.sidebarBehavior !== "hover") return;
@@ -219,14 +246,18 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<SidebarContextValue>(() => ({
     collapsed,
+    groupChosen,
     hoverExpanded: collapsed && hoverExpanded,
     showLabels: !collapsed || hoverExpanded,
     toggleCollapsed,
+    openGroup,
+    setOpenGroup,
+    handleGroupHover,
     handleSidebarHover,
     preferences,
     updatePreferences,
     pointerFine,
-  }), [collapsed, hoverExpanded, toggleCollapsed, handleSidebarHover, preferences, updatePreferences, pointerFine]);
+  }), [collapsed, groupChosen, hoverExpanded, toggleCollapsed, openGroup, setOpenGroup, handleGroupHover, handleSidebarHover, preferences, updatePreferences, pointerFine]);
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }

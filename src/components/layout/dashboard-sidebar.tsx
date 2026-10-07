@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OPEN_MENU_EVENT } from "@/components/layout/mobile-bottom-nav";
-import { LogOut, PanelLeftClose, PanelLeftOpen, Settings, Shield, ShieldCheck, X } from "lucide-react";
-import { SidebarLink, SidebarNavigation } from "@/components/layout/sidebar-navigation";
+import { ChevronRight, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Shield, ShieldCheck, X } from "lucide-react";
+import { SidebarLinkRow, SidebarNavigation } from "@/components/layout/sidebar-navigation";
 import { IconButton } from "@/components/ui/icon-button";
-import { isEntryActive } from "@/data/navigation";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { logout } from "@/lib/auth/actions";
 import { MobileSearchButton } from "@/components/search/header-search";
@@ -22,6 +21,14 @@ const roleLabels: Record<string, string> = {
   PRACTITIONER: "Praticien",
   SECRETARY: "Secrétariat",
 };
+
+function isActive(pathname: string, href: string) {
+  if (href === "/dashboard") {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function DashboardSidebar({ showAdmin = false, showStatistics = true, showPlatform = false }: { showAdmin?: boolean; showStatistics?: boolean; showPlatform?: boolean }) {
   const pathname = usePathname();
@@ -34,12 +41,25 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
     window.addEventListener(OPEN_MENU_EVENT, open);
     return () => window.removeEventListener(OPEN_MENU_EVENT, open);
   }, []);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
   const { collapsed, hoverExpanded, showLabels: contextLabels, toggleCollapsed, handleSidebarHover } = useSidebar();
   // Sous 768 px la barre est un tiroir de 260 px : le repli n'y a pas cours,
   // et une colonne d'icônes seules dans un tiroir large serait absurde.
   const showLabels = contextLabels || mobileOpen;
   const user = useCurrentUser();
+
+  // Ferme le popover profil au clic en dehors — même logique que
+  // AddressAutocomplete (src/components/ui/address-autocomplete.tsx).
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handlePointerDown(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [profileOpen]);
 
   return (
     <>
@@ -78,7 +98,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
         // Survol d'une barre réduite : elle reprend sa pleine largeur par
         // -dessus le contenu (ombre portée, z-index au-dessus), sans toucher
         // à --sidebar-width — le contenu reste donc parfaitement immobile.
-        className={`dashboard-sidebar fixed inset-y-0 left-0 z-[60] flex w-[260px] flex-col border-r border-[var(--theme-sidebar-border)] px-3 py-6 short:py-3 text-[var(--theme-sidebar-text)] shadow-[16px_0_45px_rgb(var(--theme-shadow-rgb)/0.2)] transition-[transform,width] duration-200 ease-out md:z-40 ${
+        className={`dashboard-sidebar fixed inset-y-0 left-0 z-[60] flex w-[260px] flex-col border-r border-[var(--theme-sidebar-border)] px-3 py-6 max-md:short:py-3 text-[var(--theme-sidebar-text)] shadow-[16px_0_45px_rgb(var(--theme-shadow-rgb)/0.2)] transition-[transform,width] duration-200 ease-out md:z-40 ${
           // Les deux ombres se décident dans la même branche : laisser un
           // md:shadow-none dans la partie fixe rendait l'ordre des deux
           // utilitaires dépendant de l'ordre de génération de Tailwind, et
@@ -90,7 +110,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
         }`}
         style={{ backgroundColor: "var(--theme-sidebar)" }}
       >
-        <div className={`mb-6 flex min-h-11 items-center gap-2 short:mb-3 ${showLabels ? "justify-between px-1" : "flex-col"}`}>
+        <div className={`mb-6 flex min-h-11 items-center gap-2 max-md:short:mb-3 ${showLabels ? "justify-between px-1" : "flex-col"}`}>
           <Link href="/dashboard" onClick={() => setMobileOpen(false)} aria-label="1002 Pattes — Tableau de bord" className="min-w-0">
             <AnimeoLogo size={showLabels ? "sidebar" : "mark"} tone="light" priority />
           </Link>
@@ -112,42 +132,104 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
           </button>
         </div>
 
-        <SidebarNavigation pathname={pathname} showStatistics={showStatistics} onNavigate={() => setMobileOpen(false)} forceLabels={mobileOpen} />
+        <SidebarNavigation pathname={pathname} showStatistics={showStatistics} onNavigate={() => setMobileOpen(false)} forceLabels={mobileOpen} flat={mobileOpen} />
 
-        {/* Bloc du bas, toujours visible : les réglages et le compte ne sont
-            plus rangés derrière un sous-menu. Il ne rétrécit pas — c'est la
-            liste au-dessus qui défile quand l'écran est bas. */}
-        <div className="mt-3 shrink-0 space-y-0.5 border-t border-[var(--theme-sidebar-border)] pt-3 short:mt-2 short:pt-2">
-          <SidebarLink label="Paramètres" href="/dashboard/parametres" icon={Settings} active={isEntryActive(pathname, "/dashboard/parametres")} showLabel={showLabels} onNavigate={() => setMobileOpen(false)} />
-          {showAdmin ? (
-            <SidebarLink label="Administration" href="/dashboard/admin" icon={Shield} active={isEntryActive(pathname, "/dashboard/admin")} showLabel={showLabels} onNavigate={() => setMobileOpen(false)} />
-          ) : null}
-          {showPlatform ? (
-            <SidebarLink label="Super-administration" href="/plateforme" icon={ShieldCheck} active={false} showLabel={showLabels} onNavigate={() => setMobileOpen(false)} />
-          ) : null}
-
-          {user ? (
-            <div className={`flex items-center pt-2 short:pt-1 ${showLabels ? "gap-3 pl-3" : "flex-col gap-2"}`}>
-              <span
-                title={showLabels ? undefined : `${user.firstName} — ${roleLabels[user.role] ?? user.role}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--theme-sidebar-hover)] text-sm font-black text-[var(--theme-sidebar-text-strong)]"
-              >
-                {initialsFor(user.firstName, user.lastName)}
-              </span>
-              {showLabels ? (
+        {mobileOpen ? (
+          // Tiroir du téléphone : les réglages et le compte sont visibles,
+          // sans sous-menu à ouvrir. Sur ordinateur, le sous-menu du compte
+          // reste (branche suivante).
+          <div className="mt-3 shrink-0 space-y-0.5 border-t border-[var(--theme-sidebar-border)] pt-3 short:mt-2 short:pt-2">
+            <SidebarLinkRow label="Paramètres" href="/dashboard/parametres" icon={Settings} active={isActive(pathname, "/dashboard/parametres")} showLabel onNavigate={() => setMobileOpen(false)} />
+            {showAdmin ? (
+              <SidebarLinkRow label="Administration" href="/dashboard/admin" icon={Shield} active={isActive(pathname, "/dashboard/admin")} showLabel onNavigate={() => setMobileOpen(false)} />
+            ) : null}
+            {showPlatform ? (
+              <SidebarLinkRow label="Super-administration" href="/plateforme" icon={ShieldCheck} active={false} showLabel onNavigate={() => setMobileOpen(false)} />
+            ) : null}
+            {user ? (
+              <div className="flex items-center gap-3 pl-3 pt-2 short:pt-1">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--theme-sidebar-hover)] text-sm font-black text-[var(--theme-sidebar-text-strong)]">{initialsFor(user.firstName, user.lastName)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-extrabold text-[var(--theme-sidebar-text-strong)]">{user.firstName}</span>
                   <span className="block truncate text-xs text-[var(--theme-sidebar-text)]">{roleLabels[user.role] ?? user.role}</span>
                 </span>
+                <IconButton label="Se déconnecter" onClick={() => setLogoutConfirmOpen(true)} tooltipAlign="end">
+                  <LogOut aria-hidden="true" className="h-5 w-5" />
+                </IconButton>
+              </div>
+            ) : null}
+          </div>
+        ) : user ? (
+          // relative + le popover en absolute/bottom-full : le sous-menu
+          // flotte par-dessus le reste de la sidebar au lieu de le pousser
+          // (la sidebar est une colonne flex de hauteur fixe — un sous-menu
+          // dans le flux normal redimensionnait toute la navigation
+          // au-dessus à chaque ouverture/fermeture).
+          <div ref={profileRef} className="relative mt-3 shrink-0 border-t border-[var(--theme-sidebar-border)] pt-3">
+            <button
+              type="button"
+              onClick={() => setProfileOpen((current) => !current)}
+              aria-expanded={profileOpen}
+              aria-label={showLabels ? undefined : `${user.firstName} — compte et réglages`}
+              title={showLabels ? undefined : `${user.firstName} — compte et réglages`}
+              className={`flex w-full items-center rounded-[14px] py-2.5 text-left transition hover:bg-[var(--theme-sidebar-hover)] ${showLabels ? "gap-3 px-3" : "justify-center px-0"}`}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-[var(--theme-sidebar-hover)] text-sm font-black text-[var(--theme-sidebar-text-strong)]">{initialsFor(user.firstName, user.lastName)}</span>
+              {showLabels ? (
+                <>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-extrabold text-[var(--theme-sidebar-text-strong)]">{user.firstName}</span>
+                    <span className="block truncate text-xs text-[var(--theme-sidebar-text)]">{roleLabels[user.role] ?? user.role}</span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 text-[var(--theme-sidebar-text)] transition-transform ${profileOpen ? "-rotate-90" : ""}`} />
+                </>
               ) : null}
-              {/* Infobulle vers la droite quand la barre est réduite : au-dessus,
-                  le bord gauche de l'écran la couperait. */}
-              <IconButton label="Se déconnecter" onClick={() => setLogoutConfirmOpen(true)} tooltipSide={showLabels ? "top" : "right"} tooltipAlign="end">
-                <LogOut aria-hidden="true" className="h-5 w-5" />
-              </IconButton>
-            </div>
-          ) : null}
-        </div>
+            </button>
+
+            {profileOpen ? (
+              <div className="absolute bottom-full left-0 z-20 mb-2 w-56 max-w-[calc(100vw-2rem)] space-y-0.5 rounded-2xl border border-animeo-border bg-white p-1.5 shadow-[0_16px_40px_rgb(var(--theme-shadow-rgb)/0.35)]">
+                <Link
+                  href="/dashboard/parametres"
+                  onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                  aria-current={isActive(pathname, "/dashboard/parametres") ? "page" : undefined}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
+                >
+                  <Settings aria-hidden="true" className="h-4 w-4" />
+                  Paramètres
+                </Link>
+                {showAdmin ? (
+                  <Link
+                    href="/dashboard/admin"
+                    onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                    aria-current={isActive(pathname, "/dashboard/admin") ? "page" : undefined}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
+                  >
+                    <Shield aria-hidden="true" className="h-4 w-4" />
+                    Administration
+                  </Link>
+                ) : null}
+                {showPlatform ? (
+                  <Link
+                    href="/plateforme"
+                    onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                    className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
+                  >
+                    <Shield aria-hidden="true" className="h-4 w-4" />
+                    Super-administration
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setLogoutConfirmOpen(true)}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-danger transition hover:bg-animeo-danger-soft"
+                >
+                  <LogOut aria-hidden="true" className="h-4 w-4" />
+                  Se déconnecter
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </aside>
 
       {logoutConfirmOpen ? (

@@ -100,7 +100,8 @@ test("les réglages de navigation ne proposent pas de survol sur un écran tacti
 
   await expect(page.getByRole("heading", { name: "Comportement de la navigation" })).toBeVisible();
   // Un réglage sans effet est pire qu'un réglage absent : au doigt, le survol
-  // n'existe pas, donc ce choix n'est pas proposé.
+  // n'existe pas, donc ces deux choix ne sont pas proposés.
   await expect(page.getByRole("group", { name: "Ouverture de la barre latérale" })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Ouverture des menus" })).toHaveCount(0);
   await expect(page.getByText("Cet appareil est tactile")).toBeVisible();
 });
