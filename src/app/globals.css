@@ -316,12 +316,6 @@ html {
   width: 100%;
 }
 
-.dashboard-mobile-menu-button {
-  margin-left: auto;
-  min-height: 44px;
-  min-width: 44px;
-}
-
 .dashboard-sidebar[data-open="true"] {
   transform: translateX(0);
 }

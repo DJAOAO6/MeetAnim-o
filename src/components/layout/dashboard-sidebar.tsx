@@ -47,26 +47,18 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
         <Link href="/dashboard" aria-label="1002 Pattes — Tableau de bord">
           <AnimeoLogo size="mobile" tone="light" priority />
         </Link>
-        {/* Cloche + bouton menu regroupés dans un même conteneur fixe, pour
-            ne pas empiler une seconde barre d'en-tête sous 768px : la cloche
-            de HeaderActions est masquée sur mobile et vit ici à la place
-            (PROMPT-NOTIFICATIONS.md §B2 bis, option 1). */}
-        {/* Cloche placée après le bouton menu (dernier élément du groupe) :
-            le panneau s'ancre en `right-0` sur son propre conteneur, donc la
-            garder au bord droit évite qu'il ne déborde à gauche du viewport. */}
+        {/* Recherche et cloche dans un même conteneur fixe, pour ne pas
+            empiler une seconde barre d'en-tête sous 768px : celles de
+            HeaderActions sont masquées sur mobile et vivent ici à la place
+            (PROMPT-NOTIFICATIONS.md §B2 bis, option 1).
+            Pas de bouton de menu ici : le tiroir s'ouvre par « Menu », dans
+            la barre du bas — un seul accès, là où le pouce se trouve. */}
+        {/* Cloche en dernier : le panneau s'ancre en `right-0` sur son propre
+            conteneur, donc la garder au bord droit évite qu'il ne déborde à
+            gauche du viewport. */}
         <div className="flex items-center gap-2" style={{ position: "fixed", right: 16, top: 10, zIndex: 70 }}>
           {/* La recherche de l'en-tête, en plein écran (masquée avec lui sous 768px). */}
           <MobileSearchButton className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[var(--theme-sidebar-hover)] text-[var(--theme-sidebar-text-strong)]" />
-          <button
-            type="button"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Ouvrir le menu"
-            aria-expanded={mobileOpen}
-            className="dashboard-mobile-menu-button flex h-11 w-11 items-center justify-center rounded-[14px] text-2xl font-bold"
-            style={{ background: "var(--theme-sidebar-hover)", color: "var(--theme-sidebar-text-strong)" }}
-          >
-            ☰
-          </button>
           <NotificationsBell variant="onDark" />
         </div>
       </header>

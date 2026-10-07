@@ -67,7 +67,9 @@ test("le tiroir de navigation garde ses libellés, même barre réduite sur gran
   });
 
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Ouvrir le menu", exact: true }).click();
+  // Un seul accès au tiroir : « Menu », dans la barre du bas.
+  await expect(page.getByRole("button", { name: "Ouvrir le menu", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Ouvrir le menu complet" }).click();
 
   // La page agenda a son propre <aside> (encarts latéraux) : on vise la barre.
   const drawer = page.locator("aside.dashboard-sidebar");

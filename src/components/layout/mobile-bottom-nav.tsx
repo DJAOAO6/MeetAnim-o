@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Menu } from "lucide-react";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { hasModule, type ModuleKey } from "@/lib/modules";
@@ -22,6 +23,9 @@ type BottomNavItem = { label: string; href: string; icon: IconName; module?: Mod
  * par le cinquième bouton. Une barre à huit entrées serait illisible au
  * pouce, et la hiérarchie des usages est celle du métier : on consulte son
  * agenda et ses fiches clients bien plus souvent que ses prestations.
+ *
+ * Ce cinquième bouton est le seul accès au tiroir : le « ☰ » qui le doublait
+ * dans le bandeau du haut a été retiré.
  */
 const items: BottomNavItem[] = [
   { label: "Accueil", href: "/dashboard", icon: "dashboard" },
@@ -75,7 +79,7 @@ export function MobileBottomNav() {
             aria-label="Ouvrir le menu complet"
             className="flex min-h-14 w-full flex-col items-center justify-center gap-1 px-1 py-2 text-xs font-extrabold text-animeo-muted transition"
           >
-            <span aria-hidden="true" className="text-lg leading-none">☰</span>
+            <Menu aria-hidden="true" className="h-5 w-5" />
             <span>Menu</span>
           </button>
         </li>
