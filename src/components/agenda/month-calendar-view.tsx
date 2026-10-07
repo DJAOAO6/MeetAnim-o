@@ -17,16 +17,16 @@ export const filterOptions: Array<{ id: MonthFilter; label: string }> = [
 
 export const kindDotColor: Record<DayItemKind, string> = {
   cabinet: "bg-animeo-brand",
-  domicile: "bg-[#4C8190]",
+  domicile: "bg-animeo-home",
   pending: "bg-animeo-accent",
-  tournee: "bg-[#8067B0]",
+  tournee: "bg-animeo-tour",
 };
 
 const compactEventStyles: Record<DayItemKind, string> = {
   cabinet: "border-animeo-brand bg-animeo-brand/[0.06] text-animeo-dark",
-  domicile: "border-[#4C8190] bg-[#4C8190]/[0.06] text-[#234E5A]",
+  domicile: "border-animeo-home bg-animeo-home/[0.06] text-animeo-home-text",
   pending: "border-animeo-accent bg-[#F4B860]/[0.12] text-animeo-warning",
-  tournee: "border-[#8067B0] bg-[#8067B0]/[0.06] text-[#55417F]",
+  tournee: "border-animeo-tour bg-animeo-tour/[0.06] text-animeo-tour-text",
 };
 
 const weekDayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];

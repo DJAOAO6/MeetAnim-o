@@ -81,6 +81,16 @@
   --theme-success: #36724a;
   --theme-success-soft: #e6f4ea;
   --theme-info-soft: #dde6cf;
+  /* Agenda : rendez-vous à domicile et tournées. Liseré et pastille
+     (--theme-home, --theme-tour), texte posé sur leur fond (-text), fond des
+     tournées (-soft ; le domicile se pose sur --theme-info-soft). Chaque
+     palette en donne une version sombre : écrits en dur dans les
+     composants, ces textes restaient foncés sur fond foncé (1,4:1). */
+  --theme-home: #4c8190;
+  --theme-home-text: #234e5a;
+  --theme-tour: #8067b0;
+  --theme-tour-text: #55417f;
+  --theme-tour-soft: #eeeaf8;
   --theme-shadow-rgb: 74 36 18;
   --theme-card-radius: 20px;
   --theme-font-family: var(--font-nunito-sans);
@@ -125,6 +135,11 @@
   --theme-success: #8fd1a2;
   --theme-success-soft: #1f3326;
   --theme-info-soft: #2c3322;
+  --theme-home: #6aa3b3;
+  --theme-home-text: #a8d0da;
+  --theme-tour: #a08ad0;
+  --theme-tour-text: #cfc3ee;
+  --theme-tour-soft: #2e2838;
   --theme-shadow-rgb: 0 0 0;
 }
 
@@ -166,6 +181,11 @@
   --theme-success: #267668;
   --theme-success-soft: #e4f5ef;
   --theme-info-soft: #e8f1f4;
+  --theme-home: #4c8190;
+  --theme-home-text: #234e5a;
+  --theme-tour: #8067b0;
+  --theme-tour-text: #55417f;
+  --theme-tour-soft: #eeeaf8;
   --theme-shadow-rgb: 24 59 69;
   --theme-card-radius: 18px;
 }
@@ -199,6 +219,11 @@
   --theme-success: #7fd1b0;
   --theme-success-soft: #1d3a33;
   --theme-info-soft: #1f3339;
+  --theme-home: #6aa3b3;
+  --theme-home-text: #a8d0da;
+  --theme-tour: #a08ad0;
+  --theme-tour-text: #cfc3ee;
+  --theme-tour-soft: #2b2944;
   --theme-shadow-rgb: 0 0 0;
 }
 
@@ -241,6 +266,11 @@
   --color-animeo-positive: var(--theme-success);
   --color-animeo-positive-soft: var(--theme-success-soft);
   --color-animeo-info-soft: var(--theme-info-soft);
+  --color-animeo-home: var(--theme-home);
+  --color-animeo-home-text: var(--theme-home-text);
+  --color-animeo-tour: var(--theme-tour);
+  --color-animeo-tour-text: var(--theme-tour-text);
+  --color-animeo-tour-soft: var(--theme-tour-soft);
   --color-animeo-sidebar: var(--theme-sidebar);
   --color-animeo-success: #36a26b;
   --color-animeo-error: #d95c5c;

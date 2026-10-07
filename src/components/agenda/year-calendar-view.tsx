@@ -82,7 +82,7 @@ function YearMiniMonth({ year, monthIndex, appointments, tours, availability, on
               className={`relative flex h-4 w-4 items-center justify-center rounded-[3px] text-[8px] font-bold ${densityClass(agenda.count, agenda.isClosed)} ${isToday ? "ring-1 ring-animeo-dark" : ""}`}
             >
               {date.getDate()}
-              {hasTournee ? <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-white bg-[#8067B0]" /> : null}
+              {hasTournee ? <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full border border-white bg-animeo-tour" /> : null}
             </span>
           );
         })}

@@ -151,10 +151,10 @@ const eventModes: Record<EventKind, { icon: typeof PawPrint; label: string }> = 
 
 const eventStyles: Record<EventKind, string> = {
   cabinet: "border-animeo-brand bg-animeo-positive-soft text-animeo-dark",
-  domicile: "border-[#4C8190] bg-animeo-info-soft text-[#234E5A]",
+  domicile: "border-animeo-home bg-animeo-info-soft text-animeo-home-text",
   pending: "border-dashed border-animeo-accent bg-animeo-warning-soft/55 text-animeo-warning backdrop-blur-[1px]",
   unavailable: "border-animeo-subtle bg-animeo-surface-alt text-animeo-muted",
-  tournee: "border-[#8067B0] bg-[#EEEAF8] text-[#55417F]",
+  tournee: "border-animeo-tour bg-animeo-tour-soft text-animeo-tour-text",
 };
 
 

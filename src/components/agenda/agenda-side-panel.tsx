@@ -185,7 +185,7 @@ function TodayTour({ tours, tourAppointments }: { tours: Tour[]; tourAppointment
   if (todaysTours.length === 0) {
     return (
       <Card className="p-5 sm:col-span-2 xl:col-span-1">
-        <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#8067B0]">Tournée du jour</p>
+        <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo-tour">Tournée du jour</p>
         <p className="mt-3 text-sm font-bold text-animeo-muted">Aucune tournée prévue ce jour-là.</p>
       </Card>
     );
@@ -195,8 +195,8 @@ function TodayTour({ tours, tourAppointments }: { tours: Tour[]; tourAppointment
     return (
       <Card className="p-5 sm:col-span-2 xl:col-span-1">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#8067B0]">Tournées du jour</p>
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEEAF8] text-[#8067B0]">
+          <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo-tour">Tournées du jour</p>
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-tour-soft text-animeo-tour">
             <Icon name="tournees" className="h-5 w-5" />
           </div>
         </div>
@@ -223,16 +223,16 @@ function TodayTour({ tours, tourAppointments }: { tours: Tour[]; tourAppointment
     <Card className="p-5 sm:col-span-2 xl:col-span-1">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-[#8067B0]">Tournée du jour</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-animeo-tour">Tournée du jour</p>
           <h2 className="mt-2 text-lg font-extrabold text-animeo-dark">{tour.name}</h2>
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEEAF8] text-[#8067B0]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-tour-soft text-animeo-tour">
           <Icon name="tournees" className="h-5 w-5" />
         </div>
       </div>
       <p className="mt-1 text-sm text-animeo-muted">{tour.startTime} à {tour.endTime} · {tour.appointmentCount} rendez-vous</p>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EEEAF8]">
-        <div className="h-full rounded-full bg-[#8067B0]" style={{ width: `${progress * 100}%` }} />
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-animeo-tour-soft">
+        <div className="h-full rounded-full bg-animeo-tour" style={{ width: `${progress * 100}%` }} />
       </div>
       <div className="mt-2 flex justify-between text-xs font-bold text-animeo-muted">
         <span>{doneCount} terminé{doneCount > 1 ? "s" : ""}</span>
