@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
@@ -158,7 +159,7 @@ function NextAppointment() {
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-xs font-bold text-animeo-muted">Durée {appointment.duration} min</p>
-        <button type="button" onClick={() => openManager(appointment.id)} className="text-xs font-extrabold text-animeo">Voir la fiche</button>
+        <Button type="button" variant="secondary" onClick={() => openManager(appointment.id)}>Voir la fiche</Button>
       </div>
     </Card>
   );

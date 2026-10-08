@@ -1,6 +1,8 @@
 "use client";
 
 import { getDayAgenda } from "@/lib/agenda-aggregation";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { Icon } from "@/components/ui/icon";
 import type { Appointment } from "@/data/appointments";
 import type { AvailabilitySettings } from "@/data/settings";
@@ -54,7 +56,7 @@ export function DayDetailPanel({ date, appointments: allAppointments, tours, ava
             {agenda.isClosed ? "Journée fermée" : `${agenda.count} rendez-vous`}
           </p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Fermer le détail du jour" className="shrink-0 text-lg leading-none text-animeo-muted hover:text-animeo-dark">×</button>
+        <CloseButton onClick={onClose} label="Fermer le détail du jour" className="-mr-1 -mt-1" />
       </div>
 
       {agenda.isClosed ? (
@@ -85,14 +87,9 @@ export function DayDetailPanel({ date, appointments: allAppointments, tours, ava
         </>
       )}
 
-      <button
-        type="button"
-        onClick={onViewDay}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:text-animeo"
-      >
-        <Icon name="calendar" className="h-4 w-4" />
+      <Button type="button" variant="secondary" onClick={onViewDay} icon={<Icon name="calendar" className="h-4 w-4" />} className="mt-4 w-full">
         Voir la journée
-      </button>
+      </Button>
     </div>
   );
 }

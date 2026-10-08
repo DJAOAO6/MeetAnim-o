@@ -6,6 +6,7 @@ import { SlotSelectionLayer } from "@/components/agenda/slot-selection-layer";
 import { selectionFromClick, toMinutes as slotToMinutes, type SelectionBounds, type SlotSelection } from "@/lib/agenda-selection";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { Card } from "@/components/ui/card";
+import { IconButton } from "@/components/ui/icon-button";
 import { ArrowLeftRight, Ban, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Home, MapPin, PawPrint, X } from "lucide-react";
 import { computeClosedRanges, getDayAvailability, isOpenAt } from "@/lib/availability";
 import { chainVisitStarts, conflictsWith } from "@/lib/booking-validation";
@@ -838,12 +839,11 @@ const stripDateFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", d
  */
 function DayStrip({ date, onShift }: { date: Date; onShift: (delta: number) => void }) {
   const days = [-1, 0, 1].map((delta) => ({ delta, day: new Date(date.getFullYear(), date.getMonth(), date.getDate() + delta, 12) }));
-  const arrow = "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-animeo-dark transition hover:bg-white";
   return (
     <nav aria-label="Changer de jour" className="flex items-center gap-1 px-1.5 py-1.5 md:hidden" data-testid="agenda-day-strip">
-      <button type="button" aria-label="Jour précédent" onClick={() => onShift(-1)} className={arrow}>
+      <IconButton label="Jour précédent" onClick={() => onShift(-1)} tooltipSide="bottom" tooltipAlign="start">
         <ChevronLeft aria-hidden="true" className="h-5 w-5" />
-      </button>
+      </IconButton>
       <div className="grid flex-1 grid-cols-3 gap-1">
         {days.map(({ delta, day }) => {
           const current = delta === 0;
@@ -868,9 +868,9 @@ function DayStrip({ date, onShift }: { date: Date; onShift: (delta: number) => v
           );
         })}
       </div>
-      <button type="button" aria-label="Jour suivant" onClick={() => onShift(1)} className={arrow}>
+      <IconButton label="Jour suivant" onClick={() => onShift(1)} tooltipSide="bottom" tooltipAlign="end">
         <ChevronRight aria-hidden="true" className="h-5 w-5" />
-      </button>
+      </IconButton>
     </nav>
   );
 }
