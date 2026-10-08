@@ -199,13 +199,9 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => updateWidget(widget.id, { visible: false })}
-                  className="min-h-9 rounded-xl bg-animeo-surface px-3 text-xs font-extrabold text-animeo-muted shadow-sm transition hover:text-animeo-danger"
-                >
+                <Button type="button" variant="secondary" onClick={() => updateWidget(widget.id, { visible: false })}>
                   Masquer
-                </button>
+                </Button>
               </div>
             }
           >
@@ -271,7 +267,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
                       <p className="text-sm font-extrabold text-animeo-dark">{definition.label}</p>
                       <p className="mt-1 text-xs text-animeo-muted">{definition.description}</p>
                     </div>
-                    <Button size="sm" onClick={() => updateWidget(widget.id, { visible: true })}>Ajouter</Button>
+                    <Button onClick={() => updateWidget(widget.id, { visible: true })}>Ajouter</Button>
                   </li>
                 );
               })}

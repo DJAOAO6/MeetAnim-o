@@ -6,6 +6,7 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { HeaderActions } from "@/components/layout/header-actions";
 import { Icon } from "@/components/ui/icon";
+import { Button } from "@/components/ui/button";
 
 /**
  * En-tête du tableau de bord : barre d'actions (horloge, recherche, cloche)
@@ -41,14 +42,9 @@ export function DashboardHeader() {
           </div>
 
           <div className="flex flex-wrap gap-2.5">
-            <button
-              type="button"
-              onClick={() => openNewAppointment()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-animeo px-4 text-sm font-extrabold text-white shadow-[0_10px_22px_color-mix(in_srgb,var(--theme-brand)_28%,transparent)] transition hover:-translate-y-0.5"
-            >
-              <Icon name="calendarPlus" className="h-4.5 w-4.5" />
+            <Button type="button" onClick={() => openNewAppointment()} icon={<Icon name="calendarPlus" className="h-4.5 w-4.5" />}>
               Nouveau rendez-vous
-            </button>
+            </Button>
             <Link
               href="/dashboard/agenda"
               className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-animeo-border bg-animeo-surface px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"

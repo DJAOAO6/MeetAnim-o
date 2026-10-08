@@ -269,10 +269,10 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
             <p className="font-extrabold">{selectedIds.size} rappel{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Annuler</button>
-            <button type="button" onClick={() => markAsSent(Array.from(selectedIds))} disabled={isBulkSending} className="rounded-xl bg-animeo px-4 py-2 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+            <Button type="button" variant="secondary" onClick={() => setSelectedIds(new Set())}>Annuler</Button>
+            <Button type="button" onClick={() => markAsSent(Array.from(selectedIds))} disabled={isBulkSending}>
               {isBulkSending ? "Envoi…" : "Envoyer les rappels"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}

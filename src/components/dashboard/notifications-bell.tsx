@@ -12,6 +12,8 @@ import { useHasMounted } from "@/components/ui/use-has-mounted";
 import type { Appointment } from "@/data/appointments";
 import { formatNotificationBadge } from "@/lib/format";
 import { notify } from "@/lib/notify";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 
 type NotificationsBellProps = {
   /** "surface" : bouton blanc sur fond clair (HeaderActions). "onDark" : bouton translucide sur le bandeau mobile de la sidebar. */
@@ -232,52 +234,17 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                               <RequestExpiryBadge appointment={appointment} />
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => hideNotification(key)}
-                            aria-label={`Masquer la notification de ${appointment.animalName}`}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-animeo-muted transition hover:bg-white hover:text-animeo-dark mr-2"
-                          >
-                            ×
-                          </button>
+                          <CloseButton label={`Masquer la notification de ${appointment.animalName}`} tooltip="Masquer" onClick={() => hideNotification(key)} className="mr-2" />
                         </div>
-                        <div className="flex items-center gap-1.5 px-3 pb-2.5 pl-8">
+                        <div className="flex flex-wrap items-center gap-2 px-3 pb-2.5">
                           {hasSlotOptions(appointment) ? (
                             // Plusieurs horaires proposés (C8) : le choix se fait dans la demande.
-                            <button
-                              type="button"
-                              onClick={() => { markRead(key); close(); openManager(appointment.id); }}
-                              className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover"
-                            >
-                              Choisir l’horaire
-                            </button>
+                            <Button type="button" onClick={() => { markRead(key); close(); openManager(appointment.id); }}>Choisir l’horaire</Button>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => respondToRequest(appointment, "confirmed")}
-                              className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover"
-                            >
-                              Valider
-                            </button>
+                            <Button type="button" onClick={() => respondToRequest(appointment, "confirmed")}>Valider</Button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => respondToRequest(appointment, "cancelled")}
-                            className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft"
-                          >
-                            Refuser
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              markRead(key);
-                              close();
-                              openManager(appointment.id);
-                            }}
-                            className="ml-auto rounded-lg border border-animeo-border bg-white px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-                          >
-                            Voir plus
-                          </button>
+                          <Button type="button" variant="danger" onClick={() => respondToRequest(appointment, "cancelled")}>Refuser</Button>
+                          <Button type="button" variant="secondary" onClick={() => { markRead(key); close(); openManager(appointment.id); }} className="ml-auto">Voir plus</Button>
                         </div>
                       </div>
                     );
@@ -304,14 +271,7 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
                           </span>
                           <span className="shrink-0 text-xs font-bold text-animeo-muted">{relativeDayLabel(reminder.dueDate)}</span>
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => hideNotification(key)}
-                          aria-label={`Masquer la notification de ${reminder.animalName}`}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg leading-none text-animeo-muted transition hover:bg-white hover:text-animeo-dark mr-2"
-                        >
-                          ×
-                        </button>
+                        <CloseButton label={`Masquer la notification de ${reminder.animalName}`} tooltip="Masquer" onClick={() => hideNotification(key)} className="mr-2" />
                       </div>
                     );
                   })}
@@ -324,12 +284,12 @@ export function NotificationsBell({ variant = "surface" }: NotificationsBellProp
         {pendingAppointments.length > 0 || dueReminders.length > 0 ? (
           <div className="mt-1 flex items-center gap-1">
             {pendingAppointments.length > 0 ? (
-              <Link href="/dashboard/agenda" onClick={close} className="flex-1 flex items-center justify-center rounded-xl px-3 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-bg">
+              <Link href="/dashboard/agenda" onClick={close} className="flex min-h-11 flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-bg">
                 Voir l’agenda
               </Link>
             ) : null}
             {dueReminders.length > 0 ? (
-              <Link href="/dashboard/rappels" onClick={close} className="flex-1 flex items-center justify-center rounded-xl px-3 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-bg">
+              <Link href="/dashboard/rappels" onClick={close} className="flex min-h-11 flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-bg">
                 Voir tous les rappels
               </Link>
             ) : null}

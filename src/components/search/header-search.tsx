@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useClientDirectory } from "@/components/search/client-directory-context";
 import { MIN_QUERY_LENGTH, normalizeForSearch, searchPeople } from "@/lib/fuzzy-match";
 import type { ClientPickerOption } from "@/data/clients";
@@ -280,10 +281,7 @@ export function MobileSearchButton({ className = "" }: { className?: string }) {
           <div role="dialog" aria-modal="true" aria-label="Rechercher un client, un animal" className="fixed inset-0 z-[90] flex flex-col bg-animeo-bg p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-base font-black text-animeo-dark">Rechercher</p>
-              <button type="button" onClick={close} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-extrabold text-animeo-dark hover:bg-white">
-                <X aria-hidden="true" className="h-4 w-4" />
-                Fermer
-              </button>
+              <Button type="button" variant="secondary" onClick={close} icon={<X aria-hidden="true" className="h-4 w-4" />}>Fermer</Button>
             </div>
             <HeaderSearch variant="fullscreen" autoFocus onNavigate={() => setOpen(false)} />
           </div>,

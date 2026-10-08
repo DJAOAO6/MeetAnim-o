@@ -27,6 +27,7 @@ import { redirect } from "next/navigation";
 import { ClientDirectoryProvider } from "@/components/search/client-directory-context";
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { logout } from "@/lib/auth/actions";
+import { Button } from "@/components/ui/button";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
@@ -68,7 +69,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           <header className="mx-auto flex max-w-2xl items-center justify-between gap-4 px-4 py-5 sm:px-7">
             <AnimeoLogo size="footer" priority />
             <form action={logout}>
-              <button type="submit" className="min-h-11 rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark hover:bg-white">Se déconnecter</button>
+              <Button type="submit" variant="secondary">Se déconnecter</Button>
             </form>
           </header>
           <main className="mx-auto max-w-2xl px-4 pb-10 sm:px-7">{children}</main>

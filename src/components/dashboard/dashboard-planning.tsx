@@ -11,6 +11,7 @@ import { resolveSpeciesColor } from "@/data/species";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import type { Appointment } from "@/data/appointments";
 import type { Client, ClientPickerOption } from "@/data/clients";
+import { Button } from "@/components/ui/button";
 
 export function DashboardPlanning({ clients }: { clients: Client[] }) {
   const { appointments, saveAppointment, openNewAppointment } = useAppointments();
@@ -67,14 +68,9 @@ export function DashboardPlanning({ clients }: { clients: Client[] }) {
           title="Aucun rendez-vous aujourd’hui"
           message="Votre journée est libre pour le moment."
           action={
-            <button
-              type="button"
-              onClick={() => openNewAppointment()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-extrabold text-animeo-dark shadow-sm transition hover:bg-animeo-soft"
-            >
-              <Icon name="calendarPlus" className="h-4 w-4" />
+            <Button type="button" variant="secondary" onClick={() => openNewAppointment()} icon={<Icon name="calendarPlus" className="h-4 w-4" />}>
               Nouveau rendez-vous
-            </button>
+            </Button>
           }
         />
       )}

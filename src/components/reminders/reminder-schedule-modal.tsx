@@ -5,6 +5,8 @@ import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import type { Reminder, ReminderClientOption } from "@/data/reminders";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 
 export type ReminderFormValue = {
   id?: string;
@@ -74,7 +76,7 @@ export function ReminderScheduleModal({ reminder, clients, saving, onClose, onSa
                 <p className="mt-1 text-sm text-animeo-muted">Le rappel sera enregistré dans le suivi client.</p>
               </div>
             </div>
-            <button type="button" onClick={onClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm transition hover:text-animeo-dark">×</button>
+            <CloseButton onClick={onClose} label="Fermer la fenêtre" />
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -115,10 +117,10 @@ export function ReminderScheduleModal({ reminder, clients, saving, onClose, onSa
             </div>
 
             <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end sm:p-6">
-              <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border bg-white px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-              <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">
+              <Button type="button" variant="secondary" onClick={onClose}>Annuler</Button>
+              <Button type="submit" disabled={saving}>
                 {saving ? "Enregistrement…" : reminder ? "Enregistrer les modifications" : "Programmer le rappel"}
-              </button>
+              </Button>
             </div>
           </form>
         </section>

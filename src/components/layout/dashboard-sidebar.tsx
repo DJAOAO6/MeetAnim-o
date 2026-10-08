@@ -127,7 +127,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
             {collapsed ? <PanelLeftOpen aria-hidden="true" className="h-5 w-5" /> : <PanelLeftClose aria-hidden="true" className="h-5 w-5" />}
           </button>
 
-          <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fermer le menu" className="dashboard-sidebar-close flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--theme-sidebar-hover)] text-[var(--theme-sidebar-text-strong)]">
+          <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fermer le menu" className="dashboard-sidebar-close flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--theme-sidebar-hover)] text-[var(--theme-sidebar-text-strong)]">
             <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
@@ -221,7 +221,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
                 <button
                   type="button"
                   onClick={() => setLogoutConfirmOpen(true)}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-danger transition hover:bg-animeo-danger-soft"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-danger transition hover:bg-animeo-danger-soft"
                 >
                   <LogOut aria-hidden="true" className="h-4 w-4" />
                   Se déconnecter
