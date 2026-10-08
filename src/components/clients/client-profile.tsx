@@ -231,9 +231,9 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             <strong className="font-extrabold">{archivedOnLabel(clientInfo.archivedAt)}.</strong>{" "}
             Il n’apparaît plus dans la liste, la recherche, la carte ni les relances. Son historique est conservé.
           </p>
-          <button type="button" onClick={restoreClient} disabled={archiving} className="shrink-0 rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
+          <Button type="button" onClick={restoreClient} disabled={archiving} className="shrink-0">
             {archiving ? "Restauration…" : "Restaurer"}
-          </button>
+          </Button>
         </div>
       ) : null}
 

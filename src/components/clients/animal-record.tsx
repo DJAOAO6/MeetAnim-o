@@ -16,6 +16,7 @@ import type { StudioDocumentSummary } from "@/data/documents";
 import { fileToCompressedDataUrl } from "@/lib/images/compress-image";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { hasModule } from "@/lib/modules";
+import { Pencil } from "lucide-react";
 
 type AnimalRecordProps = {
   animal: Animal;
@@ -88,15 +89,9 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
               </div>
             </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              aria-label={`Modifier la fiche de ${animal.name}`}
-              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft"
-            >
-              <EditIcon />
+            <Button type="button" variant="secondary" onClick={() => setEditing(true)} aria-label={`Modifier la fiche de ${animal.name}`} icon={<Pencil aria-hidden="true" className="h-4 w-4" />} className="shrink-0 self-start">
               Modifier
-            </button>
+            </Button>
           </div>
           {photoError ? <p role="alert" className="mt-4 rounded-[14px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{photoError}</p> : null}
         </div>
@@ -124,15 +119,6 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
         />
       ) : null}
     </div>
-  );
-}
-
-function EditIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
   );
 }
 
@@ -247,14 +233,9 @@ function DocumentsHistory({ animal, clientId }: { animal: Animal; clientId: stri
           <h2 className="text-lg font-extrabold text-animeo-dark">Comptes rendus</h2>
           <p className="mt-0.5 text-sm text-animeo-muted">Studio de documents, propre à {animal.name}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={creating}
-          className="shrink-0 rounded-xl bg-animeo px-3.5 py-2 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button type="button" onClick={handleCreate} disabled={creating} className="shrink-0">
           {creating ? "…" : "Nouveau compte rendu"}
-        </button>
+        </Button>
       </div>
 
       {documents === null ? (

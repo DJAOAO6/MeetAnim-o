@@ -109,8 +109,11 @@ test.describe("Clients — suppression groupée façon Gmail", () => {
 
     await expect(page.getByText("3 clients sélectionnés")).toBeVisible();
 
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Supprimer" }).click();
+    // La confirmation est une fenêtre du logiciel.
+    const confirm = page.getByRole("dialog", { name: "Supprimer ces 3 clients ?" });
+    await expect(confirm).toContainText("Supprimer définitivement ces 3 fiches clients et leurs animaux ?");
+    await confirm.getByRole("button", { name: "Supprimer", exact: true }).click();
 
     await expect(page.getByText("3 clients ont été supprimés.")).toBeVisible({ timeout: 10000 });
 

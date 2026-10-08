@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { PreparedRow } from "@/lib/import/build-rows";
 import type { ConflictPolicy } from "@/lib/clients-import-actions";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
+import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 200;
 
@@ -201,24 +202,17 @@ export function ClientImportStepReview({
         </div>
 
         {visibleCount < totalFiltered ? (
-          <button type="button" onClick={() => setVisibleCount((current) => current + PAGE_SIZE)} className="mt-3 rounded-xl border border-animeo-border px-4 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+          <Button type="button" variant="secondary" onClick={() => setVisibleCount((current) => current + PAGE_SIZE)} className="mt-3">
             Afficher plus ({totalFiltered - visibleCount} restantes)
-          </button>
+          </Button>
         ) : null}
       </div>
 
       <div className="flex items-center justify-between gap-3 border-t border-animeo-border-soft pt-5">
-        <button type="button" onClick={onBack} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-          Retour
-        </button>
-        <button
-          type="button"
-          disabled={importCount === 0}
-          onClick={onStartImport}
-          className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button type="button" variant="secondary" onClick={onBack}>Retour</Button>
+        <Button type="button" disabled={importCount === 0} onClick={onStartImport}>
           Importer {importCount} client{importCount > 1 ? "s" : ""}
-        </button>
+        </Button>
       </div>
     </div>
   );

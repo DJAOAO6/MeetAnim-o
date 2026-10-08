@@ -1,6 +1,7 @@
 "use client";
 
 import { IMPORT_FIELD_LABELS, type ImportField } from "@/lib/import/fields";
+import { Button } from "@/components/ui/button";
 
 const ALL_FIELDS = Object.keys(IMPORT_FIELD_LABELS) as ImportField[];
 const PREVIEW_ROW_COUNT = 5;
@@ -102,19 +103,10 @@ export function ClientImportStepColumns({
       ) : null}
 
       <div className="flex items-center justify-between gap-3 border-t border-animeo-border-soft pt-5">
-        <button type="button" onClick={onBack} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-          Retour
-        </button>
+        <Button type="button" variant="secondary" onClick={onBack}>Retour</Button>
         <div className="text-right">
           {!canContinue ? <p className="mb-2 text-xs font-bold text-animeo-danger">Associez au moins les colonnes Nom et Prénom pour continuer.</p> : null}
-          <button
-            type="button"
-            disabled={!canContinue}
-            onClick={onContinue}
-            className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Continuer
-          </button>
+          <Button type="button" disabled={!canContinue} onClick={onContinue}>Continuer</Button>
         </div>
       </div>
     </div>

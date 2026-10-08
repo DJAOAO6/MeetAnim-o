@@ -5,13 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Upload, UserPlus } from "lucide-react";
+import { Plus, Trash2, Upload, UserPlus } from "lucide-react";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NewClientModal } from "@/components/clients/new-client-modal";
 import { ClientImportModal } from "@/components/clients/client-import-modal";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SplitButton } from "@/components/ui/split-button";
 import { TextLink } from "@/components/ui/text-link";
 import { Icon } from "@/components/ui/icon";
@@ -77,6 +78,9 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
   // le bandeau d'action groupée, qui n'apparaît qu'une fois une sélection faite.
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Les deux questions de la barre de sélection, posées dans une fenêtre du logiciel.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [archiveQuestion, setArchiveQuestion] = useState<string | null>(null);
   const [deletingSelected, startDeleteSelected] = useTransition();
   const [archiving, startArchiving] = useTransition();
   const archivedCount = localClients.filter((client) => client.archivedAt !== null).length;
@@ -147,12 +151,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
   }
 
   function deleteSelected() {
-    const count = selectedIds.size;
-    const confirmMessage = count === 1
-      ? "Supprimer définitivement cette fiche client et ses animaux ? Cette action est irréversible."
-      : `Supprimer définitivement ces ${count} fiches clients et leurs animaux ? Cette action est irréversible.`;
-    if (!window.confirm(confirmMessage)) return;
-
+    setConfirmingDelete(false);
     const ids = Array.from(selectedIds);
     startDeleteSelected(async () => {
       const result = await deleteClientsAction(ids);
@@ -196,12 +195,21 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
    * Archivage groupé : la confirmation annonce les rendez-vous à venir (ils
    * sont conservés), puis un toast propose « Annuler » pendant 8 s.
    */
-  function archiveSelected() {
+  function askToArchiveSelected() {
     const ids = Array.from(selectedIds);
     startArchiving(async () => {
+      // Les rendez-vous à venir sont annoncés dans la question : il faut les
+      // connaître avant de la poser.
       const upcoming = await upcomingAppointmentsOfClientsAction(ids);
       const single = ids.length === 1 ? localClients.find((client) => client.id === ids[0]) : undefined;
-      if (!window.confirm(archiveConfirmationMessage(ids.length, single ? `${single.firstName} ${single.lastName}` : null, upcoming))) return;
+      setArchiveQuestion(archiveConfirmationMessage(ids.length, single ? `${single.firstName} ${single.lastName}` : null, upcoming));
+    });
+  }
+
+  function archiveSelected() {
+    setArchiveQuestion(null);
+    const ids = Array.from(selectedIds);
+    startArchiving(async () => {
       const result = await archiveClientsAction(ids);
       if (!result.ok) return void notify.error(result.error);
       markArchived(result.ids, new Date().toISOString());
@@ -316,29 +324,43 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         </div>
       </Card>
 
+      {confirmingDelete ? (
+        <ConfirmModal
+          title={selectedIds.size === 1 ? "Supprimer ce client ?" : `Supprimer ces ${selectedIds.size} clients ?`}
+          message={selectedIds.size === 1
+            ? "Supprimer définitivement cette fiche client et ses animaux ? Cette action est irréversible."
+            : `Supprimer définitivement ces ${selectedIds.size} fiches clients et leurs animaux ? Cette action est irréversible.`}
+          confirmLabel="Supprimer"
+          onConfirm={deleteSelected}
+          onClose={() => setConfirmingDelete(false)}
+        />
+      ) : null}
+      {archiveQuestion ? (
+        <ConfirmModal title={selectedIds.size === 1 ? "Archiver ce client ?" : "Archiver ces clients ?"} message={archiveQuestion} confirmLabel="Archiver" destructive={false} onConfirm={archiveSelected} onClose={() => setArchiveQuestion(null)} />
+      ) : null}
+
       {selectionMode && selectedIds.size > 0 ? (
         <div className="sticky top-4 z-30 mb-4 flex flex-col gap-3 rounded-2xl bg-animeo-dark px-5 py-4 text-white shadow-[0_12px_32px_rgb(var(--theme-shadow-rgb)/0.22)] sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-white/10 px-2 font-black">{selectedIds.size}</span>
             <p className="font-extrabold">{selectedIds.size} client{selectedIds.size > 1 ? "s" : ""} sélectionné{selectedIds.size > 1 ? "s" : ""}</p>
           </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setSelectedIds(new Set())} className="rounded-xl px-4 py-2 text-sm font-extrabold text-white/75 transition hover:bg-white/10 hover:text-white">Désélectionner</button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={() => setSelectedIds(new Set())}>Désélectionner</Button>
             {/* Archiver : réversible, ouvert à tous. Supprimer : définitif, sur permission. */}
             {statusFilter === "Archivés" ? (
-              <button type="button" onClick={restoreSelected} disabled={archiving} className="rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
+              <Button type="button" variant="secondary" onClick={restoreSelected} disabled={archiving}>
                 {archiving ? "Restauration…" : "Restaurer"}
-              </button>
+              </Button>
             ) : (
-              <button type="button" onClick={archiveSelected} disabled={archiving} className="rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
+              <Button type="button" variant="secondary" onClick={askToArchiveSelected} disabled={archiving}>
                 {archiving ? "Archivage…" : "Archiver"}
-              </button>
+              </Button>
             )}
             {canDelete ? (
-              <button type="button" onClick={deleteSelected} disabled={deletingSelected} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-error px-4 py-2 text-sm font-extrabold text-white transition hover:bg-[#c23a3a] disabled:cursor-not-allowed disabled:opacity-60">
-                <TrashIcon />
+              <Button type="button" variant="danger" onClick={() => setConfirmingDelete(true)} disabled={deletingSelected} icon={<Trash2 aria-hidden="true" className="h-4 w-4" />}>
                 {deletingSelected ? "Suppression…" : "Supprimer"}
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
@@ -606,17 +628,6 @@ function SearchIcon() {
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-animeo-muted">
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-4-4" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
     </svg>
   );
 }

@@ -131,9 +131,9 @@ export function NewClientModal({ onClose, onCreated }: { onClose: () => void; on
           <section key={section.key} aria-labelledby={`${prefixOf(section.key)}-title`} className="rounded-2xl border border-animeo-border-soft p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 id={`${prefixOf(section.key)}-title`} className="text-base font-black text-animeo-dark">{index === 0 ? "Premier animal" : `Animal ${index + 1}`}</h3>
-              <button type="button" onClick={() => removeSection(section.key)} className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-muted hover:bg-animeo-bg" aria-label={`Retirer ${index === 0 ? "le premier animal" : `l’animal ${index + 1}`}`}>
+              <Button type="button" variant="danger" onClick={() => removeSection(section.key)} aria-label={`Retirer ${index === 0 ? "le premier animal" : `l’animal ${index + 1}`}`}>
                 Retirer
-              </button>
+              </Button>
             </div>
             <AnimalFields idPrefix={prefixOf(section.key)} draft={section.draft} onChange={(patch) => updateSection(section.key, patch)} errors={section.errors} />
           </section>

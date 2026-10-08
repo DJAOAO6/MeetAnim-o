@@ -8,6 +8,7 @@ import { Field, inputClassName, textareaClassName } from "@/components/settings/
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { IconButton } from "@/components/ui/icon-button";
 import { Modal } from "@/components/ui/modal";
 import { deletePlaceAction, savePlaceAction } from "@/lib/places-actions";
 import { notify } from "@/lib/notify";
@@ -61,13 +62,13 @@ export function PlacesManager({ places }: { places: AnimalPlaceSummary[] }) {
                       {place.latitude != null ? (place.precision ? precisionLabels[place.precision] : "localisé") : <span className="text-animeo-danger">adresse introuvable : pas encore sur la carte</span>}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button type="button" onClick={() => setEditing({ id: place.id, name: place.name, kind: place.kind, address: place.address, postalCode: place.postalCode, city: place.city, notes: place.notes })} aria-label={`Modifier ${place.name}`} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
-                      <Pencil aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                    <button type="button" onClick={() => setDeleting(place)} aria-label={`Supprimer ${place.name}`} className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-danger">
-                      <Trash2 aria-hidden="true" className="h-4 w-4" />
-                    </button>
+                  <div className="flex shrink-0 gap-2">
+                    <IconButton label={`Modifier ${place.name}`} tooltip="Modifier" onClick={() => setEditing({ id: place.id, name: place.name, kind: place.kind, address: place.address, postalCode: place.postalCode, city: place.city, notes: place.notes })}>
+                      <Pencil aria-hidden="true" className="h-5 w-5" />
+                    </IconButton>
+                    <IconButton variant="danger" label={`Supprimer ${place.name}`} tooltip="Supprimer" onClick={() => setDeleting(place)} tooltipAlign="end">
+                      <Trash2 aria-hidden="true" className="h-5 w-5" />
+                    </IconButton>
                   </div>
                 </div>
                 <p className="mt-3 text-sm font-extrabold text-animeo-dark">

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type { Animal } from "@/data/clients";
@@ -55,20 +56,12 @@ function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (messag
         <p className="mt-4 rounded-2xl bg-animeo-bg p-4 text-sm font-semibold text-animeo-muted">Aucun document pour cet animal.</p>
       )}
 
-      <button
-        type="button"
-        onClick={() => onAction(`Le téléversement d’un document pour ${animal.name} sera ajouté ici`)}
-        className="mt-4 flex w-full items-center justify-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover"
-      >
+      <Button type="button" onClick={() => onAction(`Le téléversement d’un document pour ${animal.name} sera ajouté ici`)} className="mt-4 w-full">
         Téléverser un document
-      </button>
-      <button
-        type="button"
-        onClick={() => onAction(`La liste complète des documents de ${animal.name} sera ajoutée ici`)}
-        className="mt-2 flex w-full items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong"
-      >
+      </Button>
+      <Button type="button" variant="secondary" onClick={() => onAction(`La liste complète des documents de ${animal.name} sera ajoutée ici`)} className="mt-2 w-full">
         Voir tous les documents
-      </button>
+      </Button>
     </Card>
   );
 }
@@ -90,13 +83,9 @@ function ReminderCard({ animal, onScheduleReminder }: { animal: Animal; onSchedu
         <p className="mt-2 text-xs leading-relaxed text-animeo-muted">Ce rappel est associé uniquement à {animal.name}, pas à toute la fiche propriétaire.</p>
       </div>
       <div className="p-4">
-        <button
-          type="button"
-          onClick={onScheduleReminder}
-          className="flex w-full items-center justify-center rounded-xl bg-animeo-warning-soft px-4 py-2.5 text-sm font-extrabold text-animeo-warning transition hover:bg-animeo-warning-soft"
-        >
+        <Button type="button" variant="secondary" onClick={onScheduleReminder} className="w-full">
           Programmer un rappel
-        </button>
+        </Button>
       </div>
     </Card>
   );

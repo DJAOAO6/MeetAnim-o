@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { config } from "dotenv";
 import { neon } from "./helpers/sql";
 
@@ -39,16 +39,6 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(cleanup);
-
-/** Accepte la prochaine confirmation du navigateur, et renvoie son texte. */
-function acceptNextDialog(page: Page): Promise<string> {
-  return new Promise((resolve) => {
-    page.once("dialog", async (dialog) => {
-      resolve(dialog.message());
-      await dialog.accept();
-    });
-  });
-}
 
 test("archiver depuis la fiche : absent de la liste et de la recherche, présent sous « Archivés », puis restauré", async ({ page }) => {
   await page.goto(`/dashboard/clients/${A.id}`);
@@ -91,9 +81,11 @@ test("archivage groupé, puis « Annuler » dans le message", async ({ page }) =
   await page.getByRole("button", { name: "Sélectionner", exact: true }).click();
   await page.getByRole("checkbox", { name: "Sélectionner Archibald Archivable" }).check();
   await page.getByRole("checkbox", { name: "Sélectionner Bérénice Bulkarchive" }).check();
-  const dialog = acceptNextDialog(page);
   await page.getByRole("button", { name: "Archiver", exact: true }).click();
-  expect(await dialog).toMatch(/^Archiver ces 2 fiches clients \?/);
+  // La question est posée dans une fenêtre du logiciel, comme sur la fiche.
+  const question = page.getByRole("dialog", { name: "Archiver ces clients ?" });
+  await expect(question).toContainText("Archiver ces 2 fiches clients ?");
+  await question.getByRole("button", { name: "Archiver", exact: true }).click();
   await expect(page.getByText("2 clients archivés.")).toBeVisible();
   await expect(page.getByText("Bérénice Bulkarchive")).toHaveCount(0);
   const archived = await sql`SELECT count(*)::int AS n FROM "Client" WHERE id IN (${A.id}, ${B.id}) AND "archivedAt" IS NOT NULL`;

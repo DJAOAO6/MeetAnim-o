@@ -2,6 +2,7 @@
 
 import type { RunState } from "@/components/clients/client-import-types";
 import { pluralizeAnimals } from "@/lib/format";
+import { Button } from "@/components/ui/button";
 
 export function ClientImportStepRun({
   runState,
@@ -37,12 +38,8 @@ export function ClientImportStepRun({
         <p role="alert" className="rounded-xl bg-animeo-danger-soft px-4 py-3 text-center text-sm font-bold text-animeo-danger">{runState.error}</p>
         <p className="text-center text-xs text-animeo-muted">Les lignes déjà traitées sont conservées. Vous pouvez reprendre l&apos;import là où il s&apos;est arrêté, ou l&apos;annuler entièrement.</p>
         <div className="flex flex-col-reverse justify-center gap-2 sm:flex-row">
-          <button type="button" onClick={onUndo} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-            Annuler cet import
-          </button>
-          <button type="button" onClick={onResume} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
-            Reprendre
-          </button>
+          <Button type="button" variant="secondary" onClick={onUndo}>Annuler cet import</Button>
+          <Button type="button" onClick={onResume}>Reprendre</Button>
         </div>
       </div>
     );
@@ -61,9 +58,7 @@ export function ClientImportStepRun({
           {runState.deletedAnimals > 0 ? `, ${pluralizeAnimals(runState.deletedAnimals)}` : ""}.
           {runState.preservedClients > 0 ? ` ${runState.preservedClients} fiche${runState.preservedClients > 1 ? "s" : ""} conservée${runState.preservedClients > 1 ? "s" : ""} car un rendez-vous, une consultation ou un rappel y a été rattaché depuis.` : ""}
         </p>
-        <button type="button" onClick={onViewClients} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
-          Voir mes clients
-        </button>
+        <Button type="button" onClick={onViewClients}>Voir mes clients</Button>
       </div>
     );
   }
@@ -84,12 +79,8 @@ export function ClientImportStepRun({
       </p>
 
       <div className="flex flex-col-reverse justify-end gap-2 border-t border-animeo-border-soft pt-5 sm:flex-row">
-        <button type="button" onClick={onUndo} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-          Annuler cet import
-        </button>
-        <button type="button" onClick={onViewClients} className="rounded-xl bg-animeo px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
-          Voir mes clients
-        </button>
+        <Button type="button" variant="secondary" onClick={onUndo}>Annuler cet import</Button>
+        <Button type="button" onClick={onViewClients}>Voir mes clients</Button>
       </div>
     </div>
   );

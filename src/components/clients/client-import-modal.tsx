@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { CloseButton } from "@/components/ui/close-button";
 import { ClientImportStepFile, type FileReadResult } from "@/components/clients/client-import-step-file";
 import { ClientImportStepColumns } from "@/components/clients/client-import-step-columns";
 import { ClientImportStepReview } from "@/components/clients/client-import-step-review";
@@ -230,7 +231,7 @@ export function ClientImportModal({ onClose, onImported }: { onClose: () => void
               <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-animeo">Import de clients</p>
               <h2 id="client-import-dialog-title" className="mt-1 text-xl font-black text-animeo-dark">{STEP_TITLES[step]}</h2>
             </div>
-            <button type="button" onClick={requestClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-animeo-bg text-xl text-animeo-muted">×</button>
+            <CloseButton onClick={requestClose} />
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 sm:p-6">
