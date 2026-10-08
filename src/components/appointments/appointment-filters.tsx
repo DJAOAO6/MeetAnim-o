@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { appointmentStatusLabels, type AppointmentStatus } from "@/data/appointments";
 
 export type DateFilter = "all" | "today" | "tomorrow" | "week" | "month" | "past";
@@ -72,7 +73,7 @@ export function AppointmentFilters({ value, resultCount, onChange, onReset }: {
             type="button"
             onClick={() => onChange({ search: "" })}
             aria-label="Effacer la recherche"
-            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-animeo-muted transition hover:bg-white"
+            className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-animeo-muted transition hover:text-animeo-dark"
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
@@ -98,9 +99,7 @@ export function AppointmentFilters({ value, resultCount, onChange, onReset }: {
         </p>
 
         {filtered ? (
-          <button type="button" onClick={onReset} className="min-h-9 rounded-xl px-3 text-xs font-extrabold text-animeo transition hover:bg-animeo-bg">
-            Réinitialiser les filtres
-          </button>
+          <Button type="button" variant="secondary" onClick={onReset}>Réinitialiser les filtres</Button>
         ) : null}
       </div>
     </div>

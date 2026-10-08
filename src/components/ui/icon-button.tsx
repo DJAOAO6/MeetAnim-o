@@ -3,7 +3,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { TooltipBubble, tooltipHostClassName } from "@/components/ui/tooltip";
 
-type IconButtonVariant = "secondary" | "danger";
+type IconButtonVariant = "primary" | "secondary" | "danger";
 
 type IconButtonProps = Omit<ComponentProps<"button">, "aria-label" | "title" | "children"> & {
   /** Obligatoire : c'est le nom du bouton pour les lecteurs d'écran, et son infobulle. */
@@ -22,7 +22,10 @@ type IconButtonProps = Omit<ComponentProps<"button">, "aria-label" | "title" | "
 
 // `danger` : seule l'icône rougit, le fond reste celui des autres boutons à
 // icône — une corbeille dans une liste ne doit pas peser plus que ses voisins.
+// `primary` : plein, pour l'action attendue d'une ligne quand la place manque
+// pour son texte (accepter une demande dans la liste des rendez-vous).
 const variantClassName: Record<IconButtonVariant, string> = {
+  primary: "border-transparent bg-animeo text-white hover:bg-animeo-hover",
   secondary: "text-animeo-dark hover:bg-animeo-soft",
   danger: "text-animeo-danger hover:bg-animeo-danger-soft",
 };
@@ -38,7 +41,7 @@ export function IconButton({ label, tooltip, variant = "secondary", active = fal
       {...props}
       type={type}
       aria-label={label}
-      className={`${tooltipHostClassName} inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${active ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-surface"} ${variantClassName[variant]} ${className}`}
+      className={`${tooltipHostClassName} inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${variant === "primary" ? "" : active ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-surface"} ${variantClassName[variant]} ${className}`}
     >
       {children}
       <TooltipBubble label={tooltip ?? label} side={tooltipSide} align={tooltipAlign} />

@@ -3,6 +3,7 @@
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
 import { useAppointments } from "@/components/appointments/appointments-context";
 import { frenchList } from "@/lib/visit-group";
 import { notify } from "@/lib/notify";
@@ -29,11 +30,8 @@ type Choice = { label: string; onSelect: () => void; tone?: "primary" | "danger"
 /** Une question à plusieurs réponses (ConfirmModal n'en a que deux). La première est le choix par défaut. */
 export function ChoiceModal({ title, message, choices, cancelLabel = "Annuler", onClose }: { title: string; message: string; choices: Choice[]; cancelLabel?: string; onClose: () => void }) {
   const dialogRef = useModalFocusTrap<HTMLElement>(onClose);
-  const tones = {
-    primary: "bg-animeo text-white hover:bg-animeo-hover",
-    danger: "bg-animeo-error text-white hover:brightness-90",
-    neutral: "border border-animeo-border text-animeo-dark hover:bg-animeo-bg",
-  };
+  // Dans une fenêtre de confirmation, le geste destructeur est plein.
+  const variants = { primary: "primary", danger: "dangerSolid", neutral: "secondary" } as const;
   return (
     <OverlayPortal>
       <div className="fixed inset-0 z-[75] flex items-center justify-center bg-animeo-deep/60 p-4 backdrop-blur-sm" role="presentation">
@@ -44,11 +42,11 @@ export function ChoiceModal({ title, message, choices, cancelLabel = "Annuler", 
           </div>
           <div className="grid gap-2 border-t border-animeo-border-soft p-5">
             {choices.map((choice) => (
-              <button key={choice.label} type="button" onClick={choice.onSelect} className={`min-h-11 rounded-xl px-5 py-2.5 text-sm font-extrabold transition ${tones[choice.tone ?? "neutral"]}`}>
+              <Button key={choice.label} type="button" variant={variants[choice.tone ?? "neutral"]} onClick={choice.onSelect}>
                 {choice.label}
-              </button>
+              </Button>
             ))}
-            <button type="button" onClick={onClose} className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-extrabold text-animeo-muted transition hover:bg-animeo-bg">{cancelLabel}</button>
+            <Button type="button" variant="secondary" onClick={onClose}>{cancelLabel}</Button>
           </div>
         </section>
       </div>

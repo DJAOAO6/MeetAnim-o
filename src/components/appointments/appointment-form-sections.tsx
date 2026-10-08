@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Building2, Car, Check, ChevronDown, MapPin, PawPrint, Plus, Route, UserPlus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Field, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
@@ -83,14 +85,9 @@ export function ClientAnimalSection({ draft, clients, multiple = false, onToggle
               {[draft.clientPhone, selectedClient?.email].filter(Boolean).join(" · ") || "Aucune coordonnée enregistrée"}
             </span>
           </span>
-          <button
-            type="button"
-            onClick={onClearClient}
-            aria-label="Changer de client"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-white hover:text-animeo-dark"
-          >
-            <X aria-hidden="true" className="h-4 w-4" />
-          </button>
+          <IconButton label="Changer de client" onClick={onClearClient} tooltipAlign="end">
+            <X aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
         </div>
       ) : freeform ? (
         <div className="flex items-center gap-3 rounded-xl border border-dashed border-animeo-border-strong bg-animeo-bg px-3.5 py-3">
@@ -101,26 +98,16 @@ export function ClientAnimalSection({ draft, clients, multiple = false, onToggle
             <span className="block truncate text-sm font-extrabold text-animeo-dark">{draft.clientName}</span>
             <span className="block text-xs text-animeo-muted">Sans fiche client — seul le nom sera enregistré.</span>
           </span>
-          <button
-            type="button"
-            onClick={onClearClient}
-            aria-label="Choisir un autre client"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-white hover:text-animeo-dark"
-          >
-            <X aria-hidden="true" className="h-4 w-4" />
-          </button>
+          <IconButton label="Choisir un autre client" onClick={onClearClient} tooltipAlign="end">
+            <X aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
         </div>
       ) : (
         <>
           <ClientSearch clients={clients} onSelect={onSelectClient} onCreate={onCreateClient} onUseWithoutFile={onUseWithoutFile} />
-          <button
-            type="button"
-            onClick={() => onCreateClient("")}
-            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-animeo-border-strong px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-          >
-            <UserPlus aria-hidden="true" className="h-4 w-4" />
+          <Button type="button" variant="secondary" onClick={() => onCreateClient("")} icon={<UserPlus aria-hidden="true" className="h-4 w-4" />} className="mt-3 w-full">
             Créer un nouveau client
-          </button>
+          </Button>
         </>
       )}
 
@@ -208,14 +195,9 @@ export function ClientAnimalSection({ draft, clients, multiple = false, onToggle
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={onCreateAnimal}
-            className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-animeo-border-strong px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-          >
-            <Plus aria-hidden="true" className="h-4 w-4" />
+          <Button type="button" variant="secondary" onClick={onCreateAnimal} icon={<Plus aria-hidden="true" className="h-4 w-4" />} className="mt-2 w-full">
             Ajouter un animal
-          </button>
+          </Button>
         </div>
       ) : null}
     </FormSection>
@@ -354,13 +336,13 @@ function VisitPlanRow({ line, index, count, startLabel, services, handlers }: { 
       <div className="flex items-center gap-2">
         <span className="w-12 shrink-0 text-sm font-black tabular-nums text-animeo-dark">{startLabel}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-extrabold text-animeo-dark">{name}</span>
-        <span className="flex shrink-0 gap-1">
-          <button type="button" onClick={() => handlers.onMoveLine(index, -1)} disabled={index === 0} aria-label={`Monter ${name}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-soft disabled:opacity-30">
-            <ArrowUp aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <button type="button" onClick={() => handlers.onMoveLine(index, 1)} disabled={index === count - 1} aria-label={`Descendre ${name}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-soft disabled:opacity-30">
-            <ArrowDown aria-hidden="true" className="h-4 w-4" />
-          </button>
+        <span className="flex shrink-0 gap-2">
+          <IconButton label={`Monter ${name}`} tooltip="Monter" onClick={() => handlers.onMoveLine(index, -1)} disabled={index === 0} tooltipAlign="end">
+            <ArrowUp aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
+          <IconButton label={`Descendre ${name}`} tooltip="Descendre" onClick={() => handlers.onMoveLine(index, 1)} disabled={index === count - 1} tooltipAlign="end">
+            <ArrowDown aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
         </span>
       </div>
       {/* Prestation sur toute la largeur sur téléphone ; durée et tarif dessous. */}

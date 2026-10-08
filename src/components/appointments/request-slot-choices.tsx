@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
+import { Button } from "@/components/ui/button";
 import { getRequestOptionsAction, type RequestOptionState } from "@/lib/appointments-actions";
 import { choiceRankLabel, expiryNotice } from "@/lib/slot-requests";
 import { notify } from "@/lib/notify";
@@ -84,6 +85,9 @@ export function RequestSlotChoices({ appointment, onConfirmed, compact = false }
   }
 
   if (options.length === 0) return null;
+  // Un seul bouton plein par demande : le premier choix du client. Les
+  // autres horaires restent à un clic, en secondaire.
+  const preferredRank = Math.min(...options.map((option) => option.rank));
 
   return (
     <section aria-label={`Horaires proposés pour ${appointment.animalName}`} className={compact ? "" : "rounded-2xl border border-animeo-warning-border bg-animeo-warning-soft/60 p-3"}>
@@ -103,15 +107,9 @@ export function RequestSlotChoices({ appointment, onConfirmed, compact = false }
                 <strong className="font-extrabold">{choiceRankLabel(option.rank)}</strong> · {label}
                 {STATE_NOTES[state] ? <span className={`mt-0.5 block text-xs font-bold ${blocked ? "text-animeo-danger" : "text-animeo-warning"}`}>{STATE_NOTES[state]}</span> : null}
               </span>
-              <button
-                type="button"
-                onClick={() => retain(option.id, label)}
-                disabled={blocked || pendingId !== null}
-                aria-label={`Retenir le ${choiceRankLabel(option.rank)} : ${label}`}
-                className="min-h-9 shrink-0 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <Button type="button" variant={option.rank === preferredRank ? "primary" : "secondary"} onClick={() => retain(option.id, label)} disabled={blocked || pendingId !== null} aria-label={`Retenir le ${choiceRankLabel(option.rank)} : ${label}`} className="shrink-0">
                 {pendingId === option.id ? "Confirmation…" : "Retenir cet horaire"}
-              </button>
+              </Button>
             </li>
           );
         })}

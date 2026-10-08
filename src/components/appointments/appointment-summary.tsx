@@ -8,6 +8,7 @@ import { CloseButton } from "@/components/ui/close-button";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import { toTelHref } from "@/lib/phone";
+import { ArrowLeft } from "lucide-react";
 
 const statusStyles: Record<AppointmentStatus, string> = {
   pending: "bg-animeo-warning-soft text-animeo-warning",
@@ -49,9 +50,7 @@ export function AppointmentSummary({ appointment, onEdit, onBack, backLabel, onC
       <div className="flex items-start justify-between gap-3 border-b border-animeo-border bg-white p-4 sm:p-5">
         <div className="min-w-0">
           {backLabel ? (
-            <button type="button" onClick={onBack} className="mb-3 inline-flex items-center gap-1 text-sm font-extrabold text-animeo">
-              <span aria-hidden="true">←</span> {backLabel}
-            </button>
+            <Button type="button" variant="secondary" onClick={onBack} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} className="mb-3">{backLabel}</Button>
           ) : null}
           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black uppercase tracking-[0.06em] ${statusStyles[appointment.status]}`}>
             {appointmentStatusLabels[appointment.status]}

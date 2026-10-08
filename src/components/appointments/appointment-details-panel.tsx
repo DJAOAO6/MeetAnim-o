@@ -146,14 +146,10 @@ export function AppointmentDetailsPanel({ appointment, onEdit, onAction, actions
               <CalendarClock aria-hidden="true" className="h-4 w-4" />
               Décaler
             </Button>
-            <button
-              type="button"
-              onClick={() => onAction("decline")}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-animeo-danger-soft px-3 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft/70"
-            >
+            <Button type="button" variant="danger" onClick={() => onAction("decline")}>
               <X aria-hidden="true" className="h-4 w-4" />
               Refuser
-            </button>
+            </Button>
           </div>
         ) : null}
         {/* « Consultation réalisée » n'est pas un simple changement de statut :

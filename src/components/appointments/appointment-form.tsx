@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Field, fieldDescribedBy, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { Button } from "@/components/ui/button";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
@@ -13,6 +14,7 @@ import { toLocalDateId } from "@/lib/booking-validation";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
 import { durationOptions } from "@/data/durations";
+import { ArrowLeft } from "lucide-react";
 
 export function AppointmentForm({ appointment, clients, defaultDate, onSave, onBack, backLabel = "Tous les rendez-vous", onDirtyChange }: {
   appointment?: Appointment;
@@ -213,7 +215,7 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <button type="button" onClick={handleBack} className="mb-5 inline-flex items-center gap-1 text-sm font-extrabold text-animeo"><span aria-hidden="true">←</span> {backLabel}</button>
+        <Button type="button" variant="secondary" onClick={handleBack} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} className="mb-5">{backLabel}</Button>
         <h3 className="text-xl font-black text-animeo-dark">{appointment ? `Modifier le rendez-vous de ${appointment.animalName}` : "Nouveau rendez-vous"}</h3>
         <p className="mt-1 text-sm text-animeo-muted">Le cabinet et le domicile partagent un seul agenda : un créneau déjà pris ne peut pas être réutilisé.</p>
 
@@ -225,7 +227,7 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
               {draft.clientId ? (
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-animeo-border bg-animeo-soft px-3.5 py-2.5">
                   <span className="min-w-0 truncate text-sm font-extrabold text-animeo-dark">{draft.clientName}</span>
-                  <button type="button" onClick={clearClient} className="shrink-0 text-xs font-extrabold text-animeo">Changer</button>
+                  <Button type="button" variant="secondary" onClick={clearClient} className="shrink-0">Changer</Button>
                 </div>
               ) : (
                 <div className="relative">
@@ -277,9 +279,9 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
                     {animalSpeciesList.map((species) => <option key={species} value={species}>{species}</option>)}
                   </select>
                   {selectedClientAnimals.length > 0 ? (
-                    <button type="button" onClick={() => chooseAnimal(selectedClientAnimals[0].id)} className="text-left text-xs font-extrabold text-animeo sm:col-span-2">
-                      ← Choisir parmi les animaux de {selectedClient?.firstName}
-                    </button>
+                    <Button type="button" variant="secondary" onClick={() => chooseAnimal(selectedClientAnimals[0].id)} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />} className="justify-self-start sm:col-span-2">
+                      Choisir parmi les animaux de {selectedClient?.firstName}
+                    </Button>
                   ) : null}
                 </div>
               )}
@@ -322,8 +324,8 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
       </div>
 
       <div className="flex flex-col-reverse gap-2 border-t border-animeo-border bg-white p-4 sm:flex-row sm:justify-between sm:p-5">
-        {appointment && draft.status !== "cancelled" ? <button type="button" onClick={() => { update("status", "cancelled"); notify.info("Le statut Annulé sera appliqué après enregistrement"); }} className="rounded-xl bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-danger">Annuler le rendez-vous</button> : <span />}
-        <button type="submit" disabled={pending} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white disabled:opacity-70">{pending ? "Enregistrement…" : appointment ? "Enregistrer les modifications" : "Créer le rendez-vous"}</button>
+        {appointment && draft.status !== "cancelled" ? <Button type="button" variant="danger" onClick={() => { update("status", "cancelled"); notify.info("Le statut Annulé sera appliqué après enregistrement"); }}>Annuler le rendez-vous</Button> : <span />}
+        <Button type="submit" disabled={pending}>{pending ? "Enregistrement…" : appointment ? "Enregistrer les modifications" : "Créer le rendez-vous"}</Button>
       </div>
     </form>
   );

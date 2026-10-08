@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, UserPlus, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { initialsFor } from "@/lib/format";
 import type { ClientPickerOption } from "@/data/clients";
 
@@ -120,7 +121,7 @@ export function ClientSearch({ clients, onSelect, onCreate, onUseWithoutFile, au
             type="button"
             onClick={() => { setQuery(""); inputRef.current?.focus(); }}
             aria-label="Effacer la recherche"
-            className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-animeo-muted transition hover:bg-animeo-bg"
+            className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-animeo-muted transition hover:text-animeo-dark"
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
@@ -157,25 +158,16 @@ export function ClientSearch({ clients, onSelect, onCreate, onUseWithoutFile, au
             <li className="rounded-xl bg-animeo-bg px-3 py-4 text-center">
               <p className="text-sm font-bold text-animeo-dark">Aucun client trouvé</p>
               <p className="mt-0.5 text-xs text-animeo-muted">« {debounced.trim()} » ne correspond à aucune fiche.</p>
-              <button
-                type="button"
-                onClick={() => onCreate(debounced.trim())}
-                className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-animeo px-4 text-sm font-extrabold text-white transition hover:bg-animeo-hover"
-              >
-                <UserPlus aria-hidden="true" className="h-4 w-4" />
+              <Button type="button" onClick={() => onCreate(debounced.trim())} icon={<UserPlus aria-hidden="true" className="h-4 w-4" />} className="mt-3">
                 Créer « {debounced.trim()} »
-              </button>
+              </Button>
 
               {/* Un rendez-vous peut exister sans fiche client — un passage
                   unique, un appel où l'on ne veut pas créer de fiche tout de
                   suite. Le nom seul est alors enregistré. */}
-              <button
-                type="button"
-                onClick={() => onUseWithoutFile(debounced.trim())}
-                className="mt-2 block w-full rounded-xl px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:bg-white hover:text-animeo-dark"
-              >
+              <Button type="button" variant="secondary" onClick={() => onUseWithoutFile(debounced.trim())} className="mt-2 w-full">
                 Utiliser ce nom sans créer de fiche
-              </button>
+              </Button>
             </li>
           ) : null}
         </ul>

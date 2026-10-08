@@ -5,6 +5,7 @@ import { Building2, Car, CalendarClock, CalendarDays, Check, X } from "lucide-re
 import { appointmentStatusLabels, type Appointment } from "@/data/appointments";
 import { statusTone } from "@/components/appointments/appointment-status";
 import { AppointmentActionsMenu, type AppointmentAction } from "@/components/appointments/appointment-actions-menu";
+import { IconButton } from "@/components/ui/icon-button";
 import { formatEuros } from "@/lib/format";
 import { minutesToTime, timeToMinutes } from "@/lib/booking-validation";
 
@@ -111,28 +112,22 @@ export function AppointmentRow({ appointment, selected, onSelect, onAction }: {
           {multiSlot
             // Sous sm la pastille de statut est masquée : le nombre d'horaires reste dit ici.
             ? <span className="rounded-full bg-animeo-warning-soft px-2 py-1 text-[11px] font-black text-animeo-warning sm:hidden" title="Ouvrez la demande pour retenir un horaire">{appointment.slotOptions?.length} horaires</span>
-            : <QuickAction label={`Accepter la demande de ${appointment.animalName}`} title="Accepter" icon={Check} tone="bg-animeo text-white hover:bg-animeo-hover" onClick={() => onAction("confirm")} />}
-          <QuickAction label={`Proposer un autre horaire à ${appointment.clientName}`} title="Décaler" icon={CalendarClock} tone="border border-animeo-border bg-white text-animeo-dark hover:border-animeo" onClick={() => onAction("reschedule")} />
-          <QuickAction label={`Refuser la demande de ${appointment.animalName}`} title="Refuser" icon={X} tone="bg-animeo-danger-soft text-animeo-danger hover:bg-animeo-danger-soft/70" onClick={() => onAction("decline")} />
+            : (
+              <IconButton variant="primary" label={`Accepter la demande de ${appointment.animalName}`} tooltip="Accepter" onClick={() => onAction("confirm")}>
+                <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.5} />
+              </IconButton>
+            )}
+          <IconButton label={`Proposer un autre horaire à ${appointment.clientName}`} tooltip="Décaler" onClick={() => onAction("reschedule")}>
+            <CalendarClock aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
+          <IconButton variant="danger" label={`Refuser la demande de ${appointment.animalName}`} tooltip="Refuser" onClick={() => onAction("decline")} tooltipAlign="end">
+            <X aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
         </div>
       ) : null}
 
       <AppointmentActionsMenu appointment={appointment} onAction={onAction} />
     </div>
-  );
-}
-
-function QuickAction({ label, title, icon: ActionIcon, tone, onClick }: { label: string; title: string; icon: typeof Check; tone: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={title}
-      onClick={onClick}
-      className={`flex h-11 w-11 items-center justify-center rounded-xl transition sm:h-9 sm:w-9 ${tone}`}
-    >
-      <ActionIcon aria-hidden="true" className="h-4 w-4" strokeWidth={2.5} />
-    </button>
   );
 }
 
