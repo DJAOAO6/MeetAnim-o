@@ -40,7 +40,7 @@ async function login(page: Page) {
 
 async function openToursSettings(page: Page) {
   await page.goto("/dashboard/parametres");
-  await page.getByRole("button", { name: "Tournées", exact: true }).click();
+  await page.getByRole("tab", { name: "Tournées", exact: true }).click();
 }
 
 test.describe("Paramètres — zones et tournées récurrentes", () => {

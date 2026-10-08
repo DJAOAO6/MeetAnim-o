@@ -83,14 +83,14 @@ test.describe("Gestion des tournées — édition depuis Paramètres", () => {
     await page.click('button[type="submit"]');
     await page.waitForURL("**/dashboard**", { timeout: 10000 });
     await page.goto("/dashboard/parametres");
-    await page.getByRole("button", { name: "Tournées", exact: true }).click();
+    await page.getByRole("tab", { name: "Tournées", exact: true }).click();
   });
 
   test("désactiver puis réactiver une tournée persiste réellement le changement de statut", async ({ page }) => {
     const sql = neon(process.env.DATABASE_URL!);
     await seedZoneAndTour();
     await page.reload();
-    await page.getByRole("button", { name: "Tournées", exact: true }).click();
+    await page.getByRole("tab", { name: "Tournées", exact: true }).click();
 
     const card = page.locator("div.p-5").filter({ hasText: testTourName }).last();
 
@@ -114,7 +114,7 @@ test.describe("Gestion des tournées — édition depuis Paramètres", () => {
     const sql = neon(process.env.DATABASE_URL!);
     await seedZoneAndTour();
     await page.reload();
-    await page.getByRole("button", { name: "Tournées", exact: true }).click();
+    await page.getByRole("tab", { name: "Tournées", exact: true }).click();
 
     const card = page.locator("div.p-5").filter({ hasText: testTourName }).last();
     await card.getByRole("button", { name: "Modifier", exact: true }).click();

@@ -43,7 +43,7 @@ test.describe("Réglages — Tournées (favoris et préférences)", () => {
     // sans cette pause, le clic peut arriver avant que le gestionnaire React
     // soit attaché.
     await page.waitForTimeout(600);
-    await page.getByRole("button", { name: "Tournées", exact: true }).click();
+    await page.getByRole("tab", { name: "Tournées", exact: true }).click();
 
     await expect(page.getByText("Lieux favoris")).toBeVisible({ timeout: 10000 });
     await expect(page.getByText("Éditeur de tournées — réglages par défaut")).toBeVisible();
