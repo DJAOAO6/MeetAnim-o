@@ -67,7 +67,9 @@ test.describe("Liste et fiche client", () => {
     await page.getByRole("button", { name: "Nouveau rendez-vous" }).first().click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("Test LigneE2E");
-    await expect(dialog.getByRole("button", { name: /Milo/ })).toHaveAttribute("aria-pressed", "true");
+    // Plusieurs animaux : ce sont des cases à cocher depuis les visites à
+    // plusieurs animaux, et celle de l'animal affiché est cochée.
+    await expect(dialog.getByRole("checkbox", { name: /Milo/ })).toBeChecked();
   });
 
   test("en mode sélection, un clic sur la ligne coche la case au lieu d'ouvrir la fiche", async ({ page }) => {
