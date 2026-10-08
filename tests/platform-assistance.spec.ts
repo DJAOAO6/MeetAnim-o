@@ -166,7 +166,7 @@ test("pendant une assistance, les comptes de l'équipe ne se modifient pas", asy
   await page.waitForURL("**/dashboard**", { timeout: 15000 });
 
   await page.goto("/dashboard/admin", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "+ Nouveau compte" }).click();
+  await page.getByRole("button", { name: "Nouveau compte" }).click();
   await page.locator('input[name="firstName"]').fill("Intrus");
   await page.locator('input[name="lastName"]').fill("Test");
   await page.locator('input[name="email"]').fill("intrus-assistance@example.fr");

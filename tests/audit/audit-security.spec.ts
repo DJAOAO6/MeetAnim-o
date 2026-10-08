@@ -270,8 +270,9 @@ test("supprimer le compte d'un auteur est refusé tant qu'il a des comptes rendu
     // Administration › Utilisateurs › ligne de l'auteur › Supprimer.
     await page.goto(`${BASE}/dashboard/admin`, { waitUntil: "networkidle" });
     const row = page.getByRole("row").filter({ hasText: `audit-author-${suffix}@example.fr` });
-    page.once("dialog", (dialog) => dialog.accept());
-    await row.getByRole("button", { name: "Supprimer" }).click();
+    // La corbeille de la ligne, puis la confirmation dans la fenêtre du logiciel.
+    await row.getByRole("button", { name: /^Supprimer le compte de/ }).click();
+    await page.getByRole("dialog", { name: "Supprimer ce compte ?" }).getByRole("button", { name: "Supprimer" }).click();
     const refusal = page.getByRole("alert").filter({ hasText: /Désactivez-le plutôt/ });
     await expect(refusal, "le refus est expliqué à l'administrateur").toBeVisible({ timeout: 15000 });
     console.log("message affiché :", await refusal.textContent());

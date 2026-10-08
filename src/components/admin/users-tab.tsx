@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Toggle } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   createUser,
   deleteUserAction,
@@ -28,15 +33,15 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
   return (
     <div className="space-y-6">
       <Card className="p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-extrabold text-animeo-dark">Comptes de l’équipe</h2>
             <p className="mt-1 text-sm text-animeo-muted">{users.length} compte{users.length > 1 ? "s" : ""}</p>
           </div>
           {canAddAccounts ? (
-            <button type="button" onClick={() => setShowForm((current) => !current)} className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">
-              {showForm ? "Annuler" : "+ Nouveau compte"}
-            </button>
+            showForm
+              ? <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>Annuler</Button>
+              : <Button type="button" onClick={() => setShowForm(true)} icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}>Nouveau compte</Button>
           ) : null}
         </div>
 
@@ -67,9 +72,7 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
               </select>
             </label>
             <div className="sm:col-span-2 xl:col-span-5">
-              <button type="submit" disabled={pending} className="inline-flex items-center rounded-xl bg-animeo-dark px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:opacity-70">
-                {pending ? "Création…" : "Créer le compte"}
-              </button>
+              <Button type="submit" disabled={pending}>{pending ? "Création…" : "Créer le compte"}</Button>
             </div>
 
             {state?.error ? <p role="alert" className="sm:col-span-2 xl:col-span-5 rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{state.error}</p> : null}
@@ -84,7 +87,7 @@ export function UsersTab({ users, currentUserId }: { users: AdminUser[]; current
         ) : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-left">
+          <table className="w-full min-w-[980px] border-collapse text-left">
             <thead className="text-xs font-extrabold uppercase tracking-[0.1em] text-animeo-muted">
               <tr>
                 <th className="px-3 py-2.5">Compte</th>
@@ -112,6 +115,8 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   const [draft, setDraft] = useState({ firstName: user.firstName, lastName: user.lastName, email: user.email });
   const [editError, setEditError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<"deactivate" | "delete" | null>(null);
+  const fullName = `${user.firstName} ${user.lastName}`;
 
   function saveEdit() {
     startTransition(async () => {
@@ -132,12 +137,18 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   }
 
   function handleDelete() {
-    if (!window.confirm(`Supprimer définitivement le compte de ${user.firstName} ${user.lastName} ? Cette action est irréversible.`)) return;
+    setConfirming(null);
     startTransition(async () => {
       setDeleteError(null);
       const result = await deleteUserAction(user.id);
       if (!result.ok) setDeleteError(result.error);
     });
+  }
+
+  /** Désactiver coupe l'accès de quelqu'un : confirmé. Réactiver ne coupe rien : immédiat. */
+  function changeActive(active: boolean) {
+    if (!active) { setConfirming("deactivate"); return; }
+    startTransition(() => setUserActive(user.id, true));
   }
 
   function togglePermission(key: PermissionKey) {
@@ -177,42 +188,57 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           </select>
         </td>
         <td className="px-3 py-3">
-          <button
-            type="button"
+          <Toggle
+            compact
+            checked={user.twoFactorEnabled}
             disabled={pending}
-            onClick={() => startTransition(() => setUserTwoFactor(user.id, !user.twoFactorEnabled))}
-            className={`rounded-full px-3 py-1 text-xs font-black ${user.twoFactorEnabled ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-bg text-animeo-muted"}`}
-          >
-            {user.twoFactorEnabled ? "Activée" : "Désactivée"}
-          </button>
+            onChange={(enabled) => startTransition(() => setUserTwoFactor(user.id, enabled))}
+            label={user.twoFactorEnabled ? "Activée" : "Désactivée"}
+            ariaLabel={`Double authentification par e-mail de ${fullName}`}
+          />
         </td>
         <td className="px-3 py-3">
-          <button
-            type="button"
-            disabled={pending || isSelf}
-            title={isSelf ? "Vous ne pouvez pas désactiver votre propre compte" : undefined}
-            onClick={() => startTransition(() => setUserActive(user.id, !user.active))}
-            className={`rounded-full px-3 py-1 text-xs font-black disabled:cursor-not-allowed disabled:opacity-60 ${user.active ? "bg-animeo-positive-soft text-animeo-hover" : "bg-animeo-danger-soft text-animeo-danger"}`}
-          >
-            {user.active ? "Actif" : "Désactivé"}
-          </button>
+          {/* Son propre compte : l'interrupteur reste éteint à la main, et dit pourquoi. */}
+          <span title={isSelf ? "Vous ne pouvez pas désactiver votre propre compte" : undefined} className="inline-flex">
+            <Toggle compact checked={user.active} disabled={pending || isSelf} onChange={changeActive} label={user.active ? "Actif" : "Désactivé"} ariaLabel={`Compte de ${fullName} actif`} />
+          </span>
         </td>
         <td className="px-3 py-3 text-xs font-semibold text-animeo-muted">
           {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "Jamais"}
         </td>
         <td className="px-3 py-3">
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <div className="flex items-center justify-end gap-2">
             {editing ? (
               <>
-                <button type="button" disabled={pending} onClick={saveEdit} className="rounded-lg bg-animeo px-2.5 py-1.5 text-xs font-extrabold text-white">Enregistrer</button>
-                <button type="button" disabled={pending} onClick={cancelEdit} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-muted">Annuler</button>
+                <Button type="button" disabled={pending} onClick={saveEdit}>Enregistrer</Button>
+                <Button type="button" variant="secondary" disabled={pending} onClick={cancelEdit}>Annuler</Button>
               </>
             ) : (
-              <button type="button" onClick={() => setEditing(true)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft">Modifier</button>
+              <Button type="button" variant="secondary" onClick={() => setEditing(true)} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
             )}
-            <button type="button" onClick={() => setManagingPermissions((current) => !current)} className="rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft">Permissions</button>
-            <button type="button" disabled={pending || isSelf} title={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : undefined} onClick={handleDelete} className="rounded-lg bg-animeo-danger-soft px-2.5 py-1.5 text-xs font-extrabold text-animeo-danger disabled:cursor-not-allowed disabled:opacity-60 hover:bg-animeo-danger-soft">Supprimer</button>
+            <Button type="button" variant="secondary" active={managingPermissions} aria-expanded={managingPermissions} onClick={() => setManagingPermissions((current) => !current)}>Permissions</Button>
+            <IconButton variant="danger" label={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : `Supprimer le compte de ${fullName}`} disabled={pending || isSelf} onClick={() => setConfirming("delete")} tooltipAlign="end">
+              <Trash2 aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
           </div>
+          {confirming === "deactivate" ? (
+            <ConfirmModal
+              title={`Désactiver le compte de ${fullName} ?`}
+              message="Cette personne ne pourra plus se connecter."
+              confirmLabel="Désactiver"
+              onConfirm={() => { setConfirming(null); startTransition(() => setUserActive(user.id, false)); }}
+              onClose={() => setConfirming(null)}
+            />
+          ) : null}
+          {confirming === "delete" ? (
+            <ConfirmModal
+              title="Supprimer ce compte ?"
+              message={`Supprimer définitivement le compte de ${fullName} ? Cette action est irréversible.`}
+              confirmLabel="Supprimer"
+              onConfirm={handleDelete}
+              onClose={() => setConfirming(null)}
+            />
+          ) : null}
         </td>
       </tr>
       {editError ? (
