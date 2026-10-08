@@ -5,11 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Upload, UserPlus } from "lucide-react";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NewClientModal } from "@/components/clients/new-client-modal";
 import { ClientImportModal } from "@/components/clients/client-import-modal";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { SplitButton } from "@/components/ui/split-button";
+import { TextLink } from "@/components/ui/text-link";
 import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -231,29 +235,26 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         description="Retrouvez vos propriétaires, leurs coordonnées et tous leurs animaux."
         action={
           <>
-            <Link
-              href="/dashboard/clients/lieux"
-              className="inline-flex items-center rounded-2xl border border-animeo-border bg-white px-5 py-3 font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-            >
-              Lieux des animaux
-            </Link>
+            {/* Ouvre une autre page : un lien, pas un bouton. */}
+            <TextLink href="/dashboard/clients/lieux" arrow>Lieux des animaux</TextLink>
+            {/* Une seule action pleine. L'import, plus rare, est rangé dans le
+                menu accolé — quand le module est ouvert ; sinon, un simple
+                bouton, un menu vide n'ayant pas de sens. */}
             {hasModule(currentUser?.modules, "CLIENT_IMPORT") ? (
-            <button
-              type="button"
-              onClick={() => setImportingClients(true)}
-              className="inline-flex items-center rounded-2xl border border-animeo-border bg-white px-5 py-3 font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-            >
-              Importer des clients
-            </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setCreatingClient(true)}
-              className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
-            >
-              <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
-              Nouveau client
-            </button>
+              <SplitButton
+                icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}
+                onClick={() => setCreatingClient(true)}
+                menuLabel="Autres façons d’ajouter des clients"
+                items={[
+                  { label: "Nouveau client", icon: <UserPlus aria-hidden="true" className="h-4 w-4 shrink-0" />, onSelect: () => setCreatingClient(true) },
+                  { label: "Importer des clients", icon: <Upload aria-hidden="true" className="h-4 w-4 shrink-0" />, onSelect: () => setImportingClients(true) },
+                ]}
+              >
+                Nouveau client
+              </SplitButton>
+            ) : (
+              <Button type="button" onClick={() => setCreatingClient(true)} icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}>Nouveau client</Button>
+            )}
           </>
         }
       />
@@ -352,14 +353,9 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
             </p>
           </div>
           {filteredClients.length > 0 || selectionMode ? (
-            <button
-              type="button"
-              onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
-              aria-pressed={selectionMode}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-extrabold transition ${selectionMode ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-dark hover:bg-animeo-soft"}`}
-            >
+            <Button type="button" variant="secondary" active={selectionMode} aria-pressed={selectionMode} onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))} className="shrink-0">
               {selectionMode ? "Terminé" : "Sélectionner"}
-            </button>
+            </Button>
           ) : null}
         </div>
 

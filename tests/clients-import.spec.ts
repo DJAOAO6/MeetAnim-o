@@ -22,7 +22,9 @@ async function cleanupE2eData() {
 
 async function openImportModal(page: import("@playwright/test").Page) {
   await page.goto("/dashboard/clients");
-  await page.getByRole("button", { name: "Importer des clients" }).click();
+  // L'import est rangé dans le menu accolé à « Nouveau client ».
+  await page.getByRole("button", { name: "Autres façons d’ajouter des clients" }).click();
+  await page.getByRole("menuitem", { name: "Importer des clients" }).click();
   return page.locator('[role="dialog"]').first();
 }
 
