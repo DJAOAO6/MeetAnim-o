@@ -36,7 +36,7 @@ export function ConfirmModal({ title, message, confirmLabel = "Confirmer", cance
         >
           <div className="p-6">
             <h2 id="confirm-dialog-title" className="text-lg font-black text-animeo-dark">{title}</h2>
-            <p id="confirm-dialog-message" className="mt-2 text-sm leading-relaxed text-animeo-muted">{message}</p>
+            <p id="confirm-dialog-message" className="mt-2 whitespace-pre-line text-sm leading-relaxed text-animeo-muted">{message}</p>
           </div>
           <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:justify-end">
             <Button type="button" variant="secondary" onClick={onClose}>{cancelLabel}</Button>

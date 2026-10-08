@@ -52,11 +52,13 @@ function acceptNextDialog(page: Page): Promise<string> {
 
 test("archiver depuis la fiche : absent de la liste et de la recherche, présent sous « Archivés », puis restauré", async ({ page }) => {
   await page.goto(`/dashboard/clients/${A.id}`);
-  const dialog = acceptNextDialog(page);
+  // Sur la fiche, la question est posée dans une fenêtre du logiciel.
   await page.getByRole("button", { name: "Archiver", exact: true }).click();
-  const message = await dialog;
-  expect(message).toContain("Archiver la fiche de Archibald Archivable ?");
-  expect(message).toContain("Archibald Archivable a 1 rendez-vous à venir.\nIl est conservé.");
+  const question = page.getByRole("dialog", { name: "Archiver ce client ?" });
+  await expect(question).toContainText("Archiver la fiche de Archibald Archivable ?");
+  await expect(question).toContainText("Archibald Archivable a 1 rendez-vous à venir.");
+  await expect(question).toContainText("Il est conservé.");
+  await question.getByRole("button", { name: "Archiver", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: /Client archivé le/ })).toBeVisible();
 
   const [row] = await sql`SELECT "archivedAt" FROM "Client" WHERE id = ${A.id}`;

@@ -4,8 +4,9 @@ import { sexLabel } from "@/lib/animal-validation";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AnimalEditModal } from "@/components/clients/animal-edit-modal";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createDocumentAction, getDocumentsForAnimal, getDocumentTemplates } from "@/lib/documents-actions";
 import { pickDefaultTemplate } from "@/lib/documents/templates";
@@ -27,6 +28,7 @@ type AnimalRecordProps = {
 export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalUpdated }: AnimalRecordProps) {
   // Comptes rendus : un module (src/lib/modules.ts).
   const showDocuments = hasModule(useCurrentUser()?.modules, "DOCUMENTS");
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -59,12 +61,15 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
               <div className={`relative flex items-center justify-center overflow-hidden rounded-[24px] border-4 border-white bg-gradient-to-br text-6xl shadow-[0_8px_24px_rgb(var(--theme-shadow-rgb)/0.1)] ${animal.avatarBackground}`} style={{ width: 128, height: 128 }} role="img" aria-label={photo ? `Photo de ${animal.name}` : `Pictogramme de ${animal.name}`}>
                 {photo ? <Image src={photo} alt="" fill unoptimized sizes="128px" className="object-cover" /> : animal.avatar}
               </div>
-              <div className="mt-2 flex justify-center gap-2">
-                <label className="cursor-pointer text-xs font-extrabold text-animeo hover:underline">
+              {/* De vrais boutons, pas du texte seul. Le champ de fichier reste
+                  caché : le bouton l'ouvre. -mx-2 : la colonne fait la largeur
+                  de la photo, un peu juste pour « Ajouter une photo ». */}
+              <div className="-mx-2 mt-2 flex flex-col items-center gap-1.5">
+                <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhoto} className="sr-only" tabIndex={-1} aria-hidden="true" />
+                <Button type="button" variant="secondary" size="sm" onClick={() => photoInputRef.current?.click()} className="whitespace-nowrap">
                   {photo ? "Remplacer" : "Ajouter une photo"}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhoto} className="sr-only" />
-                </label>
-                {photo ? <button type="button" onClick={() => { onPhotoChange(null); setPhotoError(null); }} className="text-xs font-bold text-animeo-muted hover:text-animeo-danger">Retirer</button> : null}
+                </Button>
+                {photo ? <Button type="button" variant="secondary" size="sm" onClick={() => { onPhotoChange(null); setPhotoError(null); }}>Retirer</Button> : null}
               </div>
             </div>
             <div>

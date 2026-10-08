@@ -12,8 +12,12 @@ import { AnimalSideCards } from "@/components/clients/animal-side-cards";
 import { ClientEditModal } from "@/components/clients/client-edit-modal";
 import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { PageHeader } from "@/components/layout/page-header";
+import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { hasPermission } from "@/lib/auth/permissions";
 import { archiveClientsAction, deleteAnimalAction, deleteClientAction, restoreClientsAction, updateClientAction, upcomingAppointmentsOfClientsAction, type ClientContactInput } from "@/lib/clients-actions";
 import { archiveConfirmationMessage, archivedOnLabel } from "@/lib/client-archive";
@@ -102,8 +106,11 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
     router.refresh();
   }
 
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [archiveQuestion, setArchiveQuestion] = useState<string | null>(null);
+
   function deleteClient() {
-    if (!window.confirm(`Supprimer définitivement la fiche de ${clientInfo.firstName} ${clientInfo.lastName} et tous ses animaux ? Cette action est irréversible.`)) return;
+    setConfirmingDelete(false);
     startDeletingClient(async () => {
       const result = await deleteClientAction(clientInfo.id);
       if (!result.ok) {
@@ -116,11 +123,19 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   }
 
   /** Archiver : la fiche sort de la liste, de la recherche et des relances ; rien n'est supprimé. */
+  function askToArchive() {
+    startArchiving(async () => {
+      // Les rendez-vous à venir sont annoncés dans la question : il faut les
+      // connaître avant de la poser.
+      const upcoming = await upcomingAppointmentsOfClientsAction([clientInfo.id]);
+      setArchiveQuestion(archiveConfirmationMessage(1, `${clientInfo.firstName} ${clientInfo.lastName}`, upcoming));
+    });
+  }
+
   function archiveClient() {
+    setArchiveQuestion(null);
     startArchiving(async () => {
       const name = `${clientInfo.firstName} ${clientInfo.lastName}`;
-      const upcoming = await upcomingAppointmentsOfClientsAction([clientInfo.id]);
-      if (!window.confirm(archiveConfirmationMessage(1, name, upcoming))) return;
       const result = await archiveClientsAction([clientInfo.id]);
       if (!result.ok) return void notify.error(result.error);
       setClientInfo((current) => ({ ...current, archivedAt: new Date().toISOString() }));
@@ -222,8 +237,19 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
         </div>
       ) : null}
 
-      <Card className="mb-6 p-5 sm:p-6">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+      <Card className="relative mb-6 p-5 sm:p-6">
+        {canDelete ? (
+          // Enveloppe : le bouton à icône est déjà `relative` (son infobulle),
+          // il ne peut pas être placé en `absolute` lui-même.
+          <div className="absolute right-4 top-4 sm:right-5 sm:top-5">
+            <IconButton variant="danger" label="Supprimer le client" disabled={deletingClient} onClick={() => setConfirmingDelete(true)} tooltipSide="bottom" tooltipAlign="end">
+              <Trash2 aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
+          </div>
+        ) : null}
+        {/* pr-16 : la place de la corbeille, pour que ni le nom ni les
+            boutons ne passent dessous. */}
+        <div className={`flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between ${canDelete ? "pr-14 sm:pr-16" : ""}`}>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-animeo-soft text-xl font-black text-animeo-dark">
               {clientInfo.initials}
@@ -248,32 +274,18 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             </div>
           </div>
 
+          {/* Une action pleine, puis les secondaires. « Supprimer le client »
+              est une corbeille à l'écart, en haut à droite de la carte. */}
           <div className="flex flex-wrap gap-2">
-            <ActionButton label="Modifier" onClick={() => setEditingClient(true)} />
-            <ActionButton label="Ajouter un animal" onClick={() => setAddingAnimal(true)} />
-            <button
-              type="button"
-              onClick={() => openNewAppointment(undefined, { clientId: clientInfo.id, animalId: selectedAnimal?.id })}
-              className="inline-flex items-center rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_18%,transparent)] transition hover:bg-animeo-hover"
-            >
-              <span aria-hidden="true" className="mr-2 text-lg leading-none">+</span>
+            <Button type="button" onClick={() => openNewAppointment(undefined, { clientId: clientInfo.id, animalId: selectedAnimal?.id })} icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}>
               Nouveau rendez-vous
-            </button>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setEditingClient(true)} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
             {clientInfo.archivedAt ? null : (
-              <button type="button" onClick={archiveClient} disabled={archiving} className="rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft disabled:opacity-60">
+              <Button type="button" variant="secondary" onClick={askToArchive} disabled={archiving}>
                 {archiving ? "Archivage…" : "Archiver"}
-              </button>
+              </Button>
             )}
-            {canDelete ? (
-              <button
-                type="button"
-                disabled={deletingClient}
-                onClick={deleteClient}
-                className="inline-flex items-center rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:opacity-60"
-              >
-                {deletingClient ? "Suppression…" : "Supprimer le client"}
-              </button>
-            ) : null}
           </div>
         </div>
       </Card>
@@ -288,6 +300,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             onSelect={setSelectedAnimalId}
             canDelete={canDelete}
             onDeleted={handleAnimalDeleted}
+            onAdd={() => setAddingAnimal(true)}
           />
           <AnimalRecord
             animal={selectedAnimal}
@@ -302,10 +315,24 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
         <Card className="p-10 text-center">
           <p className="font-extrabold text-animeo-dark">Aucun animal associé à ce client.</p>
           <div className="mt-4 flex justify-center">
-            <ActionButton label="Ajouter un animal" onClick={() => setAddingAnimal(true)} />
+            <Button type="button" variant="secondary" onClick={() => setAddingAnimal(true)} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Ajouter un animal</Button>
           </div>
         </Card>
       )}
+
+      {confirmingDelete ? (
+        <ConfirmModal
+          title="Supprimer ce client ?"
+          message={`Supprimer définitivement la fiche de ${clientInfo.firstName} ${clientInfo.lastName} et tous ses animaux ? Cette action est irréversible.`}
+          confirmLabel="Supprimer"
+          onConfirm={deleteClient}
+          onClose={() => setConfirmingDelete(false)}
+        />
+      ) : null}
+
+      {archiveQuestion ? (
+        <ConfirmModal title="Archiver ce client ?" message={archiveQuestion} confirmLabel="Archiver" destructive={false} onConfirm={archiveClient} onClose={() => setArchiveQuestion(null)} />
+      ) : null}
 
       {editingClient ? (
         <ClientEditModal client={clientInfo} saving={savingClient} onClose={() => setEditingClient(false)} onSave={saveClientInfo} />
@@ -327,7 +354,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   );
 }
 
-function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onSelect, canDelete, onDeleted }: {
+function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onSelect, canDelete, onDeleted, onAdd }: {
   animals: Animal[];
   clientId: string;
   animalPhotos: Record<string, string>;
@@ -335,13 +362,15 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
   onSelect: (id: string) => void;
   canDelete: boolean;
   onDeleted: (animalId: string) => void;
+  onAdd: () => void;
 }) {
   const [deletingId, startDeleting] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<Animal | null>(null);
 
   function deleteAnimal(animal: Animal) {
-    if (!window.confirm(`Supprimer définitivement la fiche de ${animal.name} (historique de consultations et documents inclus) ? Cette action est irréversible.`)) return;
+    setConfirming(null);
     setPendingId(animal.id);
     startDeleting(async () => {
       setError(null);
@@ -358,15 +387,22 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
 
   return (
     <Card className="p-4 sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-extrabold text-animeo-dark">Animaux</h2>
+          <h2 className="font-extrabold text-animeo-dark">Animaux · {animals.length}</h2>
           <p className="mt-0.5 text-xs text-animeo-muted">Sélectionnez une fiche</p>
         </div>
-        <span className="flex h-9 min-w-9 items-center justify-center rounded-xl bg-animeo-soft px-2 text-sm font-black text-animeo-dark">
-          {animals.length}
-        </span>
+        <Button type="button" variant="secondary" onClick={onAdd} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Ajouter un animal</Button>
       </div>
+      {confirming ? (
+        <ConfirmModal
+          title="Supprimer cet animal ?"
+          message={`Supprimer définitivement la fiche de ${confirming.name} (historique de consultations et documents inclus) ? Cette action est irréversible.`}
+          confirmLabel="Supprimer"
+          onConfirm={() => deleteAnimal(confirming)}
+          onClose={() => setConfirming(null)}
+        />
+      ) : null}
       {error ? <p role="alert" className="mb-3 rounded-lg bg-animeo-danger-soft px-3 py-2 text-xs font-bold text-animeo-danger">{error}</p> : null}
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
         {animals.map((animal) => {
@@ -394,9 +430,9 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
                 </span>
               </button>
               {canDelete ? (
-                <button type="button" disabled={Boolean(isDeleting)} onClick={() => deleteAnimal(animal)} title={`Supprimer ${animal.name}`} aria-label={`Supprimer ${animal.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-danger-soft text-animeo-danger ring-1 ring-inset ring-transparent transition hover:bg-animeo-danger-soft hover:ring-animeo-error/40 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
-                  <TrashIcon />
-                </button>
+                <IconButton variant="danger" label={`Supprimer ${animal.name}`} disabled={Boolean(isDeleting)} onClick={() => setConfirming(animal)} tooltipAlign="end">
+                  <Trash2 aria-hidden="true" className="h-5 w-5" />
+                </IconButton>
               ) : (
                 <Icon name="arrow" className={`h-4 w-4 shrink-0 ${selected ? "text-animeo" : "text-animeo-subtle"}`} />
               )}
@@ -405,25 +441,6 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
         })}
       </div>
     </Card>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  );
-}
-
-function ActionButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="rounded-xl border border-animeo-border bg-white px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:border-animeo hover:bg-animeo-soft">
-      {label}
-    </button>
   );
 }
 
