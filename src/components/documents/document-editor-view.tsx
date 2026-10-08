@@ -24,6 +24,7 @@ import { finalizeDocumentAction, saveDocumentAction } from "@/lib/documents-acti
 import { notify } from "@/lib/notify";
 import type { StudioDocumentDetail } from "@/data/documents";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { Button } from "@/components/ui/button";
 
 // Konva a besoin de `window` — jamais rendu côté serveur, même convention
 // que RealMap/TourRunMap (dynamic + ssr:false).
@@ -307,17 +308,12 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
           {!previewMode && saveLabel[saveState] ? <span className="text-xs font-semibold text-neutral-500">{saveLabel[saveState]}</span> : null}
 
           <div className="ml-auto flex gap-2">
-            <button type="button" onClick={() => setPreviewMode((current) => !current)} className="rounded-md border border-neutral-200 px-3.5 py-2 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setPreviewMode((current) => !current)}>
               {previewMode ? "Reprendre l’édition" : "Aperçu"}
-            </button>
-            <button
-              type="button"
-              disabled={readOnly || finalizing}
-              onClick={() => setConfirmFinalize(true)}
-              className="rounded-md bg-animeo px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            </Button>
+            <Button type="button" size="sm" disabled={readOnly || finalizing} onClick={() => setConfirmFinalize(true)}>
               {finalizing ? "Finalisation…" : "Finaliser"}
-            </button>
+            </Button>
           </div>
         </header>
 

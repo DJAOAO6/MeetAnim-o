@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useDocumentStore } from "@/components/documents/editor/document-store";
 import { PropertiesPanel } from "@/components/documents/editor/properties-panel";
 import { LayersPanel } from "@/components/documents/editor/layers-panel";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 
 type InspectorTab = "properties" | "layers";
 
@@ -29,13 +31,9 @@ export function InspectorTabs({ readOnly }: { readOnly: boolean }) {
       </aside>
 
       {hasSelection && !mobileOpen ? (
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className="fixed bottom-20 right-4 z-20 rounded-md bg-animeo px-4 py-2.5 text-sm font-semibold text-white shadow-sm lg:hidden"
-        >
+        <Button type="button" onClick={() => setMobileOpen(true)} className="fixed bottom-20 right-4 z-20 shadow-sm lg:hidden">
           Propriétés
-        </button>
+        </Button>
       ) : null}
 
       {mobileOpen ? (
@@ -48,7 +46,7 @@ export function InspectorTabs({ readOnly }: { readOnly: boolean }) {
           >
             <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2.5">
               <span className="text-sm font-bold text-neutral-800">Inspecteur</span>
-              <button type="button" onClick={() => setMobileOpen(false)} aria-label="Fermer" className="text-xl leading-none text-neutral-500">×</button>
+              <CloseButton onClick={() => setMobileOpen(false)} />
             </div>
             <div className="overflow-y-auto">
               <InspectorTabContent activeTab={activeTab} onTabChange={setActiveTab} readOnly={readOnly} />

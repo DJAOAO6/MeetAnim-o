@@ -3,6 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode } from "react";
+import { GripVertical } from "lucide-react";
 
 type SortableBlockProps = {
   id: string;
@@ -46,9 +47,9 @@ export function SortableBlock({ id, editing, toolbar, label, className = "", chi
           {...attributes}
           {...listeners}
           aria-label={`Déplacer le bloc ${label}`}
-          className="flex min-h-9 cursor-grab items-center gap-2 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white shadow-sm active:cursor-grabbing"
+          className="flex min-h-11 cursor-grab items-center gap-2 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white shadow-sm active:cursor-grabbing"
         >
-          <span aria-hidden="true">⠿</span>
+          <GripVertical aria-hidden="true" className="h-4 w-4" />
           <span className="max-w-[9rem] truncate">{label}</span>
         </button>
         {toolbar}

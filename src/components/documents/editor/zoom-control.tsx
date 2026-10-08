@@ -1,6 +1,7 @@
 "use client";
 
 import { useDocumentStore, ZOOM_STEPS } from "@/components/documents/editor/document-store";
+import { Minus, Plus } from "lucide-react";
 
 /**
  * Pastille flottante de zoom (étape 10) — bas-droite du conteneur du
@@ -26,7 +27,7 @@ export function ZoomControl() {
         disabled={!canZoomOut}
         className="flex h-7 w-7 items-center justify-center rounded text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        −
+        <Minus aria-hidden="true" className="h-3.5 w-3.5" />
       </button>
       <button
         type="button"
@@ -43,7 +44,7 @@ export function ZoomControl() {
         disabled={!canZoomIn}
         className="flex h-7 w-7 items-center justify-center rounded text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        +
+        <Plus aria-hidden="true" className="h-3.5 w-3.5" />
       </button>
     </div>
   );

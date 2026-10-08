@@ -14,6 +14,9 @@ import { notify } from "@/lib/notify";
 import type { DocumentPageSize } from "@/lib/documents/content";
 import type { StudioDocumentSummary, StudioDocumentTemplateSummary } from "@/data/documents";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Plus, Trash2 } from "lucide-react";
 
 type DocumentsListProps = {
   documents: StudioDocumentSummary[];
@@ -109,14 +112,7 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
         title="Documents"
         description="Comptes rendus de consultation et documents professionnels."
         action={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
-          >
-            <span aria-hidden="true" className="mr-2 text-xl leading-none">+</span>
-            Nouveau document
-          </button>
+          <Button type="button" onClick={openCreate} icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}>Nouveau document</Button>
         }
       />
 
@@ -155,9 +151,9 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
               </button>
               {canDelete ? (
                 <div className="flex justify-end border-t border-animeo-border-soft px-3 py-2">
-                  <button type="button" onClick={() => setDeleteTarget(document)} disabled={deletingId === document.id} className="rounded-lg px-2.5 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:opacity-50">
-                    Supprimer
-                  </button>
+                  <IconButton variant="danger" label={`Supprimer ${document.title}`} tooltip="Supprimer" onClick={() => setDeleteTarget(document)} disabled={deletingId === document.id} tooltipAlign="end">
+                    <Trash2 aria-hidden="true" className="h-5 w-5" />
+                  </IconButton>
                 </div>
               ) : null}
             </Card>
@@ -242,12 +238,8 @@ export function DocumentsList({ documents, templates }: DocumentsListProps) {
                 </fieldset>
               ) : null}
               <div className="mt-5 flex justify-end gap-2">
-                <button type="button" onClick={() => setCreating(false)} className="rounded-xl border border-animeo-border px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-                  Annuler
-                </button>
-                <button type="button" onClick={createDocument} disabled={savingNew} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
-                  {savingNew ? "Création…" : "Créer"}
-                </button>
+                <Button type="button" variant="secondary" onClick={() => setCreating(false)}>Annuler</Button>
+                <Button type="button" onClick={createDocument} disabled={savingNew}>{savingNew ? "Création…" : "Créer"}</Button>
               </div>
             </section>
           </div>

@@ -7,6 +7,7 @@ import { roleLabels } from "@/data/admin";
 import { ModulesEditor } from "@/components/platform/modules-editor";
 import { OrganizationStatusControls } from "@/components/platform/organization-status-controls";
 import { VerificationReview, type PlatformVerificationView } from "@/components/platform/verification-review";
+import { Button } from "@/components/ui/button";
 
 export type PlatformAccountView = {
   id: string;
@@ -149,14 +150,9 @@ function AccountRow({ account }: { account: PlatformAccountView }) {
           </p>
         </div>
         {canAssist ? (
-          <button
-            type="button"
-            onClick={() => setOpen((current) => !current)}
-            aria-expanded={open}
-            className="rounded-xl border border-animeo-border px-3 py-2 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-          >
-            {open ? "Annuler" : "Assister"}
-          </button>
+          <Button type="button" variant="secondary" onClick={() => setOpen((current) => !current)} aria-expanded={open}>
+          {open ? "Annuler" : "Assister"}
+        </Button>
         ) : null}
       </div>
 
@@ -178,14 +174,9 @@ function AccountRow({ account }: { account: PlatformAccountView }) {
             Vous agirez dans l’espace de {account.firstName} pendant 30 minutes au plus. Le motif et chacune de vos actions seront inscrits au journal de son espace.
           </p>
           {error ? <p role="alert" className="mt-2 text-sm font-bold text-animeo-danger">{error}</p> : null}
-          <button
-            type="button"
-            onClick={submit}
-            disabled={pending}
-            className="mt-3 rounded-xl bg-animeo-dark px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:opacity-70"
-          >
+          <Button type="button" onClick={submit} disabled={pending} className="mt-3">
             {pending ? "Ouverture…" : `Ouvrir l’assistance de ${account.firstName}`}
-          </button>
+          </Button>
         </div>
       ) : null}
     </li>

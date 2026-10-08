@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { ColorWheel } from "@/components/documents/editor/color-wheel";
+import { Star } from "lucide-react";
 
 const RECENT_COLORS_KEY = "animeo-studio-recent-colors-v1";
 const FAVORITE_COLORS_KEY = "animeo-studio-favorite-colors-v1";
@@ -155,7 +156,7 @@ export function ColorPicker({
               onClick={() => toggleFavorite(value)}
               className="shrink-0 text-base text-amber-500 disabled:cursor-not-allowed disabled:opacity-30"
             >
-              {isCurrentValueFavorite ? "★" : "☆"}
+              <Star aria-hidden="true" className="h-4 w-4" fill={isCurrentValueFavorite ? "currentColor" : "none"} />
             </button>
           </div>
 
@@ -205,7 +206,7 @@ function ColorSwatchRow({
                 onClick={() => onToggleFavorite(color)}
                 className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-[11px] leading-none text-amber-500 shadow-sm"
               >
-                {isFavorite ? "★" : "☆"}
+                <Star aria-hidden="true" className="h-2.5 w-2.5" fill={isFavorite ? "currentColor" : "none"} />
               </button>
             </span>
           );

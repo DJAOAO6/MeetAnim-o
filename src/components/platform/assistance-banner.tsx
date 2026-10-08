@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { endAssistanceAction } from "@/lib/platform/assistance-actions";
+import { Button } from "@/components/ui/button";
 
 const timeFormatter = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
@@ -34,14 +35,9 @@ export function AssistanceBanner({ assistedName, impersonatorName, reason, expir
         </p>
         {readOnly ? <p className="mt-1 font-black text-animeo-danger">Espace suspendu : lecture seule. Aucune modification ne sera enregistrée.</p> : null}
       </div>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => startTransition(async () => { await endAssistanceAction(); })}
-        className="shrink-0 rounded-xl bg-animeo-dark px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:opacity-70"
-      >
+      <Button type="button" variant="secondary" disabled={pending} onClick={() => startTransition(async () => { await endAssistanceAction(); })} className="shrink-0">
         {pending ? "Fin en cours…" : "Terminer l’assistance"}
-      </button>
+      </Button>
     </section>
   );
 }

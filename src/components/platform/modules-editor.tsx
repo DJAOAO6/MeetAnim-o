@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { setOrganizationModulesAction } from "@/lib/platform/module-actions";
 import { MODULE_KEYS, MODULES, type ModuleKey } from "@/lib/modules";
+import { Button } from "@/components/ui/button";
 
 /**
  * Les modules d'un espace, cochés ou non. Rien n'est appliqué avant
@@ -46,9 +47,7 @@ export function ModulesEditor({ organizationId, organizationName, initialModules
         ))}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button type="button" onClick={save} disabled={pending || !dirty} className="rounded-xl bg-animeo-dark px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:opacity-50">
-          {pending ? "Enregistrement…" : "Enregistrer les modules"}
-        </button>
+        <Button type="button" onClick={save} disabled={pending || !dirty}>{pending ? "Enregistrement…" : "Enregistrer les modules"}</Button>
         {message ? <p role={message.tone === "error" ? "alert" : "status"} className={`text-sm font-bold ${message.tone === "error" ? "text-animeo-danger" : "text-animeo-dark"}`}>{message.text}</p> : null}
       </div>
     </fieldset>

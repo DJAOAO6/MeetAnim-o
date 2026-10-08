@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { approveVerificationAction, rejectVerificationAction } from "@/lib/platform/verification-actions";
+import { Button } from "@/components/ui/button";
 
 /** Annuaire public où le numéro se contrôle à la main. */
 const RNA_DIRECTORY_URL = "https://www.veterinaire.fr/annuaires/liste-des-personnes-non-veterinaires-pouvant-realiser-des-actes-dosteopathie-animale/registre-national-daptitude-rna";
@@ -84,17 +85,17 @@ export function VerificationReview({ organizationId, organizationName, verificat
       <div className="mt-3 flex flex-wrap gap-2">
         {rejecting ? (
           <>
-            <button type="button" onClick={() => run(() => rejectVerificationAction(organizationId, reason))} disabled={pending} className="min-h-10 rounded-xl bg-animeo-dark px-4 text-sm font-extrabold text-white hover:bg-animeo-deep disabled:opacity-60">
+            <Button type="button" variant="dangerSolid" onClick={() => run(() => rejectVerificationAction(organizationId, reason))} disabled={pending}>
               {pending ? "Envoi…" : "Confirmer le refus"}
-            </button>
-            <button type="button" onClick={() => { setRejecting(false); setError(null); }} disabled={pending} className="min-h-10 rounded-xl border border-animeo-border bg-white px-4 text-sm font-extrabold text-animeo-dark hover:bg-animeo-soft">Annuler</button>
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => { setRejecting(false); setError(null); }} disabled={pending}>Annuler</Button>
           </>
         ) : (
           <>
-            <button type="button" onClick={() => run(() => approveVerificationAction(organizationId))} disabled={pending} className="min-h-10 rounded-xl bg-animeo px-4 text-sm font-extrabold text-white hover:bg-animeo-hover disabled:opacity-60">
+            <Button type="button" onClick={() => run(() => approveVerificationAction(organizationId))} disabled={pending}>
               {pending ? "Validation…" : "Valider le numéro"}
-            </button>
-            <button type="button" onClick={() => setRejecting(true)} disabled={pending} className="min-h-10 rounded-xl border border-animeo-border bg-white px-4 text-sm font-extrabold text-animeo-dark hover:bg-animeo-soft">Refuser</button>
+            </Button>
+            <Button type="button" variant="danger" onClick={() => setRejecting(true)} disabled={pending}>Refuser</Button>
           </>
         )}
       </div>

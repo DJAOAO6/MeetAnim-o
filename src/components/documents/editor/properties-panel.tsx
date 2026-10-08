@@ -5,6 +5,8 @@ import { updateMarkerPresetsAction } from "@/lib/documents/marker-presets-action
 import { AnatomyProperties } from "@/components/documents/editor/anatomy-properties";
 import { ColorPicker } from "@/components/documents/editor/color-picker";
 import { collectDocumentColors, type DocumentDiagramElement } from "@/lib/documents/content";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 const numberFieldClassName = "h-9 w-full rounded-lg border border-animeo-border bg-animeo-bg px-2.5 text-sm font-semibold text-animeo-dark outline-none focus:border-animeo focus:bg-white";
 
@@ -32,12 +34,8 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
         <p className="text-sm font-semibold text-animeo-dark">{selectedCount} éléments sélectionnés</p>
         {!readOnly ? (
           <div className="flex gap-2 border-t border-animeo-border-soft pt-4">
-            <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-              Dupliquer
-            </button>
-            <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
-              Supprimer
-            </button>
+            <Button type="button" variant="secondary" size="sm" onClick={duplicateSelected} className="flex-1">Dupliquer</Button>
+            <Button type="button" variant="danger" size="sm" onClick={removeSelected} className="flex-1">Supprimer</Button>
           </div>
         ) : null}
       </div>
@@ -64,14 +62,9 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
               />
             </div>
             {page.background ? (
-              <button
-                type="button"
-                onClick={() => setPageBackground(currentPageIndex, null)}
-                disabled={readOnly}
-                className="text-xs font-bold text-animeo-muted underline decoration-dotted hover:text-animeo-dark disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              <Button type="button" variant="secondary" size="sm" onClick={() => setPageBackground(currentPageIndex, null)} disabled={readOnly}>
                 Retirer le fond
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
@@ -218,12 +211,8 @@ export function PropertiesPanel({ readOnly }: { readOnly: boolean }) {
 
       {!fieldsDisabled ? (
         <div className="flex gap-2 border-t border-animeo-border-soft pt-4">
-          <button type="button" onClick={duplicateSelected} className="flex-1 rounded-xl border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
-            Dupliquer
-          </button>
-          <button type="button" onClick={removeSelected} className="flex-1 rounded-xl border border-animeo-danger-border bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
-            Supprimer
-          </button>
+          <Button type="button" variant="secondary" size="sm" onClick={duplicateSelected} className="flex-1">Dupliquer</Button>
+          <Button type="button" variant="danger" size="sm" onClick={removeSelected} className="flex-1">Supprimer</Button>
         </div>
       ) : null}
     </div>
@@ -305,8 +294,8 @@ function DiagramProperties({ element, readOnly }: { element: DocumentDiagramElem
               <li key={marker.id} className="flex items-center justify-between gap-2 rounded-lg bg-animeo-bg px-2.5 py-1.5 text-xs font-semibold text-animeo-dark">
                 <span className="truncate">{index + 1}. {marker.label}</span>
                 {!readOnly ? (
-                  <button type="button" onClick={() => removeMarker(marker.id)} aria-label={`Supprimer le repère ${index + 1}`} className="shrink-0 text-animeo-danger">
-                    ×
+                  <button type="button" onClick={() => removeMarker(marker.id)} aria-label={`Supprimer le repère ${index + 1}`} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-animeo-danger hover:bg-animeo-danger-soft">
+                    <X aria-hidden="true" className="h-3.5 w-3.5" />
                   </button>
                 ) : null}
               </li>

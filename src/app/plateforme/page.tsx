@@ -7,6 +7,7 @@ import { getRecentInvitations } from "@/lib/platform/invitations";
 import { platformAccess } from "@/lib/platform/access";
 import { getPlatformOverview, getRecentAssistances } from "@/lib/platform/overview";
 import { logout } from "@/lib/auth/actions";
+import { Button, buttonBaseClassName, buttonSizeClassName, buttonVariantClassName } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Plateforme" };
 export const dynamic = "force-dynamic";
@@ -42,12 +43,12 @@ export default async function PlatformPage() {
         </div>
         <div className="flex items-center gap-2">
           {access.user.organizationId ? (
-            <Link href="/dashboard" className="rounded-xl border border-animeo-border px-3 py-2 text-sm font-extrabold text-animeo-dark hover:bg-animeo-soft">
+            <Link href="/dashboard" className={`${buttonBaseClassName} ${buttonVariantClassName.secondary} ${buttonSizeClassName.md}`}>
               Mon espace
             </Link>
           ) : null}
           <form action={logout}>
-            <button type="submit" className="rounded-xl border border-animeo-border px-3 py-2 text-sm font-extrabold text-animeo-dark hover:bg-animeo-soft">Se déconnecter</button>
+            <Button type="submit" variant="secondary">Se déconnecter</Button>
           </form>
         </div>
       </header>

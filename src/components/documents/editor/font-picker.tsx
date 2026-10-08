@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { STUDIO_FONTS, studioFontByCssVar, type StudioFont, type StudioFontCategory } from "@/components/documents/editor/studio-fonts";
+import { Star } from "lucide-react";
 
 const FAVORITE_FONTS_KEY = "animeo-studio-favorite-fonts-v1";
 const RECENT_FONTS_KEY = "animeo-studio-recent-fonts-v1";
@@ -172,7 +173,7 @@ function FontGroup({
                 onClick={() => onToggleFavorite(font.name)}
                 className="shrink-0 px-1.5 text-sm text-amber-500"
               >
-                {isFavorite ? "★" : "☆"}
+                <Star aria-hidden="true" className="h-3.5 w-3.5" fill={isFavorite ? "currentColor" : "none"} />
               </button>
             </li>
           );

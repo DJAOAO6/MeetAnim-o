@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { cancelOrganizationDeletionAction, reactivateOrganizationAction, suspendOrganizationAction } from "@/lib/platform/organization-actions";
 import { OrganizationDeletionDialog } from "@/components/platform/organization-deletion-dialog";
+import { Button } from "@/components/ui/button";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" });
 
@@ -48,15 +49,15 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
       )}
 
       {deletionScheduledFor ? (
-        <button type="button" onClick={() => run(() => cancelOrganizationDeletionAction(organizationId))} disabled={pending} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft disabled:opacity-50">
+        <Button type="button" variant="secondary" onClick={() => run(() => cancelOrganizationDeletionAction(organizationId))} disabled={pending}>
           {pending ? "Annulation…" : "Annuler la suppression"}
-        </button>
+        </Button>
       ) : null}
 
       {suspendedAt && !deletionScheduledFor ? (
-        <button type="button" onClick={() => run(() => reactivateOrganizationAction(organizationId))} disabled={pending} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-dark hover:bg-animeo-soft disabled:opacity-50">
+        <Button type="button" variant="secondary" onClick={() => run(() => reactivateOrganizationAction(organizationId))} disabled={pending}>
           {pending ? "Réactivation…" : "Réactiver"}
-        </button>
+        </Button>
       ) : null}
 
       {!suspendedAt && !ownSpace ? (
@@ -66,23 +67,23 @@ export function OrganizationStatusControls({ organizationId, organizationName, s
             <p className="text-xs text-animeo-muted">Inscrit au journal. Le professionnel n’en voit rien : il lit seulement « compte suspendu ».</p>
             <textarea id={reasonId} value={reason} onChange={(event) => setReason(event.target.value)} rows={2} maxLength={300} className="mt-2 w-full rounded-lg border border-animeo-border px-2 py-1.5 text-sm" />
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" onClick={() => run(() => suspendOrganizationAction(organizationId, reason))} disabled={pending} className="min-h-9 rounded-xl bg-animeo-error px-3 text-xs font-extrabold text-white disabled:opacity-50">
+              <Button type="button" variant="dangerSolid" onClick={() => run(() => suspendOrganizationAction(organizationId, reason))} disabled={pending}>
                 {pending ? "Suspension…" : `Suspendre ${organizationName}`}
-              </button>
-              <button type="button" onClick={() => { setOpen(false); setError(null); }} disabled={pending} className="min-h-9 rounded-xl px-3 text-xs font-extrabold text-animeo-muted">Annuler</button>
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => { setOpen(false); setError(null); }} disabled={pending}>Annuler</Button>
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setOpen(true)} className="min-h-9 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft">
+          <Button type="button" variant="danger" onClick={() => setOpen(true)}>
             Suspendre…
-          </button>
+          </Button>
         )
       ) : null}
 
       {!deletionScheduledFor && !ownSpace ? (
-        <button type="button" onClick={() => setDeleting(true)} className="min-h-9 rounded-xl px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft">
+        <Button type="button" variant="danger" onClick={() => setDeleting(true)}>
           Supprimer l’espace…
-        </button>
+        </Button>
       ) : null}
 
       {error ? <p role="alert" className="text-xs font-bold text-animeo-danger">{error}</p> : null}

@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { createInvitationAction, revokeInvitationAction } from "@/lib/platform/invitation-actions";
+import { Button } from "@/components/ui/button";
 
 export type PlatformInvitationView = {
   id: string;
@@ -81,9 +82,7 @@ export function InvitationsPanel({ invitations }: { invitations: PlatformInvitat
           <label htmlFor="invitation-organization" className={labelClassName}>Nom de l’activité</label>
           <input id="invitation-organization" required value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} className={inputClassName} placeholder="Modifiable par l’invité" />
         </div>
-        <button type="submit" disabled={pending} className="h-11 rounded-xl bg-animeo-dark px-4 text-sm font-extrabold text-white transition hover:bg-animeo-deep disabled:opacity-70">
-          {pending ? "Envoi…" : "Envoyer l’invitation"}
-        </button>
+        <Button type="submit" disabled={pending}>{pending ? "Envoi…" : "Envoyer l’invitation"}</Button>
       </form>
 
       {error ? <p role="alert" className="mt-3 text-sm font-bold text-animeo-danger">{error}</p> : null}
@@ -96,9 +95,7 @@ export function InvitationsPanel({ invitations }: { invitations: PlatformInvitat
           <p className="mt-1 text-animeo-muted">Lien d’invitation — affiché cette fois seulement :</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code data-testid="invitation-url" className="min-w-0 flex-1 break-all rounded-lg bg-white px-3 py-2 text-xs text-animeo-dark">{sent.url}</code>
-            <button type="button" onClick={() => copy(sent.url)} className="rounded-xl border border-animeo-border px-3 py-2 text-sm font-extrabold text-animeo-dark hover:bg-animeo-soft">
-              {copied ? "Copié" : "Copier"}
-            </button>
+            <Button type="button" variant="secondary" onClick={() => copy(sent.url)}>{copied ? "Copié" : "Copier"}</Button>
           </div>
         </div>
       ) : null}
@@ -116,9 +113,7 @@ export function InvitationsPanel({ invitations }: { invitations: PlatformInvitat
                 </p>
               </div>
               {invitation.status === "pending" ? (
-                <button type="button" onClick={() => revoke(invitation.id)} disabled={pending} className="rounded-xl border border-animeo-border px-3 py-2 text-sm font-extrabold text-animeo-dark hover:bg-animeo-soft" aria-label={`Annuler l’invitation de ${invitation.email}`}>
-                  Annuler
-                </button>
+                <Button type="button" variant="danger" onClick={() => revoke(invitation.id)} disabled={pending} aria-label={`Annuler l’invitation de ${invitation.email}`}>Annuler</Button>
               ) : null}
             </li>
           ))}

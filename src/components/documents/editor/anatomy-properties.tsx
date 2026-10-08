@@ -7,6 +7,7 @@ import { AVAILABLE_ANATOMY_VIEWS, getAnatomyView, hitboxZoneIds } from "@/lib/an
 import { colorForPreset, labelForPreset } from "@/lib/documents/marker-presets";
 import type { AnatomyViewId } from "@/lib/anatomy/views";
 import type { DocumentAnatomyElement } from "@/lib/documents/content";
+import { Minus, Plus, X } from "lucide-react";
 
 /**
  * Propriétés d'un schéma anatomique (étape 31). Les TROIS façons de
@@ -152,7 +153,7 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
           className="flex w-full items-center justify-between text-xs font-extrabold tracking-[0.08em] text-animeo-muted uppercase"
         >
           Liste anatomique
-          <span aria-hidden="true">{listOpen ? "−" : "+"}</span>
+          {listOpen ? <Minus aria-hidden="true" className="h-3.5 w-3.5" /> : <Plus aria-hidden="true" className="h-3.5 w-3.5" />}
         </button>
         {listOpen ? (
           <ul className="mt-2 max-h-64 space-y-0.5 overflow-y-auto pr-1">
@@ -199,13 +200,8 @@ export function AnatomyProperties({ element, readOnly }: { element: DocumentAnat
                       <span className="truncate">{node?.label ?? observation.zoneId}</span>
                     </span>
                     {!readOnly ? (
-                      <button
-                        type="button"
-                        onClick={() => removeObservation(observation.id)}
-                        aria-label={`Supprimer l’observation ${node?.label ?? observation.zoneId}`}
-                        className="shrink-0 text-animeo-danger"
-                      >
-                        ×
+                      <button type="button" onClick={() => removeObservation(observation.id)} aria-label={`Supprimer l’observation ${node?.label ?? observation.zoneId}`} className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-animeo-danger hover:bg-animeo-danger-soft">
+                        <X aria-hidden="true" className="h-3.5 w-3.5" />
                       </button>
                     ) : null}
                   </div>
