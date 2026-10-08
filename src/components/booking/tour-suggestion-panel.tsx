@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Check, ChevronDown, Loader2, MapPin, PawPrint } from "lucide-react";
 import { getSuggestedToursForAddressAction, type TourSuggestion } from "@/lib/tour-suggestions";
+import { Button } from "@/components/ui/button";
 
 /** Un seul passage détaillé d'emblée ; les autres derrière un lien (§8). */
 const VISIBLE_TOURS = 1;
@@ -153,23 +154,14 @@ export function TourSuggestionPanel({ slug, zoneId, durationMinutes, dateId, tim
       </div>
 
       {hidden > 0 ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-extrabold text-animeo-positive underline-offset-2 hover:underline"
-        >
+        <Button type="button" variant="secondary" onClick={() => setExpanded(true)} icon={<ChevronDown aria-hidden="true" className="h-4 w-4" />} className="mt-3">
           Voir les autres passages dans votre secteur ({hidden})
-          <ChevronDown aria-hidden="true" className="h-4 w-4" />
-        </button>
+        </Button>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => { setDismissed(true); onCountChange(0); onDismiss(); }}
-        className="mt-3 block min-h-11 w-full rounded-xl border border-animeo-border bg-white/70 px-4 text-sm font-bold text-animeo-muted transition hover:text-animeo-dark sm:w-auto sm:px-5"
-      >
+      <Button type="button" variant="secondary" onClick={() => { setDismissed(true); onCountChange(0); onDismiss(); }} className="mt-3 w-full sm:w-auto">
         Ignorer la suggestion et garder mon créneau
-      </button>
+      </Button>
     </section>
   );
 }

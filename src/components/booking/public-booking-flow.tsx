@@ -6,6 +6,7 @@ import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingProgress } from "@/components/booking/booking-progress";
 import { PawCursor } from "@/components/ui/paw-cursor";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { ProfessionalSidebar } from "@/components/booking/sidebar/professional-sidebar";
 import { DEFAULT_PUBLIC_PAGE, buttonRadius, fontStacks, type PublicPageConfig } from "@/data/public-page";
 import { ConsultationStep } from "@/components/booking/location-service-steps";
@@ -100,6 +101,8 @@ function clearPersistedBooking(slug: string) {
 export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: { professional: PublicProfessional; page?: PublicPageConfig }) {
   const [screen, setScreen] = useState<BookingScreen>("consultation");
   const [mode, setMode] = useState<BookingMode | null>(null);
+  // Un changement qui ferait perdre le créneau choisi attend ici sa confirmation.
+  const [pendingChange, setPendingChange] = useState<{ kind: "service"; serviceId: string } | { kind: "mode"; mode: BookingMode } | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [address, setAddress] = useState<BookingAddress>(emptyAddress);
   const [zoneId, setZoneId] = useState<string | null>(null);
@@ -275,12 +278,12 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     setSubmitError(null);
   }
 
-  function changeService(nextServiceId: string) {
+  function changeService(nextServiceId: string, confirmed = false) {
     if (nextServiceId === serviceId) return;
     // La durée dépend de la prestation : un créneau déjà choisi peut ne
     // plus être proposé avec la nouvelle prestation. Ne prévenir que s'il y
     // a réellement quelque chose à perdre (voir changeMode ci-dessous).
-    if (dateId && !window.confirm("Changer de prestation réinitialisera le créneau que vous avez choisi. Continuer ?")) return;
+    if (dateId && !confirmed) return void setPendingChange({ kind: "service", serviceId: nextServiceId });
     const selectedService = professional.services.find((item) => item.id === nextServiceId);
     setServiceId(nextServiceId);
     setAnimal((current) => ({ ...current, species: selectedService?.animalTypes[0] ?? "Chien" }));
@@ -292,14 +295,14 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
     setSlotChoices([]);
   }
 
-  function changeMode(nextMode: BookingMode) {
+  function changeMode(nextMode: BookingMode, confirmed = false) {
     if (nextMode === mode) return;
     // La disponibilité dépend du mode (cabinet vs domicile peuvent différer
     // sur un même horaire) : un créneau déjà choisi peut ne plus être
     // proposé sous le nouveau mode. Avertir uniquement quand un choix réel
     // serait perdu, pas à la toute première sélection (P1 "réinitialisations
     // silencieuses" — mais sans ajouter de friction là où rien n'est perdu).
-    if (dateId && !window.confirm("Changer de mode de consultation réinitialisera le créneau que vous avez choisi. Continuer ?")) return;
+    if (dateId && !confirmed) return void setPendingChange({ kind: "mode", mode: nextMode });
     setMode(nextMode);
     setAddress(emptyAddress);
     setZoneId(null);
@@ -405,7 +408,24 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
   } as React.CSSProperties;
 
   return (
-    <main style={themeStyle} className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
+    // data-overlay-root : les fenêtres s'ouvrent ici, sous les couleurs de la
+    // page du professionnel, et non dans <body> (voir overlay-portal.tsx).
+    <main style={themeStyle} data-overlay-root className="min-h-screen bg-animeo-surface-alt text-animeo-dark">
+      {pendingChange ? (
+        <ConfirmModal
+          title={pendingChange.kind === "service" ? "Changer de prestation ?" : "Changer de mode de consultation ?"}
+          message="Le créneau que vous avez choisi sera réinitialisé."
+          confirmLabel="Continuer"
+          destructive={false}
+          onConfirm={() => {
+            const change = pendingChange;
+            setPendingChange(null);
+            if (change.kind === "service") changeService(change.serviceId, true);
+            else changeMode(change.mode, true);
+          }}
+          onClose={() => setPendingChange(null)}
+        />
+      ) : null}
       {/* Curseur en patte : uniquement si le professionnel l'a activé pour sa
           page. Ses couleurs suivent celles de la page, pour que l'effet reste
           le sien plutôt qu'un ajout plaqué dessus. */}
@@ -441,8 +461,8 @@ export function PublicBookingFlow({ professional, page = DEFAULT_PUBLIC_PAGE }: 
               professional={professional}
               serviceId={serviceId}
               mode={mode}
-              onServiceChange={changeService}
-              onModeChange={changeMode}
+              onServiceChange={(next) => changeService(next)}
+              onModeChange={(next) => changeMode(next)}
               postalCode={address.postalCode}
               onPostalCodeChange={(postalCode) => setAddress((current) => ({ ...current, postalCode }))}
               tourZone={postalCodeZone}

@@ -8,6 +8,7 @@ import type { BookingDate, BookingMode, PublicService } from "@/data/public-book
 import { getOccupiedSlotsAction, type OccupiedSlots } from "@/lib/appointments-actions";
 import { getPublicScheduleAction } from "@/lib/public-schedule";
 import { formatBookingDateLabels, groupSlotsByPeriod, isSlotFree, timeToMinutes } from "@/lib/booking-validation";
+import { Button } from "@/components/ui/button";
 
 type ScheduleStepProps = {
   /** Lien public du cabinet : c'est lui qui désigne de quel agenda il s'agit. */
@@ -366,7 +367,7 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
                 return (
                   <li key={`${choice.date}-${choice.time}`} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
                     <span className="text-sm text-animeo-dark"><strong className="font-extrabold">{choiceRankLabel(index + 1)}</strong> · {label}</span>
-                    <button type="button" onClick={() => onChoicesChange?.(choices.filter((_, position) => position !== index))} aria-label={`Retirer le ${choiceRankLabel(index + 1)} : ${label}`} className="min-h-9 shrink-0 rounded-lg px-2.5 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft">Retirer</button>
+                    <Button type="button" variant="danger" onClick={() => onChoicesChange?.(choices.filter((_, position) => position !== index))} aria-label={`Retirer le ${choiceRankLabel(index + 1)} : ${label}`} className="shrink-0">Retirer</Button>
                   </li>
                 );
               })}

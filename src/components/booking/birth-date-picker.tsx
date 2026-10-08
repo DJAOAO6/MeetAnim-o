@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { bookingInputClassName } from "@/components/booking/booking-ui";
 import type { BirthDateValue } from "@/lib/animal-age";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
 type BirthDatePickerProps = {
   id?: string;
@@ -180,27 +183,25 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
           autoComplete="off"
           aria-describedby={ariaDescribedBy}
         />
-        <button
-          type="button"
-          onClick={() => (open ? setOpen(false) : openPicker())}
-          aria-label="Ouvrir le calendrier"
-          className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark"
-        >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5">
-            <rect x="3" y="5" width="18" height="16" rx="3" />
-            <path d="M16 3v4M8 3v4M3 10h18" />
-          </svg>
-        </button>
+        <div className="absolute right-0.5 top-0.5">
+          <IconButton label="Ouvrir le calendrier" onClick={() => (open ? setOpen(false) : openPicker())} tooltipAlign="end" className="border-transparent! bg-transparent!">
+            <Calendar aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
+        </div>
       </div>
 
       {open ? (
         <div role="dialog" aria-label="Choisir une date de naissance" className="absolute left-0 top-[calc(100%+6px)] z-20 w-72 rounded-2xl border border-animeo-border bg-white p-3 shadow-[0_16px_35px_rgb(var(--theme-shadow-rgb)/0.16)]">
           <div className="mb-2 flex items-center justify-between">
-            <button type="button" onClick={goPrevious} aria-label="Précédent" className="flex h-8 w-8 items-center justify-center rounded-lg text-animeo-dark hover:bg-animeo-bg">‹</button>
-            <button type="button" onClick={() => setLevel(level === "day" ? "month" : "year")} className="rounded-lg px-2 py-1 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg">
+            <IconButton label="Précédent" onClick={goPrevious} tooltipSide="bottom" tooltipAlign="start">
+              <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
+            <button type="button" onClick={() => setLevel(level === "day" ? "month" : "year")} className="min-h-11 rounded-lg px-2 text-sm font-extrabold text-animeo-dark hover:bg-animeo-bg">
               {level === "day" ? `${monthNames[viewMonth]} ${viewYear}` : level === "month" ? String(viewYear) : `${decadeStart} – ${decadeStart + 11}`}
             </button>
-            <button type="button" onClick={goNext} disabled={nextDisabled} aria-label="Suivant" className="flex h-8 w-8 items-center justify-center rounded-lg text-animeo-dark hover:bg-animeo-bg disabled:cursor-not-allowed disabled:opacity-30">›</button>
+            <IconButton label="Suivant" onClick={goNext} disabled={nextDisabled} tooltipSide="bottom" tooltipAlign="end">
+              <ChevronRight aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
           </div>
 
           {level === "year" ? (
@@ -239,13 +240,9 @@ export function BirthDatePicker({ id, value, onChange, inputRef, ariaDescribedBy
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => { setYearOnlyMode(true); setLevel("year"); }}
-            className="mt-3 w-full rounded-lg border-t border-animeo-border-soft pt-2.5 text-center text-xs font-extrabold text-animeo hover:text-animeo-hover"
-          >
+          <Button type="button" variant="secondary" onClick={() => { setYearOnlyMode(true); setLevel("year"); }} className="mt-3 w-full">
             Je ne connais pas la date exacte → indiquer juste l’année
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

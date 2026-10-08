@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { login, type LoginState } from "@/lib/auth/actions";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Eye, EyeOff } from "lucide-react";
 
 const inputClassName = "h-12 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
 
@@ -28,14 +31,12 @@ export function LoginForm() {
             <Link href="/mot-de-passe-oublie" className="normal-case tracking-normal text-animeo hover:underline">Mot de passe oublié ?</Link>
           </span>
           <div className="relative">
-            <input type={showPassword ? "text" : "password"} name="password" required autoComplete="current-password" placeholder="••••••••" className={`${inputClassName} pr-16`} />
-            <button
-              type="button"
-              onClick={() => setShowPassword((current) => !current)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-extrabold text-animeo hover:underline"
-            >
-              {showPassword ? "Masquer" : "Afficher"}
-            </button>
+            <input type={showPassword ? "text" : "password"} name="password" required autoComplete="current-password" placeholder="••••••••" className={`${inputClassName} pr-12`} />
+            <div className="absolute right-0.5 top-0.5">
+              <IconButton label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"} aria-pressed={showPassword} onClick={() => setShowPassword((current) => !current)} tooltipAlign="end" className="border-transparent! bg-transparent!">
+                {showPassword ? <EyeOff aria-hidden="true" className="h-5 w-5" /> : <Eye aria-hidden="true" className="h-5 w-5" />}
+              </IconButton>
+            </div>
           </div>
         </label>
 
@@ -43,13 +44,7 @@ export function LoginForm() {
           <p role="alert" className="rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{state.error}</p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex h-12 w-full items-center justify-center rounded-[12px] bg-animeo font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_22%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover disabled:pointer-events-none disabled:opacity-70"
-        >
-          {pending ? "Connexion…" : "Se connecter"}
-        </button>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? "Connexion…" : "Se connecter"}</Button>
       </form>
     </Card>
   );

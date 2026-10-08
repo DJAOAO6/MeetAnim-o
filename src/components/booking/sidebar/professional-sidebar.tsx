@@ -9,6 +9,8 @@ import { notify } from "@/lib/notify";
 import type { PublicProfessional } from "@/data/public-booking";
 import { DEFAULT_PUBLIC_SECTIONS, sectionDefinition, type PublicSection, type PublicSectionId } from "@/data/public-page";
 import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
+import { Button, buttonBaseClassName, buttonSizeClassName, buttonVariantClassName } from "@/components/ui/button";
+import { Check } from "lucide-react";
 
 const RealMap = dynamic(() => import("@/components/tours/real-map").then((mod) => mod.RealMap), {
   ssr: false,
@@ -45,9 +47,9 @@ function AboutCard({ professional, section }: { professional: PublicProfessional
     <SidebarCard title={section.title ?? "À propos"} icon="clients" tone={section.tone}>
       <p className="text-sm leading-6 text-animeo-muted">{shown}</p>
       {isLong ? (
-        <button type="button" onClick={() => setExpanded((current) => !current)} className="mt-2 text-xs font-extrabold text-animeo hover:underline">
+        <Button type="button" variant="secondary" onClick={() => setExpanded((current) => !current)} className="mt-2">
           {expanded ? "Afficher moins" : "Afficher plus"}
-        </button>
+        </Button>
       ) : null}
     </SidebarCard>
   );
@@ -133,20 +135,15 @@ function CabinetAddressCard({ professional, section }: { professional: PublicPro
             href={buildSingleStopMapsUrl(coordinates)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-animeo px-3 text-xs font-extrabold text-animeo transition hover:bg-animeo-soft"
+            className={`${buttonBaseClassName} ${buttonVariantClassName.secondary} ${buttonSizeClassName.md} flex-1`}
           >
-            <Icon name="navigation" className="h-3.5 w-3.5" aria-hidden="true" />
+            <Icon name="navigation" className="h-4 w-4" aria-hidden="true" />
             Voir l’itinéraire
           </a>
         ) : null}
-        <button
-          type="button"
-          onClick={copyAddress}
-          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-animeo-border px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-        >
-          <Icon name="copy" className="h-3.5 w-3.5" aria-hidden="true" />
-          {copied ? "Adresse copiée ✓" : "Copier l’adresse"}
-        </button>
+        <Button type="button" variant="secondary" onClick={copyAddress} icon={copied ? <Check aria-hidden="true" className="h-4 w-4" /> : <Icon name="copy" className="h-4 w-4" aria-hidden="true" />} className="flex-1">
+          {copied ? "Adresse copiée" : "Copier l’adresse"}
+        </Button>
       </div>
     </SidebarCard>
   );

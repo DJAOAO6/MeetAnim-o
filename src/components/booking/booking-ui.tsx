@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 
 export const bookingInputClassName = "h-12 w-full rounded-xl border border-animeo-border bg-white px-4 text-base font-semibold text-animeo-text outline-none transition placeholder:text-animeo-muted focus:border-animeo focus:ring-3 focus:ring-animeo/15";
 export const bookingTextareaClassName = `${bookingInputClassName} h-auto min-h-28 resize-y py-3`;
@@ -42,11 +43,10 @@ export function BookingField({ id, label, required, hint, error, children }: { i
 export function BookingActions({ onBack, nextLabel = "Continuer", nextDisabled = false, loading = false }: { onBack?: () => void; nextLabel?: string; nextDisabled?: boolean; loading?: boolean }) {
   return (
     <div className="sticky bottom-0 -mx-4 mt-7 flex gap-3 border-t border-animeo-border bg-white/95 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:static sm:mx-0 sm:justify-between sm:border-0 sm:bg-transparent sm:px-0 sm:pt-0 sm:pb-0">
-      {onBack ? <button type="button" onClick={onBack} disabled={loading} className="min-h-12 flex-1 touch-manipulation rounded-[14px] border border-animeo-border px-5 py-3 text-sm font-extrabold text-animeo-dark disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none">Retour</button> : <span className="hidden sm:block" />}
-      <button type="submit" disabled={nextDisabled || loading} className="flex min-h-12 flex-[2] touch-manipulation items-center justify-center gap-2 rounded-[14px] bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:bg-animeo-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-70 sm:flex-none">
-        {loading ? <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/35 border-t-white" /> : null}
+      {onBack ? <Button type="button" variant="secondary" onClick={onBack} disabled={loading} className="flex-1 touch-manipulation sm:flex-none">Retour</Button> : <span className="hidden sm:block" />}
+      <Button type="submit" disabled={nextDisabled || loading} icon={loading ? <span aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/35 border-t-white" /> : undefined} className="flex-[2] touch-manipulation sm:flex-none">
         {nextLabel}
-      </button>
+      </Button>
     </div>
   );
 }

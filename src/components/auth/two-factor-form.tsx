@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { verifyTwoFactorCode, resendTwoFactorCode, type TwoFactorState } from "@/lib/auth/two-factor-actions";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const inputClassName = "h-12 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-4 text-center text-lg font-black tracking-[0.3em] text-animeo-dark outline-none transition placeholder:tracking-normal placeholder:text-sm placeholder:font-semibold placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
 
@@ -30,22 +31,11 @@ export function TwoFactorForm() {
           <p role="status" className="rounded-[12px] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">Un nouveau code vient d’être envoyé.</p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex h-12 w-full items-center justify-center rounded-[12px] bg-animeo font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_22%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover disabled:pointer-events-none disabled:opacity-70"
-        >
-          {pending ? "Vérification…" : "Valider"}
-        </button>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? "Vérification…" : "Valider"}</Button>
 
-        <button
-          type="button"
-          disabled={resending}
-          onClick={() => startResend(async () => { await resendTwoFactorCode(); setResent(true); })}
-          className="flex h-11 w-full items-center justify-center rounded-[12px] text-sm font-extrabold text-animeo transition hover:underline disabled:pointer-events-none disabled:opacity-70"
-        >
+        <Button type="button" variant="secondary" disabled={resending} onClick={() => startResend(async () => { await resendTwoFactorCode(); setResent(true); })} className="w-full">
           {resending ? "Envoi…" : "Renvoyer un code"}
-        </button>
+        </Button>
       </form>
     </Card>
   );

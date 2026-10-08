@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { addMonths, formatBookingDateLabels, getMonthGridDays, parseDateIdToLocalNoon, toLocalDateId } from "@/lib/booking-validation";
+import { IconButton } from "@/components/ui/icon-button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type CalendarDayStatus = "available" | "full" | "closed" | "outside-window";
 
@@ -167,13 +169,13 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <button type="button" onClick={() => goToMonth(-1)} disabled={!canGoTo(-1)} aria-label="Mois précédent" className="touch-manipulation flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-animeo-border text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent">
-          <ChevronIcon direction="left" />
-        </button>
+        <IconButton label="Mois précédent" onClick={() => goToMonth(-1)} disabled={!canGoTo(-1)} tooltipSide="bottom" tooltipAlign="start" className="touch-manipulation">
+          <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+        </IconButton>
         <p className="text-sm font-black capitalize text-animeo-dark">{monthLabel}</p>
-        <button type="button" onClick={() => goToMonth(1)} disabled={!canGoTo(1)} aria-label="Mois suivant" className="touch-manipulation flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-animeo-border text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent">
-          <ChevronIcon direction="right" />
-        </button>
+        <IconButton label="Mois suivant" onClick={() => goToMonth(1)} disabled={!canGoTo(1)} tooltipSide="bottom" tooltipAlign="end" className="touch-manipulation">
+          <ChevronRight aria-hidden="true" className="h-5 w-5" />
+        </IconButton>
       </div>
 
       <div role="grid" aria-label={`Calendrier, ${monthLabel}`}>
@@ -248,13 +250,5 @@ export function CalendarMonth({ monthId, onMonthChange, minMonthId, maxMonthId, 
       </div>
       <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
     </div>
-  );
-}
-
-function ChevronIcon({ direction }: { direction: "left" | "right" }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d={direction === "left" ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} />
-    </svg>
   );
 }

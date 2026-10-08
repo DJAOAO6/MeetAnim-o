@@ -25,8 +25,9 @@ export function OverlayPortal({ children }: { children: ReactNode }) {
  * Où poser une fenêtre : sur la surface de thème du tableau de bord, qui
  * porte la palette, le mode sombre et leurs réglages (voir globals.css) —
  * posée dans <body>, la fenêtre retombait sur la palette claire par défaut.
- * Hors tableau de bord (pages publiques), <body>.
+ * Une page publique qui porte ses propres couleurs (la réservation en ligne)
+ * se désigne avec `data-overlay-root` ; à défaut, <body>.
  */
 export function overlayRoot(): HTMLElement {
-  return document.querySelector<HTMLElement>("[data-dashboard-theme]") ?? document.body;
+  return document.querySelector<HTMLElement>("[data-dashboard-theme]") ?? document.querySelector<HTMLElement>("[data-overlay-root]") ?? document.body;
 }

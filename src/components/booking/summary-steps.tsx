@@ -6,6 +6,7 @@ import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, PublicBookingRequest, PublicProfessional, PublicService } from "@/data/public-booking";
 import { buildIcsContent, formatBookingDateLabels, formatBookingReference } from "@/lib/booking-validation";
 import { buildGoogleCalendarLink, buildOutlookCalendarLink } from "@/lib/calendar/client-calendar-links";
+import { Button } from "@/components/ui/button";
 
 type BookingSummaryProps = {
   professional: PublicProfessional;
@@ -206,7 +207,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
         </div>
       </div>}
 
-      <button type="button" onClick={onReset} className="mt-5 min-h-12 touch-manipulation rounded-2xl bg-animeo px-7 py-3 text-sm font-extrabold text-white shadow-sm outline-none transition hover:bg-animeo-hover focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2">Retour</button>
+      <Button type="button" onClick={onReset} className="mt-5 touch-manipulation">Retour</Button>
     </div>
   );
 }

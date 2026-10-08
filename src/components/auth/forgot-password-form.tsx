@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { requestPasswordReset, type RequestResetState } from "@/lib/auth/password-reset-actions";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const inputClassName = "h-12 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
 
@@ -26,13 +27,7 @@ export function ForgotPasswordForm() {
           <p role="status" className={`rounded-[12px] px-4 py-3 text-sm font-bold ${state && "error" in state ? "bg-animeo-danger-soft text-animeo-danger" : "bg-animeo-soft text-animeo-dark"}`}>{feedback}</p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex h-12 w-full items-center justify-center rounded-[12px] bg-animeo font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_22%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover disabled:pointer-events-none disabled:opacity-70"
-        >
-          {pending ? "Envoi…" : "Envoyer le lien"}
-        </button>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? "Envoi…" : "Envoyer le lien"}</Button>
 
         <Link href="/login" className="flex h-11 w-full items-center justify-center text-sm font-extrabold text-animeo hover:underline">
           Retour à la connexion

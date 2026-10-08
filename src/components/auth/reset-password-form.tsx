@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { resetPassword, type ResetPasswordState } from "@/lib/auth/password-reset-actions";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const inputClassName = "h-12 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-4 text-sm font-semibold text-animeo-dark outline-none transition placeholder:text-animeo-subtle focus:border-animeo focus:bg-white";
 
@@ -29,13 +30,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           <p role="alert" className="rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{state.error}</p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex h-12 w-full items-center justify-center rounded-[12px] bg-animeo font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_22%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover disabled:pointer-events-none disabled:opacity-70"
-        >
-          {pending ? "Enregistrement…" : "Réinitialiser le mot de passe"}
-        </button>
+        <Button type="submit" disabled={pending} className="w-full">{pending ? "Enregistrement…" : "Réinitialiser le mot de passe"}</Button>
       </form>
     </Card>
   );

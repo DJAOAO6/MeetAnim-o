@@ -66,7 +66,7 @@ test.describe("Page publique de réservation — profil professionnel", () => {
 
     await page.getByRole("button", { name: "Copier l’adresse" }).click();
     await expect(page.getByText("Adresse copiée")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("button", { name: "Adresse copiée ✓" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Adresse copiée" })).toBeVisible();
   });
 
   test("désactiver une bascule d'affichage masque bien l'information correspondante sur la page publique", async ({ page }) => {

@@ -191,7 +191,7 @@ export function OnboardingDone({ slug }: { slug: string }) {
       <p className="mt-2 text-sm text-animeo-muted">Votre page de rendez-vous est en ligne. Vous pouvez la consulter, puis découvrir votre tableau de bord.</p>
       <div className="mt-4 flex flex-col gap-2 rounded-xl border border-animeo-border-soft bg-animeo-bg p-3 sm:flex-row sm:items-center">
         <p className="min-w-0 flex-1 break-all px-1 text-sm font-bold text-animeo-dark">{url}</p>
-        <Button type="button" variant="secondary" size="sm" onClick={copy} className="shrink-0">{copied ? "Lien copié" : "Copier le lien"}</Button>
+        <Button type="button" variant="secondary" onClick={copy} className="shrink-0">{copied ? "Lien copié" : "Copier le lien"}</Button>
       </div>
       {/* Même taille pour les deux : on consulte sa page d'abord, puis on
           entre dans le tableau de bord (l'action principale). */}
@@ -609,7 +609,7 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
                   {service.duration} min · {service.animals.join(", ")} · {serviceOfferLabel(service, practicesBoth)}
                 </span>
               </span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => remove(service.id)} disabled={adding} aria-label={`Retirer ${service.name}`}>Retirer</Button>
+              <Button type="button" variant="danger" onClick={() => remove(service.id)} disabled={adding} aria-label={`Retirer ${service.name}`}>Retirer</Button>
             </li>
           ))}
         </ul>
