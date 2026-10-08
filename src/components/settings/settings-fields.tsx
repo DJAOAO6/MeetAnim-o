@@ -32,7 +32,7 @@ export function Toggle({ checked, onChange, label, compact = false, disabled = f
     // sans dire de quoi il s'agit.
     // ariaLabel : quand le libellé visible ne suffit pas hors de son contexte
     // (« Active » dans une liste : de quelle prestation ?).
-    <button type="button" role="switch" aria-checked={checked} aria-labelledby={labelledBy} aria-label={ariaLabel} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "min-h-11 px-2 py-1 text-xs" : "px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>
+    <button type="button" role="switch" aria-checked={checked} aria-labelledby={labelledBy} aria-label={ariaLabel} disabled={disabled} onClick={() => onChange(!checked)} className={`inline-flex items-center gap-2 rounded-xl font-extrabold transition disabled:cursor-not-allowed disabled:opacity-60 ${compact ? "min-h-11 px-2 py-1 text-xs" : "min-h-11 px-3 py-2 text-sm"} ${checked ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>
       <span className={`relative inline-flex h-5 w-9 rounded-full transition ${checked ? "bg-animeo" : "bg-animeo-subtle"}`}>
         <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition ${checked ? "left-[18px]" : "left-0.5"}`} />
       </span>

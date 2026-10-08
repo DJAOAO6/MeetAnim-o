@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { IconButton } from "@/components/ui/icon-button";
 import { Field, SectionTitle, Toggle, inputClassName } from "@/components/settings/settings-fields";
 import type { AvailabilitySettings, ExceptionalClosure, TimeSlot, Vacation } from "@/data/settings";
 import { durationOptions } from "@/data/durations";
-import { isDayOpenFor, openDayForMode, openingModesLabel, setDayModeClosed, upcomingOpenings, type SlotMode } from "@/lib/availability-editing";
+import { openingModesLabel, upcomingOpenings } from "@/lib/availability-editing";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { toDateId } from "@/lib/availability-status";
 
@@ -25,8 +28,6 @@ function breakOptions(current: number): number[] {
 
 export function AvailabilitySettingsTab({ value, practiceMode, onChange }: AvailabilitySettingsTabProps) {
   const practiced = { cabinet: hasCabinet(practiceMode), home: visitsHomes(practiceMode) };
-  // Raccourcis par mode : utiles seulement quand on pratique les deux.
-  const modeShortcuts: Array<{ mode: SlotMode; label: string }> = practiced.cabinet && practiced.home ? [{ mode: "cabinet", label: "Cabinet" }, { mode: "home", label: "Domicile" }] : [];
   const [draft, setDraft] = useState(value);
   const [showClosureForm, setShowClosureForm] = useState(false);
   const [showVacationForm, setShowVacationForm] = useState(false);
@@ -75,24 +76,10 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
                   <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black ${day.enabled ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted"}`}>{day.label.slice(0, 2)}</span>
                   <div><h3 className="font-black text-animeo-dark">{day.label}</h3><p className="text-xs text-animeo-muted">{day.enabled ? `${day.slots.length} plage${day.slots.length > 1 ? "s" : ""}` : "Fermé"}</p></div>
                 </div>
+                {/* Un seul interrupteur par journée. Cabinet et Domicile se
+                    règlent plage par plage, juste dessous : deux raccourcis
+                    de plus ici disaient la même chose autrement. */}
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* Fermer ou rouvrir un seul mode ce jour-là ; l'interrupteur
-                      principal, lui, ferme tout le jour. */}
-                  {modeShortcuts.map(({ mode, label }) => {
-                    const open = isDayOpenFor(day, mode);
-                    return (
-                      <button
-                        key={mode}
-                        type="button"
-                        aria-pressed={open}
-                        aria-label={`${label} ouvert le ${day.label.toLowerCase()}`}
-                        onClick={() => updateDay(day.id, (current) => (open ? setDayModeClosed(current, mode) : openDayForMode(current, mode)))}
-                        className={`min-h-9 rounded-xl px-3 text-xs font-extrabold transition ${open ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-border-soft text-animeo-muted line-through"}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
                   <Toggle checked={day.enabled} onChange={(enabled) => updateDay(day.id, (current) => ({ ...current, enabled, slots: enabled && current.slots.length === 0 ? [{ id: `slot-${day.id}`, start: "09:00", end: "18:00", ...practiced }] : current.slots }))} label={day.enabled ? "Activé" : "Fermé"} />
                 </div>
               </div>
@@ -100,7 +87,7 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
               {day.enabled ? (
                 <div className="mt-4 space-y-2 border-t border-animeo-border-soft pt-4">
                   {day.slots.map((slot) => (
-                    <div key={slot.id} className="grid gap-3 rounded-2xl bg-animeo-bg p-3 lg:grid-cols-[130px_20px_130px_minmax(260px,1fr)_36px] lg:items-center">
+                    <div key={slot.id} className="grid gap-3 rounded-2xl bg-animeo-bg p-3 lg:grid-cols-[130px_20px_130px_minmax(260px,1fr)_44px] lg:items-center">
                       <input type="time" aria-label={`Début ${day.label}`} value={slot.start} onChange={(event) => updateSlot(day.id, slot.id, "start", event.target.value)} className={inputClassName} />
                       <span className="hidden text-center font-black text-animeo-muted lg:block">–</span>
                       <input type="time" aria-label={`Fin ${day.label}`} value={slot.end} onChange={(event) => updateSlot(day.id, slot.id, "end", event.target.value)} className={inputClassName} />
@@ -108,10 +95,14 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
                         {practiced.cabinet ? <Toggle checked={slot.cabinet} onChange={(checked) => updateSlot(day.id, slot.id, "cabinet", checked)} label={`Cabinet : ${slot.cabinet ? "OUI" : "NON"}`} compact /> : null}
                         {practiced.home ? <Toggle checked={slot.home} onChange={(checked) => updateSlot(day.id, slot.id, "home", checked)} label={`Domicile : ${slot.home ? "OUI" : "NON"}`} compact /> : null}
                       </div>
-                      <button type="button" onClick={() => updateDay(day.id, (current) => ({ ...current, slots: current.slots.filter((item) => item.id !== slot.id) }))} aria-label="Supprimer la plage" className="flex h-9 w-9 items-center justify-center rounded-xl text-lg font-bold text-animeo-danger hover:bg-animeo-danger-soft">×</button>
+                      {/* Pas de confirmation : rien n'est enregistré avant
+                          « Enregistrer les disponibilités ». */}
+                      <IconButton variant="danger" label="Supprimer la plage" onClick={() => updateDay(day.id, (current) => ({ ...current, slots: current.slots.filter((item) => item.id !== slot.id) }))} tooltipAlign="end">
+                        <Trash2 aria-hidden="true" className="h-5 w-5" />
+                      </IconButton>
                     </div>
                   ))}
-                  <button type="button" onClick={() => addSlot(day.id)} className="rounded-xl border border-animeo px-4 py-2 text-xs font-extrabold text-animeo">+ Ajouter une plage horaire</button>
+                  <Button type="button" variant="secondary" onClick={() => addSlot(day.id)} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Ajouter une plage horaire</Button>
                 </div>
               ) : null}
             </div>
@@ -163,7 +154,10 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
         <SectionTitle
           title="Fermetures exceptionnelles"
           description="Bloquez ponctuellement le Cabinet, le Domicile ou les deux."
-          action={<div className="flex flex-wrap gap-2"><button type="button" onClick={() => setShowClosureForm(!showClosureForm)} className="rounded-xl border border-animeo px-4 py-2.5 text-xs font-extrabold text-animeo">+ Ajouter une fermeture</button><button type="button" onClick={() => setShowVacationForm(!showVacationForm)} className="rounded-xl bg-animeo px-4 py-2.5 text-xs font-extrabold text-white">+ Ajouter des vacances</button></div>}
+          action={<div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" onClick={() => setShowClosureForm(!showClosureForm)} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Ajouter une fermeture</Button>
+            <Button type="button" variant="secondary" onClick={() => setShowVacationForm(!showVacationForm)} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Ajouter des vacances</Button>
+          </div>}
         />
 
         {showClosureForm ? (
@@ -173,7 +167,7 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
             <Field label="Fin"><input type="time" value={closure.end} onChange={(event) => setClosure((current) => ({ ...current, end: event.target.value }))} className={inputClassName} required /></Field>
             <Field label="Portée"><select value={closure.scope} onChange={(event) => setClosure((current) => ({ ...current, scope: event.target.value as ExceptionalClosure["scope"] }))} className={inputClassName}><option>Cabinet uniquement</option><option>Domicile uniquement</option><option>Tout fermer</option></select></Field>
             <Field label="Motif facultatif"><input value={closure.reason} onChange={(event) => setClosure((current) => ({ ...current, reason: event.target.value }))} className={inputClassName} /></Field>
-            <div className="flex gap-2 md:col-span-2 xl:col-span-5"><button type="submit" className="rounded-xl bg-animeo px-4 py-2 text-xs font-extrabold text-white">Ajouter</button><button type="button" onClick={() => setShowClosureForm(false)} className="rounded-xl px-4 py-2 text-xs font-extrabold text-animeo-muted">Annuler</button></div>
+            <div className="flex gap-2 md:col-span-2 xl:col-span-5"><Button type="submit">Ajouter</Button><Button type="button" variant="secondary" onClick={() => setShowClosureForm(false)}>Annuler</Button></div>
           </form>
         ) : null}
 
@@ -181,7 +175,7 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
           <form onSubmit={addVacation} className="mb-4 grid gap-3 rounded-2xl bg-animeo-bg p-4 md:grid-cols-2">
             <Field label="Date de début"><input type="date" value={vacation.startDate} onChange={(event) => setVacation((current) => ({ ...current, startDate: event.target.value }))} className={inputClassName} required /></Field>
             <Field label="Date de fin"><input type="date" min={vacation.startDate} value={vacation.endDate} onChange={(event) => setVacation((current) => ({ ...current, endDate: event.target.value }))} className={inputClassName} required /></Field>
-            <div className="flex gap-2 md:col-span-2"><button type="submit" className="rounded-xl bg-animeo px-4 py-2 text-xs font-extrabold text-white">Ajouter les vacances</button><button type="button" onClick={() => setShowVacationForm(false)} className="rounded-xl px-4 py-2 text-xs font-extrabold text-animeo-muted">Annuler</button></div>
+            <div className="flex gap-2 md:col-span-2"><Button type="submit">Ajouter les vacances</Button><Button type="button" variant="secondary" onClick={() => setShowVacationForm(false)}>Annuler</Button></div>
           </form>
         ) : null}
 
@@ -200,11 +194,11 @@ export function AvailabilitySettingsTab({ value, practiceMode, onChange }: Avail
         </div>
       </Card>
 
-      <div className="flex justify-end"><button type="button" onClick={() => onChange(draft, "Disponibilités enregistrées")} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-sm">Enregistrer les disponibilités</button></div>
+      <div className="flex justify-end"><Button type="button" onClick={() => onChange(draft, "Disponibilités enregistrées")}>Enregistrer les disponibilités</Button></div>
     </div>
   );
 }
 
 function ClosureRow({ title, subtitle, onRemove }: { title: string; subtitle: string; onRemove: () => void }) {
-  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-animeo-border p-4"><div><p className="font-extrabold text-animeo-dark">{title}</p><p className="text-xs text-animeo-muted">{subtitle}</p></div><button type="button" onClick={onRemove} className="rounded-xl bg-animeo-danger-soft px-3 py-2 text-xs font-extrabold text-animeo-danger">Supprimer</button></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-2xl border border-animeo-border p-4"><div><p className="font-extrabold text-animeo-dark">{title}</p><p className="text-xs text-animeo-muted">{subtitle}</p></div><IconButton variant="danger" label={`Supprimer : ${title}`} onClick={onRemove} tooltipAlign="end"><Trash2 aria-hidden="true" className="h-5 w-5" /></IconButton></div>;
 }
