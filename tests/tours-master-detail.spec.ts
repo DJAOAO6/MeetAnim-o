@@ -73,7 +73,7 @@ test.describe("Paramètres — zones et tournées récurrentes", () => {
     await zonesPanel.getByRole("button", { name: "Fermer" }).click();
     await expect(zonesPanel).toHaveCount(0, { timeout: 10000 });
 
-    await page.getByRole("button", { name: "+ Nouvelle tournée", exact: true }).click();
+    await page.getByRole("button", { name: "Nouvelle tournée", exact: true }).click();
     dialog = page.locator('[role="dialog"]').first();
     await dialog.locator('input[placeholder="Ex. Secteur Dieppe"]').fill(tourName);
     await dialog.getByRole("button", { name: zoneAName, exact: true }).click();

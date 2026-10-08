@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, ImagePicker, SectionTitle, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import type { ProfileSettings } from "@/data/settings";
 
 type PublicProfileSettingsTabProps = {
@@ -101,7 +102,7 @@ export function PublicProfileSettingsTab({ value, saving = false, canEdit = true
         </Card>
 
         <div className="flex justify-end">
-          <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
+          <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer les modifications"}</Button>
         </div>
       </fieldset>
     </form>

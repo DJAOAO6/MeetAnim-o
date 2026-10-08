@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
+import { Toggle } from "@/components/settings/settings-fields";
 import { Tabs } from "@/components/ui/tabs";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Modal } from "@/components/ui/modal";
@@ -27,6 +29,7 @@ import {
 import type { AvailabilitySettings, ClosureScope, DayAvailability, ExceptionalClosure, TimeSlot } from "@/data/settings";
 import { addSlotForMode, isDayOpenFor, openDayForMode, openingModesLabel, removeSlotForMode, setDayModeClosed, upcomingOpenings, updateSlotForMode } from "@/lib/availability-editing";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
+import { Ellipsis, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 
 const MESSAGE_MAX = 300;
 
@@ -222,31 +225,27 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                       </p>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={manuallyOpen}
-                    aria-label={`${modeLabels[mode]} ouvert aux réservations`}
+                  <Toggle
+                    compact
+                    checked={manuallyOpen}
                     disabled={saving}
-                    onClick={() => (manuallyOpen ? setConfirmingClose(true) : openNow())}
-                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${manuallyOpen ? "bg-animeo-positive" : "bg-animeo-subtle"}`}
-                  >
-                    <span className={`absolute h-5 w-5 rounded-full bg-white shadow-sm transition ${manuallyOpen ? "left-6" : "left-1"}`} />
-                  </button>
+                    onChange={(open) => (open ? openNow() : setConfirmingClose(true))}
+                    label={manuallyOpen ? "Ouvert" : "Fermé"}
+                    ariaLabel={`${modeLabels[mode]} ouvert aux réservations`}
+                  />
                 </div>
               </section>
 
               <section>
                 <h3 className="mb-2 text-sm font-black text-animeo-dark">Actions rapides</h3>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" disabled={manuallyOpen || saving} onClick={openNow} className="border-animeo-positive text-animeo-positive">
-                    ▶ Ouvrir maintenant
+                  <Button variant="secondary" disabled={manuallyOpen || saving} onClick={openNow} icon={<Play aria-hidden="true" className="h-4 w-4 text-animeo-positive" />}>
+                    Ouvrir maintenant
                   </Button>
-                  <Button size="sm" variant="secondary" disabled={!manuallyOpen || saving} onClick={() => setConfirmingClose(true)} className="border-animeo-danger-border text-animeo-danger">
-                    ⏸ Fermer maintenant
+                  <Button variant="secondary" disabled={!manuallyOpen || saving} onClick={() => setConfirmingClose(true)} icon={<Pause aria-hidden="true" className="h-4 w-4 text-animeo-danger" />}>
+                    Fermer maintenant
                   </Button>
                   <Button
-                    size="sm"
                     variant="secondary"
                     onClick={() => setClosureForm({ id: newId(), date: toDateId(new Date()), endDate: toDateId(new Date()), start: "00:00", end: "23:59", scope: scopeFor(mode), reason: "Congés" })}
                   >
@@ -288,15 +287,11 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                         </p>
                         <p className="mt-0.5 truncate text-xs text-animeo-muted">{closure.reason || "Fermeture"} · {closure.scope}</p>
                       </div>
-                      <div className="flex shrink-0 gap-1">
-                        <button type="button" onClick={() => setClosureForm(closure)} className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-muted hover:bg-animeo-bg">Modifier</button>
-                        <button
-                          type="button"
-                          onClick={() => setDraft((current) => ({ ...current, closures: current.closures.filter((item) => item.id !== closure.id) }))}
-                          className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft"
-                        >
-                          Supprimer
-                        </button>
+                      <div className="flex shrink-0 gap-2">
+                        <Button type="button" variant="secondary" onClick={() => setClosureForm(closure)} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
+                        <IconButton variant="danger" label={`Supprimer la fermeture du ${formatDateId(closure.date)}`} tooltip="Supprimer" onClick={() => setDraft((current) => ({ ...current, closures: current.closures.filter((item) => item.id !== closure.id) }))} tooltipAlign="end">
+                          <Trash2 aria-hidden="true" className="h-5 w-5" />
+                        </IconButton>
                       </div>
                     </li>
                   ))}
@@ -304,13 +299,9 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                     <li className="rounded-xl bg-animeo-bg p-4 text-sm text-animeo-muted">Aucune fermeture prévue pour {modeLabels[mode].toLowerCase()}.</li>
                   ) : null}
                 </ul>
-                <button
-                  type="button"
-                  onClick={() => setClosureForm({ id: newId(), date: toDateId(new Date()), endDate: toDateId(new Date()), start: "00:00", end: "23:59", scope: scopeFor(mode), reason: "Congés" })}
-                  className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-animeo-border-strong text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-                >
-                  + Ajouter une exception
-                </button>
+                <Button type="button" variant="secondary" onClick={() => setClosureForm({ id: newId(), date: toDateId(new Date()), endDate: toDateId(new Date()), start: "00:00", end: "23:59", scope: scopeFor(mode), reason: "Congés" })} icon={<Plus aria-hidden="true" className="h-4 w-4" />} className="mt-3 w-full">
+                  Ajouter une exception
+                </Button>
 
                 <h3 className="mt-5 text-sm font-black text-animeo-dark">Ouvertures exceptionnelles</h3>
                 <p className="mb-2 text-xs text-animeo-muted">Des créneaux ouverts un jour précis, en plus des horaires habituels.</p>
@@ -324,14 +315,9 @@ export function AvailabilityManager({ initialMode, cabinetAvailable, homeAvailab
                         </p>
                         <p className="mt-0.5 truncate text-xs text-animeo-muted">{opening.reason || "Ouverture exceptionnelle"} · {openingModesLabel(opening)}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setDraft((current) => ({ ...current, openings: current.openings.filter((item) => item.id !== opening.id) }))}
-                        aria-label={`Supprimer l’ouverture du ${formatDateId(opening.date)}`}
-                        className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft"
-                      >
-                        Supprimer
-                      </button>
+                      <IconButton variant="danger" label={`Supprimer l’ouverture du ${formatDateId(opening.date)}`} tooltip="Supprimer" onClick={() => setDraft((current) => ({ ...current, openings: current.openings.filter((item) => item.id !== opening.id) }))} tooltipAlign="end">
+                        <Trash2 aria-hidden="true" className="h-5 w-5" />
+                      </IconButton>
                     </li>
                   ))}
                   {modeOpenings.length === 0 ? (
@@ -418,15 +404,9 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
                   ) : (
                     <span className="rounded-md bg-animeo-danger-soft px-2 py-0.5 text-xs font-bold text-animeo-danger">Fermé</span>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setEditing(isEditing ? null : day.label)}
-                    aria-expanded={isEditing}
-                    aria-label={`Modifier les horaires du ${dayName}`}
-                    className="min-h-9 min-w-9 rounded-lg text-animeo-muted transition hover:bg-animeo-bg"
-                  >
-                    ⋯
-                  </button>
+                  <IconButton label={`Modifier les horaires du ${dayName}`} tooltip="Modifier les horaires" active={isEditing} aria-expanded={isEditing} onClick={() => setEditing(isEditing ? null : day.label)} tooltipAlign="end">
+                    <Ellipsis aria-hidden="true" className="h-5 w-5" />
+                  </IconButton>
                 </span>
               </div>
 
@@ -452,21 +432,17 @@ function WeeklyHours({ mode, days, onChange }: { mode: AvailabilityMode; days: A
                         onChange={(event) => onChange(day.label, (current) => updateSlotForMode(current, slot.id, mode, { end: event.target.value }))}
                         className="min-h-11 rounded-xl border border-animeo-border bg-white px-3 text-sm font-semibold text-animeo-dark"
                       />
-                      <button
-                        type="button"
-                        onClick={() => onChange(day.label, (current) => removeSlotForMode(current, slot.id, mode))}
-                        className="min-h-9 rounded-lg px-3 text-xs font-extrabold text-animeo-danger hover:bg-animeo-danger-soft"
-                      >
-                        Supprimer
-                      </button>
+                      <IconButton variant="danger" label={`Supprimer la plage ${index + 1} du ${dayName}`} tooltip="Supprimer" onClick={() => onChange(day.label, (current) => removeSlotForMode(current, slot.id, mode))}>
+                        <Trash2 aria-hidden="true" className="h-5 w-5" />
+                      </IconButton>
                     </div>
                   ))}
 
                   <div className="flex flex-wrap gap-2 pt-1">
-                    <Button size="sm" variant="secondary" onClick={() => onChange(day.label, (current) => addSlotForMode(current, mode))}>
-                      + Ajouter une plage
+                    <Button variant="secondary" onClick={() => onChange(day.label, (current) => addSlotForMode(current, mode))} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>
+                      Ajouter une plage
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => onChange(day.label, (current) => (open ? setDayModeClosed(current, mode) : openDayForMode(current, mode)))}>
+                    <Button variant="secondary" onClick={() => onChange(day.label, (current) => (open ? setDayModeClosed(current, mode) : openDayForMode(current, mode)))}>
                       {open ? `Fermer ce jour ${forMode}` : `Rouvrir ce jour ${forMode}`}
                     </Button>
                   </div>

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { Field, SectionTitle, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import type { ReminderSettings } from "@/data/settings";
 
 // Aperçu illustratif (comme "Marie"/"Luna" ci-dessous) : dérivé de
@@ -57,7 +58,7 @@ export function RemindersSettingsTab({ value, slug, onSave }: { value: ReminderS
         </ul>
       </Card>
 
-      <div className="flex justify-end"><button type="submit" className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-sm">Enregistrer les rappels</button></div>
+      <div className="flex justify-end"><Button type="submit">Enregistrer les rappels</Button></div>
     </form>
   );
 }

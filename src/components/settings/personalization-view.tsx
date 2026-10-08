@@ -16,6 +16,7 @@ import type { PublicPageState } from "@/lib/public-page-actions";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { hasModule } from "@/lib/modules";
 import { Toggle } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import { DOG_PREVIEW_EVENT } from "@/components/notifications/running-dog-notification";
 import { setNewRequestAnimationAction } from "@/lib/dashboard-layout-actions";
 import { notify } from "@/lib/notify";
@@ -208,13 +209,7 @@ function NewRequestAnimationPanel() {
       </p>
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Toggle checked={enabled} onChange={change} disabled={pending} label={enabled ? "Animation activée" : "Animation désactivée"} labelledBy="new-request-animation-title" />
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event(DOG_PREVIEW_EVENT))}
-          className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg"
-        >
-          Voir l’animation
-        </button>
+        <Button type="button" variant="secondary" onClick={() => window.dispatchEvent(new Event(DOG_PREVIEW_EVENT))}>Voir l’animation</Button>
       </div>
     </Card>
   );

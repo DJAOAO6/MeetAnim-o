@@ -6,6 +6,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Field, SectionTitle, Toggle, inputClassName } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { TourModal, type TourFormValue } from "@/components/tours/tour-modal";
 import { ZonesPanel } from "@/components/tours/zones-panel";
 import { ZoneModal, type ZoneFormValue } from "@/components/tours/zone-modal";
@@ -16,6 +18,7 @@ import { recurrenceMentions } from "@/lib/tour-schedule";
 import type { Tour, Zone } from "@/data/tours";
 import type { SavedPlaceView, TourPreferencesView } from "@/lib/tour-runs";
 import type { GeocodedAddress } from "@/data/geocoding";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 type ToursSettingsTabProps = {
   initialTours: Tour[];
@@ -129,8 +132,8 @@ export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlace
           description="Un motif pose les dates à l’avance — les rendez-vous à domicile viennent ensuite s’y placer."
           action={
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setZonesPanelOpen(true)} className="rounded-xl border border-animeo px-4 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">Zones ({zones.length})</button>
-              <button type="button" onClick={() => setTourModal({ open: true })} className="rounded-xl bg-animeo px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover">+ Nouvelle tournée</button>
+              <Button type="button" variant="secondary" onClick={() => setZonesPanelOpen(true)}>Zones ({zones.length})</Button>
+              <Button type="button" onClick={() => setTourModal({ open: true })} icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}>Nouvelle tournée</Button>
             </div>
           }
         />
@@ -156,8 +159,8 @@ export function ToursSettingsTab({ initialTours, initialZones, initialSavedPlace
                       <p className="mt-1 text-sm text-animeo-muted">{formatTourSchedule(tour)} · secteur {zoneNamesFor(tour)}</p>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
-                      <button type="button" onClick={() => setTourModal({ open: true, tour })} className="rounded-xl bg-animeo-soft px-4 py-2.5 text-xs font-extrabold text-animeo-dark">Modifier</button>
-                      <button type="button" onClick={() => toggleStatus(tour)} className="rounded-xl bg-animeo-bg px-4 py-2.5 text-xs font-extrabold text-animeo-muted">{tour.status === "Active" ? "Désactiver" : "Activer"}</button>
+                      <Button type="button" variant="secondary" onClick={() => setTourModal({ open: true, tour })} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
+                      <Button type="button" variant="secondary" onClick={() => toggleStatus(tour)}>{tour.status === "Active" ? "Désactiver" : "Activer"}</Button>
                     </div>
                   </div>
                 </Card>
@@ -245,7 +248,7 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
 
   return (
     <div>
-      <SectionTitle title="Lieux favoris" description="Cabinet, domicile, clinique partenaire... utilisables comme départ ou arrivée d’une tournée." action={<button type="button" onClick={() => setFormOpen((current) => !current)} className="rounded-xl border border-animeo px-4 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">{formOpen ? "Annuler" : "+ Ajouter un lieu"}</button>} />
+      <SectionTitle title="Lieux favoris" description="Cabinet, domicile, clinique partenaire... utilisables comme départ ou arrivée d’une tournée." action={<Button type="button" variant="secondary" onClick={() => setFormOpen((current) => !current)} icon={formOpen ? undefined : <Plus aria-hidden="true" className="h-4 w-4" />}>{formOpen ? "Annuler" : "Ajouter un lieu"}</Button>} />
 
       {formOpen ? (
         <Card className="mb-4 p-5">
@@ -262,9 +265,9 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
               </Field>
             </div>
           </div>
-          <button type="button" onClick={handleAdd} disabled={!label.trim() || !address || saving} className="mt-4 rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+                    <Button type="button" onClick={handleAdd} disabled={!label.trim() || !address || saving} className="mt-4">
             {saving ? "Ajout…" : "Ajouter"}
-          </button>
+          </Button>
         </Card>
       ) : null}
 
@@ -278,7 +281,9 @@ function SavedPlacesSection({ savedPlaces }: { savedPlaces: SavedPlaceView[] }) 
                 <p className="text-sm font-black text-animeo-dark">{place.label} <span className="ml-1 rounded-full bg-animeo-bg px-2 py-0.5 text-xs font-black text-animeo-muted">{(placeTypeLabels as Record<string, string>)[place.type] ?? place.type}</span></p>
                 <p className="truncate text-xs font-semibold text-animeo-muted">{place.address}</p>
               </div>
-              <button type="button" onClick={() => handleDelete(place.id)} className="shrink-0 rounded-lg px-3 py-2 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">Supprimer</button>
+                            <IconButton variant="danger" label={`Supprimer ${place.label}`} tooltip="Supprimer" onClick={() => handleDelete(place.id)} tooltipAlign="end">
+                <Trash2 aria-hidden="true" className="h-5 w-5" />
+              </IconButton>
             </Card>
           ))}
         </div>

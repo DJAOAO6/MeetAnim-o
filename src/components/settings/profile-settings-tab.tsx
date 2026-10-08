@@ -6,10 +6,12 @@ import { useState, type FormEvent } from "react";
 import { Card } from "@/components/ui/card";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Field, ImagePicker, SectionTitle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import type { GeocodedAddress } from "@/data/geocoding";
 import type { ProfileSettings } from "@/data/settings";
 import { hasCabinet, PRACTICE_MODES, visitsHomes } from "@/lib/practice-mode";
 import { ServiceAreaFields, serviceAreaFields, serviceAreaUnconfirmed, type ServiceAreaDraft } from "@/components/settings/service-area-fields";
+import { Check } from "lucide-react";
 
 type ProfileSettingsTabProps = {
   value: ProfileSettings;
@@ -180,7 +182,7 @@ export function ProfileSettingsTab({ value, verificationStatus, professionLocked
                 <input value={draft.slug} onChange={(event) => update("slug", cleanSlug(event.target.value))} className="h-11 min-w-0 flex-1 px-3 text-sm font-bold text-animeo-dark outline-none" required />
               </div>
             </Field>
-            <button type="button" onClick={copyLink} className="self-end rounded-xl border border-animeo px-5 py-3 text-sm font-extrabold text-animeo transition hover:bg-white">{copied ? "Lien copié ✓" : "Copier le lien"}</button>
+                        <Button type="button" variant="secondary" onClick={copyLink} icon={copied ? <Check aria-hidden="true" className="h-4 w-4" /> : undefined} className="self-end">{copied ? "Lien copié" : "Copier le lien"}</Button>
           </div>
           <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm">
             <p className="text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Aperçu du lien public</p>
@@ -190,7 +192,7 @@ export function ProfileSettingsTab({ value, verificationStatus, professionLocked
       </Card>
 
       <div className="flex justify-end">
-        <button type="submit" disabled={saving} className="rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Enregistrement…" : "Enregistrer les modifications"}</button>
+                <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer les modifications"}</Button>
       </div>
       </fieldset>
     </form>

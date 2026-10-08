@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { SectionTitle, Toggle } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { notify } from "@/lib/notify";
 import {
@@ -13,6 +14,7 @@ import {
   type UpdateGoogleCalendarSettingsInput,
 } from "@/lib/calendar-actions";
 import type { GoogleIntegrationState, IcsFeedState } from "@/lib/calendar";
+import { Check } from "lucide-react";
 
 type IntegrationsSettingsTabProps = {
   google: GoogleIntegrationState;
@@ -152,9 +154,7 @@ function GoogleCalendarCard({ google }: { google: GoogleIntegrationState }) {
             Dernière synchronisation : {google.lastSyncAt ? timeAgoFr(google.lastSyncAt) : "aucune pour le moment"}
           </p>
 
-          <button type="button" onClick={() => setDisconnectConfirmOpen(true)} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-danger-soft px-4 py-2.5 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft">
-            Déconnecter
-          </button>
+          <Button type="button" variant="danger" onClick={() => setDisconnectConfirmOpen(true)}>Déconnecter</Button>
         </div>
       )}
 
@@ -224,18 +224,18 @@ function AppleCalendarCard({ icsFeed }: { icsFeed: IcsFeedState }) {
       <SectionTitle title="Apple Calendar" description="Retrouvez vos rendez-vous sur iPhone, iPad et Mac." />
 
       {!state.enabled ? (
-        <button type="button" onClick={enable} disabled={pending} className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+        <Button type="button" onClick={enable} disabled={pending}>
           {pending ? "Génération…" : "Ajouter à Apple Calendar"}
-        </button>
+        </Button>
       ) : (
         <div className="space-y-4">
           <div>
             <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Adresse du calendrier</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input readOnly value={state.url ?? ""} onFocus={(event) => event.currentTarget.select()} className="h-11 min-w-0 flex-1 rounded-xl border border-animeo-border bg-animeo-bg px-3.5 text-xs font-semibold text-animeo-muted outline-none focus:border-animeo" />
-              <button type="button" onClick={copyLink} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-animeo px-4 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft">
-                {copied ? "Copié ✓" : "Copier le lien"}
-              </button>
+              <Button type="button" variant="secondary" onClick={copyLink} icon={copied ? <Check aria-hidden="true" className="h-4 w-4" /> : undefined} className="shrink-0">
+                {copied ? "Copié" : "Copier le lien"}
+              </Button>
             </div>
           </div>
 
@@ -244,12 +244,8 @@ function AppleCalendarCard({ icsFeed }: { icsFeed: IcsFeedState }) {
           </p>
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={regenerate} disabled={pending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-bg px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-60">
-              Régénérer le lien
-            </button>
-            <button type="button" onClick={disable} disabled={pending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-danger-soft px-4 text-sm font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:cursor-not-allowed disabled:opacity-60">
-              Désactiver le lien
-            </button>
+            <Button type="button" variant="secondary" onClick={regenerate} disabled={pending}>Régénérer le lien</Button>
+            <Button type="button" variant="danger" onClick={disable} disabled={pending}>Désactiver le lien</Button>
           </div>
         </div>
       )}

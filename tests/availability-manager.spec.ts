@@ -46,7 +46,7 @@ test("fermer, programmer une fermeture, afficher un message, puis rouvrir", asyn
     // CAS 1 — fermeture immédiate du cabinet, confirmée.
     await page.getByTestId("block-availabilityCabinet").getByRole("button", { name: /gérer les disponibilités/i }).click();
     await expect(page.getByRole("heading", { name: "Gérer les disponibilités" })).toBeVisible({ timeout: 15000 });
-    await page.getByRole("button", { name: "⏸ Fermer maintenant" }).click();
+    await page.getByRole("button", { name: "Fermer maintenant" }).click();
     await page.getByRole("dialog").filter({ hasText: "Fermer le cabinet aux réservations" }).getByRole("button", { name: "Fermer" }).click();
     await expect(page.getByText(/cabinet fermé aux nouvelles réservations/i)).toBeVisible({ timeout: 15000 });
     expect((await profile()).cabinetAvailable, "la fermeture doit être enregistrée").toBe(false);
@@ -64,7 +64,7 @@ test("fermer, programmer une fermeture, afficher un message, puis rouvrir", asyn
     // CAS 2 — réouverture immédiate.
     await page.goto("/dashboard");
     await page.getByTestId("block-availabilityCabinet").getByRole("button", { name: /gérer les disponibilités/i }).click();
-    await page.getByRole("button", { name: "▶ Ouvrir maintenant" }).click();
+    await page.getByRole("button", { name: "Ouvrir maintenant" }).click();
     await expect(page.getByText(/cabinet ouvert aux réservations/i)).toBeVisible({ timeout: 15000 });
     expect((await profile()).cabinetAvailable).toBe(true);
 

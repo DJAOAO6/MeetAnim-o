@@ -49,7 +49,7 @@ test.describe("Réglages — Tournées (favoris et préférences)", () => {
     await expect(page.getByText("Éditeur de tournées — réglages par défaut")).toBeVisible();
 
     // Ajout d'un lieu favori.
-    await page.getByRole("button", { name: "+ Ajouter un lieu" }).click();
+    await page.getByRole("button", { name: "Ajouter un lieu" }).click();
     await page.locator("label", { hasText: "Nom" }).locator("input").fill(testPlaceLabel);
     const addressInput = page.locator("label", { hasText: "Adresse" }).locator("input");
     await addressInput.fill("1 place de l'Hôtel de Ville, Rouen");

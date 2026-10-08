@@ -13,6 +13,7 @@ import {
   todayTimingLabel,
   type AvailabilityMode,
 } from "@/lib/availability-status";
+import { Button } from "@/components/ui/button";
 
 type Tone = "open" | "closed" | "warning";
 
@@ -81,15 +82,9 @@ export function AvailabilityStatusCard({ mode }: { mode: AvailabilityMode }) {
       footer={
         // Le bouton seul dans le pied : la phrase de détail partageait la
         // ligne avec lui et se coupait en deux dès que la carte se resserrait.
-        <button
-          type="button"
-          onClick={() => manage(mode)}
-          aria-label={`Gérer les disponibilités — ${label}`}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-animeo-soft px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong"
-        >
-          <Icon name="settings" className="h-4 w-4" />
+        <Button type="button" variant="secondary" onClick={() => manage(mode)} aria-label={`Gérer les disponibilités — ${label}`} icon={<Icon name="settings" className="h-4 w-4" />} className="w-full">
           Gérer les disponibilités
-        </button>
+        </Button>
       }
     >
       <div className="flex flex-wrap items-center gap-2">

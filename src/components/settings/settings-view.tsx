@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { TabPanel, Tabs } from "@/components/ui/tabs";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { ProfileSettingsTab } from "@/components/settings/profile-settings-tab";
@@ -134,6 +135,7 @@ export function SettingsView({ verificationStatus, professionLocked, tours, zone
   // pour qui n'en a pas.
   const departure = departurePoint(businessProfile);
   const [saving, setSaving] = useState(false);
+  const [availabilityConflict, setAvailabilityConflict] = useState<{ value: AvailabilitySettings; message: string; question: string } | null>(null);
 
   function updateSettings<K extends keyof SettingsState>(key: K, value: SettingsState[K], message = "Modifications enregistrées") {
     setSettings((current) => {
@@ -168,17 +170,19 @@ export function SettingsView({ verificationStatus, professionLocked, tours, zone
     await saveProfile(settings.profile, draft.primaryColor, "Personnalisation enregistrée");
   }
 
-  async function saveAvailability(value: AvailabilitySettings, message: string) {
+  async function saveAvailability(value: AvailabilitySettings, message: string, force = false) {
     setSaving(true);
-    let result = await updateAvailabilityAction(value);
+    const result = force ? await updateAvailabilityAction(value, true) : await updateAvailabilityAction(value);
+    setSaving(false);
 
-    if (!result.ok && result.conflicts?.length) {
+    // Des rendez-vous tombent hors des nouveaux horaires : la question est
+    // posée dans une fenêtre du logiciel, et l'enregistrement attend la réponse.
+    if (!result.ok && result.conflicts?.length && !force) {
       const preview = result.conflicts.slice(0, 5).map((conflict) => `- ${conflict.date} ${conflict.start} · ${conflict.animalName} (${conflict.clientName})`).join("\n");
       const more = result.conflicts.length > 5 ? `\n… et ${result.conflicts.length - 5} autre(s).` : "";
-      const confirmed = window.confirm(`${result.error}\n\n${preview}${more}\n\nEnregistrer quand même ?`);
-      if (confirmed) result = await updateAvailabilityAction(value, true);
+      setAvailabilityConflict({ value, message, question: `${result.error}\n\n${preview}${more}` });
+      return;
     }
-    setSaving(false);
 
     if (!result.ok) {
       notify.error(result.error);
@@ -203,6 +207,16 @@ export function SettingsView({ verificationStatus, professionLocked, tours, zone
 
   return (
     <>
+      {availabilityConflict ? (
+        <ConfirmModal
+          title="Enregistrer malgré des rendez-vous hors horaires ?"
+          message={availabilityConflict.question}
+          confirmLabel="Enregistrer quand même"
+          destructive={false}
+          onConfirm={() => { const { value, message } = availabilityConflict; setAvailabilityConflict(null); void saveAvailability(value, message, true); }}
+          onClose={() => setAvailabilityConflict(null)}
+        />
+      ) : null}
       <PageHeader
         title="Paramètres"
         description="Configurez votre activité, vos disponibilités et votre page publique de réservation."

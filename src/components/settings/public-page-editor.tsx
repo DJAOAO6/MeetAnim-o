@@ -226,24 +226,15 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
                   <li key={section.id}>
                     <SortableBlock id={section.id} editing label={definition.label} toolbar={
                       <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(section.id)}
-                          aria-pressed={selectedId === section.id}
-                          className={`min-h-9 rounded-xl px-3 text-xs font-extrabold transition ${selectedId === section.id ? "bg-animeo-soft text-animeo-dark" : "bg-animeo-bg text-animeo-muted"}`}
-                        >
+                                                <Button type="button" variant="secondary" active={selectedId === section.id} aria-pressed={selectedId === section.id} onClick={() => setSelectedId(section.id)}>
                           Régler
-                        </button>
+                        </Button>
                         {definition.alwaysVisible ? (
                           <span className="text-xs font-bold text-animeo-muted" title="Cette section ne peut pas être masquée">Toujours visible</span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => updateSection(section.id, { visible: !section.visible })}
-                            className="min-h-9 rounded-xl bg-animeo-bg px-3 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark"
-                          >
+                                                    <Button type="button" variant="secondary" onClick={() => updateSection(section.id, { visible: !section.visible })}>
                             {section.visible ? "Masquer" : "Afficher"}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     }>
@@ -387,7 +378,7 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
               />
               <span className="mt-1 block text-xs text-animeo-muted">Plus la couverture est sombre, plus le texte posé dessus reste lisible.</span>
             </label>
-            <Button variant="ghost" size="sm" className="mt-2" onClick={() => updateTheme(DEFAULT_PUBLIC_THEME)}>
+            <Button variant="secondary" className="mt-2" onClick={() => updateTheme(DEFAULT_PUBLIC_THEME)}>
               Revenir aux couleurs 1002 Pattes
             </Button>
           </div>

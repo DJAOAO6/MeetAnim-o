@@ -4,6 +4,7 @@ import { useId } from "react";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Field, Toggle, inputClassName } from "@/components/settings/settings-fields";
+import { Button } from "@/components/ui/button";
 import { fontChoices, type DashboardDisplayOptions, type DashboardThemeMode, type DisplayDensity, type FontChoice, type ThemePalette } from "@/data/dashboard-theme";
 
 export type ThemeDraft = {
@@ -182,9 +183,9 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
           </div>
         </div>
 
-        <button type="button" disabled={saving} onClick={onSave} className="mt-8 rounded-2xl bg-animeo px-6 py-3 text-sm font-extrabold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60">
-          {saving ? "Enregistrement…" : "Enregistrer les modifications"}
-        </button>
+        <Button type="button" disabled={saving} onClick={onSave} className="mt-8">
+        {saving ? "Enregistrement…" : "Enregistrer les modifications"}
+      </Button>
       </fieldset>
     </Card>
   );
