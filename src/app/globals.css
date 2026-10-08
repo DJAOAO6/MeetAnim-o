@@ -540,6 +540,16 @@ a:focus-visible {
   isolation: isolate;
 }
 
+/* Boutons de zoom : 44 px au lieu des 30 de Leaflet, trop petits pour le
+   doigt. Trois classes, pour l'emporter sur la feuille de Leaflet quel que
+   soit l'ordre de chargement. */
+.leaflet-container .leaflet-bar.leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  font-size: 22px;
+}
+
 /* Périmètre (cercle) et contours de territoire de la carte clients : aux
    couleurs du thème, portées par des classes pour que les jetons
    s'appliquent (un attribut SVG n'accepte pas var()). */

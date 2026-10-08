@@ -21,6 +21,8 @@ type ButtonProps = ComponentProps<"button"> & {
   size?: ButtonSize;
   /** Icône posée à gauche du texte. */
   icon?: ReactNode;
+  /** Bouton secondaire qui tient un mode allumé (« Zones de tournée », un outil en cours) : il reste marqué. */
+  active?: boolean;
   children: ReactNode;
 };
 
@@ -48,9 +50,11 @@ export const buttonSizeClassName: Record<ButtonSize, string> = {
 /** Ce que tout bouton partage : forme, transition, retour à l'appui, état désactivé. */
 export const buttonBaseClassName = "inline-flex items-center justify-center gap-2 rounded-xl font-extrabold transition enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60";
 
-export function Button({ variant = "primary", size = "md", icon, className = "", children, ...props }: ButtonProps) {
+export function Button({ variant = "primary", size = "md", icon, active = false, className = "", children, ...props }: ButtonProps) {
+  // Actif : mêmes classes que le bouton à icône qui tient un panneau ouvert.
+  const look = active && variant === "secondary" ? "border border-animeo bg-animeo-soft text-animeo-dark hover:bg-animeo-soft-strong" : buttonVariantClassName[variant];
   return (
-    <button {...props} className={`${buttonBaseClassName} ${buttonVariantClassName[variant]} ${buttonSizeClassName[size]} ${className}`}>
+    <button {...props} className={`${buttonBaseClassName} ${look} ${buttonSizeClassName[size]} ${className}`}>
       {icon}
       {children}
     </button>

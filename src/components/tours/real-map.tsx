@@ -81,6 +81,8 @@ type RealMapProps = {
   onSelect?: (id: string, options?: { additive: boolean }) => void;
   heightClassName?: string;
   overlay?: ReactNode;
+  /** Commandes posées sur la carte, en haut à droite (recentrer, plein écran). */
+  controls?: ReactNode;
   circle?: RealMapCircle | null;
   focus?: RealMapFocus | null;
   // Poignée de redimensionnement sur le bord du cercle (carte clients, phase
@@ -604,7 +606,7 @@ function FlyToFocus({ focus }: { focus?: RealMapFocus | null }) {
   return null;
 }
 
-export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients", onPracticeClick, basemap = "plan", onBasemapChange }: RealMapProps) {
+export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[500px]", overlay, controls, circle, focus, circleHandle = false, onCircleRadiusChange, circleHandleResetKey = 0, defaultCenter = null, liveLocation = null, onBackgroundClick, selectedOffset, keyboard = true, areas = [], pin = null, fitBounds = null, fitPadding, cluster = false, wheelZoom = "always", onViewChange, highlightedId = null, onHover, practice = null, zoneCircles = [], bottomSheet, areaSelect = false, onAreaSelect, autoFit = true, clusterKind = "clients", onPracticeClick, basemap = "plan", onBasemapChange }: RealMapProps) {
   const center = useMemo<[number, number]>(() => {
     if (points.length > 0) return [points[0].lat, points[0].lng];
     if (defaultCenter) return defaultCenter;
@@ -681,8 +683,10 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
       </MapContainer>
 
       {overlay ? <div className="pointer-events-none absolute bottom-4 right-4 z-[500] w-[min(300px,calc(100%-2rem))]"><div className="pointer-events-auto">{overlay}</div></div> : null}
+      {controls ? <div className="absolute right-2.5 top-2.5 z-[500] flex gap-2">{controls}</div> : null}
       {onBasemapChange ? (
-        <div role="group" aria-label="Fond de carte" className="absolute left-14 top-2.5 z-[500] flex rounded-lg border border-animeo-border bg-white p-0.5 shadow-sm">
+        // left-16 : à droite des boutons de zoom, portés à 44 px (globals.css).
+        <div role="group" aria-label="Fond de carte" className="absolute left-16 top-2.5 z-[500] flex rounded-lg border border-animeo-border bg-white p-0.5 shadow-sm">
           {(["plan", "aerial"] as const).map((option) => (
             <button
               key={option}

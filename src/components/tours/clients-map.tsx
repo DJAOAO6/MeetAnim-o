@@ -24,6 +24,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { IconButton } from "@/components/ui/icon-button";
 import { deleteMapViewAction, saveMapViewAction } from "@/lib/map-views-actions";
 import type { MapViewSummary } from "@/lib/map-views";
 import type { AnimalSpecies } from "@/data/tours";
@@ -1622,32 +1623,25 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             </div>
           </div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={locateMe}
-              disabled={locating}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition disabled:cursor-wait ${perimeterCenter?.me ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
-            >
-              <LocateFixed aria-hidden="true" className="h-3.5 w-3.5" />
+            <Button type="button" variant="secondary" active={Boolean(perimeterCenter?.me)} onClick={locateMe} disabled={locating} icon={<LocateFixed aria-hidden="true" className="h-4 w-4" />} className="disabled:cursor-wait">
               {locating ? "Localisation…" : perimeterCenter?.me ? "Recentrer sur moi" : "Autour de moi"}
-            </button>
+            </Button>
             {sectorZones.length > 0 && mapMode !== "tours" ? (
-              <button type="button" onClick={() => setShowZones((current) => !current)} aria-pressed={showZones} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showZones ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}>
-                Zones de tournée
-              </button>
+              <Button type="button" variant="secondary" active={showZones} aria-pressed={showZones} onClick={() => setShowZones((current) => !current)}>Zones de tournée</Button>
             ) : null}
             {mapMode !== "activity" ? (
               <div ref={toolsRef} className="relative">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  active={areaTool || selectMode}
                   onClick={() => setToolsOpen((current) => !current)}
                   aria-haspopup="menu"
                   aria-expanded={toolsOpen}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${areaTool || selectMode ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
+                  icon={<SquareDashedMousePointer aria-hidden="true" className="h-4 w-4" />}
                 >
-                  <SquareDashedMousePointer aria-hidden="true" className="h-3.5 w-3.5" />
                   Outils de carte
-                </button>
+                </Button>
                 <ActionMenu
                   open={toolsOpen}
                   onClose={() => setToolsOpen(false)}
@@ -1664,28 +1658,19 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 />
               </div>
             ) : null}
-            <button type="button" onClick={recenter} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark">
-              <Crosshair aria-hidden="true" className="h-3.5 w-3.5" />
-              Recentrer
-            </button>
-            <button type="button" onClick={toggleFullscreen} aria-pressed={fullscreen} className="inline-flex items-center gap-1.5 rounded-xl bg-animeo-bg px-3 py-2 text-xs font-extrabold text-animeo-muted transition hover:text-animeo-dark">
-              {fullscreen ? <Minimize2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Maximize2 aria-hidden="true" className="h-3.5 w-3.5" />}
-              {fullscreen ? "Quitter le plein écran" : "Plein écran"}
-            </button>
 
-            {/* Parcourir les clients localisés, dans l'ordre de la liste. */}
-            <div role="group" aria-label="Parcourir les clients sur la carte" className={`ml-auto items-center gap-1 ${mapMode === "activity" ? "hidden" : "flex"}`}>
-              <button type="button" onClick={() => goTo(-1)} disabled={orderedLocated.length === 0 || navIndex === 0} aria-label="Client précédent" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40">
-                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-                <span className="hidden sm:inline">Précédent</span>
-              </button>
+            {/* Parcourir les clients localisés, dans l'ordre de la liste : deux
+                flèches autour du compteur. */}
+            <div role="group" aria-label="Parcourir les clients sur la carte" className={`ml-auto items-center gap-1.5 ${mapMode === "activity" ? "hidden" : "flex"}`}>
+              <IconButton label="Client précédent" onClick={() => goTo(-1)} disabled={orderedLocated.length === 0 || navIndex === 0} tooltipAlign="end">
+                <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+              </IconButton>
               <span className="min-w-[4.5rem] text-center text-xs font-extrabold tabular-nums text-animeo-muted" data-testid="map-navigation-counter">
                 {navIndex >= 0 ? `${navIndex + 1} / ${orderedLocated.length}` : `${orderedLocated.length} localisé${orderedLocated.length > 1 ? "s" : ""}`}
               </span>
-              <button type="button" onClick={() => goTo(1)} disabled={orderedLocated.length === 0 || navIndex === orderedLocated.length - 1} aria-label="Client suivant" className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:cursor-not-allowed disabled:opacity-40">
-                <span className="hidden sm:inline">Suivant</span>
-                <ChevronRight aria-hidden="true" className="h-4 w-4" />
-              </button>
+              <IconButton label="Client suivant" onClick={() => goTo(1)} disabled={orderedLocated.length === 0 || navIndex === orderedLocated.length - 1} tooltipAlign="end">
+                <ChevronRight aria-hidden="true" className="h-5 w-5" />
+              </IconButton>
             </div>
           </div>
           {areaTool ? (
@@ -1720,6 +1705,16 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             />
           ) : null}
           <RealMap
+            controls={
+              <>
+                <IconButton label="Recentrer" onClick={recenter} tooltipSide="bottom" tooltipAlign="end" className="shadow-sm">
+                  <Crosshair aria-hidden="true" className="h-5 w-5" />
+                </IconButton>
+                <IconButton label={fullscreen ? "Quitter le plein écran" : "Plein écran"} aria-pressed={fullscreen} active={fullscreen} onClick={toggleFullscreen} tooltipSide="bottom" tooltipAlign="end" className="shadow-sm">
+                  {fullscreen ? <Minimize2 aria-hidden="true" className="h-5 w-5" /> : <Maximize2 aria-hidden="true" className="h-5 w-5" />}
+                </IconButton>
+              </>
+            }
             points={points}
             selectedId={mapMode === "activity" ? (selectedAppointment?.coordinates ? selectedAppointment.id : undefined) : selectedLocation?.key}
             onSelect={mapMode === "activity" ? toggleAppointment : (id, options) => handleClientPick(id, options?.additive ?? false)}
