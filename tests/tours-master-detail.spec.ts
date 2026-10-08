@@ -59,7 +59,7 @@ test.describe("Paramètres — zones et tournées récurrentes", () => {
     await page.getByRole("button", { name: /^Zones/ }).click();
     const zonesPanel = page.locator('[role="dialog"][aria-labelledby="zones-panel-title"]');
     await expect(zonesPanel).toBeVisible({ timeout: 10000 });
-    await zonesPanel.getByRole("button", { name: "+ Nouvelle zone" }).click();
+    await zonesPanel.getByRole("button", { name: "Nouvelle zone" }).click();
 
     let dialog = page.locator('[role="dialog"]').filter({ hasText: "Créer une zone" });
     await dialog.getByPlaceholder("Ex. Zone Le Havre").fill(zoneAName);
@@ -104,7 +104,7 @@ test.describe("Paramètres — zones et tournées récurrentes", () => {
     await expect(panel.locator("li", { hasText: zoneAName }).getByText("1 tournée", { exact: false })).toBeVisible();
 
     // Créer une deuxième zone directement depuis le panneau, sans quitter l'écran.
-    await panel.getByRole("button", { name: "+ Nouvelle zone" }).click();
+    await panel.getByRole("button", { name: "Nouvelle zone" }).click();
     const zoneDialog = page.locator('[role="dialog"]').filter({ hasText: "Créer une zone" });
     await zoneDialog.getByPlaceholder("Ex. Zone Le Havre").fill(zoneBName);
     await zoneDialog.getByPlaceholder("Rechercher une ville").fill("Dieppe");

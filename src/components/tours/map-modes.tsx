@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Building2, CalendarClock, House, Navigation, Route, UserRound } from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { useAppointments } from "@/components/appointments/appointments-context";
+import { CloseButton } from "@/components/ui/close-button";
 import { Tabs } from "@/components/ui/tabs";
 import { dayHeading, MAP_MODES, type MapMode, type ZoneFilter } from "@/lib/map-modes";
 import type { MapAppointment } from "@/data/map-clients";
@@ -103,7 +104,7 @@ export function MapAppointmentCard({ appointment, todayId, onClose, docked = fal
           <p className="mt-1 truncate font-extrabold text-animeo-dark">{appointment.clientName}{appointment.animalName ? ` · ${appointment.animalName}` : ""}</p>
           <p className="mt-0.5 truncate text-xs font-bold text-animeo-muted">{appointment.serviceName}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label={`Fermer le rendez-vous de ${appointment.clientName}`} className="-mr-1.5 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">×</button>
+        <CloseButton onClick={onClose} label={`Fermer le rendez-vous de ${appointment.clientName}`} className="-mr-1.5 -mt-1.5" />
       </div>
       <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-animeo-dark">
         {appointment.place === "home" ? <House aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" /> : <Building2 aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" />}

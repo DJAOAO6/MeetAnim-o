@@ -2,12 +2,21 @@
 
 import { useState } from "react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
+import { Tabs } from "@/components/ui/tabs";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import { formatEuros } from "@/lib/format";
 import type { AvailableAppointmentView } from "@/lib/tour-runs";
 import type { GeocodedAddress } from "@/data/geocoding";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+
+const STOP_TABS = [
+  { id: "appointments", label: "Rendez-vous du jour" },
+  { id: "client", label: "Rechercher un client" },
+  { id: "manual", label: "Adresse manuelle" },
+] as const;
 
 const speciesEmoji: Record<string, string> = { Chien: "🐶", Chat: "🐱", Cheval: "🐴", NAC: "🐹" };
 
@@ -78,13 +87,11 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
         <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-stop-title" className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[18px] bg-white shadow-[0_24px_70px_rgb(var(--theme-shadow-rgb)/0.3)] outline-none">
           <div className="flex items-center justify-between border-b border-animeo-border-soft p-5">
             <h2 id="add-stop-title" className="text-lg font-black text-animeo-dark">Ajouter un arrêt</h2>
-            <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-bg">✕</button>
+            <CloseButton onClick={onClose} />
           </div>
 
-          <div className="flex gap-1 border-b border-animeo-border-soft px-5 pt-3">
-            <button type="button" onClick={() => setTab("appointments")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "appointments" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Rendez-vous du jour</button>
-            <button type="button" onClick={() => setTab("client")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "client" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Rechercher un client</button>
-            <button type="button" onClick={() => setTab("manual")} className={`rounded-t-lg px-4 py-2 text-sm font-extrabold ${tab === "manual" ? "border-b-2 border-animeo text-animeo-dark" : "text-animeo-muted"}`}>Adresse manuelle</button>
+          <div className="border-b border-animeo-border-soft px-5 py-3">
+            <Tabs label="Type d’arrêt" size="sm" tabs={STOP_TABS} value={tab} onChange={setTab} />
           </div>
 
           <div className="flex-1 overflow-y-auto p-5">
@@ -146,15 +153,15 @@ export function TourRunAddStopModal({ availableAppointments, onAddAppointments, 
           </div>
 
           <div className="flex justify-end gap-2 border-t border-animeo-border-soft p-5">
-            <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <Button type="button" variant="secondary" onClick={onClose}>Annuler</Button>
             {tab === "appointments" ? (
-              <button type="button" onClick={submitAppointments} disabled={selected.size === 0 || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+              <Button type="button" onClick={submitAppointments} disabled={selected.size === 0 || submitting}>
                 {submitting ? "Ajout…" : `Ajouter (${selected.size})`}
-              </button>
+              </Button>
             ) : tab === "manual" ? (
-              <button type="button" onClick={submitManual} disabled={!manualLabel.trim() || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+              <Button type="button" onClick={submitManual} disabled={!manualLabel.trim() || submitting}>
                 {submitting ? "Ajout…" : "Ajouter comme étape"}
-              </button>
+              </Button>
             ) : null}
           </div>
         </section>

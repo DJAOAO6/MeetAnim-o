@@ -4,8 +4,12 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
+import { Tabs } from "@/components/ui/tabs";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { useGeolocation } from "@/components/ui/use-geolocation";
 import { notify } from "@/lib/notify";
@@ -48,6 +52,7 @@ import type { AvailableAppointmentView, SavedPlaceView, StopToRemove, TourRunVie
 import type { TourRunMapClientPoint, TourRunMapPoint } from "@/components/tours/tour-run-map";
 import type { MapClient } from "@/data/tours";
 import type { ServiceSettings } from "@/data/settings";
+import { ArrowLeft, ChevronLeft, ChevronRight, LocateFixed, Minus, Plus, Sparkles, Users } from "lucide-react";
 
 // MapLibre s'appuie sur canvas/WebGL — jamais rendu côté serveur (même
 // convention que RealMap/Leaflet pour la carte clients).
@@ -585,13 +590,13 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                 {mapsResult.links.length > 1 ? link.label : "Itinéraire complet"}
               </a>
             ))}
-            <button type="button" onClick={() => setAddStopOpen(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">+ Ajouter un arrêt</button>
+            <Button type="button" variant="secondary" onClick={() => setAddStopOpen(true)} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Ajouter un arrêt</Button>
             {canOptimize ? (
-              <button type="button" onClick={handleOptimize} disabled={optimizing} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">
-                {optimizing ? "Calcul…" : "✨ Optimiser"}
-              </button>
+              <Button type="button" variant="secondary" onClick={handleOptimize} disabled={optimizing} icon={<Sparkles aria-hidden="true" className="h-4 w-4" />}>
+                {optimizing ? "Calcul…" : "Optimiser"}
+              </Button>
             ) : null}
-            <button type="button" onClick={() => runAction(() => recomputeRouteAction(tourRun.id))} disabled={busy} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-animeo-border px-4 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg disabled:opacity-60">Recalculer</button>
+            <Button type="button" variant="secondary" onClick={() => runAction(() => recomputeRouteAction(tourRun.id))} disabled={busy}>Recalculer</Button>
           </div>
         </div>
         {mapsResult.excludedStopCount > 0 ? (
@@ -614,14 +619,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                   <span className="font-bold text-animeo-dark">
                     {stop.label} <span className="font-semibold text-animeo-danger">— {stop.reason === "cancelled" ? "rendez-vous annulé" : "rendez-vous déplacé à une autre date"}</span>
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId: stop.stopId }))}
-                    disabled={busy}
-                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:bg-animeo-danger-soft disabled:opacity-60"
-                  >
-                    Retirer
-                  </button>
+                  {/* Secondaire, pas rouge pâle : sur ce fond rouge pâle, il n'aurait plus de forme. */}
+                  <Button type="button" variant="secondary" onClick={() => runAction(() => removeStopAction({ tourRunId: tourRun.id, stopId: stop.stopId }))} disabled={busy} className="shrink-0">Retirer</Button>
                 </li>
               ))}
             </ul>
@@ -637,14 +636,7 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
               {unplacedHomeAppointments.map((appointment) => (
                 <li key={appointment.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <span className="font-bold text-animeo-dark">{appointment.start} · {appointment.animalName} — {appointment.clientName}</span>
-                  <button
-                    type="button"
-                    onClick={() => runAction(() => addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [appointment.id] }))}
-                    disabled={busy}
-                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft disabled:opacity-60"
-                  >
-                    Ajouter à la tournée
-                  </button>
+                  <Button type="button" variant="secondary" onClick={() => runAction(() => addAppointmentStopsAction({ tourRunId: tourRun.id, appointmentIds: [appointment.id] }))} disabled={busy} className="shrink-0">Ajouter à la tournée</Button>
                 </li>
               ))}
             </ul>
@@ -686,9 +678,9 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
           />
         </div>
 
-        <button type="button" onClick={() => setAdvancedOpen((current) => !current)} className="mt-4 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo">
-          {advancedOpen ? "− Masquer les options avancées" : "+ Options avancées"}
-        </button>
+        <Button type="button" variant="secondary" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((current) => !current)} icon={advancedOpen ? <Minus aria-hidden="true" className="h-4 w-4" /> : <Plus aria-hidden="true" className="h-4 w-4" />} className="mt-4">
+          {advancedOpen ? "Masquer les options avancées" : "Options avancées"}
+        </Button>
         {advancedOpen ? (
           <AdvancedOptions
             tourRun={tourRun}
@@ -699,9 +691,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
       </Card>
 
       {/* Bascule mobile : la carte et la timeline occupent chacune tout l'écran sous 1024px plutôt que de s'écraser côte à côte. */}
-      <div className="flex gap-1 lg:hidden">
-        <button type="button" onClick={() => setMobileView("map")} className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-extrabold ${mobileView === "map" ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted"}`}>Carte</button>
-        <button type="button" onClick={() => setMobileView("list")} className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-extrabold ${mobileView === "list" ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted"}`}>Tournée</button>
+      <div className="rounded-2xl bg-animeo-bg p-1 lg:hidden">
+        <Tabs label="Carte ou tournée" stretch tabs={MOBILE_VIEWS} value={mobileView} onChange={setMobileView} />
       </div>
 
       {/* Timeline à gauche (largeur fixe, comme une liste de travail), carte à
@@ -724,13 +715,9 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
 
         <div className={mobileView === "map" ? "block" : "hidden lg:block"}>
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => { setShowNearbyClients((current) => !current); setSelectedClientId(null); }}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showNearbyClients ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
-            >
-              👥 {showNearbyClients ? "Masquer" : "Afficher"} les clients du secteur ({sectorClients.length})
-            </button>
+            <Button type="button" variant="secondary" active={showNearbyClients} aria-pressed={showNearbyClients} onClick={() => { setShowNearbyClients((current) => !current); setSelectedClientId(null); }} icon={<Users aria-hidden="true" className="h-4 w-4" />}>
+              {showNearbyClients ? "Masquer" : "Afficher"} les clients du secteur ({sectorClients.length})
+            </Button>
             {showNearbyClients ? (
               <label className="inline-flex items-center gap-1.5 text-xs font-bold text-animeo-muted">
                 Rayon
@@ -739,14 +726,9 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                 </select>
               </label>
             ) : null}
-            <button
-              type="button"
-              onClick={() => setShowLiveLocation((current) => !current)}
-              aria-pressed={showLiveLocation}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold transition ${showLiveLocation ? "bg-animeo-dark text-white" : "bg-animeo-bg text-animeo-muted hover:text-animeo-dark"}`}
-            >
-              📍 {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
-            </button>
+            <Button type="button" variant="secondary" active={showLiveLocation} aria-pressed={showLiveLocation} onClick={() => setShowLiveLocation((current) => !current)} icon={<LocateFixed aria-hidden="true" className="h-4 w-4" />}>
+              {showLiveLocation ? "Masquer ma position" : "Afficher ma position"}
+            </Button>
             {showLiveLocation && liveLocationError ? <span className="text-xs font-bold text-animeo-danger">{liveLocationError}</span> : null}
           </div>
           <TourRunMap
@@ -768,10 +750,8 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                   {selectedClient.dueForReminder ? " · À relancer" : ""}
                 </p>
                 <div className="mt-2 flex gap-2">
-                  <button type="button" onClick={() => { setClientAppointmentError(null); setAppointmentModalOpen(true); }} className="flex-1 rounded-lg bg-animeo px-3 py-1.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover">
-                    Ajouter à la tournée
-                  </button>
-                  <button type="button" onClick={() => setSelectedClientId(null)} className="rounded-lg bg-animeo-bg px-3 py-1.5 text-xs font-extrabold text-animeo-muted">✕</button>
+                  <Button type="button" onClick={() => { setClientAppointmentError(null); setAppointmentModalOpen(true); }} className="flex-1">Ajouter à la tournée</Button>
+                  <CloseButton onClick={() => setSelectedClientId(null)} tooltipSide="top" />
                 </div>
               </Card>
             ) : undefined}
@@ -783,14 +763,9 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
                 {unlocatedSectorClients.map((client) => (
                   <li key={client.id} className="flex items-center justify-between gap-2 text-xs font-semibold text-animeo-dark">
                     <span className="truncate">{client.animalName} — {client.ownerName} ({client.city})</span>
-                    <button
-                      type="button"
-                      onClick={() => handleGeocodeClient(client.clientId)}
-                      disabled={geocodingClientId === client.clientId}
-                      className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-xs font-extrabold text-animeo-warning shadow-sm transition hover:bg-animeo-warning-soft disabled:opacity-60"
-                    >
+                    <Button type="button" variant="secondary" onClick={() => handleGeocodeClient(client.clientId)} disabled={geocodingClientId === client.clientId} className="shrink-0">
                       {geocodingClientId === client.clientId ? "Localisation…" : "Localiser"}
-                    </button>
+                    </Button>
                   </li>
                 ))}
               </ul>
@@ -869,17 +844,20 @@ export function TourRunEditor({ dateId, tourRun, savedPlaces, availableAppointme
         />
       ) : null}
 
-      {/* Unification des tournées, phase 3 : suppression en lien texte
-          discret plutôt que dans la rangée d'actions primaires — la
-          suppression d'une journée n'est pas un geste courant. */}
+      {/* Unification des tournées, phase 3 : la suppression reste à l'écart,
+          en bas de page, plutôt que dans la rangée d'actions — ce n'est pas
+          un geste courant. */}
       <div className="text-center">
-        <button type="button" onClick={() => setDeleteConfirmOpen(true)} className="text-xs font-semibold text-animeo-muted underline-offset-2 hover:text-animeo-danger hover:underline">
-          Supprimer cette journée
-        </button>
+        <Button type="button" variant="danger" onClick={() => setDeleteConfirmOpen(true)}>Supprimer cette journée</Button>
       </div>
     </div>
   );
 }
+
+const MOBILE_VIEWS = [
+  { id: "map", label: "Carte" },
+  { id: "list", label: "Tournée" },
+] as const;
 
 function EditorHeader({ dateId, onClose, onChangeDate }: { dateId: string; onClose: () => void; onChangeDate: (dateId: string) => void }) {
   const date = new Date(`${dateId}T00:00:00.000Z`);
@@ -892,12 +870,16 @@ function EditorHeader({ dateId, onClose, onChangeDate }: { dateId: string; onClo
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <button type="button" onClick={onClose} className="inline-flex items-center gap-1.5 text-sm font-extrabold text-animeo-muted hover:text-animeo-dark">← Retour</button>
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => shift(-1)} aria-label="Jour précédent" className="flex h-9 w-9 items-center justify-center rounded-lg border border-animeo-border text-animeo-dark hover:bg-animeo-bg">‹</button>
-        <span className="min-w-[220px] text-center text-sm font-extrabold text-animeo-dark">{formatFrenchDate(date)}</span>
-        <button type="button" onClick={() => shift(1)} aria-label="Jour suivant" className="flex h-9 w-9 items-center justify-center rounded-lg border border-animeo-border text-animeo-dark hover:bg-animeo-bg">›</button>
-        <button type="button" onClick={() => onChangeDate(new Date().toISOString().slice(0, 10))} className="ml-1 rounded-lg border border-animeo-border px-3 py-2 text-xs font-extrabold text-animeo-dark hover:bg-animeo-bg">Aujourd’hui</button>
+      <Button type="button" variant="secondary" onClick={onClose} icon={<ArrowLeft aria-hidden="true" className="h-4 w-4" />}>Retour</Button>
+      <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
+        <IconButton label="Jour précédent" onClick={() => shift(-1)} tooltipSide="bottom">
+          <ChevronLeft aria-hidden="true" className="h-5 w-5" />
+        </IconButton>
+        <span className="min-w-0 flex-1 text-center text-sm font-extrabold text-animeo-dark sm:min-w-[220px] sm:flex-none">{formatFrenchDate(date)}</span>
+        <IconButton label="Jour suivant" onClick={() => shift(1)} tooltipSide="bottom">
+          <ChevronRight aria-hidden="true" className="h-5 w-5" />
+        </IconButton>
+        <Button type="button" variant="secondary" onClick={() => onChangeDate(new Date().toISOString().slice(0, 10))}>Aujourd’hui</Button>
       </div>
     </div>
   );

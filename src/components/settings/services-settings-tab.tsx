@@ -91,7 +91,7 @@ export function ServicesSettingsTab({ services, zoneNames, kilometricFeesEnabled
               <div className="mt-5 flex items-center justify-between gap-2 border-t border-animeo-border-soft pt-4">
                 <Button type="button" variant="secondary" onClick={() => setModal(service)} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
                 {/* Supprimer : corbeille à l'écart, et toujours une confirmation. */}
-                <IconButton variant="danger" label={`Supprimer ${service.name}`} onClick={() => setDeleting(service)} tooltipAlign="end">
+                <IconButton variant="danger" label={`Supprimer ${service.name}`} tooltip="Supprimer" onClick={() => setDeleting(service)} tooltipAlign="end">
                   <Trash2 aria-hidden="true" className="h-5 w-5" />
                 </IconButton>
               </div>

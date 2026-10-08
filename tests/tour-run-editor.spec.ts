@@ -120,7 +120,7 @@ test.describe("Éditeur de tournées interactif", () => {
 
     // Ajout du rendez-vous du jour (le panneau "à placer", en arrière-plan,
     // affiche aussi ce nom — on scope à la modale pour lever l'ambiguïté).
-    await page.getByRole("button", { name: "+ Ajouter un arrêt" }).click();
+    await page.getByRole("button", { name: "Ajouter un arrêt" }).click();
     const addStopDialog = page.locator('[role="dialog"]').first();
     await expect(addStopDialog.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
     await addStopDialog.getByText("RexE2ETourRun").click();
@@ -133,8 +133,8 @@ test.describe("Éditeur de tournées interactif", () => {
     await expect(timelineCard.getByText("RexE2ETourRun")).toBeVisible({ timeout: 10000 });
 
     // Ajout d'une adresse manuelle.
-    await page.getByRole("button", { name: "+ Ajouter un arrêt" }).click();
-    await page.getByRole("button", { name: "Adresse manuelle" }).click();
+    await page.getByRole("button", { name: "Ajouter un arrêt" }).click();
+    await page.getByRole("tab", { name: "Adresse manuelle" }).click();
     await page.locator("#manual-stop-label").fill("Pause déjeuner");
     await page.getByRole("button", { name: "Ajouter comme étape" }).click();
 

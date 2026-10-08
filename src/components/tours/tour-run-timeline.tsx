@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "@/components/ui/icon";
+import { ChevronDown, ChevronUp, GripVertical, Lock, LockOpen, Phone, X } from "lucide-react";
+import { Toggle } from "@/components/settings/settings-fields";
 import { ActionMenu } from "@/components/ui/action-menu";
+import { Button, buttonBaseClassName, buttonSizeClassName, buttonVariantClassName } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { useHasMounted } from "@/components/ui/use-has-mounted";
 import { formatDistanceMeters, formatDurationSeconds } from "@/lib/maps/map-utils";
 import { formatEuros } from "@/lib/format";
@@ -12,23 +16,9 @@ import type { TourStopView } from "@/lib/tour-runs";
 
 const speciesEmoji: Record<string, string> = { Chien: "🐶", Chat: "🐱", Cheval: "🐴", NAC: "🐹" };
 
-function GripIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><circle cx="7" cy="5" r="1.4" /><circle cx="13" cy="5" r="1.4" /><circle cx="7" cy="10" r="1.4" /><circle cx="13" cy="10" r="1.4" /><circle cx="7" cy="15" r="1.4" /><circle cx="13" cy="15" r="1.4" /></svg>
-  );
-}
-
-function CrossIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-4 w-4"><path d="M5 5l10 10M15 5 5 15" /></svg>;
-}
-
-function LockIcon({ locked }: { locked: boolean }) {
-  return locked ? (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5"><path d="M10 2a4 4 0 0 0-4 4v2H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1V6a4 4 0 0 0-4-4Zm-2 6V6a2 2 0 1 1 4 0v2Z" /></svg>
-  ) : (
-    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 opacity-50"><path d="M14 8V6a4 4 0 1 0-8 0h2a2 2 0 1 1 4 0v2H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1Z" /></svg>
-  );
-}
+// Le même habillage que les boutons secondaires, pour les liens de la ligne
+// d'actions (« Appeler », « Y aller ») : ils s'alignent sur leurs voisins.
+const secondaryLink = `${buttonBaseClassName} ${buttonVariantClassName.secondary} ${buttonSizeClassName.md}`;
 
 type TourRunTimelineProps = {
   stops: TourStopView[];
@@ -145,36 +135,29 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                 {" "}— {stop.lateWarningMinutes} minute{stop.lateWarningMinutes > 1 ? "s" : ""} manquante{stop.lateWarningMinutes > 1 ? "s" : ""}.
               </p>
               {onFindSolution ? (
-                <button type="button" onClick={onFindSolution} className="mt-2 rounded-lg bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-danger shadow-sm transition hover:bg-animeo-danger-soft">
-                  Trouver une solution
-                </button>
+                <Button type="button" variant="secondary" onClick={onFindSolution} className="mt-2">Trouver une solution</Button>
               ) : null}
             </div>
           ) : null}
           <div className="flex items-start gap-1 py-2">
-            <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
-              <button
-                type="button"
-                aria-label={`Glisser pour déplacer ${stop.label}`}
-                onPointerDown={(event) => handlePointerDown(event, stop.id)}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                className="flex h-9 w-8 cursor-grab touch-none items-center justify-center text-animeo-muted active:cursor-grabbing"
-              >
-                <GripIcon />
-              </button>
-              <div className="flex flex-col gap-0.5">
-                <button type="button" onClick={() => onMove(stop.id, "up")} disabled={index === 0} aria-label={`Monter ${stop.label}`} className="flex h-5 w-5 items-center justify-center rounded text-animeo-muted hover:bg-animeo-bg disabled:opacity-30">▲</button>
-                <button type="button" onClick={() => onMove(stop.id, "down")} disabled={index === stops.length - 1} aria-label={`Descendre ${stop.label}`} className="flex h-5 w-5 items-center justify-center rounded text-animeo-muted hover:bg-animeo-bg disabled:opacity-30">▼</button>
-              </div>
-            </div>
+            {/* Poignée de glisser : exception du plan, elle garde sa forme. */}
+            <button
+              type="button"
+              aria-label={`Glisser pour déplacer ${stop.label}`}
+              onPointerDown={(event) => handlePointerDown(event, stop.id)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              className="flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center text-animeo-muted active:cursor-grabbing"
+            >
+              <GripVertical aria-hidden="true" className="h-5 w-5" />
+            </button>
 
             <button
               type="button"
               onClick={() => onSelect(stop.id)}
               aria-pressed={selectedId === stop.id}
-              className={`min-h-11 flex-1 rounded-xl px-3 py-2 text-left transition ${selectedId === stop.id ? "bg-animeo-soft" : "hover:bg-animeo-bg"}`}
+              className={`min-h-11 min-w-0 flex-1 rounded-xl px-3 py-2 text-left transition ${selectedId === stop.id ? "bg-animeo-soft" : "hover:bg-animeo-bg"}`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-animeo-dark text-[11px] font-black text-white">{index + 1}</span>
@@ -183,7 +166,11 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
                   {stop.animalSpecies ? `${speciesEmoji[stop.animalSpecies] ?? ""} ` : ""}
                   {stop.label}
                 </p>
-                {stop.appointmentId ? <span title={stop.locked ? "Horaire fixe" : "Horaire flexible"}><LockIcon locked={stop.locked} /></span> : null}
+                {stop.appointmentId ? (
+                  <span title={stop.locked ? "Horaire fixe" : "Horaire flexible"}>
+                    {stop.locked ? <Lock aria-hidden="true" className="h-3.5 w-3.5" /> : <LockOpen aria-hidden="true" className="h-3.5 w-3.5 opacity-50" />}
+                  </span>
+                ) : null}
                 {stop.outOfZone ? <span className="rounded-full bg-animeo-warning-soft px-2 py-0.5 text-xs font-extrabold text-animeo-danger">Hors zone</span> : null}
                 {stop.completedAt ? <span className="rounded-full bg-animeo-soft px-2 py-0.5 text-xs font-extrabold text-animeo-positive">Terminé à {stop.completedAt}</span> : null}
               </div>
@@ -191,43 +178,35 @@ export function TourRunTimeline({ stops, selectedId, onSelect, onReorder, onMove
               {stop.price != null ? <p className="mt-0.5 pl-8 text-xs font-bold text-animeo-muted">{formatEuros(stop.price)}</p> : null}
             </button>
 
-            <div className="flex shrink-0 flex-col items-center gap-1 pt-2">
-              {stop.appointmentId ? (
-                <button
-                  type="button"
-                  onClick={() => onToggleFlexible(stop.id, !stop.flexible)}
-                  className={`rounded-lg px-2 py-1 text-xs font-extrabold ${stop.flexible ? "bg-animeo-warning-soft text-animeo-warning" : "bg-animeo-bg text-animeo-muted"}`}
-                  title={stop.flexible ? "Rendre fixe" : "Rendre flexible"}
-                >
-                  {stop.flexible ? "Flexible" : "Fixe"}
-                </button>
-              ) : null}
-              <button type="button" onClick={() => onRemove(stop.id)} aria-label={`Retirer ${stop.label} de la tournée`} className="flex h-8 w-8 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-danger-soft hover:text-animeo-danger">
-                <CrossIcon />
-              </button>
-            </div>
+            <IconButton variant="danger" label={`Retirer ${stop.label} de la tournée`} tooltip="Retirer de la tournée" onClick={() => onRemove(stop.id)} tooltipAlign="end">
+              <X aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
           </div>
 
-          {stop.appointmentId ? (
-            <div className="flex flex-wrap gap-1.5 pb-3 pl-14">
-              {stop.phone ? (
-                <a href={toTelHref(stop.phone) ?? undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
-                  <PhoneIcon /> Appeler
-                </a>
-              ) : null}
-              {stop.latitude != null && stop.longitude != null ? <GoButton coordinates={{ lat: stop.latitude, lng: stop.longitude }} /> : null}
-              {!stop.completedAt ? (
-                <button
-                  type="button"
-                  onClick={() => onComplete(stop.id, stop.appointmentId!)}
-                  disabled={completingId === stop.id}
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-animeo px-2.5 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {completingId === stop.id ? "Enregistrement…" : "Terminé"}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2 pb-3 pl-9">
+            <IconButton label={`Monter ${stop.label}`} tooltip="Monter" onClick={() => onMove(stop.id, "up")} disabled={index === 0} tooltipAlign="start">
+              <ChevronUp aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
+            <IconButton label={`Descendre ${stop.label}`} tooltip="Descendre" onClick={() => onMove(stop.id, "down")} disabled={index === stops.length - 1} tooltipAlign="start">
+              <ChevronDown aria-hidden="true" className="h-5 w-5" />
+            </IconButton>
+            {stop.appointmentId ? (
+              <>
+                <Toggle compact checked={stop.flexible} onChange={(flexible) => onToggleFlexible(stop.id, flexible)} label={stop.flexible ? "Flexible" : "Fixe"} ariaLabel={`Horaire flexible pour ${stop.label}`} />
+                {stop.phone ? (
+                  <a href={toTelHref(stop.phone) ?? undefined} className={secondaryLink}>
+                    <Phone aria-hidden="true" className="h-4 w-4" /> Appeler
+                  </a>
+                ) : null}
+                {stop.latitude != null && stop.longitude != null ? <GoButton coordinates={{ lat: stop.latitude, lng: stop.longitude }} /> : null}
+                {!stop.completedAt ? (
+                  <Button type="button" onClick={() => onComplete(stop.id, stop.appointmentId!)} disabled={completingId === stop.id}>
+                    {completingId === stop.id ? "Enregistrement…" : "Terminé"}
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
 
           {stop.id === selectedId ? (
             <StopDetailPanel stop={stop} onEditSchedule={onEditSchedule} onEditTimeWindow={onEditTimeWindow} />
@@ -369,9 +348,9 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
         href={buildNavUrl(provider, coordinates)}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-l-lg bg-animeo-bg pl-2.5 pr-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+        className={`${secondaryLink} rounded-r-none`}
       >
-        <Icon name="car" className="h-3.5 w-3.5" /> Y aller
+        <Icon name="car" className="h-4 w-4" /> Y aller
       </a>
       <button
         ref={triggerRef}
@@ -380,9 +359,9 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Choisir l’application de navigation"
-        className="inline-flex min-h-8 items-center rounded-r-lg border-l border-white bg-animeo-bg px-1 text-animeo-dark transition hover:bg-animeo-soft"
+        className={`${buttonBaseClassName} ${buttonVariantClassName.secondary} -ml-px min-h-11 w-11 shrink-0 rounded-l-none`}
       >
-        <Icon name="arrow" className="h-3 w-3 rotate-90" />
+        <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {/* Chaque entrée ouvre l'itinéraire dans l'application choisie, qui
           devient celle de « Y aller ». */}
@@ -401,13 +380,5 @@ function GoButton({ coordinates }: { coordinates: { lat: number; lng: number } }
         }))}
       />
     </div>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
-    </svg>
   );
 }

@@ -52,7 +52,7 @@ test.describe("Système de notifications (toasts)", () => {
     // Les zones vivent dans un panneau latéral ouvert depuis les réglages de
     // tournées, et non plus sur la page Tournées elle-même.
     await page.getByRole("button", { name: /^Zones \(/ }).click();
-    await page.getByRole("button", { name: "+ Nouvelle zone" }).click();
+    await page.getByRole("button", { name: "Nouvelle zone" }).click();
     // Deux dialogues empilés : le panneau des zones, puis la fenêtre de
     // création — on vise celle qui porte le formulaire.
     const dialog = page.locator('[role="dialog"]').filter({ has: page.getByPlaceholder("Ex. Zone Le Havre") });

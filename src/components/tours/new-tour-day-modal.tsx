@@ -113,7 +113,7 @@ export function NewTourDayModal({ defaultDateId, savedPlaces, departureKnown, de
           {matchedPattern && !patternApplied ? (
             <div className="rounded-xl bg-animeo-soft p-3 text-xs text-animeo-dark">
               <p>Cette date correspond au motif « {matchedPattern.name} ».</p>
-              <button type="button" onClick={applyPattern} className="mt-1.5 font-medium text-animeo hover:underline">Reprendre ses réglages</button>
+              <Button type="button" variant="secondary" onClick={applyPattern} className="mt-1.5">Reprendre ses réglages</Button>
             </div>
           ) : null}
 

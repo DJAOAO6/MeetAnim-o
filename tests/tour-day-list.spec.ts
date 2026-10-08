@@ -204,8 +204,9 @@ test.describe("Page Tournées — liste de journées datées", () => {
     await page.getByRole("button", { name: /Tout sélectionner/ }).click();
     await expect(page.getByText("4 journées sélectionnées")).toBeVisible();
 
-    page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: /Supprimer la sélection/ }).click();
+    // La confirmation est une fenêtre du logiciel.
+    await page.getByRole("dialog", { name: "Supprimer 4 journées de tournée ?" }).getByRole("button", { name: "Supprimer", exact: true }).click();
 
     await expect(page.getByText("Aucune journée à venir pour l’instant.")).toBeVisible({ timeout: 15000 });
     const reste = await sql`SELECT COUNT(*)::int AS n FROM "TourRun" WHERE "userId" = ${testUserId}`;
@@ -238,8 +239,8 @@ test.describe("Page Tournées — liste de journées datées", () => {
     await page.goto("/dashboard/tournees");
     const rowOf = () => page.locator("li").filter({ has: page.getByRole("button", { name: new RegExp(zoneName) }) });
     await expect(rowOf().first()).toBeVisible({ timeout: 15000 });
-    page.once("dialog", (dialog) => dialog.accept());
     await rowOf().first().getByRole("button", { name: /^Supprimer la tournée du/ }).click();
+    await page.getByRole("dialog", { name: /^Supprimer la tournée du/ }).getByRole("button", { name: "Supprimer", exact: true }).click();
     await expect(rowOf()).toHaveCount(0, { timeout: 15000 });
 
     const [kept] = await sql`SELECT "cancelledAt" FROM "TourRun" WHERE id = ${runId}`;

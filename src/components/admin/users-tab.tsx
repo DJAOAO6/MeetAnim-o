@@ -217,7 +217,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
               <Button type="button" variant="secondary" onClick={() => setEditing(true)} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
             )}
             <Button type="button" variant="secondary" active={managingPermissions} aria-expanded={managingPermissions} onClick={() => setManagingPermissions((current) => !current)}>Permissions</Button>
-            <IconButton variant="danger" label={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : `Supprimer le compte de ${fullName}`} disabled={pending || isSelf} onClick={() => setConfirming("delete")} tooltipAlign="end">
+            <IconButton variant="danger" label={isSelf ? "Vous ne pouvez pas supprimer votre propre compte" : `Supprimer le compte de ${fullName}`} tooltip={isSelf ? undefined : "Supprimer"} disabled={pending || isSelf} onClick={() => setConfirming("delete")} tooltipAlign="end">
               <Trash2 aria-hidden="true" className="h-5 w-5" />
             </IconButton>
           </div>

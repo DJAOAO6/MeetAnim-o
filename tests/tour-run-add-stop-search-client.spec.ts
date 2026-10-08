@@ -75,8 +75,8 @@ test.describe("Ajouter un arrêt — rechercher un client", () => {
     await page.goto(`/dashboard/tournees?date=${testDateId}`);
     await expect(page.getByText(`Tournée ${testOwnerLastName}`).filter({ visible: true })).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole("button", { name: "+ Ajouter un arrêt" }).click();
-    await page.getByRole("button", { name: "Rechercher un client" }).click();
+    await page.getByRole("button", { name: "Ajouter un arrêt" }).click();
+    await page.getByRole("tab", { name: "Rechercher un client" }).click();
 
     await page.getByPlaceholder("Rechercher un animal ou son propriétaire").fill(testAnimalName);
     const option = page.getByRole("option", { name: new RegExp(testAnimalName) });

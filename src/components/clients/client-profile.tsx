@@ -430,7 +430,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
                 </span>
               </button>
               {canDelete ? (
-                <IconButton variant="danger" label={`Supprimer ${animal.name}`} disabled={Boolean(isDeleting)} onClick={() => setConfirming(animal)} tooltipAlign="end">
+                <IconButton variant="danger" label={`Supprimer ${animal.name}`} tooltip="Supprimer" disabled={Boolean(isDeleting)} onClick={() => setConfirming(animal)} tooltipAlign="end">
                   <Trash2 aria-hidden="true" className="h-5 w-5" />
                 </IconButton>
               ) : (

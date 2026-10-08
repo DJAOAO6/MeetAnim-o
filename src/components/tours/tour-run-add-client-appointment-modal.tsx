@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import { formatEuros } from "@/lib/format";
 import type { MapClient } from "@/data/tours";
@@ -73,7 +75,7 @@ export function TourRunAddClientAppointmentModal({ client, services, suggestedSt
                 {client.species ? `${speciesEmoji[client.species] ?? ""} ` : ""}{client.animalName} — {client.ownerName}
               </p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-animeo-muted hover:bg-animeo-bg">✕</button>
+            <CloseButton onClick={onClose} />
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
@@ -111,11 +113,11 @@ export function TourRunAddClientAppointmentModal({ client, services, suggestedSt
           </div>
 
           <div className="flex justify-end gap-2 border-t border-animeo-border-soft p-5">
-            <button type="button" onClick={onClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
+            <Button type="button" variant="secondary" onClick={onClose}>Annuler</Button>
             {services.length > 0 ? (
-              <button type="button" onClick={submit} disabled={!selectedService || !start || submitting} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+              <Button type="button" onClick={submit} disabled={!selectedService || !start || submitting}>
                 {submitting ? "Ajout…" : "Ajouter à la tournée"}
-              </button>
+              </Button>
             ) : null}
           </div>
         </section>

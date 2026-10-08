@@ -2,10 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Modal } from "@/components/ui/modal";
 import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import type { City, Zone, ZoneSector } from "@/data/tours";
+import { Plus, Trash2 } from "lucide-react";
 
 export type ZoneFormValue = {
   id?: string;
@@ -125,9 +127,7 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
                   <p className="text-sm font-bold text-animeo-dark">
                     {sector.radiusKm} km autour de {sector.label}
                   </p>
-                  <button type="button" onClick={() => setSector(null)} className="text-xs font-medium text-animeo-danger hover:underline">
-                    Retirer le secteur
-                  </button>
+                  <Button type="button" variant="danger" onClick={() => setSector(null)}>Retirer le secteur</Button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {RADIUS_TIERS.map((km) => (
@@ -153,7 +153,7 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
             </div>
             <div className="space-y-2">
               {cities.map((city, index) => (
-                <div key={city.id} className="grid grid-cols-[minmax(0,1fr)_120px_36px] gap-2 rounded-2xl bg-animeo-bg p-2">
+                <div key={city.id} className="grid grid-cols-[minmax(0,1fr)_120px_44px] gap-2 rounded-2xl bg-animeo-bg p-2">
                   <div>
                     <span className="sr-only">Ville {index + 1}</span>
                     <UnifiedSearch
@@ -170,11 +170,13 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
                     <span className="sr-only">Code postal {index + 1}</span>
                     <input value={city.postalCode} onChange={(event) => updateCity(city.id, "postalCode", event.target.value)} placeholder="Code postal" inputMode="numeric" className={inputClassName} required />
                   </label>
-                  <button type="button" onClick={() => removeCity(city.id)} disabled={cities.length === 1} aria-label={`Supprimer la ligne ${index + 1}`} className="flex h-11 items-center justify-center rounded-xl text-lg font-medium text-animeo-muted transition hover:bg-white hover:text-animeo-danger disabled:opacity-30">×</button>
+                  <IconButton variant="danger" label={`Supprimer la ligne ${index + 1}`} onClick={() => removeCity(city.id)} disabled={cities.length === 1} tooltipAlign="end">
+                    <Trash2 aria-hidden="true" className="h-5 w-5" />
+                  </IconButton>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={addCity} className="mt-3 rounded-xl border border-animeo px-4 py-2.5 text-sm font-medium text-animeo transition hover:bg-animeo-soft">+ Ajouter une ville</button>
+            <Button type="button" variant="secondary" onClick={addCity} icon={<Plus aria-hidden="true" className="h-4 w-4" />} className="mt-3">Ajouter une ville</Button>
           </div>
         </div>
 

@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
@@ -13,6 +15,7 @@ import { saveZoneAction } from "@/lib/tours-actions";
 import type { GeocodedAddress } from "@/data/geocoding";
 import type { Tour, Zone } from "@/data/tours";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { Plus, Trash2 } from "lucide-react";
 
 export type TourFormValue = {
   id?: string;
@@ -172,7 +175,7 @@ export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZone
                 <p className="mt-1 text-sm text-animeo-muted">Une ou plusieurs zones, un rythme, un point de départ.</p>
               </div>
             </div>
-            <button type="button" onClick={guardedClose} aria-label="Fermer la fenêtre" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-xl text-animeo-muted shadow-sm">×</button>
+            <CloseButton onClick={guardedClose} label="Fermer la fenêtre" />
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -205,9 +208,9 @@ export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZone
                   })}
                 </div>
                 {zoneQuery.trim() && !exactZoneMatch ? (
-                  <button type="button" onClick={() => setZoneDraftName(zoneQuery.trim())} disabled={creatingZone} className="mt-2 text-xs font-medium text-animeo hover:underline disabled:opacity-60">
-                    {creatingZone ? "Création…" : `+ Créer la zone "${zoneQuery.trim()}"`}
-                  </button>
+                  <Button type="button" variant="secondary" onClick={() => setZoneDraftName(zoneQuery.trim())} disabled={creatingZone} icon={<Plus aria-hidden="true" className="h-4 w-4" />} className="mt-2">
+                    {creatingZone ? "Création…" : `Créer la zone "${zoneQuery.trim()}"`}
+                  </Button>
                 ) : null}
                 {zoneIds.length === 0 ? <p className="mt-1.5 text-xs font-semibold text-animeo-danger">Sélectionnez au moins une zone.</p> : null}
               </Field>
@@ -285,17 +288,12 @@ export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZone
 
             <div className="flex flex-col-reverse gap-2 border-t border-animeo-border-soft p-5 sm:flex-row sm:items-center sm:justify-end sm:p-6">
               {tour && onDelete ? (
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirmOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-500 transition hover:bg-red-500/20 sm:mr-auto"
-                >
-                  <TrashIcon />
+                <Button type="button" variant="danger" onClick={() => setDeleteConfirmOpen(true)} icon={<Trash2 aria-hidden="true" className="h-4 w-4" />} className="sm:mr-auto">
                   Supprimer la tournée
-                </button>
+                </Button>
               ) : null}
-              <button type="button" onClick={guardedClose} className="rounded-xl border border-animeo-border px-5 py-2.5 text-sm font-medium text-animeo-dark transition hover:bg-animeo-bg">Annuler</button>
-              <button type="submit" disabled={saving} className="rounded-xl bg-animeo px-5 py-2.5 text-sm font-medium text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Enregistrement…" : tour ? "Enregistrer" : "Créer la tournée"}</button>
+              <Button type="button" variant="secondary" onClick={guardedClose}>Annuler</Button>
+              <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : tour ? "Enregistrer" : "Créer la tournée"}</Button>
             </div>
           </form>
         </section>
@@ -319,17 +317,6 @@ export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZone
         ) : null}
       </div>
     </OverlayPortal>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
   );
 }
 

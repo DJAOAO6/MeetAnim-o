@@ -8,6 +8,8 @@ type IconButtonVariant = "secondary" | "danger";
 type IconButtonProps = Omit<ComponentProps<"button">, "aria-label" | "title" | "children"> & {
   /** Obligatoire : c'est le nom du bouton pour les lecteurs d'écran, et son infobulle. */
   label: string;
+  /** Infobulle plus courte que le nom, pour un bouton de ligne : « Monter » quand le nom dit « Monter Rex — Dupont ». */
+  tooltip?: string;
   variant?: IconButtonVariant;
   /** Le bouton tient quelque chose d'ouvert (un panneau, un menu) : il reste marqué. */
   active?: boolean;
@@ -30,7 +32,7 @@ const variantClassName: Record<IconButtonVariant, string> = {
  * icônes universelles — flèches, fermer, corbeille, aide, « ⋯ », réglages
  * d'affichage. Tout le reste garde son texte.
  */
-export function IconButton({ label, variant = "secondary", active = false, tooltipSide = "top", tooltipAlign = "center", type = "button", className = "", children, ...props }: IconButtonProps) {
+export function IconButton({ label, tooltip, variant = "secondary", active = false, tooltipSide = "top", tooltipAlign = "center", type = "button", className = "", children, ...props }: IconButtonProps) {
   return (
     <button
       {...props}
@@ -39,7 +41,7 @@ export function IconButton({ label, variant = "secondary", active = false, toolt
       className={`${tooltipHostClassName} inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${active ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-surface"} ${variantClassName[variant]} ${className}`}
     >
       {children}
-      <TooltipBubble label={label} side={tooltipSide} align={tooltipAlign} />
+      <TooltipBubble label={tooltip ?? label} side={tooltipSide} align={tooltipAlign} />
     </button>
   );
 }

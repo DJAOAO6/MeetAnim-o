@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button, buttonBaseClassName, buttonSizeClassName, buttonVariantClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { PageHeader } from "@/components/layout/page-header";
 import { formatDistanceMeters } from "@/lib/maps/map-utils";
 import { buildTourMapsLinks } from "@/lib/tour-maps";
@@ -12,6 +15,7 @@ import { deleteTourRunAction, deleteTourRunsAction } from "@/lib/tour-runs-actio
 import { notify } from "@/lib/notify";
 import type { TourRunView, TourDayListData, TourDayListItem } from "@/lib/tour-runs";
 import type { Coordinates } from "@/data/tours";
+import { Plus, Trash2 } from "lucide-react";
 
 const todayLabelFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 const weekdayShortFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "short" });
@@ -35,6 +39,8 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  // La suppression en attente de confirmation : la sélection, ou une journée.
+  const [confirming, setConfirming] = useState<{ kind: "selection" } | { kind: "day"; id: string; label: string } | null>(null);
 
   const visibleUpcoming = listData.upcoming.filter((item) => !removedIds.has(item.id));
   const visiblePastAll = listData.past.filter((item) => !removedIds.has(item.id));
@@ -59,8 +65,6 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
   async function deleteSelected() {
     const ids = [...selectedIds];
     if (ids.length === 0) return;
-    if (!window.confirm(`Supprimer ${ids.length} journée${ids.length > 1 ? "s" : ""} de tournée ? Les rendez-vous eux-mêmes ne sont pas supprimés, seules les journées (les itinéraires) le sont.`)) return;
-
     setBulkDeleting(true);
     const result = await deleteTourRunsAction(ids);
     setBulkDeleting(false);
@@ -76,8 +80,7 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
     router.refresh();
   }
 
-  async function deleteDay(id: string, label: string) {
-    if (!window.confirm(`Supprimer la tournée du ${label} ? Les rendez-vous eux-mêmes ne sont pas supprimés, seule la tournée (l’itinéraire) l’est.`)) return;
+  async function deleteDay(id: string) {
     setDeletingIds((current) => new Set(current).add(id));
     const result = await deleteTourRunAction(id);
     setDeletingIds((current) => {
@@ -100,37 +103,24 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
         title="Tournées"
         description="Vos journées de tournée, planifiées avant les rendez-vous."
         action={
-          <button type="button" onClick={onNewDay} className="inline-flex min-h-11 items-center gap-1.5 rounded-2xl bg-animeo px-5 py-3 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover">
-            <span aria-hidden="true" className="text-xl leading-none">+</span>
-            Nouvelle journée
-          </button>
+          <Button type="button" onClick={onNewDay} icon={<Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />}>Nouvelle journée</Button>
         }
       />
 
       <div className="space-y-8">
         {selectableIds.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-animeo-border-soft bg-animeo-bg px-4 py-3">
-            <button
-              type="button"
-              onClick={() => setSelectedIds(allSelected ? new Set() : new Set(selectableIds))}
-              className="rounded-xl border border-animeo-border bg-white px-3 py-1.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
-            >
+            <Button type="button" variant="secondary" onClick={() => setSelectedIds(allSelected ? new Set() : new Set(selectableIds))}>
               {allSelected ? "Tout désélectionner" : `Tout sélectionner (${selectableIds.length})`}
-            </button>
+            </Button>
             {selectedCount > 0 ? (
               <>
                 <span className="text-xs font-bold text-animeo-muted">
                   {selectedCount} journée{selectedCount > 1 ? "s" : ""} sélectionnée{selectedCount > 1 ? "s" : ""}
                 </span>
-                <button
-                  type="button"
-                  onClick={deleteSelected}
-                  disabled={bulkDeleting}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-animeo-danger-soft px-3 py-1.5 text-xs font-extrabold text-animeo-danger transition hover:opacity-80 disabled:opacity-50"
-                >
-                  <TrashIcon />
+                <Button type="button" variant="danger" onClick={() => setConfirming({ kind: "selection" })} disabled={bulkDeleting} icon={<Trash2 aria-hidden="true" className="h-4 w-4" />} className="ml-auto">
                   {bulkDeleting ? "Suppression…" : "Supprimer la sélection"}
-                </button>
+                </Button>
               </>
             ) : null}
           </div>
@@ -142,7 +132,7 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
             dateId={todayDateId}
             cabinetCoordinates={cabinetCoordinates}
             onOpen={() => onOpenDay(todayDateId)}
-            onDelete={() => deleteDay(today.id, "aujourd’hui")}
+            onDelete={() => setConfirming({ kind: "day", id: today.id, label: "d’aujourd’hui" })}
             deleting={deletingIds.has(today.id)}
           />
         ) : null}
@@ -155,7 +145,7 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
             <Card className="overflow-hidden p-0">
               <ul>
                 {visibleUpcoming.map((item) => (
-                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => deleteDay(item.id, item.dateLabel)} deleting={deletingIds.has(item.id) || (bulkDeleting && selectedIds.has(item.id))} selected={selectedIds.has(item.id)} onToggleSelected={() => toggleSelected(item.id)} />
+                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => setConfirming({ kind: "day", id: item.id, label: `du ${item.dateLabel}` })} deleting={deletingIds.has(item.id) || (bulkDeleting && selectedIds.has(item.id))} selected={selectedIds.has(item.id)} onToggleSelected={() => toggleSelected(item.id)} />
                 ))}
               </ul>
             </Card>
@@ -168,14 +158,14 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
             <Card className="overflow-hidden p-0">
               <ul>
                 {visiblePast.map((item) => (
-                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => deleteDay(item.id, item.dateLabel)} deleting={deletingIds.has(item.id) || (bulkDeleting && selectedIds.has(item.id))} selected={selectedIds.has(item.id)} onToggleSelected={() => toggleSelected(item.id)} dimmed />
+                  <DayRow key={item.id} item={item} onOpen={() => onOpenDay(item.dateId)} onDelete={() => setConfirming({ kind: "day", id: item.id, label: `du ${item.dateLabel}` })} deleting={deletingIds.has(item.id) || (bulkDeleting && selectedIds.has(item.id))} selected={selectedIds.has(item.id)} onToggleSelected={() => toggleSelected(item.id)} dimmed />
                 ))}
               </ul>
             </Card>
             {visiblePastAll.length > PAST_VISIBLE_COUNT ? (
-              <button type="button" onClick={() => setPastExpanded((current) => !current)} className="mt-3 text-xs font-extrabold text-animeo hover:underline">
+              <Button type="button" variant="secondary" onClick={() => setPastExpanded((current) => !current)} className="mt-3">
                 {pastExpanded ? "Réduire" : `Afficher les ${visiblePastAll.length - PAST_VISIBLE_COUNT} de plus`}
-              </button>
+              </Button>
             ) : null}
           </section>
         ) : null}
@@ -185,6 +175,25 @@ export function TourDayList({ today, todayDateId, cabinetCoordinates, listData, 
           <Link href="/dashboard/parametres" className="font-extrabold text-animeo hover:underline">Paramètres</Link>.
         </p>
       </div>
+
+      {confirming?.kind === "selection" ? (
+        <ConfirmModal
+          title={`Supprimer ${selectedCount} journée${selectedCount > 1 ? "s" : ""} de tournée ?`}
+          message="Les rendez-vous eux-mêmes ne sont pas supprimés, seules les journées (les itinéraires) le sont."
+          confirmLabel="Supprimer"
+          onConfirm={() => { setConfirming(null); void deleteSelected(); }}
+          onClose={() => setConfirming(null)}
+        />
+      ) : null}
+      {confirming?.kind === "day" ? (
+        <ConfirmModal
+          title={`Supprimer la tournée ${confirming.label} ?`}
+          message="Les rendez-vous eux-mêmes ne sont pas supprimés, seule la tournée (l’itinéraire) l’est."
+          confirmLabel="Supprimer"
+          onConfirm={() => { const { id } = confirming; setConfirming(null); void deleteDay(id); }}
+          onClose={() => setConfirming(null)}
+        />
+      ) : null}
     </>
   );
 }
@@ -220,9 +229,9 @@ function TodayCard({ tourRun, dateId, cabinetCoordinates, onOpen, onDelete, dele
               <h2 className="truncate text-lg font-black text-animeo-dark">{tourRun.name}</h2>
             </div>
           </div>
-          <button type="button" onClick={onDelete} disabled={deleting} aria-label="Supprimer la tournée d’aujourd’hui" title="Supprimer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-danger-soft hover:text-animeo-danger disabled:opacity-50">
-            <TrashIcon />
-          </button>
+          <IconButton variant="danger" label="Supprimer la tournée d’aujourd’hui" onClick={onDelete} disabled={deleting} tooltipAlign="end">
+            <Trash2 aria-hidden="true" className="h-5 w-5" />
+          </IconButton>
         </div>
         <p className="mt-1 text-sm capitalize text-animeo-muted">{todayLabelFormatter.format(new Date(`${dateId}T12:00:00.000Z`))}</p>
 
@@ -236,11 +245,9 @@ function TodayCard({ tourRun, dateId, cabinetCoordinates, onOpen, onDelete, dele
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={onOpen} className="inline-flex min-h-11 items-center rounded-2xl bg-animeo px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover">
-            Ouvrir ma tournée
-          </button>
+          <Button type="button" onClick={onOpen}>Ouvrir ma tournée</Button>
           {mapsResult.links.map((link) => (
-            <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 rounded-2xl border border-animeo-border bg-white px-5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
+            <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer" className={`${buttonBaseClassName} ${buttonVariantClassName.secondary} ${buttonSizeClassName.md}`}>
               <Icon name="car" className="h-4 w-4" />
               {mapsResult.links.length > 1 ? link.label : "Itinéraire complet"}
             </a>
@@ -292,22 +299,11 @@ function DayRow({ item, onOpen, onDelete, deleting, selected, onToggleSelected, 
             </p>
           </div>
         </button>
-        <button type="button" onClick={onDelete} disabled={deleting} aria-label={`Supprimer la tournée du ${item.dateLabel}`} title="Supprimer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted transition hover:bg-animeo-danger-soft hover:text-animeo-danger disabled:opacity-50">
-          <TrashIcon />
-        </button>
+        <IconButton variant="danger" label={`Supprimer la tournée du ${item.dateLabel}`} tooltip="Supprimer" onClick={onDelete} disabled={deleting} tooltipAlign="end">
+          <Trash2 aria-hidden="true" className="h-5 w-5" />
+        </IconButton>
         <Icon name="chevron" className="h-4 w-4 shrink-0 -rotate-90 text-animeo-muted" />
       </div>
     </li>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
   );
 }

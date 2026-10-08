@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
 import type { Tour, Zone } from "@/data/tours";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 
 type ZonesPanelProps = {
   zones: Zone[];
@@ -80,11 +84,11 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
               <h2 id="zones-panel-title" className="text-lg font-medium text-animeo-dark">Zones</h2>
               <p className="mt-0.5 text-xs text-animeo-muted">Villes et codes postaux — aucun rayon ni contour géographique en V1.</p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 items-center justify-center rounded-xl text-animeo-muted hover:bg-animeo-bg">✕</button>
+            <CloseButton onClick={onClose} />
           </div>
 
           <div className="flex-1 overflow-y-auto p-5">
-            <button type="button" onClick={onNewZone} className="mb-4 w-full rounded-xl border border-animeo px-4 py-2.5 text-sm font-medium text-animeo transition hover:bg-animeo-soft">+ Nouvelle zone</button>
+            <Button type="button" variant="secondary" onClick={onNewZone} icon={<Plus aria-hidden="true" className="h-4 w-4" />} className="mb-4 w-full">Nouvelle zone</Button>
 
             {zones.length === 0 ? (
               <p className="text-sm text-animeo-muted">Aucune zone pour l’instant.</p>
@@ -101,9 +105,11 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
                             {zone.cities.length} ville{zone.cities.length > 1 ? "s" : ""} · {count} tournée{count > 1 ? "s" : ""}
                           </p>
                         </div>
-                        <div className="flex shrink-0 gap-1">
-                          <button type="button" onClick={() => onEditZone(zone)} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-animeo-dark hover:bg-animeo-bg">Modifier</button>
-                          <button type="button" onClick={() => startDelete(zone)} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-animeo-danger hover:bg-animeo-danger-soft">Supprimer</button>
+                        <div className="flex shrink-0 gap-2">
+                          <Button type="button" variant="secondary" onClick={() => onEditZone(zone)} icon={<Pencil aria-hidden="true" className="h-4 w-4" />}>Modifier</Button>
+                          <IconButton variant="danger" label={`Supprimer la zone ${zone.name}`} tooltip="Supprimer" onClick={() => startDelete(zone)} tooltipAlign="end">
+                            <Trash2 aria-hidden="true" className="h-5 w-5" />
+                          </IconButton>
                         </div>
                       </div>
                     </li>
@@ -133,10 +139,10 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
                 </select>
               </label>
               <div className="mt-5 flex justify-end gap-2">
-                <button type="button" onClick={() => setReassigning(null)} className="rounded-xl border border-animeo-border px-4 py-2 text-sm font-medium text-animeo-dark hover:bg-animeo-bg">Annuler</button>
-                <button type="button" onClick={confirmReassign} disabled={!targetZoneId || submitting} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-animeo-hover disabled:cursor-not-allowed disabled:opacity-60">
+                <Button type="button" variant="secondary" onClick={() => setReassigning(null)}>Annuler</Button>
+                <Button type="button" variant="dangerSolid" onClick={confirmReassign} disabled={!targetZoneId || submitting}>
                   {submitting ? "Réassignation…" : "Réassigner et supprimer"}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -168,7 +174,7 @@ export function ZonesPanel({ zones, tours, onClose, onNewZone, onEditZone, onDel
                 Supprimez ou modifiez d’abord {toursUsing(blockedDelete.id).length > 1 ? "ces tournées" : "cette tournée"} (section « Tournées récurrentes »), ou créez une autre zone pour pouvoir réassigner celle-ci.
               </p>
               <div className="mt-5 flex justify-end">
-                <button type="button" onClick={() => setBlockedDelete(null)} className="rounded-xl bg-animeo px-4 py-2 text-sm font-medium text-white transition hover:bg-animeo-hover">Compris</button>
+                <Button type="button" onClick={() => setBlockedDelete(null)}>Compris</Button>
               </div>
             </div>
           </div>
