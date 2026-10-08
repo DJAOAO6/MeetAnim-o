@@ -53,7 +53,7 @@ test.describe("Rappels clients (réel, non simulé)", () => {
 
   test("programmer un rappel l'écrit réellement en base, avec une antériorité calculée", async ({ page }) => {
     await page.goto("/dashboard/rappels", { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "+ Programmer un rappel" }).click();
+    await page.getByRole("button", { name: "Programmer un rappel" }).click();
     const dialog = page.locator('section[role="dialog"]');
     await dialog.getByLabel("Client").selectOption({ label: `Prénom ${testClientLastName}` });
     await dialog.getByLabel("Animal").selectOption({ label: "RappelE2E · Chien" });

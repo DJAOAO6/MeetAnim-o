@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { ReminderModal } from "@/components/reminders/reminder-modal";
 import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { RemindersTable } from "@/components/reminders/reminders-table";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { notify } from "@/lib/notify";
@@ -210,16 +212,6 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
       <PageHeader
         title="Rappels clients"
         description="Suivez les animaux à relancer et gardez le contact avec vos clients."
-        action={
-          <button
-            type="button"
-            onClick={launchDueReminders}
-            className="inline-flex items-center rounded-2xl bg-animeo px-5 py-3 font-extrabold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--theme-brand)_20%,transparent)] transition hover:-translate-y-0.5 hover:bg-animeo-hover"
-          >
-            <Icon name="bell" className="mr-2 h-5 w-5" />
-            Lancer les rappels
-          </button>
-        }
       />
 
       <section aria-label="Statistiques des rappels" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -262,13 +254,12 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
           <h2 className="text-xl font-extrabold text-animeo-dark">Liste des rappels</h2>
           <p className="mt-1 text-sm text-animeo-muted">{filteredReminders.length} rappel{filteredReminders.length > 1 ? "s" : ""} affiché{filteredReminders.length > 1 ? "s" : ""}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setScheduleReminder("new")}
-          className="inline-flex items-center justify-center rounded-xl border border-animeo px-4 py-2.5 text-sm font-extrabold text-animeo transition hover:bg-animeo-soft"
-        >
-          + Programmer un rappel
-        </button>
+        {/* Les deux actions de la liste, côte à côte : une seule pleine,
+            « Lancer les rappels ». Sur téléphone, elle passe en premier. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Button type="button" variant="secondary" onClick={() => setScheduleReminder("new")} icon={<Plus aria-hidden="true" className="h-4 w-4" />}>Programmer un rappel</Button>
+          <Button type="button" onClick={launchDueReminders} icon={<Icon name="bell" className="h-4 w-4" />} className="order-first sm:order-none">Lancer les rappels</Button>
+        </div>
       </div>
 
       {selectedIds.size > 0 ? (
@@ -329,7 +320,7 @@ function FilterGroup<T extends string>({ label, filters, value, onChange }: {
             type="button"
             onClick={() => onChange(filter.value)}
             aria-pressed={value === filter.value}
-            className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${
+            className={`min-h-11 rounded-xl px-3 py-2 text-xs font-extrabold transition sm:min-h-0 ${
               value === filter.value
                 ? "bg-animeo text-white shadow-sm"
                 : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"

@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionMenuButton } from "@/components/ui/action-menu";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type { Reminder, ReminderStatus } from "@/data/reminders";
@@ -146,7 +147,7 @@ function RowActions({ reminder, onRemind, onEdit, onIgnore }: Pick<RemindersTabl
   return (
     <div className="flex items-center justify-end gap-2">
       {reminder.status === "À relancer" ? (
-        <button type="button" onClick={() => onRemind(reminder)} className="rounded-xl bg-animeo px-3 py-2 text-xs font-extrabold text-white transition hover:bg-animeo-hover">Relancer</button>
+        <Button type="button" variant="secondary" onClick={() => onRemind(reminder)}>Relancer</Button>
       ) : null}
       <ActionMenuButton
         label={`Plus d’actions pour ${reminder.animalName}`}
