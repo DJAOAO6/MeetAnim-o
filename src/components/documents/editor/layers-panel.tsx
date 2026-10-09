@@ -5,6 +5,7 @@ import { labelForVariable } from "@/lib/documents/variables";
 import { studioIconByName } from "@/components/documents/editor/studio-icons";
 import { getAnatomyView } from "@/lib/anatomy/views";
 import type { DocumentElement, DocumentShapeElement } from "@/lib/documents/content";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Lock, LockOpen } from "lucide-react";
 
 const SHAPE_LABELS: Record<DocumentShapeElement["shape"], string> = {
   rect: "Rectangle",
@@ -104,7 +105,7 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
                 disabled={readOnly}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {hidden ? <EyeOffIcon /> : <EyeIcon />}
+                {hidden ? <EyeOff aria-hidden="true" className="h-3.5 w-3.5" /> : <Eye aria-hidden="true" className="h-3.5 w-3.5" />}
               </button>
               <button
                 type="button"
@@ -120,7 +121,7 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
                   locked ? "text-animeo" : "text-neutral-500"
                 }`}
               >
-                {locked ? <LockIcon /> : <UnlockIcon />}
+                {locked ? <Lock aria-hidden="true" className="h-3.5 w-3.5" /> : <LockOpen aria-hidden="true" className="h-3.5 w-3.5" />}
               </button>
               <button
                 type="button"
@@ -129,7 +130,7 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
                 disabled={readOnly || index === elements.length - 1}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <ChevronIcon direction="up" />
+                <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
@@ -138,7 +139,7 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
                 disabled={readOnly || index === 0}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <ChevronIcon direction="down" />
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             </div>
           </li>
@@ -148,43 +149,3 @@ export function LayersPanel({ readOnly }: { readOnly: boolean }) {
   );
 }
 
-function EyeIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.24 4.24M9.9 4.24A10.4 10.4 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-3.15 3.9M6.1 6.1C3.6 7.9 2 11 2 12s3.5 7 10 7c1.1 0 2.14-.15 3.1-.42" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
-
-function UnlockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z M7 11V7a5 5 0 0 1 9.9-1" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ direction }: { direction: "up" | "down" }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d={direction === "up" ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
-    </svg>
-  );
-}

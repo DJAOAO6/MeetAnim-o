@@ -12,6 +12,7 @@ import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import type { Appointment } from "@/data/appointments";
 import type { Client, ClientPickerOption } from "@/data/clients";
 import { Button } from "@/components/ui/button";
+import { Ellipsis } from "lucide-react";
 
 export function DashboardPlanning({ clients }: { clients: Client[] }) {
   const { appointments, saveAppointment, openNewAppointment } = useAppointments();
@@ -146,19 +147,10 @@ function TimelineRow({ appointment, isLast, color, onSelect }: {
           {isHomeVisit ? "Domicile" : "Cabinet"}
         </span>
         <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-animeo-muted">
-          <DotsIcon />
+          <Ellipsis aria-hidden="true" className="h-5 w-5" />
         </span>
       </div>
     </li>
   );
 }
 
-function DotsIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-      <circle cx="5" cy="12" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="19" cy="12" r="2" />
-    </svg>
-  );
-}

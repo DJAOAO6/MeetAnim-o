@@ -9,6 +9,7 @@ import { getOccupiedSlotsAction, type OccupiedSlots } from "@/lib/appointments-a
 import { getPublicScheduleAction } from "@/lib/public-schedule";
 import { formatBookingDateLabels, groupSlotsByPeriod, isSlotFree, timeToMinutes } from "@/lib/booking-validation";
 import { Button } from "@/components/ui/button";
+import { Calendar, Clock } from "lucide-react";
 
 type ScheduleStepProps = {
   /** Lien public du cabinet : c'est lui qui désigne de quel agenda il s'agit. */
@@ -308,7 +309,7 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
             <div ref={timeSectionRef} className="scroll-mt-6">
               <p className="mb-3 text-sm font-black text-animeo-dark">2. Choisissez une heure</p>
               <div className="mb-4 flex items-center gap-2 rounded-2xl bg-animeo-bg px-4 py-3 text-sm font-extrabold text-animeo-dark">
-                <CalendarIcon />
+                <Calendar aria-hidden="true" className="h-4 w-4 shrink-0" />
                 {formatBookingDateLabels(selectedDate.id).fullLabel}
               </div>
 
@@ -343,7 +344,7 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
               )}
 
               <p className="mt-4 flex items-center gap-1.5 text-xs leading-5 text-animeo-muted">
-                <ClockIcon />
+                <Clock aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                 Seuls les créneaux disponibles sont affichés.
               </p>
             </div>
@@ -387,20 +388,3 @@ export function ScheduleStep({ slug, mode, service, dateId, time, onDateChange, 
   );
 }
 
-function CalendarIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
-      <rect x="3" y="5" width="18" height="16" rx="3" />
-      <path d="M16 3v4M8 3v4M3 10h18" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 3" />
-    </svg>
-  );
-}

@@ -89,9 +89,9 @@ export function TourModal({ tour, zones, departureLabel, onClose, onSave, onZone
 
   const [initialSnapshot] = useState(() => JSON.stringify({ name, isRecurring, recurrence, day, date, startTime, endTime, zoneIds, status, startType, startAddressQuery, maxStops, note }));
   const isDirty = JSON.stringify({ name, isRecurring, recurrence, day, date, startTime, endTime, zoneIds, status, startType, startAddressQuery, maxStops, note }) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
   const dialogRef = useModalFocusTrap<HTMLElement>(guardedClose);
 

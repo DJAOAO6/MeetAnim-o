@@ -6,6 +6,7 @@ import { DashboardCard, DashboardEmptyState, dashboardFooterLinkClassName } from
 import { Icon } from "@/components/ui/icon";
 import { relativeDayLabel } from "@/components/dashboard/dashboard-date";
 import type { Reminder } from "@/data/reminders";
+import { Mail } from "lucide-react";
 
 export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] }) {
   const dueReminders = useMemo(
@@ -40,7 +41,7 @@ export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] })
                 <span className="shrink-0 text-right">
                   <span className="block text-xs font-bold text-animeo-muted">{relativeDayLabel(reminder.dueDate)}</span>
                 </span>
-                <MailIcon />
+                <Mail aria-hidden="true" className="h-4 w-4 shrink-0 text-animeo-muted" />
               </Link>
             </li>
           ))}
@@ -52,11 +53,3 @@ export function DashboardRemindersCard({ reminders }: { reminders: Reminder[] })
   );
 }
 
-function MailIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-animeo-muted">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
-    </svg>
-  );
-}

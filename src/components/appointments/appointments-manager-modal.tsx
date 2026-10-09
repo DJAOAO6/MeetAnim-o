@@ -247,9 +247,9 @@ function EmptyState({ searching, onCreate, onReset }: { searching: boolean; onCr
       </p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         {searching ? (
-          <Button type="button" variant="secondary" size="sm" onClick={onReset}>Réinitialiser les filtres</Button>
+          <Button type="button" variant="secondary" onClick={onReset}>Réinitialiser les filtres</Button>
         ) : null}
-        <Button type="button" size="sm" onClick={onCreate}>
+        <Button type="button" onClick={onCreate}>
           <CalendarPlus aria-hidden="true" className="h-4 w-4" />
           Ajouter un rendez-vous
         </Button>

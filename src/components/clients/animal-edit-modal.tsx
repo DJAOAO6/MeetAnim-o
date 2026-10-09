@@ -42,11 +42,11 @@ export function AnimalEditModal({ animal, clientId, onClose, onSaved }: AnimalEd
   const [saving, setSaving] = useState(false);
   const [initialSnapshot] = useState(() => JSON.stringify({ draft, placeChoice }));
   const isDirty = JSON.stringify({ draft, placeChoice }) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   const previous = animal ? { species: animal.species, sex: animal.sex } : undefined;
 
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {

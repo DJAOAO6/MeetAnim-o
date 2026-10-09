@@ -62,15 +62,14 @@ export function AppointmentForm({ appointment, clients, defaultDate, onSave, onB
 
   const [initialSnapshot, setInitialSnapshot] = useState(() => JSON.stringify({ draft, addressLine, addressExtra, postalCode, city }));
   const isDirty = JSON.stringify({ draft, addressLine, addressExtra, postalCode, city }) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   useEffect(() => {
     onDirtyChange?.(isDirty);
     return () => onDirtyChange?.(false);
   }, [isDirty, onDirtyChange]);
 
   function handleBack() {
-    if (!confirmDiscard()) return;
-    onBack();
+    guard(onBack);
   }
 
   function update<K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) {

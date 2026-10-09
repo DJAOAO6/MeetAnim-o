@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Upload, UserPlus } from "lucide-react";
+import { Plus, Search, Trash2, Upload, UserPlus } from "lucide-react";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NewClientModal } from "@/components/clients/new-client-modal";
 import { ClientImportModal } from "@/components/clients/client-import-modal";
@@ -271,7 +271,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <label className="relative block flex-1 md:max-w-xl">
             <span className="sr-only">Rechercher un client</span>
-            <SearchIcon />
+            <Search aria-hidden="true" className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-animeo-muted" />
             <input
               type="search"
               value={query}
@@ -297,7 +297,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
             <span className="w-14 shrink-0 text-xs font-extrabold text-animeo-muted">Espèce</span>
             <div className="flex flex-wrap gap-1.5">
               {(["Tous", ...animalSpeciesList] as SpeciesFilter[]).map((filter) => (
-                <button key={filter} type="button" onClick={() => setSpeciesFilter(filter)} aria-pressed={speciesFilter === filter} className={`rounded-xl px-3 py-2 text-xs font-extrabold transition ${speciesFilter === filter ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}>
+                <button key={filter} type="button" onClick={() => setSpeciesFilter(filter)} aria-pressed={speciesFilter === filter} className={`min-h-11 rounded-xl px-3 py-2 text-xs font-extrabold transition sm:min-h-0 ${speciesFilter === filter ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}>
                   {filter}
                 </button>
               ))}
@@ -600,7 +600,7 @@ function ClientLink({ id, fullWidth = false }: { id: string; fullWidth?: boolean
       // Le nom est déjà le lien de la ligne au clavier : pas de second arrêt.
       tabIndex={-1}
       onClick={(event) => event.stopPropagation()}
-      className={`relative z-10 whitespace-nowrap ${fullWidth ? "mt-4 flex w-full" : "inline-flex"} items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
+      className={`relative z-10 whitespace-nowrap ${fullWidth ? "mt-4 flex w-full" : "inline-flex"} min-h-11 items-center justify-center rounded-xl bg-animeo-soft px-4 py-2.5 text-sm font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong`}
     >
       {/* « Voir » suffit à l'œil (toute la ligne ouvre la fiche) ; le nom
           complet reste celui du lien. */}
@@ -623,11 +623,3 @@ function animalNames(client: Client) {
   return client.animals.map((animal) => animal.name).join(", ") || "Aucun animal";
 }
 
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-animeo-muted">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
-  );
-}

@@ -55,9 +55,9 @@ export function ServiceModal({ service, zoneNames, kilometricFeesEnabled, practi
   const [exampleDistance, setExampleDistance] = useState(20);
   const [initialSnapshot] = useState(() => JSON.stringify(draft));
   const isDirty = JSON.stringify(draft) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
   const zoneFee = draft.zoneFees["Le Havre"] ?? 0;
   const feeSelection = draft.travelFeesEnabled ? draft.travelFeeMode : "none";

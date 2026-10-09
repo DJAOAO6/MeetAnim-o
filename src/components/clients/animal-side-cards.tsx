@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type { Animal } from "@/data/clients";
+import { FileText } from "lucide-react";
 
 type AnimalSideCardsProps = {
   animal: Animal;
@@ -29,7 +30,7 @@ function DocumentsCard({ animal, onAction }: { animal: Animal; onAction: (messag
           <h2 className="mt-1 font-extrabold text-animeo-dark">Dossier de {animal.name}</h2>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-animeo-soft text-animeo-dark">
-          <DocumentIcon />
+          <FileText aria-hidden="true" className="h-5 w-5" />
         </div>
       </div>
 
@@ -91,11 +92,3 @@ function ReminderCard({ animal, onScheduleReminder }: { animal: Animal; onSchedu
   );
 }
 
-function DocumentIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-      <path d="M14 2v6h6M8 13h8M8 17h6" />
-    </svg>
-  );
-}

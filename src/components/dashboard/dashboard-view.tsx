@@ -232,7 +232,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
             <SaveStatus state={saveState} className="mt-2" />
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end [&>*]:flex-1 sm:[&>*]:flex-none">
-            <Button variant="ghost" onClick={() => setConfirmingReset(true)}>Tout remettre d’origine</Button>
+            <Button variant="secondary" onClick={() => setConfirmingReset(true)}>Tout remettre d’origine</Button>
             <Button variant="secondary" onClick={cancel}>Annuler</Button>
             <Button onClick={save} disabled={saveState === "saving"}>
               {saveState === "saving" ? "Enregistrement…" : "Enregistrer"}

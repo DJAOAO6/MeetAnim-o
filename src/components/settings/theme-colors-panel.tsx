@@ -6,6 +6,7 @@ import { Icon, type IconName } from "@/components/ui/icon";
 import { Field, Toggle, inputClassName } from "@/components/settings/settings-fields";
 import { Button } from "@/components/ui/button";
 import { fontChoices, type DashboardDisplayOptions, type DashboardThemeMode, type DisplayDensity, type FontChoice, type ThemePalette } from "@/data/dashboard-theme";
+import { Check } from "lucide-react";
 
 export type ThemeDraft = {
   mode: DashboardThemeMode;
@@ -84,7 +85,7 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
                   >
                     {active ? (
                       <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-animeo text-white">
-                        <CheckIcon className="h-3 w-3" />
+                        <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
                       </span>
                     ) : null}
                     <div className="flex h-10 overflow-hidden rounded-xl">
@@ -134,7 +135,7 @@ export function ThemeColorsPanel({ draft, onChange, saving = false, canEdit = tr
                   >
                     {active ? (
                       <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-animeo text-white">
-                        <CheckIcon className="h-3 w-3" />
+                        <Check aria-hidden="true" className="h-3 w-3" strokeWidth={3} />
                       </span>
                     ) : null}
                     <Icon name={option.icon} className="h-6 w-6 text-animeo-dark" />
@@ -209,10 +210,10 @@ function SwatchField({ label, description, swatches, value, onChange, allowCusto
             onClick={() => onChange(swatch)}
             aria-label={`Choisir la couleur ${swatch}`}
             aria-pressed={value.toUpperCase() === swatch.toUpperCase()}
-            className="flex h-10 w-10 items-center justify-center rounded-full shadow-sm transition hover:scale-105"
+            className="flex h-11 w-11 items-center justify-center rounded-full shadow-sm transition hover:scale-105"
             style={{ backgroundColor: swatch }}
           >
-            {value.toUpperCase() === swatch.toUpperCase() ? <CheckIcon className="h-4 w-4 text-white" /> : null}
+            {value.toUpperCase() === swatch.toUpperCase() ? <Check aria-hidden="true" className="h-4 w-4 text-white" strokeWidth={3} /> : null}
           </button>
         ))}
         {allowCustom ? (
@@ -223,14 +224,6 @@ function SwatchField({ label, description, swatches, value, onChange, allowCusto
         ) : null}
       </div>
     </Field>
-  );
-}
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
   );
 }
 
@@ -273,7 +266,7 @@ function PawSettings({ options, themeColor, onChange }: { options: DashboardDisp
             onClick={() => onChange({ pawColor: "" })}
             aria-pressed={suitLeTheme}
             title="Suivre les couleurs du thème"
-            className={`rounded-lg border px-2 py-1 text-xs font-extrabold transition ${suitLeTheme ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}
+            className={`min-h-11 rounded-lg border px-2 py-1 text-xs font-extrabold transition sm:min-h-0 ${suitLeTheme ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}
           >
             Thème
           </button>

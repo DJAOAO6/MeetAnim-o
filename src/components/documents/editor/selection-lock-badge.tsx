@@ -1,6 +1,7 @@
 "use client";
 
 import { useDocumentStore, useSelectedElementId } from "@/components/documents/editor/document-store";
+import { Lock, LockOpen } from "lucide-react";
 
 const BADGE_SIZE = 24;
 
@@ -57,23 +58,8 @@ export function SelectionLockBadge({ readOnly }: { readOnly: boolean }) {
         locked ? "border-animeo bg-animeo text-white" : "border-neutral-200 bg-white text-neutral-500 hover:bg-animeo-soft"
       }`}
     >
-      {locked ? <LockIcon /> : <UnlockIcon />}
+      {locked ? <Lock aria-hidden="true" className="h-3.5 w-3.5" /> : <LockOpen aria-hidden="true" className="h-3.5 w-3.5" />}
     </button>
   );
 }
 
-function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
-
-function UnlockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z M7 11V7a5 5 0 0 1 9.9-1" />
-    </svg>
-  );
-}

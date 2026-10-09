@@ -41,10 +41,10 @@ export function NewClientModal({ onClose, onCreated }: { onClose: () => void; on
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const isDirty = JSON.stringify(contact) !== JSON.stringify(emptyContact) || sections.some((section) => JSON.stringify(section.draft) !== JSON.stringify(emptyAnimalDraft));
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
 
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
 
   function updateContact<K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) {
@@ -110,7 +110,7 @@ export function NewClientModal({ onClose, onCreated }: { onClose: () => void; on
       footer={
         <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center">
           {sections.length > 0 ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => void save(false)} disabled={saving} className="sm:mr-auto">
+            <Button type="button" variant="secondary" onClick={() => void save(false)} disabled={saving} className="sm:mr-auto">
               Enregistrer sans animal
             </Button>
           ) : <span className="sm:mr-auto" />}

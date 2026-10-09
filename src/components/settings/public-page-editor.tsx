@@ -270,8 +270,8 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
         <PublicPagePreview config={config} professional={professional} device={device} />
 
         <div className="mt-4 flex flex-wrap gap-2 [&>*]:flex-1 sm:[&>*]:flex-none">
-          <Button variant="ghost" onClick={() => setConfirmingReset(true)} disabled={saveState === "saving"}>Tout remettre d’origine</Button>
-          <Button variant="ghost" onClick={discard} disabled={saveState === "saving"}>Annuler les modifications</Button>
+          <Button variant="secondary" onClick={() => setConfirmingReset(true)} disabled={saveState === "saving"}>Tout remettre d’origine</Button>
+          <Button variant="secondary" onClick={discard} disabled={saveState === "saving"}>Annuler les modifications</Button>
           <Button variant="secondary" onClick={save} disabled={saveState === "saving"}>Enregistrer le brouillon</Button>
           <Button onClick={publish} disabled={saveState === "saving"}>Publier</Button>
         </div>
@@ -349,7 +349,7 @@ export function PublicPageEditor({ initialState, professional }: { initialState:
                     onClick={() => updateTheme({ pawColor: "" })}
                     aria-pressed={config.theme.pawColor === ""}
                     title="Suivre les couleurs de la page"
-                    className={`rounded-lg border px-2 py-1 text-xs font-extrabold transition ${config.theme.pawColor === "" ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}
+                    className={`min-h-11 rounded-lg border px-2 py-1 text-xs font-extrabold transition sm:min-h-0 ${config.theme.pawColor === "" ? "border-animeo bg-animeo-soft text-animeo-dark" : "border-animeo-border text-animeo-muted"}`}
                   >
                     Page
                   </button>

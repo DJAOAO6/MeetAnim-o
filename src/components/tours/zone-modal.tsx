@@ -36,9 +36,9 @@ export function ZoneModal({ zone, defaultName, onClose, onSave }: ZoneModalProps
   const [sector, setSector] = useState<ZoneSector | null>(zone?.sector ?? null);
   const [initialSnapshot] = useState(() => JSON.stringify({ name, cities, sector }));
   const isDirty = JSON.stringify({ name, cities, sector }) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
 
   function updateCity(id: string, key: "name" | "postalCode", value: string) {

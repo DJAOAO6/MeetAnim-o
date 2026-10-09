@@ -31,9 +31,9 @@ export function BlockedSlotModal({ initialDate, onClose, onSave }: BlockedSlotMo
   const [error, setError] = useState<string | null>(null);
   const [initialSnapshot] = useState(() => JSON.stringify({ date, startTime, duration, reason }));
   const isDirty = JSON.stringify({ date, startTime, duration, reason }) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

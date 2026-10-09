@@ -28,6 +28,7 @@ import { ClientDirectoryProvider } from "@/components/search/client-directory-co
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { logout } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
+import { DiscardChangesHost } from "@/components/ui/use-unsaved-changes-warning";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
@@ -120,6 +121,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                 `md:` seulement : sous ce seuil la navigation est un tiroir
                 posé par-dessus le contenu. */}
             <div className="min-h-screen overflow-x-clip bg-animeo-bg pt-16 text-animeo-text transition-[padding] duration-200 ease-out md:pl-[var(--sidebar-width,260px)] md:pt-0">
+              {/* « Quitter sans enregistrer ? » : une seule fenêtre pour tous les formulaires. */}
+              <DiscardChangesHost />
               <DashboardSidebar showAdmin={user.role === "ADMIN"} showStatistics={hasPermission(user, "VIEW_FINANCES")} showPlatform={user.platformAdmin && !user.assistance} />
               {/* pb-24 sous md : dégagement pour la barre de navigation
                   fixe du bas, sinon elle recouvre la fin du contenu.

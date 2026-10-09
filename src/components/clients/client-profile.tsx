@@ -12,7 +12,7 @@ import { AnimalSideCards } from "@/components/clients/animal-side-cards";
 import { ClientEditModal } from "@/components/clients/client-edit-modal";
 import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { PageHeader } from "@/components/layout/page-header";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Mail, MapPin, Pencil, Phone, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -267,9 +267,9 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
                 )}
               </div>
               <div className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                <ContactItem icon={<PhoneIcon />} value={clientInfo.phone} href={toTelHref(clientInfo.phone) ?? undefined} />
-                <ContactItem icon={<MailIcon />} value={clientInfo.email} />
-                <ContactItem icon={<LocationIcon />} value={clientInfo.address} wide />
+                <ContactItem icon={<Phone aria-hidden="true" className="h-4 w-4" />} value={clientInfo.phone} href={toTelHref(clientInfo.phone) ?? undefined} />
+                <ContactItem icon={<Mail aria-hidden="true" className="h-4 w-4" />} value={clientInfo.email} />
+                <ContactItem icon={<MapPin aria-hidden="true" className="h-4 w-4" />} value={clientInfo.address} wide />
               </div>
             </div>
           </div>
@@ -455,18 +455,6 @@ function ContactItem({ icon, value, href, wide = false }: { icon: React.ReactNod
       )}
     </div>
   );
-}
-
-function PhoneIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="h-4 w-4"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.12.9.33 1.78.62 2.62a2 2 0 0 1-.45 2.11L8 9.7a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.84.3 1.72.5 2.62.62a2 2 0 0 1 2 2.3Z" /></svg>;
-}
-
-function MailIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>;
-}
-
-function LocationIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>;
 }
 
 function capitalizeFirst(text: string): string {

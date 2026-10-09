@@ -6,6 +6,7 @@ import { BookingActions, StepHeading } from "@/components/booking/booking-ui";
 import { servicePhotoFor } from "@/data/service-photos";
 import type { BookingMode, PublicProfessional, PublicService } from "@/data/public-booking";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
+import { Check, Clock } from "lucide-react";
 
 type ConsultationStepProps = {
   professional: PublicProfessional;
@@ -109,7 +110,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
             >
               {selected ? (
                 <span className="absolute -right-2.5 -top-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-animeo text-white shadow-[0_4px_10px_color-mix(in_srgb,var(--theme-brand)_35%,transparent)]">
-                  <CheckIcon />
+                  <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.5} />
                 </span>
               ) : null}
 
@@ -129,7 +130,7 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
                   <span className="block text-balance text-lg font-black leading-tight text-animeo-dark">{item.name}</span>
                   <span className="mt-1.5 block text-sm leading-5 text-animeo-muted">{item.description}</span>
                   <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-animeo-bg px-3 py-1.5 text-xs font-extrabold text-animeo-dark">
-                    <ClockIcon />
+                    <Clock aria-hidden="true" className="h-3.5 w-3.5" />
                     {item.duration}{"\u00A0"}min · {item.animalTypes.join(", ")}
                   </span>
                 </span>
@@ -213,23 +214,6 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
         <BookingActions nextDisabled={!serviceId || !mode} />
       </div>
     </form>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 3" />
-    </svg>
   );
 }
 

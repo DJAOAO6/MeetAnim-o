@@ -28,9 +28,9 @@ export function ClientEditModal({ client, onClose, onSave, saving }: ClientEditM
   const [error, setError] = useState<string | null>(null);
   const [initialSnapshot] = useState(() => JSON.stringify(draft));
   const isDirty = JSON.stringify(draft) !== initialSnapshot;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
 
   function update<K extends keyof ClientContactInput>(key: K, value: ClientContactInput[K]) {

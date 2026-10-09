@@ -67,10 +67,10 @@ export function AnimalRecord({ animal, clientId, photo, onPhotoChange, onAnimalU
                   de la photo, un peu juste pour « Ajouter une photo ». */}
               <div className="-mx-2 mt-2 flex flex-col items-center gap-1.5">
                 <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handlePhoto} className="sr-only" tabIndex={-1} aria-hidden="true" />
-                <Button type="button" variant="secondary" size="sm" onClick={() => photoInputRef.current?.click()} className="whitespace-nowrap">
+                <Button type="button" variant="secondary" onClick={() => photoInputRef.current?.click()} className="whitespace-nowrap">
                   {photo ? "Remplacer" : "Ajouter une photo"}
                 </Button>
-                {photo ? <Button type="button" variant="secondary" size="sm" onClick={() => { onPhotoChange(null); setPhotoError(null); }}>Retirer</Button> : null}
+                {photo ? <Button type="button" variant="secondary" onClick={() => { onPhotoChange(null); setPhotoError(null); }}>Retirer</Button> : null}
               </div>
             </div>
             <div>

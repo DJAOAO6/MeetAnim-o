@@ -7,6 +7,7 @@ import { searchZonesAction, type ZoneSearchResult } from "@/lib/tours-actions";
 import { resolveSpeciesColor } from "@/data/species";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import type { AddressSearchResponse, GeocodedAddress } from "@/data/geocoding";
+import { Search } from "lucide-react";
 
 /**
  * Recherche unifiée (carte clients, écrans de tournées, future palette
@@ -293,7 +294,7 @@ export function UnifiedSearch({ onSelect, onSubmitFreeText, placeholder = "Reche
     // est isolé du menu latéral (voir <main> dans le layout).
     <div ref={containerRef} className={`relative z-40 ${className ?? ""}`}>
       <div className="relative">
-        <SearchIcon />
+        <Search aria-hidden="true" className="pointer-events-none absolute bottom-3 left-3.5 h-5 w-5 text-animeo-muted" />
         <input
           type="text"
           role="combobox"
@@ -463,6 +464,3 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   return <p role="presentation" className="px-4 pb-1.5 pt-2 text-xs font-extrabold uppercase tracking-[0.08em] text-animeo-muted">{children}</p>;
 }
 
-function SearchIcon() {
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="pointer-events-none absolute bottom-3 left-3.5 h-5 w-5 text-animeo-muted"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>;
-}

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { BellRing, Bookmark, CalendarClock, CalendarPlus, History, ChevronLeft, ChevronRight, CircleCheck, Crosshair, House, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound } from "lucide-react";
+import { BellRing, Bookmark, CalendarClock, CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Crosshair, History, House, ListChecks, LocateFixed, MapPin, Maximize2, Minimize2, MousePointerClick, Navigation, Phone, Route, SquareDashedMousePointer, Star, Trash2, UserRound, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useDashboardTheme } from "@/components/theme/dashboard-theme-provider";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
@@ -23,6 +23,7 @@ import { useAppointments } from "@/components/appointments/appointments-context"
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { CloseButton } from "@/components/ui/close-button";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { deleteMapViewAction, saveMapViewAction } from "@/lib/map-views-actions";
@@ -1137,14 +1138,14 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             </label>
           </div>
           <div role="group" aria-label="Trier la liste" className="flex shrink-0 rounded-xl bg-animeo-bg p-1">
-            <button type="button" aria-pressed={sortMode === "name"} onClick={() => chooseSort("name")} className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition ${sortMode === "name" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}>Nom</button>
+            <button type="button" aria-pressed={sortMode === "name"} onClick={() => chooseSort("name")} className={`min-h-11 rounded-lg px-2.5 text-xs font-extrabold transition sm:min-h-9 ${sortMode === "name" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}>Nom</button>
             <button
               type="button"
               aria-pressed={sortMode === "distance"}
               onClick={() => chooseSort("distance")}
               disabled={!proximityCandidate}
               title={proximityCandidate ? `Trier par distance depuis ${proximityCandidate.label}` : "Choisissez un client, ou renseignez l’adresse de votre lieu d’exercice"}
-              className={`min-h-9 rounded-lg px-2.5 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-40 ${sortMode === "distance" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
+              className={`min-h-11 rounded-lg px-2.5 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-9 ${sortMode === "distance" ? "bg-white text-animeo-dark shadow-sm" : "text-animeo-muted hover:text-animeo-dark"}`}
             >
               Proximité
             </button>
@@ -1195,9 +1196,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
           })}
           {orderedClients.length > shownCount ? (
             <div className="p-3 text-center">
-              <button type="button" onClick={() => setListLimit(shownCount + LIST_PAGE_SIZE)} className="inline-flex min-h-11 items-center rounded-xl bg-animeo-bg px-4 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
-                Afficher {Math.min(LIST_PAGE_SIZE, orderedClients.length - shownCount)} de plus ({orderedClients.length - shownCount} restants)
-              </button>
+              <Button type="button" variant="secondary" onClick={() => setListLimit(shownCount + LIST_PAGE_SIZE)}>
+              Afficher {Math.min(LIST_PAGE_SIZE, orderedClients.length - shownCount)} de plus ({orderedClients.length - shownCount} restants)
+            </Button>
             </div>
           ) : null}
         </div>
@@ -1290,7 +1291,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               >
                 <Bookmark aria-hidden="true" className="h-3.5 w-3.5" />
                 {activeView ? activeView.name : !viewQuery ? "Tous mes clients" : "Mes vues"}
-                <ChevronIcon />
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </button>
               {viewsOpen ? (
                 <div role="group" aria-label="Mes vues" className="absolute right-0 z-30 mt-1.5 w-72 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
@@ -1302,9 +1303,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                       <button type="button" onClick={() => applyMapQuery(view.query)} aria-current={activeView?.id === view.id ? "true" : undefined} className="flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-2.5 text-left text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg aria-[current=true]:bg-animeo-soft">
                         <span className="truncate">{view.name}</span>
                       </button>
-                      <button type="button" onClick={() => { setViewToDelete(view); setViewsOpen(false); }} aria-label={`Supprimer la vue ${view.name}`} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-danger">
-                        <Trash2 aria-hidden="true" className="h-4 w-4" />
-                      </button>
+                      <IconButton variant="danger" label={`Supprimer la vue ${view.name}`} tooltip="Supprimer" onClick={() => { setViewToDelete(view); setViewsOpen(false); }} tooltipAlign="end">
+                        <Trash2 aria-hidden="true" className="h-5 w-5" />
+                      </IconButton>
                     </div>
                   ))}
                   <div className="my-1 border-t border-animeo-border-soft" />
@@ -1345,7 +1346,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-xs font-extrabold transition ${selectedSpecies.length > 0 ? "bg-animeo text-white" : "bg-animeo-bg text-animeo-muted hover:bg-animeo-soft hover:text-animeo-dark"}`}
               >
                 {speciesButtonLabel(selectedSpecies)}
-                <ChevronIcon />
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </button>
               {speciesPanelOpen ? (
                 <div role="group" aria-label="Filtrer par espèce" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
@@ -1387,7 +1388,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             {activeFilterTokens.map((token) => (
               <button key={token.key} type="button" onClick={token.onRemove} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo-soft px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft-strong">
                 {token.label}
-                <span aria-hidden="true" className="text-sm leading-none text-animeo-muted">×</span>
+                <X aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" />
               </button>
             ))}
 
@@ -1402,9 +1403,9 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     className="inline-flex items-center gap-1 px-3 transition hover:bg-animeo-soft-strong"
                   >
                     {Math.round(perimeterRadiusKm)} km autour de {perimeterCenter.label}
-                    <ChevronIcon />
+                    <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                   </button>
-                  <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de périmètre" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-animeo-soft-strong hover:text-animeo-dark">×</button>
+                  <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de périmètre" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-animeo-soft-strong hover:text-animeo-dark"><X aria-hidden="true" className="h-3.5 w-3.5" /></button>
                 </div>
                 {radiusPanelOpen ? (
                   <div role="group" aria-label="Choisir le rayon du périmètre" className="absolute z-20 mt-1.5 w-56 rounded-xl border border-animeo-border bg-white p-1.5 shadow-[0_14px_35px_rgb(var(--theme-shadow-rgb)/0.15)]">
@@ -1433,13 +1434,11 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             {territory ? (
               <div className="inline-flex min-h-11 items-stretch overflow-hidden rounded-xl bg-animeo-soft text-xs font-extrabold text-animeo-dark">
                 <span className="inline-flex items-center px-3">{territoryTypeLabels[territory.type]} · {territory.label}</span>
-                <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de territoire" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-animeo-soft-strong hover:text-animeo-dark">×</button>
+                <button type="button" onClick={clearPerimeter} aria-label="Retirer le filtre de territoire" className="inline-flex items-center px-2.5 text-animeo-muted transition hover:bg-animeo-soft-strong hover:text-animeo-dark"><X aria-hidden="true" className="h-3.5 w-3.5" /></button>
               </div>
             ) : null}
 
-            <button type="button" onClick={clearAllFilters} className="inline-flex min-h-11 items-center px-2 text-xs font-extrabold text-animeo-muted underline decoration-dotted underline-offset-4 transition hover:text-animeo-dark">
-              Tout effacer
-            </button>
+            <Button type="button" variant="secondary" onClick={clearAllFilters}>Tout effacer</Button>
           </div>
         ) : null}
 
@@ -1468,8 +1467,8 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                   : "Votre position n’a pas pu être déterminée. Vérifiez que la localisation de l’appareil est activée, puis réessayez."}
               </p>
             </div>
-            <button type="button" onClick={locateMe} className="inline-flex min-h-11 shrink-0 items-center rounded-xl px-3 text-xs font-extrabold text-animeo underline underline-offset-4">Réessayer</button>
-            <button type="button" onClick={() => setPositionError(null)} aria-label="Fermer ce message" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted hover:bg-white/60">×</button>
+            <Button type="button" variant="secondary" onClick={locateMe} className="shrink-0">Réessayer</Button>
+            <CloseButton onClick={() => setPositionError(null)} label="Fermer ce message" />
           </div>
         ) : null}
 
@@ -1480,7 +1479,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 <InsightLine icon={<History aria-hidden="true" className="h-4 w-4" />}>
                   <p className="min-w-0 flex-1"><strong>{notSeenInPerimeter.length} client{notSeenInPerimeter.length > 1 ? "s" : ""}</strong> {notSeenInPerimeter.length > 1 ? "n’ont" : "n’a"} pas été vu{notSeenInPerimeter.length > 1 ? "s" : ""} depuis plus de 12 mois (ou jamais).</p>
                   {mapMode === "reminders" && visitFilter === "old" ? null : (
-                    <button type="button" onClick={() => { changeMode("reminders"); setVisitFilter("old"); }} className={insightAction}>Voir {notSeenInPerimeter.length > 1 ? `les ${notSeenInPerimeter.length}` : "ce client"}</button>
+                    <Button type="button" variant="secondary" onClick={() => { changeMode("reminders"); setVisitFilter("old"); }} className="shrink-0">Voir {notSeenInPerimeter.length > 1 ? `les ${notSeenInPerimeter.length}` : "ce client"}</Button>
                   )}
                 </InsightLine>
               ) : null}
@@ -1488,7 +1487,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                 <InsightLine icon={<BellRing aria-hidden="true" className="h-4 w-4" />}>
                   <p className="min-w-0 flex-1"><strong>{dueInPerimeter.length} client{dueInPerimeter.length > 1 ? "s" : ""} à relancer</strong> dans cette zone : {dueReminderCount} rappel{dueReminderCount > 1 ? "s" : ""} à envoyer.</p>
                   {!dueOnly || mapMode !== "clients" ? (
-                    <button type="button" onClick={() => { if (mapMode !== "clients") changeMode("clients"); setDueOnly(true); }} className={insightAction}>Voir les rappels</button>
+                    <Button type="button" variant="secondary" onClick={() => { if (mapMode !== "clients") changeMode("clients"); setDueOnly(true); }} className="shrink-0">Voir les rappels</Button>
                   ) : null}
                   <SendRemindersButton clients={dueInPerimeter} scope="de cette zone" onDone={() => router.refresh()} label="Envoyer les rappels" />
                 </InsightLine>
@@ -1496,13 +1495,13 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
               {homeAppointmentsInPerimeter.length > 0 ? (
                 <InsightLine icon={<CalendarClock aria-hidden="true" className="h-4 w-4" />}>
                   <p className="min-w-0 flex-1"><strong>{homeAppointmentsInPerimeter.length} rendez-vous à domicile</strong> {homeAppointmentsInPerimeter.length > 1 ? "sont" : "est"} déjà programmé{homeAppointmentsInPerimeter.length > 1 ? "s" : ""} ici dans les 7 prochains jours.</p>
-                  <button type="button" onClick={() => { changeMode("activity"); setActivityRange("7"); }} className={insightAction}>Voir les RDV</button>
+                  <Button type="button" variant="secondary" onClick={() => { changeMode("activity"); setActivityRange("7"); }} className="shrink-0">Voir les RDV</Button>
                 </InsightLine>
               ) : null}
               {tourSuggestion.length > 0 ? (
                 <InsightLine icon={<Route aria-hidden="true" className="h-4 w-4" />}>
                   <p className="min-w-0 flex-1">{tourSuggestion.length} clients à relancer sont regroupés dans cette zone.</p>
-                  <button type="button" onClick={() => setPreparingTourIds(tourSuggestion.map((client) => client.id))} className={insightAction}>Préparer une tournée</button>
+                  <Button type="button" variant="secondary" onClick={() => setPreparingTourIds(tourSuggestion.map((client) => client.id))} className="shrink-0">Préparer une tournée</Button>
                 </InsightLine>
               ) : null}
             </ul>
@@ -1522,7 +1521,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             ) : (
               <p className="flex flex-wrap items-center gap-x-2">
                 Le contour de <strong>{territory.label}</strong> n’a pas pu être chargé.
-                <button type="button" onClick={() => applyTerritoryPerimeter(territory)} className="font-extrabold text-animeo underline underline-offset-2">Réessayer</button>
+                <Button type="button" variant="secondary" onClick={() => applyTerritoryPerimeter(territory)}>Réessayer</Button>
               </p>
             )}
           </div>
@@ -1546,7 +1545,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                     onClick={() => setQualityOpen((current) => !current)}
                     aria-haspopup="true"
                     aria-expanded={qualityOpen}
-                    className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft"
+                    className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft sm:min-h-9"
                   >
                     <MapPin aria-hidden="true" className="h-3.5 w-3.5 text-animeo-muted" />
                     Localisation : {qualitySummary.reliablePercent} % fiable
@@ -1574,9 +1573,7 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {qualitySummary.unknown > 0 ? <LocateAllButton label={`Localiser les ${qualitySummary.unknown} sans position`} /> : null}
                         {mapMode === "clients" && colorMode !== "quality" ? (
-                          <button type="button" onClick={() => { setColorMode("quality"); setQualityOpen(false); }} className="inline-flex min-h-9 items-center rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft">
-                            Colorer par qualité
-                          </button>
+                          <Button type="button" variant="secondary" onClick={() => { setColorMode("quality"); setQualityOpen(false); }}>Colorer par qualité</Button>
                         ) : null}
                       </div>
                     </div>
@@ -1677,23 +1674,21 @@ export function ClientsMap({ clients, cabinetCoordinates = null, practiceMode = 
             <p role="status" className="mb-3 flex items-center gap-2 rounded-xl bg-animeo-dark px-3 py-2 text-xs font-bold text-white">
               <SquareDashedMousePointer aria-hidden="true" className="h-4 w-4 shrink-0" />
               Tracez un rectangle sur la carte pour sélectionner les clients qu’il contient.
-              <button type="button" onClick={() => setAreaTool(false)} className="ml-auto inline-flex min-h-9 items-center rounded-lg px-2 underline underline-offset-4">Annuler</button>
+              <Button type="button" variant="secondary" onClick={() => setAreaTool(false)} className="ml-auto shrink-0">Annuler</Button>
             </p>
           ) : selectMode ? (
             <p role="status" className="mb-3 flex items-center gap-2 rounded-xl bg-animeo-dark px-3 py-2 text-xs font-bold text-white">
               <MousePointerClick aria-hidden="true" className="h-4 w-4 shrink-0" />
               Touchez des clients (carte ou liste) pour les ajouter à la sélection.
-              <button type="button" onClick={() => setSelectMode(false)} className="ml-auto inline-flex min-h-9 items-center rounded-lg px-2 underline underline-offset-4">Terminer</button>
+              <Button type="button" variant="secondary" onClick={() => setSelectMode(false)} className="ml-auto shrink-0">Terminer</Button>
             </p>
           ) : null}
           {marked.length > 0 && mapMode !== "activity" ? (
             <div role="region" aria-label="Sélection" data-testid="map-selection-bar" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-animeo-border bg-animeo-soft px-3 py-2.5">
               <p className="mr-auto text-sm font-extrabold text-animeo-dark">{marked.length} client{marked.length > 1 ? "s" : ""} sélectionné{marked.length > 1 ? "s" : ""}</p>
-              <button type="button" onClick={() => setPreparingTourIds(marked)} disabled={markedLocatedCount === 0} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-50">
-                <Route aria-hidden="true" className="h-4 w-4" />Préparer une tournée
-              </button>
+              <Button type="button" onClick={() => setPreparingTourIds(marked)} disabled={markedLocatedCount === 0} icon={<Route aria-hidden="true" className="h-4 w-4" />}>Préparer une tournée</Button>
               {markedDue.length > 0 ? <SendRemindersButton clients={markedDue} scope="de la sélection" onDone={() => router.refresh()} /> : null}
-              <button type="button" onClick={clearMarked} className="inline-flex min-h-11 items-center px-2 text-xs font-extrabold text-animeo-muted underline decoration-dotted underline-offset-4 hover:text-animeo-dark">Tout désélectionner</button>
+              <Button type="button" variant="secondary" onClick={clearMarked}>Tout désélectionner</Button>
             </div>
           ) : null}
           {preparingTourIds ? (
@@ -1810,9 +1805,7 @@ function PracticeCard({ label, tiers, docked, onClose, onCenter, onPerimeter }: 
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-animeo-dark text-white"><House aria-hidden="true" className="h-5 w-5" /></span>
         <h3 className="min-w-0 flex-1 pt-2 font-black text-animeo-dark">{label}</h3>
-        <button type="button" onClick={onClose} aria-label={`Fermer la fiche ${label.toLowerCase()}`} className="-mr-1.5 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
-          <span aria-hidden="true">×</span>
-        </button>
+        <CloseButton onClick={onClose} label={`Fermer la fiche ${label.toLowerCase()}`} tooltip="Fermer" className="-mr-1.5 -mt-1.5" />
       </div>
       <ul className="mt-3 space-y-1.5 text-sm text-animeo-dark">
         {tiers.map((tier) => (
@@ -1876,8 +1869,6 @@ function SaveViewModal({ existingNames, onSave, onClose }: { existingNames: stri
   );
 }
 
-const insightAction = "inline-flex min-h-9 shrink-0 items-center rounded-lg bg-animeo-bg px-2.5 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-soft";
-
 function InsightLine({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 text-sm text-animeo-dark">
@@ -1912,9 +1903,9 @@ function SendRemindersButton({ clients, scope, onDone, label }: { clients: MapCl
 
   return (
     <>
-      <button type="button" onClick={() => setConfirming(true)} disabled={sending} className="inline-flex min-h-11 items-center rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
+      <Button type="button" onClick={() => setConfirming(true)} disabled={sending}>
         {sending ? "Envoi…" : label ?? `Envoyer les rappels (${clients.length})`}
-      </button>
+      </Button>
       {confirming ? (
         <ConfirmModal
           title={`Envoyer ${ids.length} rappel${ids.length > 1 ? "s" : ""} ?`}
@@ -1951,10 +1942,9 @@ function LocateAllButton({ label = "Localiser tout" }: { label?: string }) {
   }
 
   return (
-    <button type="button" onClick={run} disabled={running} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-extrabold text-animeo-dark ring-1 ring-animeo-border transition hover:bg-animeo-soft disabled:opacity-60">
-      <Icon name="map" className="h-3.5 w-3.5" />
+    <Button type="button" variant="secondary" onClick={run} disabled={running} icon={<Icon name="map" className="h-4 w-4" />} className="shrink-0">
       {running ? "Localisation…" : label}
-    </button>
+    </Button>
   );
 }
 
@@ -1979,10 +1969,9 @@ function UnlocatedClientActions({ client }: { client: MapClient }) {
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-4 pl-[4.75rem]">
       <p className="w-full text-xs text-animeo-muted">Position inconnue : l’adresse de la fiche n’a pas encore été localisée.</p>
-      <button type="button" onClick={locate} disabled={locating} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-animeo px-3 text-xs font-extrabold text-white transition hover:bg-animeo-hover disabled:opacity-60">
-        <Icon name="map" className="h-3.5 w-3.5" />
-        {locating ? "Localisation…" : "Localiser"}
-      </button>
+      <Button type="button" onClick={locate} disabled={locating} icon={<Icon name="map" className="h-4 w-4" />}>
+          {locating ? "Localisation…" : "Localiser"}
+        </Button>
       <Link href={`/dashboard/clients/${client.id}`} className="inline-flex min-h-11 items-center rounded-xl border border-animeo-border bg-white px-3 text-xs font-extrabold text-animeo-dark transition hover:bg-animeo-bg">
         Fiche client
       </Link>
@@ -2061,9 +2050,7 @@ function MapClientPopup({ client, location = null, onClose, docked = false, home
             </ul>
           ) : <p className="mt-0.5 text-xs font-semibold text-animeo-muted">Aucun animal</p>}
         </div>
-        <button type="button" onClick={onClose} aria-label={`Fermer la fiche de ${client.ownerName}`} className="-mr-1.5 -mt-1.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg text-animeo-muted transition hover:bg-animeo-bg hover:text-animeo-dark">
-          <span aria-hidden="true">×</span>
-        </button>
+        <CloseButton onClick={onClose} label={`Fermer la fiche de ${client.ownerName}`} tooltip="Fermer" className="-mr-1.5 -mt-1.5" />
       </div>
       <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-animeo-dark">
         <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-animeo-muted" />
@@ -2105,12 +2092,4 @@ function speciesButtonLabel(selected: AnimalSpecies[]): string {
   if (selected.length === 0) return "Espèce";
   if (selected.length === 1) return selected[0];
   return `${selected.length} espèces`;
-}
-
-function ChevronIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
 }

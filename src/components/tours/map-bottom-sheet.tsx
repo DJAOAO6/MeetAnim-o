@@ -93,6 +93,7 @@ export function MapBottomSheet({ snap, onSnapChange, summary, label, children }:
           // est traité par la poignée, qui capture le pointeur.
           onClick={(event) => { if (event.detail === 0) onSnapChange(NEXT_ON_TAP[snap]); }}
           aria-label={snap === "full" ? "Réduire le panneau" : "Agrandir le panneau"}
+          data-drag-handle
           className="mx-auto flex h-7 w-20 items-center justify-center rounded-full"
         >
           <span aria-hidden="true" className="block h-1.5 w-10 rounded-full bg-animeo-border-strong" />

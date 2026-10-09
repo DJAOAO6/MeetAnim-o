@@ -7,6 +7,7 @@ import type { AnimalInformation, BookingAddress, BookingMode, OwnerInformation, 
 import { buildIcsContent, formatBookingDateLabels, formatBookingReference } from "@/lib/booking-validation";
 import { buildGoogleCalendarLink, buildOutlookCalendarLink } from "@/lib/calendar/client-calendar-links";
 import { Button } from "@/components/ui/button";
+import { CalendarPlus } from "lucide-react";
 
 type BookingSummaryProps = {
   professional: PublicProfessional;
@@ -192,7 +193,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
             download={`rendez-vous-${reference}.ics`}
             className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-animeo-border px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
           >
-            <CalendarPlusIcon />
+            <CalendarPlus aria-hidden="true" className="h-4 w-4 shrink-0" />
             Apple Calendar
           </a>
           <a
@@ -201,7 +202,7 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
             rel="noopener noreferrer"
             className="flex min-h-12 touch-manipulation items-center justify-center gap-2 rounded-2xl border border-animeo-border px-5 py-3 text-sm font-extrabold text-animeo-dark outline-none transition hover:bg-animeo-bg focus-visible:ring-2 focus-visible:ring-animeo-dark focus-visible:ring-offset-2"
           >
-            <CalendarPlusIcon />
+            <CalendarPlus aria-hidden="true" className="h-4 w-4 shrink-0" />
             Outlook
           </a>
         </div>
@@ -209,15 +210,6 @@ export function BookingSuccess({ professional, request, service, onReset }: { pr
 
       <Button type="button" onClick={onReset} className="mt-5 touch-manipulation">Retour</Button>
     </div>
-  );
-}
-
-function CalendarPlusIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
-      <rect x="3" y="5" width="18" height="16" rx="3" />
-      <path d="M16 3v4M8 3v4M3 10h18M12 14v5M9.5 16.5h5" />
-    </svg>
   );
 }
 

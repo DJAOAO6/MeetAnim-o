@@ -25,6 +25,7 @@ import { notify } from "@/lib/notify";
 import type { StudioDocumentDetail } from "@/data/documents";
 import { OverlayPortal } from "@/components/ui/overlay-portal";
 import { Button } from "@/components/ui/button";
+import { Redo2, Undo2 } from "lucide-react";
 
 // Konva a besoin de `window` — jamais rendu côté serveur, même convention
 // que RealMap/TourRunMap (dynamic + ssr:false).
@@ -277,7 +278,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
                 onClick={() => undo()}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
               >
-                <UndoIcon />
+                <Undo2 aria-hidden="true" className="h-4 w-4" />
               </button>
               <button
                 type="button"
@@ -287,7 +288,7 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
                 onClick={() => redo()}
                 className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
               >
-                <RedoIcon />
+                <Redo2 aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
           ) : null}
@@ -374,20 +375,3 @@ export function DocumentEditorView({ document }: DocumentEditorViewProps) {
   );
 }
 
-function UndoIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M9 14 4 9l5-5" />
-      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
-    </svg>
-  );
-}
-
-function RedoIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-      <path d="M15 14l5-5-5-5" />
-      <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13" />
-    </svg>
-  );
-}

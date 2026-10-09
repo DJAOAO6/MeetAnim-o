@@ -618,7 +618,10 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
   const [wheelHint, setWheelHint] = useState(false);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-animeo-border ${bottomSheet ? "map-with-sheet" : ""} ${heightClassName}`}>
+    // isolate : les plans de la carte (zoom, fond de carte, fiches : z-index
+    // de 400 à 1000) restent dans la carte. Sans cela, ils passaient au-dessus
+    // des panneaux ouverts juste au-dessus d'elle (« Localisation : % fiable »).
+    <div className={`relative isolate overflow-hidden rounded-2xl border border-animeo-border ${bottomSheet ? "map-with-sheet" : ""} ${heightClassName}`}>
       <MapContainer center={center} zoom={zoom} scrollWheelZoom={wheelZoom === "always"} keyboard={keyboard} className="h-full w-full" ref={mapRef}>
         {wheelZoom === "afterClick" ? <WheelActivation onHint={setWheelHint} /> : null}
         {onViewChange ? <ViewTracker onChange={onViewChange} /> : null}
@@ -693,7 +696,7 @@ export function RealMap({ points, selectedId, onSelect, heightClassName = "h-[50
               type="button"
               aria-pressed={basemap === option}
               onClick={() => onBasemapChange(option)}
-              className={`min-h-8 rounded-md px-2.5 text-xs font-extrabold transition ${basemap === option ? "bg-animeo-dark text-white" : "text-animeo-muted hover:text-animeo-dark"}`}
+              className={`min-h-11 rounded-md px-2.5 text-xs font-extrabold transition sm:min-h-8 ${basemap === option ? "bg-animeo-dark text-white" : "text-animeo-muted hover:text-animeo-dark"}`}
             >
               {option === "plan" ? "Plan" : "Aérien"}
             </button>

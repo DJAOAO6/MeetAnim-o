@@ -659,7 +659,7 @@ function ServicesStep({ services, mode, onChange, onBack, onDone }: {
             <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2.75} />
             {adding ? "Ajout…" : "Ajouter la prestation"}
           </Button>
-          {services.length > 0 ? <Button type="button" variant="ghost" onClick={() => { setFormOpen(false); setFormError(null); }} disabled={adding}>Annuler</Button> : null}
+          {services.length > 0 ? <Button type="button" variant="secondary" onClick={() => { setFormOpen(false); setFormError(null); }} disabled={adding}>Annuler</Button> : null}
         </div>
       </fieldset>
       </div>

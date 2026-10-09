@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent } from "react";
 import { readSpreadsheet } from "@/lib/import/read-spreadsheet";
+import { Upload } from "lucide-react";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_EXTENSIONS = [".csv", ".tsv", ".txt", ".xlsx"];
@@ -82,7 +83,7 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
         onDrop={handleDrop}
         className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center transition ${dragging ? "border-animeo bg-animeo-soft" : "border-animeo-border bg-animeo-bg hover:border-animeo"}`}
       >
-        <UploadIcon />
+        <Upload aria-hidden="true" className="h-9 w-9 text-animeo" />
         <div>
           <p className="font-extrabold text-animeo-dark">Glissez votre fichier ici, ou cliquez pour le choisir</p>
           <p className="mt-1 text-xs text-animeo-muted">CSV, TSV, TXT ou Excel (.xlsx) — 5 Mo maximum</p>
@@ -108,11 +109,3 @@ export function ClientImportStepFile({ onFileRead }: { onFileRead: (result: File
   );
 }
 
-function UploadIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-9 w-9 text-animeo">
-      <path d="M12 15V3m0 0 4 4m-4-4-4 4" />
-      <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
-    </svg>
-  );
-}

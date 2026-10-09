@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { ReminderModal } from "@/components/reminders/reminder-modal";
 import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { RemindersTable } from "@/components/reminders/reminders-table";
@@ -232,7 +232,7 @@ export function RemindersView({ initialReminders, initialStats, clientOptions, p
         <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.2fr)] xl:items-end">
           <label className="relative block">
             <span className="mb-2 block text-xs font-extrabold uppercase tracking-[0.11em] text-animeo-muted">Recherche</span>
-            <SearchIcon />
+            <Search aria-hidden="true" className="absolute bottom-3 left-3.5 h-5 w-5 text-animeo-muted" />
             <input
               type="search"
               value={query}
@@ -334,11 +334,3 @@ function FilterGroup<T extends string>({ label, filters, value, onChange }: {
   );
 }
 
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="absolute bottom-3 left-3.5 h-5 w-5 text-animeo-muted">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
-  );
-}

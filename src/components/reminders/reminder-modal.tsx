@@ -29,9 +29,9 @@ export function ReminderModal({ reminder, professionalSlug, messageTemplate, sen
     .replaceAll("[Lien de réservation]", bookingUrl);
   const [message, setMessage] = useState(initialMessage);
   const isDirty = message !== initialMessage;
-  const { confirmDiscard } = useUnsavedChangesWarning(isDirty);
+  const { guard } = useUnsavedChangesWarning(isDirty);
   function guardedClose() {
-    if (confirmDiscard()) onClose();
+    guard(onClose);
   }
 
   return (

@@ -109,7 +109,7 @@ function MiniCalendar({ weekDates, onSelectDate }: { weekDates: Date[]; onSelect
               // Les jours du mois voisin sont atténués exprès : le contrôle de
               // contraste les reconnaît à cet attribut (accessibility-dashboard).
               data-outside-month={inVisibleMonth ? undefined : ""}
-              className={`mx-auto flex h-8 w-8 items-center justify-center rounded-xl text-xs font-extrabold transition hover:bg-animeo hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-animeo-dark ${
+              className={`mx-auto flex h-11 w-11 items-center justify-center rounded-xl text-xs font-extrabold transition sm:h-8 sm:w-8 hover:bg-animeo hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-animeo-dark ${
                 isToday
                   ? "bg-animeo text-white"
                   : inSelectedWeek

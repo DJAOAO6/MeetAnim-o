@@ -93,6 +93,67 @@ for (const theme of ["clair", "sombre"] as const) {
   });
 }
 
+/**
+ * Chantier B4 : sur téléphone, tout ce qui se touche fait 44 px au moins
+ * dans sa plus petite dimension. Les seules exceptions sont des objets qu'on
+ * ne peut pas agrandir sans les dénaturer :
+ *
+ * - les événements et les créneaux de la grille de l'agenda (leur hauteur
+ *   est leur durée) ;
+ * - les marqueurs de la carte ;
+ * - les poignées de glisser.
+ */
+const TOUCH_EXCEPTIONS = ["[data-testid='agenda-grid-scroller'] *", ".leaflet-marker-icon", ".leaflet-control *", "[data-drag-handle]", ".cursor-grab"];
+
+const PHONE_PAGES = [
+  "/dashboard",
+  "/dashboard/agenda",
+  "/dashboard/clients",
+  "/dashboard/clients/lieux",
+  "/dashboard/carte",
+  "/dashboard/tournees",
+  "/dashboard/rappels",
+  "/dashboard/prestations",
+  "/dashboard/documents",
+  "/dashboard/parametres",
+  "/dashboard/parametres?tab=customization",
+  "/dashboard/parametres?tab=schedule",
+  "/dashboard/parametres?tab=tours",
+  "/dashboard/parametres?tab=integrations",
+];
+
+test("à 390 px, aucun bouton visible ne fait moins de 44 px", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const [client] = await sql`SELECT c.id FROM "Client" c JOIN "Animal" a ON a."clientId" = c.id WHERE c."archivedAt" IS NULL LIMIT 1`;
+  const paths = client ? [...PHONE_PAGES, `/dashboard/clients/${client.id}`] : PHONE_PAGES;
+
+  for (const path of paths) {
+    await page.goto(path, { waitUntil: "networkidle" });
+    const { checked, small } = await page.evaluate((exceptions) => {
+      const controls = [...document.querySelectorAll<HTMLElement>("button, [role='button']")].filter((control) => {
+        const box = control.getBoundingClientRect();
+        const style = getComputedStyle(control);
+        return box.width > 0 && box.height > 0 && style.visibility !== "hidden" && !exceptions.some((selector) => control.matches(selector));
+      });
+      return {
+        checked: controls.length,
+        small: controls
+          .filter((control) => {
+            const box = control.getBoundingClientRect();
+            return Math.min(box.width, box.height) < 43.5;
+          })
+          .map((control) => {
+            const box = control.getBoundingClientRect();
+            return `${Math.round(box.width)}×${Math.round(box.height)} — ${(control.getAttribute("aria-label") || control.textContent || "").trim().slice(0, 50)}`;
+          }),
+      };
+    }, TOUCH_EXCEPTIONS);
+    expect(checked, `${path} : des boutons à contrôler`).toBeGreaterThan(0);
+    expect(small, `${path} : boutons de moins de 44 px`).toEqual([]);
+  }
+});
+
 test("les boutons communs font 44 px ; un bouton à icône a un nom, et son infobulle au clavier", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/dashboard/clients", { waitUntil: "networkidle" });
