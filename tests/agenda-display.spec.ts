@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 import { config } from "dotenv";
 import { neon } from "./helpers/sql";
 import { loginAsSecretary } from "./helpers/secretary-login";

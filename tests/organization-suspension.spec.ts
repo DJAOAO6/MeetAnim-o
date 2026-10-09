@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "./helpers/test";
 import { neon } from "./helpers/sql";
 import { createPlatformAccount, loginAsPlatform, removePlatformAccount } from "./helpers/platform";
 import { config } from "dotenv";

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 
 /**
  * Les deux boutons flottants (nouveau rendez-vous, gestion) restent en bas à

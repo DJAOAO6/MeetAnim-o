@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 
 /**
  * Empilement du tableau de bord : le contenu des pages (isolé dans <main>)

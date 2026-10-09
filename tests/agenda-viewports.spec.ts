@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 
 /**
  * L'agenda sur les huit largeurs de référence, du grand écran au petit

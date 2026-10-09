@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 import { neon } from "./helpers/sql";
 
 config({ path: ".env.local" });
@@ -201,6 +201,15 @@ test("créer un client puis son animal sans quitter le rendez-vous, et enregistr
 });
 
 test("le centre de gestion filtre, sélectionne et propose les actions du statut", async ({ page }) => {
+  // Un rendez-vous aujourd'hui : « Réinitialiser les filtres » revient à
+  // « Cette semaine », qui doit alors avoir quelque chose à montrer. Sans lui,
+  // le test dépendait des rendez-vous posés à J+3 par un test voisin — donc
+  // du jour de la semaine : il échouait du vendredi au dimanche.
+  const sql = neon(process.env.DATABASE_URL!);
+  const today = new Date().toISOString().slice(0, 10);
+  await sql`INSERT INTO "Appointment" ("id", "date", "start", "duration", "clientName", "animalName", "serviceName", "mode", "location", "price", "status", "notes", "createdAt", "updatedAt")
+    VALUES (${`e2e-modal-week-${Date.now()}`}, ${`${today}T00:00:00.000Z`}, '06:30', 30, 'E2E-Modal Semaine', 'Hebdo', 'Séance', 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', now(), now())`;
+
   await page.setViewportSize({ width: 1440, height: 950 });
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: /^Gestion des rendez-vous/ }).first().click();

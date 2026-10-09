@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 import { config } from "dotenv";
 import { neon } from "./helpers/sql";
 

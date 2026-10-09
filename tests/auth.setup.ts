@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { config } from "dotenv";
-import { test as setup, expect } from "@playwright/test";
+import { test as setup, expect } from "./helpers/test";
 import { BASE_URL } from "./helpers/base-url";
 
 config({ path: ".env.local" });

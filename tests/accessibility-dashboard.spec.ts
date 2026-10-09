@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 import AxeBuilder from "@axe-core/playwright";
 import { neon } from "./helpers/sql";
 

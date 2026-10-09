@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 import { neon, type SqlTag } from "./helpers/sql";
 import { pseudonymize } from "../src/lib/privacy";
 import { JOIN_TABLES } from "../src/lib/deletion-plan";

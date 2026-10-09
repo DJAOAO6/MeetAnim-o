@@ -1,5 +1,5 @@
 import pg from "pg";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 import { neon } from "./helpers/sql";
 import { config } from "dotenv";
 

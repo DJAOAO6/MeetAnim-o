@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 import { neon } from "./helpers/sql";
 
 config({ path: ".env.local" });

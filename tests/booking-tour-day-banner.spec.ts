@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 import { neon } from "./helpers/sql";
 import { initialSettings } from "../src/data/settings";
 

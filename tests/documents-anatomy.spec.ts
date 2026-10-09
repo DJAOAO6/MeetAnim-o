@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 import { neon } from "./helpers/sql";
 import { DEFAULT_MARKER_PRESETS } from "../src/lib/documents/marker-presets";
 

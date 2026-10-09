@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./helpers/test";
 import { unzipSync, strFromU8 } from "fflate";
 import { readFile } from "node:fs/promises";
 import { neon } from "./helpers/sql";

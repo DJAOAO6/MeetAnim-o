@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./helpers/test";
 import { neon } from "./helpers/sql";
 import { config } from "dotenv";
 import { BASE_URL } from "./helpers/base-url";
