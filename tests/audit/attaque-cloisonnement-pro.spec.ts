@@ -99,7 +99,7 @@ test.afterAll(async () => {
 // cabinet A (valeur par défaut de la colonne).
 // ---------------------------------------------------------------------------
 
-test("SEC-09 — une zone créée par le cabinet B avec des communes ne s'enregistre pas chez un autre cabinet", async ({ page }) => {
+test("SEC-09 — une zone créée par le cabinet B avec des communes s'enregistre chez B, communes comprises", async ({ page }) => {
   await page.goto("/login");
   await page.fill('input[type="email"]', OTHER_EMAIL);
   await page.fill('input[type="password"]', OTHER_PASSWORD);
@@ -118,29 +118,29 @@ test("SEC-09 — une zone créée par le cabinet B avec des communes ne s'enregi
     cookie,
   );
 
-  // Ce qui compte est la base, pas le message : avec la seconde barrière
-  // (RLS) active, l'écriture d'une commune au nom d'un autre cabinet que
-  // celui de la session (`org-1002-pattes` par défaut) doit être refusée —
-  // entièrement, zone comprise (écriture imbriquée, une seule transaction).
+  // Ce qui compte est la base, pas le message. Avant correction, la commune
+  // prenait le cabinet par défaut (`org-1002-pattes`) et la seconde barrière
+  // refusait toute l'écriture : un deuxième cabinet ne pouvait créer aucune
+  // zone avec des communes. Désormais, zone et communes sont chez B.
   const [cityRow] = await sql`SELECT "organizationId" FROM "City" WHERE name = ${cityName}`;
   const [zoneRow] = await sql`SELECT "organizationId" FROM "Zone" WHERE name = ${`${MARKER} Zone`}`;
 
-  expect(cityRow, `la commune ne s'est pas enregistrée au nom d'un autre cabinet (réponse : ${result.raw.slice(0, 300)})`).toBeUndefined();
-  expect(zoneRow, "la zone n'est pas restée seule, sans ses communes, dans le cabinet B").toBeUndefined();
+  expect(zoneRow?.organizationId, `la zone est enregistrée chez le cabinet B (réponse : ${result.raw.slice(0, 300)})`).toBe(OTHER);
+  expect(cityRow?.organizationId, "sa commune aussi, et non chez le premier cabinet").toBe(OTHER);
 });
 
 // ---------------------------------------------------------------------------
 // SEC-10 : un rendez-vous du cabinet A référence un client du cabinet B.
 // ---------------------------------------------------------------------------
 
-test.describe("SEC-10 — identifiants étrangers enregistrés sans être revérifiés", () => {
+test.describe("SEC-10 — identifiants étrangers refusés avant l'écriture", () => {
   let appointmentId = "";
 
   test.afterAll(async () => {
     if (appointmentId) await sql`DELETE FROM "Appointment" WHERE id = ${appointmentId}`;
   });
 
-  test("le cabinet A peut créer un rendez-vous qui référence un client du cabinet B", async () => {
+  test("le cabinet A ne peut pas créer un rendez-vous qui référence un client du cabinet B", async () => {
     const cookie = practitionerCookie();
     const ids = await actionIdsWithCookie("/dashboard/agenda", cookie);
     expect(ids.saveAppointmentAction, "action saveAppointmentAction trouvée").toBeTruthy();
@@ -158,14 +158,13 @@ test.describe("SEC-10 — identifiants étrangers enregistrés sans être revér
       "/dashboard/agenda",
       cookie,
     );
-    const value = result.value as { ok?: boolean; appointment?: { id: string } } | undefined;
-    expect(value?.ok, `le rendez-vous s'est créé (réponse : ${result.raw.slice(0, 300)})`).toBe(true);
+    const value = result.value as { ok?: boolean; error?: string; appointment?: { id: string } } | undefined;
     appointmentId = value?.appointment?.id ?? "";
-    expect(appointmentId, "identifiant du rendez-vous créé").toBeTruthy();
-
-    const [row] = await sql`SELECT "organizationId", "clientId" FROM "Appointment" WHERE id = ${appointmentId}`;
-    expect(row.organizationId, "le rendez-vous reste au cabinet A").toBe("org-1002-pattes");
-    expect(row.clientId, "mais pointe bien vers le client du cabinet B — lien jamais revérifié").toBe(id("client"));
+    // Avant correction : rendez-vous créé, pointant vers le client de B.
+    expect(value?.ok, `refusé (réponse : ${result.raw.slice(0, 300)})`).toBe(false);
+    expect(value?.error, "le refus le dit").toBe("Client introuvable.");
+    const rows = await sql`SELECT 1 FROM "Appointment" WHERE "clientId" = ${id("client")}`;
+    expect(rows, "aucun rendez-vous ne pointe vers le client du cabinet B").toHaveLength(0);
   });
 
   test("la seconde barrière empêche de relire la fiche liée malgré le lien créé", async () => {

@@ -4,6 +4,7 @@ import { moduleOpen, requireModule } from "@/lib/module-access";
 import { parisDateId } from "@/lib/paris-time";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
+import { organizationIdOf } from "@/lib/db";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getPublicZones, getTours } from "@/lib/tours";
@@ -229,8 +230,13 @@ export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionRe
   // villes peuvent être ajoutées ensuite en modifiant la zone. Le formulaire
   // de gestion des zones lui-même impose toujours au moins une ligne
   // côté UI, cette relaxation ne change rien à son comportement.
+  // L'espace est posé sur chaque commune : la première barrière ne réécrit
+  // pas les écritures imbriquées (db-scope.ts), et la colonne valait par
+  // défaut le premier cabinet — un deuxième ne pouvait pas enregistrer de
+  // zone avec des communes (audit 2026-10, SEC-09).
+  const organizationId = organizationIdOf(db);
   const cities = input.cities
-    .map((city) => ({ name: city.name.trim(), postalCode: city.postalCode.trim() }))
+    .map((city) => ({ name: city.name.trim(), postalCode: city.postalCode.trim(), organizationId }))
     .filter((city) => city.name.length > 0 && city.postalCode.length > 0);
 
   // Le secteur ne vaut que complet : un centre sans rayon ne décrit rien.

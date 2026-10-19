@@ -3,6 +3,7 @@
 import { moduleOpen, requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
+import { foreignReferenceError, visibleTemplatesWhere } from "@/lib/owned-references";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
@@ -74,7 +75,7 @@ export async function getDocumentTemplates(): Promise<StudioDocumentTemplateSumm
   if (!(await moduleOpen("DOCUMENTS"))) return [];
   await requireUser();
   const db = await currentDb();
-  const rows = await db.studioDocumentTemplate.findMany({ orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
+  const rows = await db.studioDocumentTemplate.findMany({ where: visibleTemplatesWhere(db), orderBy: [{ isBuiltIn: "desc" }, { name: "asc" }] });
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -96,7 +97,7 @@ export async function getDocumentTemplateContent(templateId: string): Promise<Do
   await requireModule("DOCUMENTS");
   await requireUser();
   const db = await currentDb();
-  const row = await db.studioDocumentTemplate.findUnique({ where: { id: templateId }, select: { contentJson: true } });
+  const row = await db.studioDocumentTemplate.findFirst({ where: { id: templateId, ...visibleTemplatesWhere(db) }, select: { contentJson: true } });
   if (!row) return null;
   return row.contentJson as unknown as DocumentContent;
 }
@@ -174,10 +175,14 @@ export async function createDocumentAction(input: CreateDocumentInput): Promise<
   const user = await requireUser();
   const db = await currentDb();
 
+  const referenceError = await foreignReferenceError(db, { clientId: input.clientId, animalId: input.animalId, appointmentId: input.appointmentId });
+  if (referenceError) return { ok: false, error: referenceError };
+
   let content: DocumentContent = createEmptyDocumentContent(input.pageSize);
   if (input.templateId) {
-    const template = await db.studioDocumentTemplate.findUnique({ where: { id: input.templateId }, select: { contentJson: true } });
-    if (template) content = template.contentJson as unknown as DocumentContent;
+    const template = await db.studioDocumentTemplate.findFirst({ where: { id: input.templateId, ...visibleTemplatesWhere(db) }, select: { contentJson: true } });
+    if (!template) return { ok: false, error: "Modèle introuvable." };
+    content = template.contentJson as unknown as DocumentContent;
   }
   // Un modèle peut avoir été créé par n'importe quel compte : il passe par le
   // même filtre qu'un document.

@@ -12,6 +12,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { organizationIdOf, type ScopedPrismaClient } from "@/lib/db";
 import { currentDb, dbForSlug } from "@/lib/organization";
+import { foreignReferenceError } from "@/lib/owned-references";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
 import { isRateLimited, recordAttempt } from "@/lib/rate-limit";
@@ -419,6 +420,8 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Session expirée, merci de vous reconnecter." };
   const db = await currentDb();
+  const referenceError = await foreignReferenceError(db, { clientId: input.clientId, animalId: input.animalId });
+  if (referenceError) return { ok: false, error: referenceError };
 
   // Chargé avant la mise à jour pour détecter un déplacement réel (date/
   // heure changée) et une transition de statut dans le même enregistrement
@@ -569,7 +572,9 @@ export async function saveAppointmentsBatchAction(input: SaveVisitInput): Promis
     if (!Number.isInteger(item.duration) || item.duration < 5 || item.duration > 480) return { ok: false, error: `Durée invalide pour ${item.animalName}.` };
     if (!Number.isFinite(item.price) || item.price < 0) return { ok: false, error: `Tarif invalide pour ${item.animalName}.` };
   }
-  // Les animaux d'une fiche appartiennent à ce client (et à cet espace).
+  // Le client est de cet espace, et ses animaux sont les siens.
+  const clientError = await foreignReferenceError(db, { clientId: input.clientId });
+  if (clientError) return { ok: false, error: clientError };
   const animalIds = items.map((item) => item.animalId).filter((id): id is string => Boolean(id));
   if (animalIds.length > 0) {
     const owned = await db.animal.count({ where: { id: { in: animalIds }, ...(input.clientId ? { clientId: input.clientId } : {}) } });
