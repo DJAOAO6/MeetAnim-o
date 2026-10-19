@@ -155,7 +155,10 @@ export function ConsultationStep({ professional, serviceId, mode, onServiceChang
               icon="⌂"
               title="Au cabinet"
               ariaLabel="Consultation au cabinet"
-              detail={<>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>}
+              detail={professional.cabinetAddress
+                ? <>{professional.cabinetAddress}<br />{professional.cabinetPostalCode} {professional.cabinetCity}</>
+                // Adresse masquée par le professionnel : la ville seulement.
+                : professional.cabinetCity}
               price={`${service.cabinetPrice} €`}
               selected={mode === "CABINET"}
               disabled={!cabinetOpen}

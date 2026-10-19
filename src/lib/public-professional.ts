@@ -26,6 +26,12 @@ export async function loadPublicProfessional(slug?: string): Promise<PublicProfe
   if (slug !== undefined && profile.slug !== slug) return null;
 
   const [services, zones, availability] = await Promise.all([getPublicServices(db), getPublicZones(db), getAvailability(db)]);
+  // Ce que le professionnel a choisi de masquer ne quitte pas le serveur :
+  // cacher à l'écran ne suffisait pas, la page reçue par n'importe quel
+  // visiteur contenait tout (audit 2026-10, SEC-15). Adresse masquée : il
+  // reste la ville, assez pour choisir « au cabinet » ; la rue arrive au
+  // client par l'e-mail de confirmation.
+  const showAddress = profile.showAddressPublicly;
   return {
     slug: profile.slug,
     firstName: profile.firstName,
@@ -35,15 +41,15 @@ export async function loadPublicProfessional(slug?: string): Promise<PublicProfe
     bio: profile.bio,
     location: profile.location,
     serviceArea: serviceAreaOf(profile),
-    cabinetAddress: profile.address,
-    cabinetPostalCode: profile.postalCode,
+    cabinetAddress: showAddress ? profile.address : "",
+    cabinetPostalCode: showAddress ? profile.postalCode : "",
     cabinetCity: profile.city,
-    cabinetLatitude: profile.latitude,
-    cabinetLongitude: profile.longitude,
+    cabinetLatitude: showAddress ? profile.latitude : null,
+    cabinetLongitude: showAddress ? profile.longitude : null,
     color: profile.publicColor,
     logo: profile.logo,
     photo: profile.photo,
-    phone: profile.phone,
+    phone: profile.showPhonePublicly ? profile.phone : "",
     practiceMode: profile.practiceMode,
     cabinetAvailable: profile.cabinetAvailable,
     homeAvailable: profile.homeAvailable,

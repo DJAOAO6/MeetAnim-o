@@ -119,7 +119,7 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
 
 export function BookingSuccess({ professional, request, service, onReset }: { professional: PublicProfessional; request: PublicBookingRequest; service: PublicService; onReset: () => void }) {
   const date = formatBookingDateLabels(request.date);
-  const lieu = request.mode === "CABINET" ? `${professional.cabinetAddress}, ${professional.cabinetCity}` : [request.address?.city, request.address?.postalCode].filter(Boolean).join(" · ");
+  const lieu = request.mode === "CABINET" ? [professional.cabinetAddress, professional.cabinetCity].filter(Boolean).join(", ") :[request.address?.city, request.address?.postalCode].filter(Boolean).join(" · ");
   const reference = formatBookingReference(request.id);
 
   const calendarSummary = `${service.name} — ${request.animal.name}`;
