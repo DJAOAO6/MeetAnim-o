@@ -3,6 +3,7 @@ import type { ScopedPrismaClient } from "@/lib/db";
 import { businessProfileOf } from "@/lib/business-profile-actions";
 import { getEmailProvider, professionalReplyTo } from "@/lib/email/provider";
 import { buildIcsContent, formatBookingDateLabels } from "@/lib/booking-validation";
+import { composeCabinetAddress } from "@/lib/cabinet-address";
 import {
   appointmentCancelledClientTemplate,
   appointmentConfirmedClientTemplate,
@@ -68,7 +69,11 @@ async function sendAppointmentEmail(db: ScopedPrismaClient, clientId: string | n
       dateLabel,
       time: appointment.start,
       modeLabel: modeLabelText,
-      locationLabel: appointment.mode === "home" ? appointment.location : "",
+      // Au cabinet : l'adresse complète. Masquée sur la page publique
+      // (SEC-15), c'est par ce message que le client la reçoit.
+      locationLabel: appointment.mode === "home"
+        ? appointment.location
+        : composeCabinetAddress(professional.address, professional.postalCode, professional.city),
       professionalFirstName: professional.firstName,
       professionalCompany: professional.company,
       professionalPhone: professional.phone,

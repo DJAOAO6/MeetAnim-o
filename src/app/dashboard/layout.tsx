@@ -29,26 +29,11 @@ import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { logout } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { DiscardChangesHost } from "@/components/ui/unsaved-changes-warning";
+import { composeCabinetAddress } from "@/lib/cabinet-address";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.
 export const dynamic = "force-dynamic";
-
-/**
- * Adresse du cabinet en une ligne lisible.
- *
- * L'adresse enregistrée vient de l'autocomplétion et contient déjà, le plus
- * souvent, le code postal et la ville : les rajouter donnait « 453 Boulevard
- * de l'Europe 76360 Barentin, 76360 Barentin ». On ne complète donc que ce
- * qui manque vraiment.
- */
-function composeCabinetAddress(address: string, postalCode: string, city: string): string {
-  const line = address.trim();
-  const suffix = [postalCode.trim(), city.trim()].filter(Boolean).join(" ");
-  if (!line) return suffix;
-  if (!suffix || line.includes(postalCode.trim()) || line.toLocaleLowerCase("fr-FR").includes(city.trim().toLocaleLowerCase("fr-FR"))) return line;
-  return `${line}, ${suffix}`;
-}
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Contrôle "sûr" en complément du contrôle optimiste du proxy : relit
