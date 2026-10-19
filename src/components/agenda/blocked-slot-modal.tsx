@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import type { CreateBlockedSlotInput } from "@/lib/blocked-slots-actions";
 
 type BlockedSlotModalProps = {

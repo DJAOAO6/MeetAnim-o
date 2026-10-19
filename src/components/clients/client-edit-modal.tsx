@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Field, inputClassName } from "@/components/settings/settings-fields";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import type { Client } from "@/data/clients";
 import type { ClientContactInput } from "@/lib/clients-actions";
 

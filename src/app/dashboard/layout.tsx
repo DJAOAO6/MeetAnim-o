@@ -28,7 +28,7 @@ import { ClientDirectoryProvider } from "@/components/search/client-directory-co
 import { AnimeoLogo } from "@/components/brand/animeo-logo";
 import { logout } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
-import { DiscardChangesHost } from "@/components/ui/use-unsaved-changes-warning";
+import { DiscardChangesHost } from "@/components/ui/unsaved-changes-warning";
 
 // L'espace dashboard est protégé par connexion et lit des données live en base :
 // jamais de mise en cache statique, chaque visite doit refléter l'état réel.

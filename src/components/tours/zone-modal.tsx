@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Modal } from "@/components/ui/modal";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import { UnifiedSearch, type UnifiedSearchSelection } from "@/components/search/unified-search";
 import type { City, Zone, ZoneSector } from "@/data/tours";
 import { Plus, Trash2 } from "lucide-react";

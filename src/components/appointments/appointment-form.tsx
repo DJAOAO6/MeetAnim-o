@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Field, fieldDescribedBy, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 import { Button } from "@/components/ui/button";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import { appointmentStatusLabels, type Appointment, type AppointmentStatus } from "@/data/appointments";
 import type { ClientPickerOption } from "@/data/clients";
 import type { GeocodedAddress } from "@/data/geocoding";

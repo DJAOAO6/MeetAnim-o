@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import { ClientContactFields } from "@/components/clients/client-edit-modal";
 import { AnimalFields, animalInputFrom, emptyAnimalDraft, focusFirstAnimalError, validateAnimalDraft, withoutChangedErrors, type AnimalDraft } from "@/components/clients/animal-fields";
 import { createClientWithAnimalsAction, type ClientContactInput } from "@/lib/clients-actions";

@@ -1,5 +1,9 @@
 "use client";
 
+// Ne pas renommer en `use-unsaved-changes-warning` : l'hébergeur garde
+// l'ancien `use-unsaved-changes-warning.ts` (supprimé du dépôt), prioritaire
+// sur un `.tsx` du même nom, et la construction lirait cette vieille version.
+
 import { useEffect, useRef, useState } from "react";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 

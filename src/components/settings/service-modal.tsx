@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Field, ImagePicker, Toggle, inputClassName, textareaClassName } from "@/components/settings/settings-fields";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import type { AnimalType, ServiceSettings } from "@/data/settings";
 import { hasCabinet, visitsHomes, type PracticeMode } from "@/lib/practice-mode";
 import { servicePhotoFor } from "@/data/service-photos";

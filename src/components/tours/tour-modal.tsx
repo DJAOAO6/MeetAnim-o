@@ -7,7 +7,7 @@ import { CloseButton } from "@/components/ui/close-button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { useModalFocusTrap } from "@/components/ui/use-modal-focus-trap";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import { Toggle } from "@/components/settings/settings-fields";
 import { ZoneModal, type ZoneFormValue } from "@/components/tours/zone-modal";
 import { notify } from "@/lib/notify";

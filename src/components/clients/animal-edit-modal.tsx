@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { useUnsavedChangesWarning } from "@/components/ui/use-unsaved-changes-warning";
+import { useUnsavedChangesWarning } from "@/components/ui/unsaved-changes-warning";
 import { createAnimalAction, updateAnimalAction } from "@/lib/clients-actions";
 import { AnimalPlacePicker, resolvePlaceChoice, type AnimalPlaceChoice } from "@/components/clients/animal-place-picker";
 import { AnimalFields, animalInputFrom, emptyAnimalDraft, focusFirstAnimalError, validateAnimalDraft, withoutChangedErrors, type AnimalDraft } from "@/components/clients/animal-fields";
