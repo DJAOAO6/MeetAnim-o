@@ -11,6 +11,7 @@ export function TwoFactorForm() {
   const [state, action, pending] = useActionState<TwoFactorState, FormData>(verifyTwoFactorCode, undefined);
   const [resending, startResend] = useTransition();
   const [resent, setResent] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   return (
     <Card className="p-6 sm:p-8">
@@ -27,13 +28,21 @@ export function TwoFactorForm() {
           <p role="alert" className="rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{state.error}</p>
         ) : null}
 
-        {resent ? (
+        {resendError ? (
+          <p role="alert" className="rounded-[12px] bg-animeo-danger-soft px-4 py-3 text-sm font-bold text-animeo-danger">{resendError}</p>
+        ) : null}
+
+        {resent && !resendError ? (
           <p role="status" className="rounded-[12px] bg-animeo-soft px-4 py-3 text-sm font-bold text-animeo-dark">Un nouveau code vient d’être envoyé.</p>
         ) : null}
 
         <Button type="submit" disabled={pending} className="w-full">{pending ? "Vérification…" : "Valider"}</Button>
 
-        <Button type="button" variant="secondary" disabled={resending} onClick={() => startResend(async () => { await resendTwoFactorCode(); setResent(true); })} className="w-full">
+        <Button type="button" variant="secondary" disabled={resending} onClick={() => startResend(async () => {
+          const result = await resendTwoFactorCode();
+          setResendError(result.ok ? null : result.error);
+          setResent(result.ok);
+        })} className="w-full">
           {resending ? "Envoi…" : "Renvoyer un code"}
         </Button>
       </form>

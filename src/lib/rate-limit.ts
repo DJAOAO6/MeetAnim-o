@@ -53,3 +53,19 @@ export async function recordAttempt(key: string): Promise<void> {
   await prisma.rateLimitEvent.create({ data: { key } });
   await maybePurgeExpiredSecurityRecords();
 }
+
+/**
+ * Compte une tentative puis dit si elle reste dans la limite. Enregistrer
+ * d'abord, compter ensuite : vingt requêtes envoyées au même instant se
+ * voient toutes les unes les autres, alors qu'un « compter puis
+ * enregistrer » (isRateLimited + recordAttempt) les laissait toutes passer
+ * sur un compteur encore à zéro (audit 2026-10, SEC-01). Une tentative
+ * refusée compte aussi : insister ne rouvre pas la fenêtre plus tôt.
+ */
+export async function consumeAttempt(key: string, maxAttempts: number, windowMs: number): Promise<boolean> {
+  await prisma.rateLimitEvent.create({ data: { key } });
+  const since = new Date(Date.now() - windowMs);
+  const count = await prisma.rateLimitEvent.count({ where: { key, createdAt: { gte: since } } });
+  await maybePurgeExpiredSecurityRecords();
+  return count <= maxAttempts;
+}

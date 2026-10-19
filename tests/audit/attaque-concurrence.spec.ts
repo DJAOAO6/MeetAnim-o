@@ -12,9 +12,9 @@ const BASE = BASE_URL;
  * Phase 3 — Profil 6 : des requêtes envoyées en même temps, contre la double
  * authentification par code email.
  *
- * Preuve pour `SEC-01` (docs/audit-2026-10/02-SECURITE-CODE.md) :
- * - le compteur d'essais est lu puis augmenté en deux temps (course) ;
- * - `resendTwoFactorCode` n'a aucune limite de débit.
+ * Écrit en phase 3 comme preuve de `SEC-01` (docs/audit-2026-10/02-SECURITE-CODE.md),
+ * retourné après correction en test de non-régression : le compteur d'essais
+ * tient face à des requêtes simultanées, et les renvois de code sont limités.
  *
  * Un espace jetable, pour ne consommer le quota de connexions d'aucun autre
  * essai de cette phase.
@@ -64,14 +64,14 @@ test.beforeAll(async () => {
   await sql`INSERT INTO "Organization" (id, name, "createdAt", "updatedAt") VALUES (${ORG}, ${`${MARKER} 2FA`}, now(), now())`;
   const [row] = await sql`
     INSERT INTO "User" (id, email, "passwordHash", "firstName", "lastName", role, permissions, "organizationId", "twoFactorEnabled", "updatedAt")
-    VALUES (${`${ORG}-user`}, ${EMAIL}, ${await bcrypt.hash(PASSWORD, 10)}, 'Audit', ${MARKER}, 'PRACTITIONER', ARRAY[]::text[], ${ORG}, true, now())
+    VALUES (${`${ORG}-user-${Date.now()}`}, ${EMAIL}, ${await bcrypt.hash(PASSWORD, 10)}, 'Audit', ${MARKER}, 'PRACTITIONER', ARRAY[]::text[], ${ORG}, true, now())
     RETURNING id`;
   userId = row.id as string;
 });
 
 test.afterAll(async () => { await cleanup(); });
 
-test("le compteur d'essais n'est pas à l'épreuve d'essais envoyés en même temps", async ({ page }) => {
+test("le compteur d'essais tient face à des essais envoyés en même temps", async ({ page }) => {
   // La connexion (page fixture, par test) ne peut pas se faire dans
   // beforeAll : c'est ce premier essai qui l'ouvre, les suivants réutilisent
   // le cookie obtenu ici.
@@ -137,31 +137,25 @@ test("le compteur d'essais n'est pas à l'épreuve d'essais envoyés en même te
   // Relevé consigné dans docs/audit-2026-10/03-ATTAQUES.md.
   console.log(`[SEC-01] 20 essais simultanés : ${invalidCode} traités comme « code incorrect », ${counts.find((r) => r.reason === "max_attempts")?.n ?? 0} refusés pour limite atteinte, compteur final ${row.attempts}`);
 
-  // Constat, pas une assertion de réussite d'attaque : le nombre d'essais
-  // réellement traités comme « code incorrect » (compteur encore sous la
-  // limite au moment de la lecture), contre vingt envoyés en même temps. La
-  // limite posée par le code est cinq (`maxAttempts`) ; si plus de cinq ont
-  // été traités ainsi, ou si le compteur final en base est inférieur à
-  // vingt, la lecture-puis-écriture en deux temps a laissé passer plus
-  // d'essais que prévu — le défaut décrit par SEC-01.
-  expect(invalidCode, "essais journalisés comme « code incorrect », sur vingt envoyés ensemble").toBeGreaterThan(5);
-  expect(row.attempts as number, "compteur final en base, après vingt essais envoyés ensemble").toBeLessThan(20);
+  // Au plus cinq essais réellement jugés sur ce code (`maxAttempts`), quel
+  // que soit le nombre de requêtes simultanées : l'essai est compté avant
+  // d'être jugé, par une écriture conditionnelle. Avant correction : 12.
+  expect(invalidCode, "essais journalisés comme « code incorrect », sur vingt envoyés ensemble").toBeLessThanOrEqual(5);
+  expect(row.attempts as number, "compteur final en base, après vingt essais envoyés ensemble").toBeLessThanOrEqual(5);
 });
 
-test("resendTwoFactorCode n'a aucune limite de débit", async () => {
+test("resendTwoFactorCode est limité à trois codes par quart d'heure", async () => {
   expect(resendActionId, "action resendTwoFactorCode trouvée").toBeTruthy();
 
   const before = (await sql`SELECT count(*)::int AS n FROM "TwoFactorCode" WHERE "userId" = ${userId}`)[0].n as number;
-  // Six renvois à la suite : une vraie limite (le correctif propose trois
-  // par quart d'heure) en aurait refusé au moins un.
+  // Six renvois à la suite : les trois premiers passent (contrôle positif :
+  // le renvoi fonctionne), les suivants sont refusés sans créer de code.
   for (let i = 0; i < 6; i++) {
     const result = await callResend(resendActionId, cookie);
     expect(result.status, `renvoi n°${i + 1} non refusé`).toBeLessThan(400);
   }
   const after = (await sql`SELECT count(*)::int AS n FROM "TwoFactorCode" WHERE "userId" = ${userId}`)[0].n as number;
 
-  // Constat : six nouveaux codes, un par renvoi, sans aucun refus — la
-  // fenêtre de dix minutes se renouvelle à chaque renvoi et ne se referme
-  // jamais.
-  expect(after - before, "un code créé par renvoi, aucun refusé").toBe(6);
+  // Avant correction : six codes créés, aucun refusé.
+  expect(after - before, "trois codes créés, les renvois suivants refusés").toBe(3);
 });
