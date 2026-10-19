@@ -21,7 +21,9 @@
  *   sont reposés sur toutes les tables (celles des migrations du jour
  *   comprises), puis la connexion est essayée avant d'être rendue.
  * - Le moindre échec : l'adresse d'origine est rendue, avec un avertissement.
- *   Le site démarre comme avant, jamais pas du tout.
+ *   En production, le serveur constate alors que la seconde barrière est
+ *   inactive et refuse de démarrer (src/instrumentation.ts) ; ailleurs, il
+ *   démarre en le signalant.
  *
  * Le mot de passe n'est stocké nulle part : il est dérivé d'un secret déjà
  * présent sur le serveur (RUNTIME_DB_SECRET, à défaut SESSION_SECRET). Il est

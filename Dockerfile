@@ -36,6 +36,7 @@ EXPOSE 3000
 # Enfin, le site lui-même tourne sous un compte restreint, sans droit de
 # contourner le cloisonnement de la base (scripts/runtime-role.mjs) — quand
 # l'hébergeur ne fournit qu'un superutilisateur. Le script rend l'adresse à
-# utiliser ; s'il échoue, même complètement, le site démarre avec l'adresse
-# d'origine : jamais pas du tout.
+# utiliser ; s'il échoue, il rend l'adresse d'origine, et c'est le serveur
+# qui, en production, refuse alors de démarrer sans la seconde barrière
+# (src/instrumentation.ts ; issue de secours : ALLOW_INACTIVE_DB_BARRIER=1).
 CMD ["sh", "-c", "export DATABASE_URL=\"${DB_URL:-$DATABASE_URL}\" && npx prisma migrate deploy && npx tsx prisma/seed-document-templates.ts && npx tsx prisma/bootstrap-admin.ts && RUNTIME_DATABASE_URL=\"$(node scripts/runtime-role.mjs || true)\" && export DATABASE_URL=\"${RUNTIME_DATABASE_URL:-$DATABASE_URL}\" && npm start"]

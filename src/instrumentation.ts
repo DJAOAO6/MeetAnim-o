@@ -14,17 +14,31 @@ export async function register() {
 
   // La seconde barrière (cloisonnement dans la base) peut être inerte sans
   // que rien ne casse : il suffit que le compte de connexion soit
-  // superutilisateur. On le vérifie, et on le dit, plutôt que de le supposer.
+  // superutilisateur. On le vérifie plutôt que de le supposer.
+  //
+  // En production, sans elle, le serveur refuse de démarrer (audit 2026-10,
+  // SEC-08) : plusieurs cabinets partagent la base, et un site indisponible
+  // vaut mieux qu'un site dont le cloisonnement ne tient plus qu'au code.
+  // Issue de secours, le temps de réparer : ALLOW_INACTIVE_DB_BARRIER=1.
+  let barrierProblem: string | null = null;
   try {
     const { checkDatabaseBarrier } = await import("@/lib/db-barrier");
     const barrier = await checkDatabaseBarrier();
     if (barrier.active) {
       console.info(`[cloisonnement] seconde barrière active (compte « ${barrier.role} »).`);
     } else {
-      console.warn(`[cloisonnement] ATTENTION : seconde barrière inactive — ${barrier.reason} (compte « ${barrier.role} »). Le cloisonnement ne repose plus que sur l'application.`);
+      barrierProblem = `${barrier.reason} (compte « ${barrier.role} »)`;
     }
   } catch (error) {
-    console.warn("[cloisonnement] impossible de vérifier la seconde barrière :", error instanceof Error ? error.message : error);
+    barrierProblem = `vérification impossible : ${error instanceof Error ? error.message : String(error)}`;
+  }
+  if (barrierProblem) {
+    const { inactiveBarrierAction } = await import("@/lib/barrier-policy");
+    if (inactiveBarrierAction(process.env) === "stop") {
+      console.error(`[cloisonnement] ARRÊT : seconde barrière inactive — ${barrierProblem}. Le serveur refuse de démarrer sans elle. Réparer le compte restreint (scripts/runtime-role.mjs), ou poser ALLOW_INACTIVE_DB_BARRIER=1 le temps de le faire.`);
+      process.exit(1);
+    }
+    console.warn(`[cloisonnement] ATTENTION : seconde barrière inactive — ${barrierProblem}. Le cloisonnement ne repose plus que sur l'application.`);
   }
 
   // Super-administration : le rôle est décidé hors de l'application, par
