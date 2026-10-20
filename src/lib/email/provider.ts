@@ -41,13 +41,15 @@ export interface EmailProvider {
  * du serveur. En développement, en entier (codes de connexion, liens de
  * réinitialisation). En production, jamais le corps — noms, adresses,
  * rendez-vous des clients finiraient dans les journaux de l'hébergeur — :
- * seulement le destinataire masqué et le sujet. Le démarrage le signale
+ * seulement le destinataire masqué. Le démarrage le signale
  * (src/instrumentation.ts).
  */
 class ConsoleEmailProvider implements EmailProvider {
   async send(message: EmailMessage): Promise<void> {
     if (process.env.NODE_ENV === "production") {
-      console.warn(`[email] non envoyé (Mailjet non configuré) → ${maskEmail(message.to)} · ${message.subject}`);
+      // Pas le sujet (SEC-29) : il portait le code de connexion, ou le nom
+      // d'un client et de son animal.
+      console.warn(`[email] non envoyé (Mailjet non configuré) → ${maskEmail(message.to)}`);
       return;
     }
     const attachmentsLabel = message.attachments?.length ? ` [pièce(s) jointe(s) : ${message.attachments.map((item) => item.filename).join(", ")}]` : "";

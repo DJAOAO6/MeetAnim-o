@@ -42,7 +42,7 @@ export async function register() {
   if (process.env.NODE_ENV === "production") {
     const { emailConfigured } = await import("@/lib/email/provider");
     if (!emailConfigured()) {
-      console.warn("[email] ATTENTION : Mailjet n'est pas configuré (MAILJET_API_KEY, MAILJET_API_SECRET, MAIL_FROM_ADDRESS). Aucun email n'est envoyé ; seuls le destinataire masqué et le sujet sont journalisés.");
+      console.warn("[email] ATTENTION : Mailjet n'est pas configuré (MAILJET_API_KEY, MAILJET_API_SECRET, MAIL_FROM_ADDRESS). Aucun email n'est envoyé ; seul le destinataire masqué est journalisé.");
     }
   }
 

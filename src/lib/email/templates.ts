@@ -227,7 +227,9 @@ Passé ce délai, l'effacement est définitif.`,
 
 export function twoFactorCodeTemplate(code: string): EmailContent {
   return {
-    subject: `${code} — votre code de connexion 1002 Pattes`,
+    // Pas le code dans le sujet (SEC-29) : il s'affiche sur un écran
+    // verrouillé et finissait dans les journaux du serveur sans Mailjet.
+    subject: "Votre code de connexion 1002 Pattes",
     text: `Votre code de connexion 1002 Pattes est : ${code}\n\nIl est valable 10 minutes et à usage unique. Si vous n'êtes pas à l'origine de cette tentative de connexion, ignorez cet email et pensez à changer votre mot de passe.`,
     html: layout({
       preheader: `Votre code de connexion : ${code}`,

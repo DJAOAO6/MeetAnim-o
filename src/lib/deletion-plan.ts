@@ -85,13 +85,15 @@ export function rateLimitKeysFor(emails: string[], userIds: string[]): string[] 
   for (const raw of emails) {
     const email = raw.trim().toLowerCase();
     if (!email) continue;
-    for (const scope of ["login", "reset", "public-booking:email"]) {
+    for (const scope of ["login", "login:failed", "reset", "public-booking:email"]) {
       keys.add(`${scope}:${pseudonymize(email)}`);
       keys.add(`${scope}:${email}`);
     }
   }
   for (const userId of userIds) {
     for (const scope of ["client-import", "tour-optimize", "tour-route", "tour-reverse-geocode"]) keys.add(`${scope}:${userId}`);
+    // Double authentification (SEC-01) : le compte, en empreinte.
+    for (const scope of ["2fa-verify", "2fa-resend"]) keys.add(`${scope}:${pseudonymize(userId)}`);
   }
   return [...keys];
 }

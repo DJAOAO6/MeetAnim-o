@@ -30,7 +30,7 @@ function hashToken(value: string): string {
 
 async function clearRateLimits() {
   const sql = neon(process.env.DATABASE_URL!);
-  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
+  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%' OR key LIKE '2fa-%'`;
 }
 
 async function setKnownTwoFactorCode(email: string): Promise<void> {

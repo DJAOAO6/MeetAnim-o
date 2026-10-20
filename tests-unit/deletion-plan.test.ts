@@ -37,6 +37,9 @@ test("les clés de limitation d'un espace sont retrouvées, en empreinte comme e
   assert.ok(keys.includes(`public-booking:email:${pseudonymize("camille@example.fr")}`));
   assert.ok(keys.includes("reset:camille@example.fr"), "ancienne forme, antérieure aux empreintes");
   assert.ok(keys.includes("client-import:user-1"));
+  assert.ok(keys.includes(`login:failed:${pseudonymize("camille@example.fr")}`), "échecs de connexion par adresse (SEC-06)");
+  assert.ok(keys.includes(`2fa-verify:${pseudonymize("user-1")}`), "essais de code par compte (SEC-01)");
+  assert.ok(keys.includes(`2fa-resend:${pseudonymize("user-1")}`), "renvois de code par compte (SEC-01)");
 });
 
 test("les empreintes d'un DeletionRecord ne contiennent ni l'identifiant ni le lien", () => {

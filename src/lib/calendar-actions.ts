@@ -93,6 +93,8 @@ export async function disableIcsFeedAction(): Promise<CalendarActionResult> {
   await requireModule("CALENDAR_SYNC");
   const user = await requireUser();
   await prisma.user.update({ where: { id: user.id }, data: { icsFeedToken: null } });
+  // Tracé comme sa création (SEC-07) : couper un flux d'agenda est un geste de sécurité.
+  await logAudit({ userId: user.id, action: "CALENDAR_SETTINGS_UPDATED", metadata: { icsFeed: "disabled" } });
   revalidatePath(SETTINGS_PATH);
   return { ok: true };
 }

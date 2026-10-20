@@ -1,5 +1,5 @@
 import "server-only";
-import { headers } from "next/headers";
+import { requestIp } from "@/lib/request-ip";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth/dal";
@@ -60,18 +60,9 @@ type AuditAction =
   | "CLIENT_ARCHIVED"
   | "CLIENT_RESTORED";
 
-// AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) —
-// lue ici une fois pour tous les appelants plutôt que d'exiger que chacun
-// des ~15 sites d'appel de logAudit() la passe explicitement.
-async function requestIp(): Promise<string | null> {
-  // Hors d'une requête (tâche planifiée du serveur), il n'y a pas d'en-têtes.
-  try {
-    const headerList = await headers();
-    return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-  } catch {
-    return null;
-  }
-}
+// AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) :
+// lue une fois pour tous les appelants de logAudit(), par request-ip.ts
+// (adresse posée par le serveur frontal, SEC-02).
 
 export async function logAudit(entry: {
   userId?: string | null;

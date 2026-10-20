@@ -6,7 +6,7 @@ import { MAX_VISIT_ANIMALS, visitSummary } from "@/lib/visit-group";
 import { requestedSlots } from "@/lib/slot-requests";
 import { ensureConsultation, markAppointmentCompleted, undoCompletion } from "@/lib/appointment-completion";
 import { rateLimitKey } from "@/lib/privacy";
-import { headers } from "next/headers";
+import { requestIp } from "@/lib/request-ip";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
@@ -1295,11 +1295,6 @@ async function cleanupOrphanedClientAndAnimal(db: ScopedPrismaClient, result: Fi
   } catch {
     // Best-effort : voir la note ci-dessus.
   }
-}
-
-async function requestIp(): Promise<string> {
-  const headerList = await headers();
-  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }
 
 // Une demande de rendez-vous n'est pas un geste anodin qu'on répète des

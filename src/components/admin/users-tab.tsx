@@ -21,6 +21,13 @@ import { permissionKeys, permissionLabels, type PermissionKey } from "@/lib/auth
 import { roleLabels, type AdminUser } from "@/data/admin";
 import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { hasModule, moduleClosedMessage } from "@/lib/modules";
+import { notify } from "@/lib/notify";
+import type { TeamChangeResult } from "@/lib/admin/actions";
+
+/** Un changement refusé par le serveur (dernier administrateur…) se dit, sans casser la page. */
+function reportRefusal(result: TeamChangeResult) {
+  if (!result.ok) notify.error(result.error);
+}
 
 const inputClassName = "h-11 w-full rounded-[12px] border border-animeo-border bg-animeo-bg px-3 text-sm font-semibold text-animeo-dark outline-none transition focus:border-animeo focus:bg-white";
 
@@ -148,7 +155,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   /** Désactiver coupe l'accès de quelqu'un : confirmé. Réactiver ne coupe rien : immédiat. */
   function changeActive(active: boolean) {
     if (!active) { setConfirming("deactivate"); return; }
-    startTransition(() => setUserActive(user.id, true));
+    startTransition(async () => reportRefusal(await setUserActive(user.id, true)));
   }
 
   function togglePermission(key: PermissionKey) {
@@ -181,7 +188,15 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
           <select
             defaultValue={user.role}
             disabled={pending}
-            onChange={(event) => startTransition(() => setUserRole(user.id, event.target.value as AdminUser["role"]))}
+            onChange={(event) => {
+              const select = event.currentTarget;
+              startTransition(async () => {
+                const result = await setUserRole(user.id, select.value as AdminUser["role"]);
+                // Refusé (dernier administrateur…) : la liste reprend le rôle réel.
+                if (!result.ok) select.value = user.role;
+                reportRefusal(result);
+              });
+            }}
             className="rounded-lg border border-animeo-border bg-white px-2 py-1.5 text-xs font-bold text-animeo-dark"
           >
             {Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -226,7 +241,7 @@ function UserRow({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
               title={`Désactiver le compte de ${fullName} ?`}
               message="Cette personne ne pourra plus se connecter."
               confirmLabel="Désactiver"
-              onConfirm={() => { setConfirming(null); startTransition(() => setUserActive(user.id, false)); }}
+              onConfirm={() => { setConfirming(null); startTransition(async () => reportRefusal(await setUserActive(user.id, false))); }}
               onClose={() => setConfirming(null)}
             />
           ) : null}

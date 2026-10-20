@@ -49,6 +49,25 @@ async function teamMember(admin: { id: string; organizationId: string | null }, 
   return { ok: true, target: { id: target.id, email: target.email, role: target.role, organizationId: target.organizationId } };
 }
 
+const USER_ROLES: readonly UserRole[] = ["ADMIN", "PRACTITIONER", "SECRETARY"];
+
+/** Le rôle reçu du navigateur est l'un des trois (SEC-13) : jamais une valeur libre. */
+function validRole(value: unknown): value is UserRole {
+  return typeof value === "string" && (USER_ROLES as readonly string[]).includes(value);
+}
+
+/**
+ * Ce compte est-il le dernier administrateur actif de son espace ? Le
+ * retirer — suppression, autre rôle, désactivation — laisserait l'espace
+ * sans personne pour gérer l'équipe (SEC-13 : seule la suppression le
+ * vérifiait).
+ */
+async function isLastActiveAdmin(target: { id: string; role: UserRole; organizationId: string }): Promise<boolean> {
+  if (target.role !== "ADMIN") return false;
+  const others = await prisma.user.count({ where: { role: "ADMIN", active: true, id: { not: target.id }, organizationId: target.organizationId } });
+  return others === 0;
+}
+
 /** Pour les actions sans valeur de retour : un refus devient une erreur. */
 async function requireTeamMember(admin: { id: string; organizationId: string | null }, userId: string) {
   const member = await teamMember(admin, userId);
@@ -66,15 +85,19 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
-  const role = String(formData.get("role") ?? "PRACTITIONER") as UserRole;
+  const role = formData.get("role") ?? "PRACTITIONER";
 
   if (!email || !firstName || !lastName) {
     return { error: "Merci de renseigner l'email, le prénom et le nom." };
   }
+  if (!validRole(role)) return { error: "Rôle inconnu." };
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  // Une adresse ne sert qu'à un compte, tous espaces confondus. Le message
+  // ne dit plus qu'elle est prise ailleurs (SEC-13) : seulement qu'elle
+  // n'est pas utilisable ici.
+  const existing = await prisma.user.findUnique({ where: { email }, select: { organizationId: true } });
   if (existing) {
-    return { error: "Un compte existe déjà avec cet email." };
+    return { error: existing.organizationId === admin.organizationId ? "Un compte de votre équipe utilise déjà cet email." : "Cette adresse ne peut pas servir à un nouveau compte. Utilisez-en une autre." };
   }
 
   // Mot de passe temporaire aléatoire : jamais communiqué tel quel, seul le
@@ -109,22 +132,31 @@ export async function createUser(_prevState: CreateUserState, formData: FormData
   return { resetUrl };
 }
 
-export async function setUserRole(userId: string, role: UserRole) {
+export type TeamChangeResult = { ok: true } | { ok: false; error: string };
+
+export async function setUserRole(userId: string, role: UserRole): Promise<TeamChangeResult> {
   const admin = await requireAdmin();
   refuseDuringAssistance(admin);
-  await requireTeamMember(admin, userId);
+  if (!validRole(role)) return { ok: false, error: "Rôle inconnu." };
+  const member = await teamMember(admin, userId);
+  if (!member.ok) return member;
+  if (role !== "ADMIN" && await isLastActiveAdmin(member.target)) return { ok: false, error: "L'espace doit garder au moins un administrateur." };
   await prisma.user.update({ where: { id: userId }, data: { role } });
   await logAudit({ userId: admin.id, action: "USER_UPDATED", entityType: "User", entityId: userId, metadata: { role } });
   revalidatePath("/dashboard/admin");
+  return { ok: true };
 }
 
-export async function setUserActive(userId: string, active: boolean) {
+export async function setUserActive(userId: string, active: boolean): Promise<TeamChangeResult> {
   const admin = await requireAdmin();
   refuseDuringAssistance(admin);
-  await requireTeamMember(admin, userId);
+  const member = await teamMember(admin, userId);
+  if (!member.ok) return member;
+  if (!active && await isLastActiveAdmin(member.target)) return { ok: false, error: "L'espace doit garder au moins un administrateur actif." };
   await prisma.user.update({ where: { id: userId }, data: { active } });
   await logAudit({ userId: admin.id, action: active ? "USER_UPDATED" : "USER_DEACTIVATED", entityType: "User", entityId: userId, metadata: { active } });
   revalidatePath("/dashboard/admin");
+  return { ok: true };
 }
 
 export async function setUserTwoFactor(userId: string, enabled: boolean) {
@@ -180,12 +212,9 @@ export async function deleteUserAction(userId: string): Promise<DeleteUserResult
   if (!member.ok) return member;
   const { target } = member;
 
-  if (target.role === "ADMIN") {
-    // Le dernier administrateur de l'espace, pas de toute la plateforme.
-    const otherAdmins = await prisma.user.count({ where: { role: "ADMIN", id: { not: userId }, organizationId: target.organizationId } });
-    if (otherAdmins === 0) {
-      return { ok: false, error: "Impossible de supprimer le dernier compte administrateur." };
-    }
+  // Le dernier administrateur actif de l'espace, pas de toute la plateforme.
+  if (await isLastActiveAdmin(target)) {
+    return { ok: false, error: "Impossible de supprimer le dernier compte administrateur." };
   }
 
   // Les comptes rendus sont rattachés à leur auteur en cascade : supprimer le

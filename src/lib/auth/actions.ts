@@ -2,10 +2,10 @@
 
 import { loginFailedMetadata } from "@/lib/audit-metadata";
 import { rateLimitKey } from "@/lib/privacy";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { findActiveUserByEmail, verifyPassword } from "@/lib/auth/credentials";
+import { findActiveUserByEmail, verifyPasswordOrDummy } from "@/lib/auth/credentials";
+import { requestIp } from "@/lib/request-ip";
 import { createPendingTwoFactorSession } from "@/lib/auth/session";
 import { closeCurrentSession, openSession } from "@/lib/auth/session-store";
 import { generateNumericCode, hashToken } from "@/lib/auth/tokens";
@@ -23,11 +23,6 @@ const loginMaxAttempts = 10;
 const loginWindowMs = 15 * 60 * 1000;
 const twoFactorCodeDurationMs = 10 * 60 * 1000;
 
-async function requestIp() {
-  const headerList = await headers();
-  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-}
-
 export async function login(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -38,18 +33,21 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 
   const ip = await requestIp();
   // Adresse et IP en empreinte (privacy.ts) : la limite tient, sans les garder en clair.
-  const emailKey = rateLimitKey("login", email);
+  // Par adresse e-mail, seuls les ÉCHECS comptent (SEC-06) : avant, dix
+  // essais quelconques — d'un tiers qui connaît l'adresse — bloquaient le
+  // titulaire. Par IP, chaque essai compte.
+  const emailKey = rateLimitKey("login:failed", email);
   const ipKey = rateLimitKey("login:ip", ip ?? "");
   if (await isRateLimited(emailKey, loginMaxAttempts, loginWindowMs) || await isRateLimited(ipKey, loginMaxAttempts * 3, loginWindowMs)) {
     return { error: "Trop de tentatives. Merci de réessayer dans quelques minutes." };
   }
-  await recordAttempt(emailKey);
   await recordAttempt(ipKey);
 
   const user = await findActiveUserByEmail(email);
-  const valid = user?.active ? await verifyPassword(user.passwordHash, password) : false;
+  const valid = await verifyPasswordOrDummy(user?.active ? user.passwordHash : null, password);
 
   if (!user || !valid) {
+    await recordAttempt(emailKey);
     await logAudit({ userId: user?.id, action: "LOGIN_FAILED", metadata: loginFailedMetadata(email) });
     return { error: "Email ou mot de passe incorrect." };
   }

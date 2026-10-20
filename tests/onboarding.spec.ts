@@ -277,7 +277,7 @@ test("un nouvel espace n'a que le socle ; la plateforme lui ouvre un module", as
   const platform = await browser.newContext();
   try {
     const page = await invitee.newPage();
-    await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
+    await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%' OR key LIKE '2fa-%'`;
     await page.goto("/login", { waitUntil: "networkidle" });
     await page.fill('input[type="email"]', INVITEE_EMAIL);
     await page.fill('input[type="password"]', INVITEE_PASSWORD);

@@ -1,5 +1,16 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { runScheduledJobs } from "@/lib/scheduler/jobs";
+
+/**
+ * Comparaison à temps constant (SEC-24) : un « !== » s'arrête au premier
+ * caractère différent, et sa durée renseigne sur le secret. Les empreintes
+ * ont la même longueur, ce que timingSafeEqual exige.
+ */
+function sameSecret(received: string, expected: string): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(received), digest(expected));
+}
 
 /**
  * Prérequis technique de toutes les tâches de fond (rappel J-1, purges…) —
@@ -16,8 +27,7 @@ import { runScheduledJobs } from "@/lib/scheduler/jobs";
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  if (!secret || !sameSecret(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

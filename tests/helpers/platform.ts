@@ -38,7 +38,7 @@ export async function removePlatformAccount(sql: SqlTag, email: string): Promise
 
 /** Connexion du compte de plateforme, double authentification comprise, jusqu'à /plateforme. */
 export async function loginAsPlatform(page: Page, sql: SqlTag, platformId: string, email: string): Promise<void> {
-  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
+  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%' OR key LIKE '2fa-%'`;
   await sql`DELETE FROM "TwoFactorCode" WHERE "userId" = ${platformId}`;
   await page.goto("/login", { waitUntil: "networkidle" });
   await page.fill('input[type="email"]', email);

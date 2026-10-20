@@ -2,6 +2,7 @@
 
 import { rateLimitKey } from "@/lib/privacy";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/credentials";
 import { generateResetToken, hashToken } from "@/lib/auth/tokens";
@@ -43,13 +44,19 @@ export async function requestPasswordReset(_prevState: RequestResetState, formDa
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const resetUrl = `${appUrl}/reinitialiser-mot-de-passe?token=${token}`;
+    const recipient = user.email;
+    const userId = user.id;
+    await logAudit({ userId, action: "PASSWORD_RESET_REQUESTED" });
 
-    try {
-      await getEmailProvider().send({ to: user.email, ...passwordResetTemplate(resetUrl) });
-      await logAudit({ userId: user.id, action: "PASSWORD_RESET_REQUESTED" });
-    } catch {
-      // On ne révèle jamais l'échec technique côté client, pour ne pas divulguer d'information.
-    }
+    // Envoyé après la réponse (SEC-05) : attendre l'e-mail allongeait la
+    // réponse pour une adresse qui a un compte, et seulement pour elle.
+    after(async () => {
+      try {
+        await getEmailProvider().send({ to: recipient, ...passwordResetTemplate(resetUrl) });
+      } catch {
+        // On ne révèle jamais l'échec technique côté client, pour ne pas divulguer d'information.
+      }
+    });
   }
 
   return { message: genericMessage };
@@ -79,10 +86,18 @@ export async function resetPassword(_prevState: ResetPasswordState, formData: Fo
 
   const passwordHash = await hashPassword(password);
 
-  await prisma.$transaction([
-    prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash, passwordChangedAt: new Date() } }),
-    prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { usedAt: new Date() } }),
-  ]);
+  // Le lien est réservé par une écriture conditionnelle (un seul usage, même
+  // face à deux envois simultanés), et tous les autres liens encore valables
+  // du compte tombent avec lui (SEC-07).
+  const now = new Date();
+  const changed = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.passwordResetToken.updateMany({ where: { id: resetToken.id, usedAt: null }, data: { usedAt: now } });
+    if (claimed.count === 0) return false;
+    await tx.user.update({ where: { id: resetToken.userId }, data: { passwordHash, passwordChangedAt: now } });
+    await tx.passwordResetToken.updateMany({ where: { userId: resetToken.userId, usedAt: null }, data: { usedAt: now } });
+    return true;
+  });
+  if (!changed) return { error: "Ce lien de réinitialisation est invalide ou a expiré." };
 
   await logAudit({ userId: resetToken.userId, action: "PASSWORD_RESET_COMPLETED" });
   redirect("/login?reset=ok");

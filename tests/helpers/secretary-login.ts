@@ -24,7 +24,7 @@ export async function loginAsSecretary(page: Page): Promise<void> {
   const sql = neon(process.env.DATABASE_URL!);
   const [user] = await sql`SELECT id FROM "User" WHERE email = ${secretaryEmail}`;
   await sql`DELETE FROM "TwoFactorCode" WHERE "userId" = ${user.id}`;
-  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%'`;
+  await sql`DELETE FROM "RateLimitEvent" WHERE key LIKE 'login:%' OR key LIKE '2fa-%'`;
   // Ce compte est, par définition du scénario, protégé par double
   // authentification : on l'active ici plutôt que de dépendre du jeu de
   // données, qui peut être recréé.
