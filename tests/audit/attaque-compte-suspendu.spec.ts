@@ -99,11 +99,11 @@ test("un espace suspendu après coup ferme aussitôt les sessions déjà ouverte
 
   // `requireUser()` appelle redirect("/login") plutôt que de répondre avec
   // une erreur. Constaté (voir aussi attaque-elevation-secretariat.spec.ts) :
-  // le serveur rend ici la page générique « introuvable » de Next.js dans
+  // le serveur rend ici la page « introuvable » (src/app/not-found.tsx) dans
   // la réponse à l'action, sans code HTTP de redirection ni en-tête
   // Location — mais sans jamais exécuter l'écriture : c'est la base qui
   // tranche, pas le texte de la réponse.
-  expect(result.raw, `réponse : ${result.status} ${result.raw.slice(0, 200)}`).toContain("could not be found");
+  expect(result.raw, `réponse : ${result.status} ${result.raw.slice(0, 200)}`).toContain("Page introuvable");
 
   const [row] = await sql`SELECT id FROM "Client" WHERE "organizationId" = ${SUSPENDED_ORG} AND "lastName" = ${lastName}`;
   expect(row, "aucun client créé après la suspension").toBeUndefined();
@@ -130,7 +130,7 @@ test("une session révoquée (déconnexion, changement de mot de passe) ne vaut 
   const lastName = `${MARKER}Revoque`;
   const result = await callCreateClient(actionId!, cookie, lastName);
 
-  expect(result.raw, `réponse : ${result.status} ${result.raw.slice(0, 200)}`).toContain("could not be found");
+  expect(result.raw, `réponse : ${result.status} ${result.raw.slice(0, 200)}`).toContain("Page introuvable");
 
   const [row] = await sql`SELECT id FROM "Client" WHERE "organizationId" = ${REVOKED_ORG} AND "lastName" = ${lastName}`;
   expect(row, "aucun client créé avec une session révoquée").toBeUndefined();

@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { expect, test } from "./helpers/test";
+import { expect, test, type Page } from "./helpers/test";
 import { neon } from "./helpers/sql";
 
 config({ path: ".env.local" });
@@ -132,28 +132,33 @@ test.describe("Système de notifications (toasts)", () => {
     }
   });
 
+  // Un geste réel et sans effet de bord : réenregistrer l'affichage courant
+  // de l'agenda comme affichage par défaut. Ces deux tests s'appuyaient
+  // auparavant sur un bouton factice de la fiche animal, retiré (FONC-01).
+  async function openDisplaySave(page: Page) {
+    await page.goto("/dashboard/agenda");
+    await page.getByRole("button", { name: "Affichage" }).click();
+    return page.getByRole("button", { name: "Définir comme affichage par défaut" });
+  }
+
   test("plusieurs actions rapides empilent les toasts sans perte", async ({ page }) => {
-    await page.goto("/dashboard/clients");
-    await page.locator('a[href^="/dashboard/clients/"]').first().click();
-    const uploadButton = page.getByRole("button", { name: "Téléverser un document" });
+    const save = await openDisplaySave(page);
 
-    // Trois déclenchements rapprochés du même toast info (stub documents,
-    // encore en attente des identifiants de stockage — voir AnimalSideCards) :
-    // chacun doit produire son propre toast, aucun perdu.
-    await uploadButton.click();
-    await uploadButton.click();
-    await uploadButton.click();
-
-    await expect(page.locator('[data-sonner-toast][data-type="info"]')).toHaveCount(3);
+    // Trois enregistrements à la suite : chacun doit produire son propre
+    // toast, aucun perdu.
+    for (let i = 0; i < 3; i++) {
+      await expect(save).toBeEnabled();
+      await save.click();
+      await expect(page.locator('[data-sonner-toast][data-type="success"]')).toHaveCount(i + 1);
+    }
   });
 
   test("le toast est annoncé aux technologies d'assistance via une région live", async ({ page }) => {
-    await page.goto("/dashboard/clients");
-    await page.locator('a[href^="/dashboard/clients/"]').first().click();
-    await page.getByRole("button", { name: "Téléverser un document" }).click();
+    const save = await openDisplaySave(page);
+    await save.click();
 
     const liveRegion = page.locator('[aria-live="polite"]').filter({ has: page.locator('[data-sonner-toast]') });
     await expect(liveRegion).toHaveCount(1);
-    await expect(liveRegion.locator('[data-sonner-toast]')).toContainText("simulation locale");
+    await expect(liveRegion.locator('[data-sonner-toast]')).toContainText("Affichage enregistré");
   });
 });

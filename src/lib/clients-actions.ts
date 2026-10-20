@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { dbFor, organizationIdOf } from "@/lib/db";
 import { eraseClient, eraseClientOutside } from "@/lib/client-erasure";
+import { imageProblem } from "@/lib/images/validate-image";
 import { currentDb } from "@/lib/organization";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -483,6 +484,27 @@ export async function createAnimalAction(clientId: string, input: UpdateAnimalIn
   revalidatePath("/dashboard/carte");
 
   return { ok: true, animal: mapAnimal(created) };
+}
+
+/**
+ * Photo d'un animal, enregistrée en base (audit 2026-10, RGPD-12). Elle
+ * restait jusqu'ici dans le navigateur qui l'avait ajoutée : ni exportée, ni
+ * effacée avec le client ou l'espace, et visible sur un poste partagé après
+ * la déconnexion. null = retirer la photo.
+ */
+export async function updateAnimalPhotoAction(animalId: string, photo: string | null): Promise<ClientActionResult> {
+  const user = await requireUser();
+  const db = await currentDb();
+  const animal = await db.animal.findUnique({ where: { id: animalId }, select: { id: true } });
+  if (!animal) return { ok: false, error: "Animal introuvable." };
+  // La fiche réduit la photo à 300 000 caractères (animal-record.tsx).
+  const problem = imageProblem(photo, { maxChars: 450_000 });
+  if (problem) return { ok: false, error: problem };
+
+  await db.animal.update({ where: { id: animalId }, data: { photo: photo || null } });
+  await logAudit({ userId: user.id, action: "ANIMAL_UPDATED", entityType: "Animal", entityId: animalId, metadata: { photo: photo ? "updated" : "removed" } });
+  revalidatePath("/dashboard/clients");
+  return { ok: true };
 }
 
 export async function deleteAnimalAction(animalId: string): Promise<ClientActionResult> {

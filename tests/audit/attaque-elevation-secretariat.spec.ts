@@ -99,9 +99,9 @@ test("le secrétariat ne peut pas s'élever lui-même au rôle administrateur", 
   expect(after.role, `le rôle n'a pas changé (réponse : ${result.status} ${result.raw.slice(0, 200)})`).toBe("SECRETARY");
   // requireAdmin() appelle redirect("/dashboard") plutôt que de répondre
   // avec une erreur. Constaté : à la différence d'un refus par permission
-  // (message dans le flux), le serveur rend ici la page générique
-  // « introuvable » de Next.js dans la réponse à l'action — pas de code
+  // (message dans le flux), le serveur rend ici la page
+  // « introuvable » (src/app/not-found.tsx) dans la réponse à l'action — pas de code
   // HTTP de redirection ni d'en-tête Location — mais sans jamais exécuter
   // la mise à jour : c'est la base qui tranche, pas le texte de la réponse.
-  expect(result.raw, "la page « introuvable » remplace le résultat de l'action détournée").toContain("could not be found");
+  expect(result.raw, "la page « introuvable » remplace le résultat de l'action détournée").toContain("Page introuvable");
 });

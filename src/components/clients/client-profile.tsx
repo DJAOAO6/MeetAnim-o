@@ -19,7 +19,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { hasPermission } from "@/lib/auth/permissions";
-import { archiveClientsAction, deleteAnimalAction, deleteClientAction, restoreClientsAction, updateClientAction, upcomingAppointmentsOfClientsAction, type ClientContactInput } from "@/lib/clients-actions";
+import { archiveClientsAction, deleteAnimalAction, deleteClientAction, restoreClientsAction, updateAnimalPhotoAction, updateClientAction, upcomingAppointmentsOfClientsAction, type ClientContactInput } from "@/lib/clients-actions";
 import { archiveConfirmationMessage, archivedOnLabel, CLIENT_ERASURE_EFFECTS } from "@/lib/client-archive";
 import { toTelHref } from "@/lib/phone";
 import { saveReminderAction } from "@/lib/reminders-actions";
@@ -64,33 +64,39 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
   const [savingReminder, setSavingReminder] = useState(false);
   const selectedAnimal = animals.find((animal) => animal.id === selectedAnimalId) ?? animals[0];
 
+  // Reprise des photos qu'une version précédente gardait dans ce navigateur
+  // (RGPD-12) : celles des animaux de ce client partent en base — sauf si
+  // l'animal en a déjà une —, puis quittent le navigateur.
   useEffect(() => {
-    let cancelled = false;
+    let legacy: Record<string, string>;
     try {
-      const savedPhotos = window.localStorage.getItem(animalPhotosStorageKey);
-      if (savedPhotos) {
-        const parsedPhotos = JSON.parse(savedPhotos) as Record<string, string>;
-        queueMicrotask(() => {
-          if (!cancelled) setAnimalPhotos(parsedPhotos);
-        });
-      }
+      legacy = JSON.parse(window.localStorage.getItem(animalPhotosStorageKey) ?? "{}") as Record<string, string>;
     } catch {
-      // Les pictogrammes par défaut restent affichés si le stockage est indisponible.
+      return;
     }
+    const mine = Object.entries(legacy).filter(([key]) => key.startsWith(`${client.id}:`));
+    if (mine.length === 0) return;
+    void (async () => {
+      for (const [key, photo] of mine) {
+        const animalId = key.slice(client.id.length + 1);
+        const animal = client.animals.find((candidate) => candidate.id === animalId);
+        if (animal && !animal.photo) {
+          const result = await updateAnimalPhotoAction(animalId, photo);
+          if (result.ok) setAnimalPhotos((current) => ({ ...current, [key]: photo }));
+        }
+        delete legacy[key];
+      }
+      try {
+        if (Object.keys(legacy).length === 0) window.localStorage.removeItem(animalPhotosStorageKey);
+        else window.localStorage.setItem(animalPhotosStorageKey, JSON.stringify(legacy));
+      } catch {
+        // Stockage indisponible : la reprise sera retentée à la prochaine ouverture.
+      }
+    })();
+  }, [client.id, client.animals]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  function showStubFeedback(message: string) {
-    notify.info(`${message} — simulation locale, aucune donnée n’a été enregistrée.`);
-  }
-
-  // Contrairement aux 3 autres boutons de AnimalSideCards (documents,
-  // toujours stub — voir showStubFeedback), "Programmer un rappel" a déjà
-  // un vrai équivalent fonctionnel sur /dashboard/rappels : on le relie ici
-  // au lieu de simuler (AUDIT-PRODUIT-2026-08-30.md, finding P0 §6).
+  // « Programmer un rappel » : relié au vrai mécanisme de /dashboard/rappels
+  // (AUDIT-PRODUIT-2026-08-30.md, finding P0 §6).
   async function saveReminder(value: ReminderFormValue) {
     setSavingReminder(true);
     const result = await saveReminderAction(value);
@@ -191,26 +197,18 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
     router.refresh();
   }
 
-  function updateAnimalPhoto(animalId: string, photo: string | null) {
-    setAnimalPhotos((current) => {
-      const next = { ...current };
-      const key = animalPhotoKey(client.id, animalId);
-      if (photo) next[key] = photo;
-      else delete next[key];
-
-      try {
-        window.localStorage.setItem(animalPhotosStorageKey, JSON.stringify(next));
-        // Le message précise "dans ce navigateur" — une information que le
-        // simple changement visuel de la vignette ne transmet pas (la
-        // photo n'est pas persistée côté serveur, contrairement au reste
-        // de la fiche).
-        notify.success(photo ? "Photo de l’animal enregistrée dans ce navigateur." : "Photo supprimée. Le pictogramme par défaut est de nouveau utilisé.");
-        return next;
-      } catch {
-        notify.error("La photo est trop volumineuse pour être enregistrée dans ce navigateur.");
-        return current;
-      }
-    });
+  /** Enregistrée en base (RGPD-12) ; affichée aussitôt, retirée si le serveur refuse. */
+  async function updateAnimalPhoto(animalId: string, photo: string | null) {
+    const key = animalPhotoKey(client.id, animalId);
+    const previous = animalPhotos;
+    setAnimalPhotos((current) => ({ ...current, [key]: photo ?? "" }));
+    const result = await updateAnimalPhotoAction(animalId, photo);
+    if (!result.ok) {
+      setAnimalPhotos(previous);
+      notify.error(result.error);
+      return;
+    }
+    notify.success(photo ? "Photo de l’animal enregistrée." : "Photo supprimée. Le pictogramme par défaut est de nouveau utilisé.");
   }
 
   return (
@@ -320,7 +318,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}
           />
-          <AnimalSideCards animal={selectedAnimal} onAction={showStubFeedback} onScheduleReminder={() => setSchedulingReminder(true)} showReminder={hasModule(currentModules, "REMINDERS")} />
+          <AnimalSideCards animal={selectedAnimal} onScheduleReminder={() => setSchedulingReminder(true)} showReminder={hasModule(currentModules, "REMINDERS")} showDocuments={hasModule(currentModules, "DOCUMENTS")} />
         </div>
       ) : (
         <Card className="p-10 text-center">
