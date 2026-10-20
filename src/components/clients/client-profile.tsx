@@ -318,7 +318,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
             onPhotoChange={(photo) => updateAnimalPhoto(selectedAnimal.id, photo)}
             onAnimalUpdated={handleAnimalUpdated}
           />
-          <AnimalSideCards animal={selectedAnimal} onScheduleReminder={() => setSchedulingReminder(true)} showReminder={hasModule(currentModules, "REMINDERS")} showDocuments={hasModule(currentModules, "DOCUMENTS")} />
+          <AnimalSideCards animal={selectedAnimal} onScheduleReminder={() => setSchedulingReminder(true)} showReminder={hasModule(currentModules, "REMINDERS")} />
         </div>
       ) : (
         <Card className="p-10 text-center">

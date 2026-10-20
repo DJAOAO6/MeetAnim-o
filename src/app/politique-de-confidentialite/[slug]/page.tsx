@@ -100,7 +100,7 @@ export default async function PrivacyPolicyPage({ params }: PageProps<"/politiqu
                 <li>L’équipe du logiciel 1002 Pattes, uniquement pour l’assistance technique, et en en gardant la trace.</li>
                 <li>Les prestataires techniques du logiciel : l’hébergeur des serveurs ; Mailjet, pour l’envoi des e-mails ; l’IGN (Géoplateforme, service public français), pour rechercher et situer les adresses ; HeiGIT (openrouteservice, Allemagne), qui reçoit les positions des arrêts d’une tournée, sans nom.</li>
                 <li>Google Agenda, si {name} y a relié son agenda : vos rendez-vous y sont recopiés.</li>
-                <li>En affichant la page de réservation, votre navigateur charge des fonds de carte (OpenStreetMap) et, parfois, des photos d’illustration (Unsplash) : ces services reçoivent alors votre adresse IP.</li>
+                <li>En affichant la carte de la page de réservation, votre navigateur charge des fonds de carte depuis OpenStreetMap, qui reçoit alors votre adresse IP.</li>
               </ul>
               <p>Vos informations ne sont ni vendues ni cédées à des fins commerciales.</p>
             </Section>

@@ -6,8 +6,10 @@
 # - cloisonnement entre cabinets : la promesse « un professionnel ne voit que
 #   ses données ». Elle tourne sur un PostgreSQL éphémère, créé et détruit
 #   avec le travail — le dépôt est public, aucune base réelle n'y est donc
-#   exposée. Le reste de la suite E2E reste lancé localement : elle est
-#   longue, et sa valeur ne justifie pas encore ce temps à chaque poussée.
+#   exposée. Le même travail lance ensuite les parcours critiques et les
+#   tests de non-régression de l'audit 2026-10 (TEST-03) : connexion,
+#   réservation, fiches, et chaque faille corrigée. Le reste de la suite
+#   E2E reste lancé localement : elle est longue.
 name: CI
 
 on:
@@ -64,9 +66,9 @@ jobs:
           npx tsc --noEmit
 
   cloisonnement:
-    name: Cloisonnement entre cabinets
+    name: Cloisonnement entre cabinets et parcours critiques
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 50
     services:
       postgres:
         image: postgres:17
@@ -155,6 +157,17 @@ jobs:
         # onboarding.spec.ts : un second cabinet ouvert pour de bon, jusqu'à
         # une réservation au même horaire qu'un rendez-vous du premier.
         run: npx playwright test tests/organization-isolation.spec.ts tests/organization-isolation-actions.spec.ts tests/organization-rls.spec.ts tests/onboarding.spec.ts --reporter=github,line
+
+      # Parcours critiques et non-régression de l'audit 2026-10 (TEST-03) :
+      # rien ne doit plus pouvoir casser la connexion, la réservation ou les
+      # fiches, ni rouvrir une faille corrigée (tests/audit). La session de
+      # test partagée est préparée d'abord : plusieurs specs la lisent.
+      - name: Parcours critiques et failles corrigées
+        env:
+          DATABASE_URL: ${{ env.RUNTIME_DATABASE_URL }}
+        run: |
+          npx playwright test --project=setup --reporter=line
+          npx playwright test tests/audit tests/auth-login-2fa.spec.ts tests/public-booking-flow.spec.ts tests/client-animal-crud.spec.ts tests/clients-bulk-delete.spec.ts tests/appointment-modal.spec.ts --reporter=github,line
 
       - name: Traces des échecs
         if: failure()

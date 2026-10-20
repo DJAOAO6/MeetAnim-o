@@ -93,7 +93,7 @@ export async function getSuggestedToursForAddressAction(slug: string, input: Tou
         zone: { select: { id: true, name: true, cities: { select: { name: true, postalCode: true } } } },
       },
     }),
-    getAvailability(),
+    getAvailability(db),
     getBookingWindowStartId(),
   ]);
 

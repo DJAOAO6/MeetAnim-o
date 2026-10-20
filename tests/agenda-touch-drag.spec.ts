@@ -27,10 +27,15 @@ async function freeStartOfDay(dateId: string): Promise<string> {
   const sql = neon(process.env.DATABASE_URL!);
   const rows = await sql`SELECT start FROM "Appointment" WHERE date::date = ${dateId}::date AND status <> 'CANCELLED'`;
   const busy = new Set(rows.map((row) => String(row.start).slice(0, 2)));
+  // Le bloc d'une tournée occupe aussi son heure de départ dans l'agenda :
+  // y lâcher un rendez-vous est refusé. Toutes les tournées actives, quel
+  // que soit leur jour — plus simple que de rejouer leur récurrence.
+  const tours = await sql`SELECT "startTime" FROM "Tour" WHERE status = 'ACTIVE'`;
+  const tourStarts = new Set(tours.map((row) => String(row.startTime).slice(0, 2)));
   for (let hour = 8; hour < 18; hour += 1) {
     const current = String(hour).padStart(2, "0");
     const next = String(hour + 1).padStart(2, "0");
-    if (!busy.has(current) && !busy.has(next)) return `${current}:00`;
+    if (!busy.has(current) && !busy.has(next) && !tourStarts.has(current) && !tourStarts.has(next)) return `${current}:00`;
   }
   throw new Error("Aucune heure libre suivie d'une heure libre aujourd'hui");
 }
@@ -119,8 +124,11 @@ test.describe("Agenda tactile", () => {
 
     // 3. Appui long maintenu : le déplacement devient possible et s'applique.
     // Le défilement de l'étape 1 a pu sortir le rendez-vous de l'écran :
-    // sans ce recentrage, le geste suivant atomberait à côté de la carte.
-    await card.scrollIntoViewIfNeeded();
+    // sans ce recentrage, le geste suivant tomberait à côté de la carte.
+    // Centré, et non « juste visible » : un rendez-vous de 8 h, en haut du
+    // planning, finirait sous l'en-tête collant des jours, qui recevrait
+    // l'appui à sa place.
+    await card.evaluate((element) => element.scrollIntoView({ block: "center" }));
     await page.waitForTimeout(300);
     const dragBox = (await card.boundingBox())!;
     const dragFrom = { x: dragBox.x + dragBox.width / 2, y: dragBox.y + dragBox.height / 2 };

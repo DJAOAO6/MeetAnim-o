@@ -102,7 +102,7 @@ Une sauvegarde est une photo de la base à un instant donné. On ne peut pas y e
 
 | Sauvegarde | Durée de conservation réelle | Où la vérifier |
 |---|---|---|
-| Iridflow — sauvegardes de la base de production (dont celles prises avant chaque déploiement) | **À compléter** | console Iridflow |
+| Iridflow — sauvegardes de la base de production (dont celles prises avant chaque déploiement) | **30 jours** : règle d'expiration du dépôt de sauvegardes, constatée le 19 octobre 2026 sur une sauvegarde avant déploiement (archive chiffrée, dépôt en région Paris). Fréquence des sauvegardes automatiques : **à confirmer** | console Iridflow |
 | Neon — historique de restauration (si une base Neon sert à un environnement) | **À compléter** | console Neon, réglage *history retention* |
 | Autres copies (exports manuels, sauvegardes locales) | **À compléter** | — |
 
@@ -151,7 +151,7 @@ Si la base d’avant la restauration est perdue et qu’aucun export n’a été
 
 - **Les copies chez le professionnel :** l’export remis, les emails reçus (rappels, confirmations, codes), les PDF téléchargés, et son agenda Google s’il s’était déconnecté avant l’effacement.
 - **Les copies chez ses clients :** les emails de confirmation et de rappel qu’ils ont reçus.
-- **Les navigateurs des visiteurs :** le brouillon du parcours de réservation est gardé dans le `sessionStorage`, qui disparaît à la fermeture de l’onglet.
+- **Les navigateurs des visiteurs :** le brouillon du parcours de réservation est gardé dans le `sessionStorage`, qui disparaît à la fermeture de l’onglet. (Les photos d’animaux, longtemps gardées dans le navigateur du professionnel, sont en base depuis le 20 octobre 2026 : effacées avec le reste.)
 - **Les sauvegardes**, jusqu’à leur expiration (§ 3).
 - **Ce que le professionnel a copié ailleurs** (tableurs, logiciels tiers) : cela relève de sa responsabilité.
 
@@ -190,3 +190,38 @@ Si la base d’avant la restauration est perdue et qu’aucun export n’a été
 >
 > Bien cordialement,
 > L’équipe 1002 Pattes
+
+---
+
+## 7. Effacer un seul client, et durées de conservation
+
+*Ajouté le 20 octobre 2026 (audit 2026-10, `RGPD-03`, `RGPD-06`, `RGPD-07`).*
+
+### Quand un professionnel supprime un client
+
+Règle décidée par Loïc le 19 octobre 2026 (`src/lib/client-erasure.ts`), annoncée à l’écran avant confirmation :
+
+| Donnée | Ce qui se passe |
+|---|---|
+| Fiche, animaux, consultations, relances | supprimés |
+| Rendez-vous passés | gardés pour les statistiques (date, prestation, tarif, mode, statut), **sans nom, animal, adresse, position ni notes** |
+| Rendez-vous à venir | annulés, anonymisés, retirés des tournées |
+| Arrêts de tournée passés | gardés, anonymisés |
+| Comptes rendus du Studio | **conservés** (dossier du cabinet), détachés de la fiche |
+| Événements Google Agenda | supprimés de l’agenda du professionnel |
+| Contact Mailjet | effacé, sauf si l’adresse sert encore (autre client, autre espace, compte) |
+
+Avant de supprimer, le professionnel peut **remettre au client ses données** : bouton « Exporter ses données » de la fiche (ZIP : fiche, animaux, rendez-vous, comptes rendus en PDF).
+
+### Durées de conservation appliquées
+
+Règles décidées par Loïc le 19 octobre 2026 (`src/lib/scheduler/retention.ts`, chaque heure). **À faire valider par un juriste.**
+
+| Donnée | Durée |
+|---|---|
+| Journal des actions (`AuditLog`) | 12 mois |
+| Sessions terminées ou révoquées | 30 jours après leur fin |
+| Invitations utilisées, révoquées ou expirées | 90 jours après |
+| Fiche créée par une demande en ligne jamais acceptée | 6 mois après (seulement si tous ses rendez-vous viennent de la page publique et ont été annulés) |
+| Client sans rendez-vous depuis 3 ans | signalé au professionnel (page Clients), jamais supprimé d’office |
+| Traces de sécurité (tentatives, codes, liens) | 24 heures |

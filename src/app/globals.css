@@ -346,8 +346,12 @@ html {
   }
 }
 
+/* Texte blanc sur la couleur du thème : boutons, liens, et aussi les
+   pastilles (jour courant de l'agenda), qui gardaient la teinte claire du
+   mode sombre — 2:1 de contraste. */
 [data-dashboard-theme] button.bg-animeo,
-[data-dashboard-theme] a.bg-animeo {
+[data-dashboard-theme] a.bg-animeo,
+[data-dashboard-theme] .bg-animeo.text-white {
   background-color: var(--theme-action);
 }
 
