@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit";
 /**
  * Les données d'un client, en ZIP, pour les lui remettre sur sa demande
  * (RGPD-07). Réservé à un compte connecté de son cabinet ; tracé au
- * journal comme une consultation de sa fiche.
+ * journal (CLIENT_DATA_EXPORTED).
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -16,7 +16,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const exported = await buildClientExport(await currentDb(), id);
   if (!exported) return new Response("Not found", { status: 404 });
 
-  await logAudit({ userId: user.id, action: "CLIENT_VIEWED", entityType: "Client", entityId: id, metadata: { export: true } });
+  await logAudit({ userId: user.id, action: "CLIENT_DATA_EXPORTED", entityType: "Client", entityId: id });
 
   return new Response(Buffer.from(exported.zip), {
     headers: {

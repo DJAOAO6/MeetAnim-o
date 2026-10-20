@@ -141,3 +141,39 @@ test("rappel désactivé dans les paramètres : rien ne part", async () => {
     await sql`UPDATE "BusinessProfile" SET "reminderSettings" = ${profile.reminderSettings === null ? null : JSON.stringify(profile.reminderSettings)}::jsonb WHERE id = ${profile.id}`;
   }
 });
+
+test("un rappel réservé puis interrompu est repris ; une réservation récente est laissée tranquille (FONC-10)", async () => {
+  test.skip(!secret, "CRON_SECRET absent");
+  await cleanup();
+  const [profile] = await sql`SELECT id, "reminderSettings" FROM "BusinessProfile" LIMIT 1`;
+  const settings = { ...(profile.reminderSettings ?? {}), appointmentReminderEnabled: true, appointmentReminderDelay: "24 heures avant" };
+  await sql`UPDATE "BusinessProfile" SET "reminderSettings" = ${JSON.stringify(settings)}::jsonb WHERE id = ${profile.id}`;
+  try {
+    const [client] = await sql`
+      INSERT INTO "Client" (id, "firstName", "lastName", phone, email, city, address, "updatedAt")
+      VALUES (${`e2e-rappel-reprise-${Date.now()}`}, 'Audit', ${`${MARKER}Reprise`}, '0600000000', 'rappel-reprise-e2e@example.fr', 'Rouen', '1 rue Test', now())
+      RETURNING id`;
+    const insert = async (label: string, hoursAhead: number, claimedMinutesAgo: number) => {
+      const slot = parisSlot(hoursAhead);
+      const [row] = await sql`
+        INSERT INTO "Appointment" (id, "clientId", "clientName", "animalName", "serviceName", date, start, duration, mode, location, price, status, notes, "reminderClaimedAt", "createdAt", "updatedAt")
+        VALUES (${`e2e-rappel-${label}-${Date.now()}`}, ${client.id}, ${`${MARKER} ${label}`}, 'Rex', 'Ostéopathie', ${slot.date}::date, ${slot.start}, 45, 'CABINET', 'Cabinet', 60, 'CONFIRMED', '', (${new Date(Date.now() - claimedMinutesAgo * 60 * 1000).toISOString()}::timestamptz AT TIME ZONE 'UTC'), now(), now())
+        RETURNING id`;
+      return row.id as string;
+    };
+    // Le serveur s'est arrêté il y a deux heures entre la réservation et l'envoi.
+    const abandoned = await insert("abandonne", 3, 120);
+    // Un autre passage vient de le réserver et envoie peut-être en ce moment.
+    const inProgress = await insert("en-cours", 4, 10);
+
+    await runJobs();
+    const rows = await sql`SELECT id, "reminderSentAt", "reminderClaimedAt" FROM "Appointment" WHERE id IN (${abandoned}, ${inProgress})`;
+    const byId = Object.fromEntries(rows.map((row) => [row.id, row]));
+    expect(byId[abandoned].reminderSentAt, "la réservation abandonnée est reprise et le rappel envoyé").not.toBeNull();
+    expect(byId[abandoned].reminderClaimedAt, "puis la réservation est levée").toBeNull();
+    expect(byId[inProgress].reminderSentAt, "une réservation récente n'est pas doublée").toBeNull();
+  } finally {
+    await cleanup();
+    await sql`UPDATE "BusinessProfile" SET "reminderSettings" = ${profile.reminderSettings === null ? null : JSON.stringify(profile.reminderSettings)}::jsonb WHERE id = ${profile.id}`;
+  }
+});

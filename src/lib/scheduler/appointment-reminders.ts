@@ -23,9 +23,12 @@ export type AppointmentRemindersResult = { enabled: boolean; sent: number; faile
  * les parcourt tous — chacun a ses propres réglages.
  *
  * Jamais deux fois : chaque rendez-vous est « réservé » en base
- * (reminderSentAt) avant l'envoi, par une écriture conditionnelle. Si l'envoi
- * échoue, la réservation est levée et le passage suivant réessaie ; s'il n'y
- * a pas d'adresse, elle est gardée, inutile de réessayer chaque heure.
+ * (reminderClaimedAt) avant l'envoi, par une écriture conditionnelle, puis
+ * marqué envoyé (reminderSentAt) une fois l'e-mail parti. Si l'envoi échoue,
+ * la réservation est levée et le passage suivant réessaie ; s'il n'y a pas
+ * d'adresse, le rappel est tenu pour fait, inutile de réessayer chaque heure.
+ * Jamais perdu (FONC-10) : une réservation de plus d'une heure — le serveur
+ * s'est arrêté entre la réservation et l'envoi — est reprise.
  *
  * Une visite multi-animaux (chantier C6) ne reçoit qu'un rappel, qui liste
  * les animaux : ses rendez-vous sont réservés et levés ensemble.
@@ -37,11 +40,15 @@ export async function sendDueAppointmentReminders(db: ScopedPrismaClient, now: D
 
   const windowMs = (settings.appointmentReminderDelay === "48 heures avant" ? 48 : 24) * 60 * 60 * 1000;
 
+  // Réservation abandonnée : plus vieille que ce délai, elle est reprise.
+  const unclaimed = { OR: [{ reminderClaimedAt: null }, { reminderClaimedAt: { lt: new Date(now.getTime() - 60 * 60 * 1000) } }] };
+
   // Aujourd'hui + 3 jours couvre largement 48 h, quelle que soit l'heure.
   const candidates = await db.appointment.findMany({
     where: {
       status: "CONFIRMED",
       reminderSentAt: null,
+      ...unclaimed,
       clientId: { not: null },
       date: { gte: new Date(`${parisDateId(now)}T00:00:00.000Z`), lte: new Date(`${parisDateId(now, 3)}T00:00:00.000Z`) },
     },
@@ -63,7 +70,7 @@ export async function sendDueAppointmentReminders(db: ScopedPrismaClient, now: D
       if (startsIn <= 0 || startsIn > windowMs) continue;
 
       const ids = members.map((member) => member.id);
-      const claimed = await db.appointment.updateMany({ where: { id: { in: ids }, reminderSentAt: null }, data: { reminderSentAt: now } });
+      const claimed = await db.appointment.updateMany({ where: { id: { in: ids }, reminderSentAt: null, ...unclaimed }, data: { reminderClaimedAt: now } });
       if (claimed.count === 0) continue;
 
       const summary = visitSummary(members);
@@ -79,11 +86,13 @@ export async function sendDueAppointmentReminders(db: ScopedPrismaClient, now: D
         animalCount: summary.animalCount,
       };
       const outcome = await sendAppointmentReminder(db, first.clientId, snapshot);
-      if (outcome === "sent") result.sent += 1;
-      else if (outcome === "no-recipient") result.withoutEmail += 1;
-      else {
+      if (outcome === "sent" || outcome === "no-recipient") {
+        await db.appointment.updateMany({ where: { id: { in: ids } }, data: { reminderSentAt: now, reminderClaimedAt: null } });
+        if (outcome === "sent") result.sent += 1;
+        else result.withoutEmail += 1;
+      } else {
         result.failed += 1;
-        await db.appointment.updateMany({ where: { id: { in: ids } }, data: { reminderSentAt: null } });
+        await db.appointment.updateMany({ where: { id: { in: ids } }, data: { reminderClaimedAt: null } });
       }
     }
   }

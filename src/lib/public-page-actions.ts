@@ -4,6 +4,7 @@ import { requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { currentDb, dbForSlug, moduleOpenFor, readDb } from "@/lib/organization";
+import { logSettingsChange } from "@/lib/audit";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { DEFAULT_PUBLIC_PAGE, normalizePublicPage, type PublicPageConfig } from "@/data/public-page";
@@ -116,6 +117,7 @@ export async function publishPublicPageAction(config: PublicPageConfig): Promise
   }
 
   revalidatePath("/reserver/[slug]", "page");
+  await logSettingsChange("public-page-published");
   return { ok: true, state: await getPublicPageState() };
 }
 
@@ -167,5 +169,6 @@ export async function resetPublicPageAction(): Promise<PublicPageActionResult> {
   }
 
   revalidatePath("/reserver/[slug]", "page");
+  await logSettingsChange("public-page-reset");
   return { ok: true, state: await getPublicPageState() };
 }

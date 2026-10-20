@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { ScopedPrismaClient } from "@/lib/db";
 import { currentDb, readDb } from "@/lib/organization";
+import { logSettingsChange } from "@/lib/audit";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import type { AnimalType, ServiceSettings, TravelFeeMode } from "@/data/settings";
@@ -166,6 +167,7 @@ export async function saveServiceAction(input: ServiceSettings): Promise<Service
 
   await revalidateServicePages();
 
+  await logSettingsChange("service");
   return { ok: true, service: toServiceSettings(row) };
 }
 
@@ -187,5 +189,6 @@ export async function deleteServiceAction(id: string): Promise<DeleteServiceResu
   await db.service.delete({ where: { id } });
   await revalidateServicePages();
 
+  await logSettingsChange("service-deleted");
   return { ok: true };
 }

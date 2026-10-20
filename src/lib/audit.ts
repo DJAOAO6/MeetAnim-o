@@ -58,7 +58,8 @@ type AuditAction =
   | "VERIFICATION_APPROVED"
   | "VERIFICATION_REJECTED"
   | "CLIENT_ARCHIVED"
-  | "CLIENT_RESTORED";
+  | "CLIENT_RESTORED"
+  | "SETTINGS_UPDATED";
 
 // AuditLog.ipAddress n'était jamais renseignée (AUDIT_COMPLET.md P2-29) :
 // lue une fois pour tous les appelants de logAudit(), par request-ip.ts
@@ -108,4 +109,14 @@ export async function logAudit(entry: {
       ipAddress: await requestIp(),
     },
   });
+}
+
+/**
+ * Réglage visible des clients modifié (SEC-31) : profil public, horaires,
+ * prestations, page publique, zones, tournées. Le compte est celui de la
+ * session ; une assistance est attribuée à celui qui assiste (logAudit).
+ */
+export async function logSettingsChange(section: string, metadata: Record<string, string | number | boolean | null> = {}): Promise<void> {
+  const user = await getCurrentUser().catch(() => null);
+  await logAudit({ userId: user?.id ?? null, action: "SETTINGS_UPDATED", entityType: "BusinessProfile", metadata: { section, ...metadata } });
 }

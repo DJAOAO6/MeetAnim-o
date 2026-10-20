@@ -4,6 +4,7 @@ import { moduleOpen, requireModule } from "@/lib/module-access";
 import { parisDateId } from "@/lib/paris-time";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
+import { logSettingsChange } from "@/lib/audit";
 import { organizationIdOf } from "@/lib/db";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -146,6 +147,7 @@ export async function saveTourAction(input: SaveTourInput): Promise<TourActionRe
     : await db.tour.create({ data: { ...baseData, dateLabel: `${input.day} · prochaine occurrence`, zones: { connect: zoneIds.map((id) => ({ id })) } } });
 
   await revalidateToursPages();
+  await logSettingsChange("tour");
   return { ok: true, tour: await toTour(row) };
 }
 
@@ -166,6 +168,7 @@ export async function toggleTourStatusAction(id: string): Promise<TourActionResu
   });
 
   await revalidateToursPages();
+  await logSettingsChange("tour-status");
   return { ok: true, tour: await toTour(row) };
 }
 
@@ -207,6 +210,7 @@ export async function deleteTourAction(id: string): Promise<DeleteTourResult> {
 
   await db.tour.delete({ where: { id } });
   await revalidateToursPages();
+  await logSettingsChange("tour-deleted");
   return { ok: true };
 }
 
@@ -262,6 +266,7 @@ export async function saveZoneAction(input: SaveZoneInput): Promise<ZoneActionRe
     : await db.zone.create({ data: { name, ...sector, cities: { create: cities } }, include: { cities: true } });
 
   await revalidateToursPages();
+  await logSettingsChange("zone");
   return {
     ok: true,
     zone: {
@@ -294,6 +299,7 @@ export async function deleteZoneAction(id: string): Promise<DeleteZoneResult> {
   }
 
   await revalidateToursPages();
+  await logSettingsChange("zone-deleted");
   return { ok: true };
 }
 
@@ -336,6 +342,7 @@ export async function reassignAndDeleteZoneAction(zoneId: string, targetZoneId: 
   });
 
   await revalidateToursPages();
+  await logSettingsChange("zone-reassigned-deleted");
   return { ok: true };
 }
 

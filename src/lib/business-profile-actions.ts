@@ -6,6 +6,7 @@ import { REGISTRATION_NUMBER_TAKEN_ERROR, professionChangeProblem, registrationN
 import { revalidatePath } from "next/cache";
 import type { ScopedPrismaClient } from "@/lib/db";
 import { currentDb, currentOrganization, readDb } from "@/lib/organization";
+import { logSettingsChange } from "@/lib/audit";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getDayAvailability } from "@/lib/availability";
@@ -179,6 +180,7 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (existing && existing.slug !== slug) revalidatePath(`/reserver/${existing.slug}`);
   revalidatePath("/dashboard/parametres");
 
+  await logSettingsChange("profile");
   return { ok: true, warning };
 }
 
@@ -230,6 +232,7 @@ export async function updateManualAvailabilityAction(cabinetAvailable: boolean, 
   }
 
   revalidatePath("/dashboard");
+  await logSettingsChange("manual-availability");
   return { ok: true };
 }
 
@@ -341,6 +344,7 @@ export async function updateAvailabilityAction(input: AvailabilitySettings, forc
   revalidatePath("/dashboard/parametres");
   revalidatePath("/dashboard");
 
+  await logSettingsChange("availability");
   return { ok: true };
 }
 
@@ -392,6 +396,7 @@ export async function updateReminderSettingsAction(input: ReminderSettings): Pro
   revalidatePath("/dashboard/rappels");
   revalidatePath("/dashboard/parametres");
 
+  await logSettingsChange("reminders");
   return { ok: true };
 }
 

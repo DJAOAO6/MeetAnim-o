@@ -203,6 +203,9 @@ enum AuditAction {
   VERIFICATION_REJECTED
   CLIENT_ARCHIVED
   CLIENT_RESTORED
+  /// Réglages qui touchent ce que voient les clients (profil public,
+  /// horaires, prestations, page publique, zones) : audit 2026-10, SEC-31.
+  SETTINGS_UPDATED
 }
 
 model User {
@@ -671,6 +674,10 @@ model Appointment {
   // l'envoi : un rendez-vous déjà rappelé ne l'est jamais une seconde fois,
   // même si la tâche quotidienne tourne deux fois.
   reminderSentAt         DateTime?
+  /// Rappel réservé par un passage du planificateur, pas encore envoyé
+  /// (FONC-10) : une réservation de plus d'une heure, laissée par un arrêt
+  /// brutal du serveur, est reprise au passage suivant.
+  reminderClaimedAt      DateTime?
   /// Visite multi-animaux (chantier C6) : les rendez-vous d'un même lot,
   /// enchaînés sans tampon entre eux. Vide pour un rendez-vous seul.
   visitGroupId           String?

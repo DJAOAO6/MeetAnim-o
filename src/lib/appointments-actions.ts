@@ -469,7 +469,7 @@ export async function saveAppointmentAction(input: SaveAppointmentInput): Promis
     ...(entersCompleted ? { completedAt: new Date() } : {}),
     // Déplacé : le rappel déjà envoyé portait l'ancienne date. On le réarme
     // pour que le client soit prévenu du nouvel horaire.
-    ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null } : {}),
+    ...(existing && (existing.date.toISOString().slice(0, 10) !== input.date || existing.start !== input.start) ? { reminderSentAt: null, reminderClaimedAt: null } : {}),
   };
 
   const buffers = await getAvailability(db);
@@ -738,7 +738,7 @@ export async function confirmRequestSlotAction(appointmentId: string, optionId: 
       if (await appointmentConflictIn(tx, dateId, option.start, request.duration, request.mode, buffers, appointmentId)) return null;
       // Toutes les options, la retenue comprise : les autres créneaux se libèrent.
       await tx.appointmentSlotOption.deleteMany({ where: { appointmentId } });
-      return tx.appointment.update({ where: { id: appointmentId }, data: { date: option.date, start: option.start, status: "CONFIRMED", reminderSentAt: null }, include });
+      return tx.appointment.update({ where: { id: appointmentId }, data: { date: option.date, start: option.start, status: "CONFIRMED", reminderSentAt: null, reminderClaimedAt: null }, include });
     });
   } catch (error) {
     if (isSlotUniqueConstraintError(error)) return { ok: false, error: taken };
@@ -801,7 +801,7 @@ export async function moveVisitAction(visitGroupId: string, date: string, start:
       const order = later ? [...planned].reverse() : planned;
       const updated = [];
       for (const { member, start: at } of order) {
-        updated.push(await tx.appointment.update({ where: { id: member.id }, data: { date: toDate(date), start: at, reminderSentAt: null }, include }));
+        updated.push(await tx.appointment.update({ where: { id: member.id }, data: { date: toDate(date), start: at, reminderSentAt: null, reminderClaimedAt: null }, include }));
       }
       updated.sort((a, b) => a.start.localeCompare(b.start));
       return { conflict: null, updated };

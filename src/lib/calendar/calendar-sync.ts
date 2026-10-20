@@ -52,8 +52,10 @@ function buildEventContent(appointment: AppointmentWithClient): CalendarEventInp
     `Client : ${appointment.clientName}`,
     `Animal : ${appointment.animalName}`,
     appointment.animalSpecies ? `Type : ${appointment.animalSpecies}` : null,
-    appointment.client?.phone ? `Téléphone : ${appointment.client.phone}` : null,
-    appointment.client?.email ? `E-mail : ${appointment.client.email}` : null,
+    // Ni téléphone ni e-mail du client (RGPD-10) : l'événement est copié
+    // chez Google, hors de l'Union ; le nom, l'animal et le lieu suffisent à
+    // organiser la journée, les coordonnées restent dans 1002 Pattes (lien
+    // ci-dessous).
     `Prestation : ${appointment.serviceName}`,
     `Mode : ${appointment.mode === "DOMICILE" ? "À domicile" : "Au cabinet"}`,
     "",
