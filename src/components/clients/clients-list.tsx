@@ -19,7 +19,7 @@ import { Icon } from "@/components/ui/icon";
 import { animalSpeciesList, type AnimalSpecies } from "@/data/species";
 import { hasPermission } from "@/lib/auth/permissions";
 import { archiveClientsAction, deleteClientsAction, restoreClientsAction, upcomingAppointmentsOfClientsAction } from "@/lib/clients-actions";
-import { archiveConfirmationMessage } from "@/lib/client-archive";
+import { archiveConfirmationMessage, CLIENT_ERASURE_EFFECTS } from "@/lib/client-archive";
 import { notify } from "@/lib/notify";
 import type { Animal, Client } from "@/data/clients";
 import { hasModule } from "@/lib/modules";
@@ -328,8 +328,8 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
         <ConfirmModal
           title={selectedIds.size === 1 ? "Supprimer ce client ?" : `Supprimer ces ${selectedIds.size} clients ?`}
           message={selectedIds.size === 1
-            ? "Supprimer définitivement cette fiche client et ses animaux ? Cette action est irréversible."
-            : `Supprimer définitivement ces ${selectedIds.size} fiches clients et leurs animaux ? Cette action est irréversible.`}
+            ? `Supprimer définitivement cette fiche client et ses animaux ? ${CLIENT_ERASURE_EFFECTS} Cette action est irréversible.`
+            : `Supprimer définitivement ces ${selectedIds.size} fiches clients et leurs animaux ? ${CLIENT_ERASURE_EFFECTS} Cette action est irréversible.`}
           confirmLabel="Supprimer"
           onConfirm={deleteSelected}
           onClose={() => setConfirmingDelete(false)}

@@ -10,6 +10,12 @@ export type UpcomingAppointments = { name: string; count: number };
 export const MAX_ARCHIVE_BATCH = 500;
 
 /**
+ * Ce que fait réellement la suppression d'un client (RGPD-03,
+ * src/lib/client-erasure.ts), dit avant de la confirmer.
+ */
+export const CLIENT_ERASURE_EFFECTS = "Ses rendez-vous à venir sont annulés ; les rendez-vous passés restent dans l’agenda, sans son nom ni son adresse. Ses comptes rendus sont conservés.";
+
+/**
  * La question posée avant d'archiver. Les rendez-vous à venir sont annoncés
  * nommément : ils ne sont pas annulés, et le professionnel doit le savoir.
  */

@@ -35,6 +35,9 @@ const rawPrismaAllowed = [
   "src/lib/scheduler/jobs.ts",
   // Statut d'un espace (suspension) : lu avant toute session, hors cloisonnement.
   "src/lib/organization-access.ts",
+  // Contact Mailjet : compte commun à tous les espaces, la question « cette
+  // adresse sert-elle encore ? » porte sur toute la base (oui ou non seulement).
+  "src/lib/mailjet-erasure.ts",
   "src/app/api/calendar/**",
 ];
 

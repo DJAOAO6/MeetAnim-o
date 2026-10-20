@@ -73,7 +73,13 @@ function buildEventContent(appointment: AppointmentWithClient): CalendarEventInp
   };
 }
 
-type SyncAction = "upsert" | "cancel";
+/**
+ * « erase » : le client du rendez-vous a été supprimé (RGPD-03). L'événement
+ * part de l'agenda Google dans tous les cas, quel que soit le réglage
+ * « garder les rendez-vous annulés » — il porte le nom, le téléphone et
+ * l'adresse d'une personne qui a demandé à être effacée.
+ */
+type SyncAction = "upsert" | "cancel" | "erase";
 
 // Les liens rendez-vous ↔ événement Google appartiennent à l'espace du
 // rendez-vous : écrits par son client cloisonné, jamais rangés par défaut
@@ -86,6 +92,14 @@ async function syncOneConnection(db: ScopedPrismaClient, connection: DbCalendarC
 
   try {
     const accessToken = await getFreshAccessToken(connection);
+
+    if (action === "erase") {
+      if (!existingLink) return;
+      await provider.deleteEvent(accessToken, connection.calendarId, existingLink.externalEventId);
+      await db.appointmentCalendarEvent.delete({ where: { id: existingLink.id } });
+      await prisma.calendarConnection.update({ where: { id: connection.id }, data: { lastSyncAt: new Date(), lastError: null } });
+      return;
+    }
 
     if (action === "cancel") {
       if (!existingLink) return;

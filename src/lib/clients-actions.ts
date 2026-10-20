@@ -4,7 +4,8 @@ import { firstAnimalError, validateAnimal, type AnimalFieldErrors, type ValidAni
 import { animalDeletedMetadata } from "@/lib/audit-metadata";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { dbFor } from "@/lib/db";
+import { dbFor, organizationIdOf } from "@/lib/db";
+import { eraseClient, eraseClientOutside } from "@/lib/client-erasure";
 import { currentDb } from "@/lib/organization";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -57,17 +58,22 @@ export async function deleteClientAction(clientId: string): Promise<ClientAction
   }
   const db = await currentDb();
 
-  const client = await db.client.findUnique({ where: { id: clientId }, select: { id: true } });
-  if (!client) return { ok: false, error: "Client introuvable." };
-
-  await db.client.delete({ where: { id: clientId } });
+  const erasure = await eraseClient(db, clientId);
+  if (!erasure) return { ok: false, error: "Client introuvable." };
   await logAudit({ userId: user.id, action: "CLIENT_DELETED", entityType: "Client", entityId: clientId });
+  const organizationId = organizationIdOf(db);
+  after(() => eraseClientOutside(organizationId, erasure));
 
+  revalidateAfterClientErasure();
+  return { ok: true };
+}
+
+/** Pages qui affichaient le client, ses rendez-vous ou ses tournées. */
+function revalidateAfterClientErasure() {
   revalidatePath("/dashboard/clients");
   revalidatePath("/dashboard/carte");
   revalidatePath("/dashboard/rappels");
-
-  return { ok: true };
+  revalidatePath("/dashboard", "layout");
 }
 
 export type ClientArchiveResult = { ok: true; ids: string[] } | { ok: false; error: string };
@@ -125,10 +131,10 @@ async function setClientsArchived(clientIds: string[], archived: boolean): Promi
 export type BulkDeleteClientsResult = { deletedIds: string[]; failedNames: string[] };
 
 /**
- * Suppression groupée (bandeau de sélection façon Gmail, liste clients) —
- * même mécanique que sendRemindersBulkAction : chaque suppression est
- * indépendante (Promise.allSettled), l'échec d'une fiche ne doit jamais
- * bloquer les autres.
+ * Suppression groupée (bandeau de sélection façon Gmail, liste clients) :
+ * chaque suppression est indépendante, l'échec d'une fiche ne doit jamais
+ * bloquer les autres. L'une après l'autre : chacune est une transaction
+ * (client-erasure.ts), et lancées ensemble elles se gênaient.
  */
 export async function deleteClientsAction(clientIds: string[]): Promise<BulkDeleteClientsResult> {
   const user = await requireUser();
@@ -138,22 +144,23 @@ export async function deleteClientsAction(clientIds: string[]): Promise<BulkDele
 
   const clients = await db.client.findMany({ where: { id: { in: clientIds } }, select: { id: true, firstName: true, lastName: true } });
 
-  const results = await Promise.allSettled(clients.map(async (client) => {
-    await db.client.delete({ where: { id: client.id } });
-    await logAudit({ userId: user.id, action: "CLIENT_DELETED", entityType: "Client", entityId: client.id });
-    return client.id;
-  }));
-
+  const organizationId = organizationIdOf(db);
   const deletedIds: string[] = [];
   const failedNames: string[] = [];
-  results.forEach((result, index) => {
-    if (result.status === "fulfilled") deletedIds.push(result.value);
-    else failedNames.push(`${clients[index].firstName} ${clients[index].lastName}`);
-  });
+  for (const client of clients) {
+    try {
+      const erasure = await eraseClient(db, client.id);
+      if (!erasure) throw new Error("Client introuvable.");
+      await logAudit({ userId: user.id, action: "CLIENT_DELETED", entityType: "Client", entityId: client.id });
+      after(() => eraseClientOutside(organizationId, erasure));
+      deletedIds.push(client.id);
+    } catch (error) {
+      console.error(`[clients] suppression en échec (client ${client.id}) : ${error instanceof Error ? error.message : String(error)}`);
+      failedNames.push(`${client.firstName} ${client.lastName}`);
+    }
+  }
 
-  revalidatePath("/dashboard/clients");
-  revalidatePath("/dashboard/carte");
-  revalidatePath("/dashboard/rappels");
+  revalidateAfterClientErasure();
 
   return { deletedIds, failedNames };
 }

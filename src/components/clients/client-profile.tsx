@@ -20,7 +20,7 @@ import { Icon } from "@/components/ui/icon";
 import { IconButton } from "@/components/ui/icon-button";
 import { hasPermission } from "@/lib/auth/permissions";
 import { archiveClientsAction, deleteAnimalAction, deleteClientAction, restoreClientsAction, updateClientAction, upcomingAppointmentsOfClientsAction, type ClientContactInput } from "@/lib/clients-actions";
-import { archiveConfirmationMessage, archivedOnLabel } from "@/lib/client-archive";
+import { archiveConfirmationMessage, archivedOnLabel, CLIENT_ERASURE_EFFECTS } from "@/lib/client-archive";
 import { toTelHref } from "@/lib/phone";
 import { saveReminderAction } from "@/lib/reminders-actions";
 import { notify } from "@/lib/notify";
@@ -323,7 +323,7 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
       {confirmingDelete ? (
         <ConfirmModal
           title="Supprimer ce client ?"
-          message={`Supprimer définitivement la fiche de ${clientInfo.firstName} ${clientInfo.lastName} et tous ses animaux ? Cette action est irréversible.`}
+          message={`Supprimer définitivement la fiche de ${clientInfo.firstName} ${clientInfo.lastName} et tous ses animaux ? ${CLIENT_ERASURE_EFFECTS} Cette action est irréversible.`}
           confirmLabel="Supprimer"
           onConfirm={deleteClient}
           onClose={() => setConfirmingDelete(false)}
@@ -397,7 +397,7 @@ function AnimalSelector({ animals, clientId, animalPhotos, selectedAnimalId, onS
       {confirming ? (
         <ConfirmModal
           title="Supprimer cet animal ?"
-          message={`Supprimer définitivement la fiche de ${confirming.name} (historique de consultations et documents inclus) ? Cette action est irréversible.`}
+          message={`Supprimer définitivement la fiche de ${confirming.name} (historique de consultations inclus ; ses comptes rendus sont conservés) ? Cette action est irréversible.`}
           confirmLabel="Supprimer"
           onConfirm={() => deleteAnimal(confirming)}
           onClose={() => setConfirming(null)}

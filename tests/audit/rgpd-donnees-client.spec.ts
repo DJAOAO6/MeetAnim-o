@@ -77,19 +77,18 @@ let practitionerId = "";
 let originalPermissions: string[] = [];
 let originalIcsToken: string | null = null;
 
+// Par identifiant : après effacement, noms et libellés ne portent plus le marqueur.
 async function cleanup() {
-  await sql`DELETE FROM "TourStop" WHERE label LIKE ${`%${MARKER}%`}`;
-  await sql`DELETE FROM "TourRun" WHERE name LIKE ${`%${MARKER}%`}`;
-  await sql`DELETE FROM "StudioDocument" WHERE title LIKE ${`%${MARKER}%`}`;
-  await sql`DELETE FROM "Appointment" WHERE "clientName" LIKE ${`%${MARKER}%`}`;
+  await sql`DELETE FROM "TourStop" WHERE id LIKE ${"audit-phase4-%"}`;
+  await sql`DELETE FROM "TourRun" WHERE id LIKE ${"audit-phase4-%"}`;
+  await sql`DELETE FROM "StudioDocument" WHERE id LIKE ${"audit-phase4-%"}`;
+  await sql`DELETE FROM "Appointment" WHERE id LIKE ${"audit-phase4-%"}`;
   await sql`DELETE FROM "Animal" WHERE id LIKE ${"audit-phase4-%"}`;
   await sql`DELETE FROM "Client" WHERE id LIKE ${"audit-phase4-%"}`;
   await sql`DELETE FROM "AuditLog" WHERE "entityId" LIKE ${"audit-phase4-%"}`;
 }
 
-// Pas de mode « serial » : les deux essais sont indépendants, et le premier,
-// rouge par construction tant que le défaut existe, ne doit pas empêcher le
-// second de s'exécuter.
+// Pas de mode « serial » : les deux essais sont indépendants.
 
 test.beforeAll(async () => {
   await cleanup();
@@ -105,13 +104,19 @@ test.afterAll(async () => {
 });
 
 // ---------------------------------------------------------------------------
-// RGPD-03 : supprimer un client depuis l'écran ne l'efface pas de la base.
+// RGPD-03 : supprimer un client l'efface vraiment (src/lib/client-erasure.ts).
+// Écrit en phase 4 comme preuve du défaut (quatre restes relevés) ; devenu
+// le test de non-régression de la règle décidée le 2026-10-19 : historique
+// anonymisé, rendez-vous à venir annulés et retirés des tournées, comptes
+// rendus conservés.
 // ---------------------------------------------------------------------------
 
 test("RGPD-03 — après « Supprimer définitivement », il ne reste rien qui nomme ou situe le client", async () => {
   const fullName = `Camille ${ERASED.lastName}`;
   const date = new Date(Date.now() + 230 * 24 * 60 * 60 * 1000); // loin dans le futur : aucune chance de heurter un autre test
   date.setUTCHours(0, 0, 0, 0);
+  const pastDate = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+  pastDate.setUTCHours(0, 0, 0, 0);
 
   await sql`
     INSERT INTO "Client" (id, "organizationId", "firstName", "lastName", phone, email, city, address, latitude, longitude, "updatedAt")
@@ -129,9 +134,19 @@ test("RGPD-03 — après « Supprimer définitivement », il ne reste rien qui n
   await sql`
     INSERT INTO "TourStop" (id, "organizationId", "tourRunId", "appointmentId", "order", type, label, address, latitude, longitude, "updatedAt")
     VALUES (${id("stop")}, ${ORG}, ${id("tourrun")}, ${id("appointment")}, 1, 'APPOINTMENT', ${`${MARKER}Filou — ${fullName}`}, ${ERASED.address}, ${ERASED.latitude}, ${ERASED.longitude}, now())`;
+  // Un rendez-vous passé, réalisé, lui aussi dans une tournée.
+  await sql`
+    INSERT INTO "Appointment" (id, "organizationId", "clientId", "animalId", "clientName", "animalName", "serviceName", date, start, duration, mode, location, latitude, longitude, price, status, notes, "updatedAt")
+    VALUES (${id("past")}, ${ORG}, ${id("client")}, ${id("animal")}, ${fullName}, ${`${MARKER}Filou`}, 'Ostéopathie', ${pastDate}, '06:10', 30, 'DOMICILE', ${ERASED.address}, ${ERASED.latitude}, ${ERASED.longitude}, 55, 'COMPLETED', ${`Chien craintif — ${MARKER}`}, now())`;
+  await sql`
+    INSERT INTO "TourRun" (id, "organizationId", "userId", name, date, "startType", "endType", "updatedAt")
+    VALUES (${id("pastrun")}, ${ORG}, ${practitionerId}, ${`Tournée passée ${MARKER}`}, ${pastDate}, 'CABINET', 'CABINET', now())`;
+  await sql`
+    INSERT INTO "TourStop" (id, "organizationId", "tourRunId", "appointmentId", "order", type, label, address, latitude, longitude, notes, "updatedAt")
+    VALUES (${id("paststop")}, ${ORG}, ${id("pastrun")}, ${id("past")}, 0, 'APPOINTMENT', ${`${MARKER}Filou — ${fullName}`}, ${ERASED.address}, ${ERASED.latitude}, ${ERASED.longitude}, ${`Code portail — ${MARKER}`}, now())`;
   await sql`
     INSERT INTO "StudioDocument" (id, "organizationId", title, "clientId", "animalId", "appointmentId", "createdByUserId", "contentJson", "updatedAt")
-    VALUES (${id("document")}, ${ORG}, ${`Compte rendu ${MARKER} — ${fullName}`}, ${id("client")}, ${id("animal")}, ${id("appointment")}, ${practitionerId}, ${JSON.stringify({ pages: [{ text: fullName }] })}, now())`;
+    VALUES (${id("document")}, ${ORG}, ${`Compte rendu ${MARKER} — ${fullName}`}, ${id("client")}, ${id("animal")}, ${id("past")}, ${practitionerId}, ${JSON.stringify({ pages: [{ text: fullName }] })}, now())`;
 
   // Le compte de test n'a aucune permission par défaut : DELETE_CLIENTS le
   // temps de l'essai, comme tests/clients-bulk-delete.spec.ts.
@@ -148,22 +163,36 @@ test("RGPD-03 — après « Supprimer définitivement », il ne reste rien qui n
   expect(await sql`SELECT 1 FROM "Client" WHERE id = ${id("client")}`, "témoin : la fiche client est supprimée").toHaveLength(0);
   expect(await sql`SELECT 1 FROM "Animal" WHERE id = ${id("animal")}`, "témoin : l'animal est supprimé").toHaveLength(0);
 
-  // Ce qui reste, et nomme ou situe encore la personne.
-  const appointments = await sql`SELECT "clientName", location, latitude, longitude, notes FROM "Appointment" WHERE id = ${id("appointment")}`;
-  expect.soft(appointments, `rendez-vous restant après suppression : ${JSON.stringify(appointments)}`).toHaveLength(0);
+  // Rien, dans les rendez-vous ni les arrêts, ne nomme ou ne situe plus la personne.
+  const leftovers = await sql`
+    SELECT 'rendez-vous' AS t, id FROM "Appointment" WHERE id LIKE ${"audit-phase4-%"} AND ("clientName" LIKE ${`%${MARKER}%`} OR "animalName" LIKE ${`%${MARKER}%`} OR location LIKE ${`%${MARKER}%`} OR notes LIKE ${`%${MARKER}%`} OR latitude IS NOT NULL)
+    UNION ALL
+    SELECT 'arrêt', id FROM "TourStop" WHERE id LIKE ${"audit-phase4-%"} AND (label LIKE ${`%${MARKER}%`} OR address IS NOT NULL OR latitude IS NOT NULL OR notes IS NOT NULL)`;
+  expect.soft(leftovers, `restes nominatifs après suppression : ${JSON.stringify(leftovers)}`).toHaveLength(0);
 
-  const stops = await sql`SELECT label, address, latitude, longitude FROM "TourStop" WHERE id = ${id("stop")}`;
-  expect.soft(stops, `arrêt de tournée restant après suppression : ${JSON.stringify(stops)}`).toHaveLength(0);
+  // Les rendez-vous restent pour les statistiques, sans propriétaire ; celui à venir est annulé.
+  const [future] = await sql`SELECT status, "clientId", "clientName", price FROM "Appointment" WHERE id = ${id("appointment")}`;
+  const [past] = await sql`SELECT status, "clientId", "clientName", price FROM "Appointment" WHERE id = ${id("past")}`;
+  expect.soft(future, "rendez-vous à venir : annulé, anonymisé").toEqual({ status: "CANCELLED", clientId: null, clientName: "Client supprimé", price: 0 });
+  expect.soft(past, "rendez-vous passé : gardé (réalisé, tarif), anonymisé").toEqual({ status: "COMPLETED", clientId: null, clientName: "Client supprimé", price: 55 });
 
-  const documents = await sql`SELECT title FROM "StudioDocument" WHERE id = ${id("document")}`;
-  expect.soft(documents, `compte rendu restant après suppression : ${JSON.stringify(documents)}`).toHaveLength(0);
+  // L'arrêt du rendez-vous annulé a quitté sa tournée ; celui du passé reste, anonyme.
+  expect.soft(await sql`SELECT 1 FROM "TourStop" WHERE id = ${id("stop")}`, "arrêt du rendez-vous annulé retiré de la tournée").toHaveLength(0);
+  const [pastStop] = await sql`SELECT label FROM "TourStop" WHERE id = ${id("paststop")}`;
+  expect.soft(pastStop?.label, "arrêt passé gardé, sans nom").toBe("Client supprimé");
 
-  // Le flux d'agenda (jeton posé le temps de l'essai) continue de publier le nom.
+  // Comptes rendus : conservés, par décision, et détachés de la fiche.
+  const [document] = await sql`SELECT "clientId" FROM "StudioDocument" WHERE id = ${id("document")}`;
+  expect.soft(document, "compte rendu conservé, détaché du client").toEqual({ clientId: null });
+
+  // Le flux d'agenda (jeton posé le temps de l'essai) ne cite plus le client.
   const token = `audit-phase4-${Date.now()}-flux`;
   await sql`UPDATE "User" SET "icsFeedToken" = ${token} WHERE id = ${practitionerId}`;
   const feed = await fetch(`${BASE}/api/calendar/feed/${token}.ics`);
   expect(feed.status, "flux d'agenda ouvert (module CALENDAR_SYNC)").toBe(200);
-  expect.soft(await feed.text(), "le flux d'agenda ne cite plus le client supprimé").not.toContain(ERASED.lastName);
+  const ics = await feed.text();
+  expect.soft(ics, "le flux d'agenda ne cite plus le client supprimé").not.toContain(ERASED.lastName);
+  expect.soft(ics, "ni son adresse").not.toContain(ERASED.address);
 });
 
 // ---------------------------------------------------------------------------
