@@ -20,26 +20,8 @@ export async function register() {
   // SEC-08) : plusieurs cabinets partagent la base, et un site indisponible
   // vaut mieux qu'un site dont le cloisonnement ne tient plus qu'au code.
   // Issue de secours, le temps de réparer : ALLOW_INACTIVE_DB_BARRIER=1.
-  let barrierProblem: string | null = null;
-  try {
-    const { checkDatabaseBarrier } = await import("@/lib/db-barrier");
-    const barrier = await checkDatabaseBarrier();
-    if (barrier.active) {
-      console.info(`[cloisonnement] seconde barrière active (compte « ${barrier.role} »).`);
-    } else {
-      barrierProblem = `${barrier.reason} (compte « ${barrier.role} »)`;
-    }
-  } catch (error) {
-    barrierProblem = `vérification impossible : ${error instanceof Error ? error.message : String(error)}`;
-  }
-  if (barrierProblem) {
-    const { inactiveBarrierAction } = await import("@/lib/barrier-policy");
-    if (inactiveBarrierAction(process.env) === "stop") {
-      console.error(`[cloisonnement] ARRÊT : seconde barrière inactive — ${barrierProblem}. Le serveur refuse de démarrer sans elle. Réparer le compte restreint (scripts/runtime-role.mjs), ou poser ALLOW_INACTIVE_DB_BARRIER=1 le temps de le faire.`);
-      process.exit(1);
-    }
-    console.warn(`[cloisonnement] ATTENTION : seconde barrière inactive — ${barrierProblem}. Le cloisonnement ne repose plus que sur l'application.`);
-  }
+  const { enforceDatabaseBarrier } = await import("@/lib/db-barrier");
+  await enforceDatabaseBarrier();
 
   // Super-administration : le rôle est décidé hors de l'application, par
   // PLATFORM_ADMIN_EMAILS, et appliqué ici. Jamais par un écran.

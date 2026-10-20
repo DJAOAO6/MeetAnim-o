@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { inactiveBarrierAction } from "@/lib/barrier-policy";
 
 export type BarrierStatus =
   | { active: true; role: string }
@@ -24,4 +25,29 @@ export async function checkDatabaseBarrier(): Promise<BarrierStatus> {
   if (row.superuser) return { active: false, role: row.role, reason: "le compte est superutilisateur" };
   if (row.bypass) return { active: false, role: row.role, reason: "le compte peut contourner les règles (BYPASSRLS)" };
   return { active: true, role: row.role };
+}
+
+/**
+ * Vérifie la seconde barrière au démarrage et le consigne. En production,
+ * sans elle, arrête le serveur (audit 2026-10, SEC-08 ; règle :
+ * barrier-policy.ts). Ici et non dans instrumentation.ts : ce fichier-là est
+ * aussi compilé pour le moteur Edge, qui ne connaît pas process.exit.
+ */
+export async function enforceDatabaseBarrier(): Promise<void> {
+  let problem: string | null = null;
+  try {
+    const barrier = await checkDatabaseBarrier();
+    if (barrier.active) {
+      console.info(`[cloisonnement] seconde barrière active (compte « ${barrier.role} »).`);
+      return;
+    }
+    problem = `${barrier.reason} (compte « ${barrier.role} »)`;
+  } catch (error) {
+    problem = `vérification impossible : ${error instanceof Error ? error.message : String(error)}`;
+  }
+  if (inactiveBarrierAction(process.env) === "stop") {
+    console.error(`[cloisonnement] ARRÊT : seconde barrière inactive — ${problem}. Le serveur refuse de démarrer sans elle. Réparer le compte restreint (scripts/runtime-role.mjs), ou poser ALLOW_INACTIVE_DB_BARRIER=1 le temps de le faire.`);
+    process.exit(1);
+  }
+  console.warn(`[cloisonnement] ATTENTION : seconde barrière inactive — ${problem}. Le cloisonnement ne repose plus que sur l'application.`);
 }
