@@ -18,6 +18,19 @@ test.describe.configure({ mode: "serial" });
 let startedAt = "";
 const touched = new Map<string, string>();
 
+// Une demande en attente, dimanche de cette semaine (le filtre par défaut de
+// la gestion des rendez-vous) : il en faut une, quel que soit l'état de la base (TEST-01).
+const REQUEST_ID = `e2e-demande-${Date.now()}`;
+test.beforeAll(async () => {
+  const [day] = await sql`SELECT to_char(date_trunc('week', (now() AT TIME ZONE 'Europe/Paris')::date) + interval '6 days', 'YYYY-MM-DD') AS d`;
+  await sql`
+    INSERT INTO "Appointment" (id, "clientName", "animalName", "serviceName", date, start, duration, mode, location, price, status, notes, "updatedAt")
+    VALUES (${REQUEST_ID}, 'Client E2E-Demande', 'Requeste', 'Ostéopathie', ${day.d}::date, '19:30', 30, 'CABINET', 'Cabinet', 0, 'PENDING', '', now())`;
+});
+test.afterAll(async () => {
+  await sql`DELETE FROM "Appointment" WHERE id = ${REQUEST_ID}`;
+});
+
 test.beforeEach(async () => {
   const [row] = await sql`SELECT to_char(now() AT TIME ZONE 'UTC' - interval '1 second', 'YYYY-MM-DD HH24:MI:SS.MS') AS t`;
   startedAt = row.t;
@@ -33,10 +46,26 @@ async function remember(previousStatus: string) {
 }
 
 test("depuis l'agenda : « Annuler le rendez-vous » libère le créneau et ferme la fiche", async ({ page }) => {
+  // Son propre rendez-vous confirmé, lundi de la semaine affichée à 20 h :
+  // le test supposait qu'il en existait un dans la base (TEST-01).
+  const animal = `Annulo${Date.now()}`;
+  const [monday] = await sql`SELECT to_char(date_trunc('week', (now() AT TIME ZONE 'Europe/Paris')::date), 'YYYY-MM-DD') AS d`;
+  await sql`
+    INSERT INTO "Appointment" (id, "clientName", "animalName", "serviceName", date, start, duration, mode, location, price, status, notes, "updatedAt")
+    VALUES (${`e2e-annulation-${animal}`}, 'Client E2E-Annulation', ${animal}, 'Ostéopathie', ${monday.d}::date, '20:00', 30, 'CABINET', 'Cabinet', 0, 'CONFIRMED', '', now())`;
+  try {
+    await cancelFromAgenda(page, animal);
+  } finally {
+    await sql`DELETE FROM "Appointment" WHERE id = ${`e2e-annulation-${animal}`}`;
+    touched.delete(`e2e-annulation-${animal}`);
+  }
+});
+
+async function cancelFromAgenda(page: import("./helpers/test").Page, animal: string) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard/agenda", { waitUntil: "networkidle" });
   // Un rendez-vous confirmé : un rendez-vous terminé ne s'annule plus.
-  const cards = page.locator("[data-testid='agenda-event'][aria-label^='Ouvrir le rendez-vous de']");
+  const cards = page.locator(`[data-testid='agenda-event'][aria-label^='Ouvrir le rendez-vous de'][aria-label*="${animal}"]`);
   const sheet = page.getByRole("dialog").first();
   const cancel = sheet.getByRole("button", { name: "Annuler le rendez-vous" });
   let label = "";
@@ -59,7 +88,7 @@ test("depuis l'agenda : « Annuler le rendez-vous » libère le créneau et ferm
   await remember("CONFIRMED");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(`[data-testid='agenda-event'][aria-label="${label}"]`), "la carte a quitté l'agenda").toHaveCount(0);
-});
+}
 
 test("gestion des rendez-vous : une demande se refuse d'un clic, et un rendez-vous annulé garde un menu lisible", async ({ page }) => {
   await page.setViewportSize({ width: 1336, height: 760 });

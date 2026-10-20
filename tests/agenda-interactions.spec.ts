@@ -20,8 +20,15 @@ const menu = (page: Page) => page.getByRole("dialog", { name: "Actions du créne
  * continue.
  */
 async function openFreeSlotMenu(page: Page) {
-  // Une colonne peut n'avoir aucune case libre (tournée, puis fermeture) :
-  // on remonte alors en haut du jour précédent et on recommence.
+  // La semaine suivante, entièrement à venir : partie de la case du moment,
+  // la recherche épuisait ses essais le soir, quand plus rien n'est libre
+  // aujourd'hui ni les jours passés (TEST-01).
+  await page.getByRole("button", { name: "Afficher la semaine suivante" }).click();
+  await page.getByRole("region", { name: "Planning de la semaine" }).focus();
+  // Départ du lundi, en haut ; une colonne peut n'avoir aucune case libre
+  // (tournée, puis fermeture) : on passe alors en haut du jour suivant.
+  for (let step = 0; step < 6; step += 1) await page.keyboard.press("ArrowLeft");
+  for (let step = 0; step < 40; step += 1) await page.keyboard.press("ArrowUp");
   for (let day = 0; day < 7; day += 1) {
     for (let step = 0; step < 40; step += 1) {
       await page.keyboard.press("Enter");
@@ -31,7 +38,7 @@ async function openFreeSlotMenu(page: Page) {
       }
       await page.keyboard.press("ArrowDown");
     }
-    await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("ArrowRight");
     for (let step = 0; step < 40; step += 1) await page.keyboard.press("ArrowUp");
   }
 }

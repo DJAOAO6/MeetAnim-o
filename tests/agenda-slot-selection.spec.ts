@@ -36,7 +36,14 @@ const menu = (page: Page) => page.getByRole("dialog", { name: "Actions du créne
  * sinon un clic hors de l'écran, qui ne fait rien.
  */
 async function layerBox(layer: Locator) {
-  await layer.evaluate((element) => element.scrollIntoView({ block: "start" }));
+  // En laissant la place de l'en-tête collant des jours : collé tout en
+  // haut, le début de la grille passait dessous, et un clic dans la
+  // première heure touchait l'en-tête au lieu de la grille (TEST-01).
+  await layer.evaluate((element) => {
+    const heading = document.querySelector("[data-testid='agenda-day-heading']");
+    (element as HTMLElement).style.scrollMarginTop = `${(heading?.getBoundingClientRect().height ?? 0) + 8}px`;
+    element.scrollIntoView({ block: "start" });
+  });
   return (await layer.boundingBox())!;
 }
 

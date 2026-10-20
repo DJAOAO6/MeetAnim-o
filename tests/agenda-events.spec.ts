@@ -1,4 +1,9 @@
+import { config } from "dotenv";
 import { expect, test } from "./helpers/test";
+import { neon } from "./helpers/sql";
+
+config({ path: ".env.local" });
+const sql = neon(process.env.DATABASE_URL!);
 
 /**
  * Apparence des rendez-vous : le contenu suit la hauteur de la carte, le
@@ -6,6 +11,19 @@ import { expect, test } from "./helpers/test";
  * cases vides.
  */
 test.describe.configure({ mode: "serial" });
+
+// Un rendez-vous de 45 min, lundi de la semaine affichée à 18 h : ces tests
+// supposaient qu'il en existait un dans la base (TEST-01).
+const OWN_ID = `e2e-apparence-${Date.now()}`;
+test.beforeAll(async () => {
+  const [monday] = await sql`SELECT to_char(date_trunc('week', (now() AT TIME ZONE 'Europe/Paris')::date), 'YYYY-MM-DD') AS d`;
+  await sql`
+    INSERT INTO "Appointment" (id, "clientName", "animalName", "serviceName", date, start, duration, mode, location, price, status, notes, "updatedAt")
+    VALUES (${OWN_ID}, 'Client E2E-Apparence', 'Apparence', 'Ostéopathie', ${monday.d}::date, '18:00', 45, 'DOMICILE', '1 rue Test, Rouen', 0, 'CONFIRMED', '', now())`;
+});
+test.afterAll(async () => {
+  await sql`DELETE FROM "Appointment" WHERE id = ${OWN_ID}`;
+});
 
 test("une carte haute montre le détail et son icône ; une carte courte, une ligne et une bulle", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
