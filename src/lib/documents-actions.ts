@@ -4,6 +4,7 @@ import { moduleOpen, requireModule } from "@/lib/module-access";
 import { revalidatePath } from "next/cache";
 import { currentDb } from "@/lib/organization";
 import { foreignReferenceError, visibleTemplatesWhere } from "@/lib/owned-references";
+import { imageProblem, pdfProblem } from "@/lib/images/validate-image";
 import { getCurrentUser, requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logAudit } from "@/lib/audit";
@@ -241,6 +242,24 @@ function isDocumentContent(value: unknown): value is DocumentContent {
   );
 }
 
+// Contrôles serveur des fichiers d'un document (SEC-22). Les limites suivent
+// ce que produit le navigateur (images-panel.tsx : 600 000 caractères ;
+// vignette réduite à 320 px), avec de la marge.
+const THUMBNAIL_RULES = { maxChars: 400_000 };
+const DOCUMENT_IMAGE_RULES = { maxChars: 800_000 };
+const PDF_MAX_CHARS = 5_500_000;
+
+function documentImageProblem(content: DocumentContent): string | null {
+  for (const page of content.pages) {
+    for (const element of page.elements) {
+      if (element.type !== "image") continue;
+      const problem = imageProblem(element.src, DOCUMENT_IMAGE_RULES);
+      if (problem) return problem;
+    }
+  }
+  return null;
+}
+
 export async function saveDocumentAction(id: string, input: SaveDocumentInput): Promise<DocumentActionResult> {
   await requireModule("DOCUMENTS");
   const user = await getCurrentUser();
@@ -258,6 +277,8 @@ export async function saveDocumentAction(id: string, input: SaveDocumentInput): 
     return { ok: false, error: "Seul l'auteur de ce document peut le modifier. Dupliquez-le pour en faire votre version." };
   }
   if (!isDocumentContent(input.content)) return { ok: false, error: "Contenu de document invalide." };
+  const imageError = documentImageProblem(input.content) ?? imageProblem(input.thumbnail, THUMBNAIL_RULES);
+  if (imageError) return { ok: false, error: imageError };
 
   await db.studioDocument.update({
     where: { id },
@@ -281,9 +302,16 @@ export async function finalizeDocumentAction(id: string, input: FinalizeDocument
   const user = await requireUser();
   const db = await currentDb();
 
-  const existing = await db.studioDocument.findUnique({ where: { id }, select: { status: true } });
+  const existing = await db.studioDocument.findUnique({ where: { id }, select: { status: true, createdByUserId: true } });
   if (!existing) return { ok: false, error: "Ce document n'existe plus." };
   if (existing.status === "FINALIZED") return { ok: false, error: "Ce document est déjà finalisé." };
+  // Même règle que la modification (saveDocumentAction) : finaliser fige le
+  // dossier clinique d'un autre, ce qu'aucun contrôle n'empêchait.
+  if (existing.createdByUserId !== user.id && !hasPermission(user, "MANAGE_DOCUMENTS")) {
+    return { ok: false, error: "Seul l'auteur de ce document peut le finaliser." };
+  }
+  const fileError = pdfProblem(input.pdfBase64, PDF_MAX_CHARS) ?? imageProblem(input.thumbnail, THUMBNAIL_RULES);
+  if (fileError) return { ok: false, error: fileError };
 
   await db.studioDocument.update({
     where: { id },

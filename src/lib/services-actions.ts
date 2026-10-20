@@ -10,6 +10,8 @@ import type { PublicAnimalType, PublicService } from "@/data/public-booking";
 import type { Prisma, TravelFeeMode as DbTravelFeeMode } from "@/generated/prisma/client";
 import { getBusinessProfile } from "@/lib/business-profile-actions";
 import { hasCabinet, visitsHomes } from "@/lib/practice-mode";
+import { imageProblem } from "@/lib/images/validate-image";
+import { defaultServicePhotoBySpecies } from "@/data/service-photos";
 
 const dbTravelFeeMode: Record<TravelFeeMode, DbTravelFeeMode> = { fixed: "FIXED", zone: "ZONE", kilometric: "KILOMETRIC" };
 const travelFeeModeLabel: Record<DbTravelFeeMode, TravelFeeMode> = { FIXED: "fixed", ZONE: "zone", KILOMETRIC: "kilometric" };
@@ -151,8 +153,13 @@ export async function saveServiceAction(input: ServiceSettings): Promise<Service
   if (!cabinetEnabled && !homeEnabled) return { ok: false, error: "Activez au moins un mode de consultation." };
   if (input.animals.length === 0) return { ok: false, error: "Sélectionnez au moins une espèce." };
 
-  const data = toServiceData({ ...input, name, cabinetEnabled, homeEnabled });
   const existing = input.id ? await db.service.findUnique({ where: { id: input.id } }) : null;
+  // Photo contrôlée côté serveur (SEC-22), sauf celle déjà enregistrée.
+  if (input.photoUrl !== existing?.photoUrl) {
+    const photoError = imageProblem(input.photoUrl, { maxChars: 800_000, allowedUrls: Object.values(defaultServicePhotoBySpecies) });
+    if (photoError) return { ok: false, error: photoError };
+  }
+  const data = toServiceData({ ...input, name, cabinetEnabled, homeEnabled });
   const row = existing
     ? await db.service.update({ where: { id: input.id }, data })
     : await db.service.create({ data });

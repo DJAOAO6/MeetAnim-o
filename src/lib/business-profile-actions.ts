@@ -16,6 +16,7 @@ import { initialSettings, type AvailabilitySettings, type ProfileSettings, type 
 import type { Prisma } from "@/generated/prisma/client";
 import { blankProfile } from "@/lib/blank-profile";
 import { slugProblem } from "@/lib/slug";
+import { imageProblem } from "@/lib/images/validate-image";
 
 export type BusinessProfileData = ProfileSettings & {
   publicColor: string;
@@ -81,6 +82,13 @@ export async function updateBusinessProfileAction(input: BusinessProfileData): P
   if (!slug) return { ok: false, error: "Le lien public ne peut pas être vide." };
 
   const existing = await db.businessProfile.findFirst();
+  // Photo, logo et couverture contrôlés côté serveur (SEC-22), sauf ceux
+  // déjà enregistrés tels quels.
+  for (const field of ["photo", "logo", "coverPicture"] as const) {
+    if (input[field] === existing?.[field]) continue;
+    const problem = imageProblem(input[field], { maxChars: 800_000, allowInitials: true });
+    if (problem) return { ok: false, error: problem };
+  }
   if (!existing || existing.slug !== slug) {
     const problem = slugProblem(slug);
     if (problem) return { ok: false, error: problem };
