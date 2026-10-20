@@ -18,7 +18,8 @@ const OTHER_ID = "e2e-visit-other";
 const DAY = new Date(Date.now() + 40 * 24 * 3600_000).toISOString().slice(0, 10);
 const DAY_BLOCKED = new Date(Date.now() + 41 * 24 * 3600_000).toISOString().slice(0, 10);
 
-let savedAvailability: unknown = null;
+// undefined = pas encore relevé ; null = horaires jamais enregistrés (valeurs par défaut).
+let savedAvailability: unknown = undefined;
 
 async function cleanup() {
   await sql`DELETE FROM "Appointment" WHERE "clientId" = ${CLIENT_ID} OR id = ${OTHER_ID}`;
@@ -42,7 +43,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await cleanup();
-  if (savedAvailability) await sql`UPDATE "BusinessProfile" SET availability = ${JSON.stringify(savedAvailability)}::jsonb WHERE "organizationId" = 'org-1002-pattes'`;
+  if (savedAvailability !== undefined) await sql`UPDATE "BusinessProfile" SET availability = ${savedAvailability === null ? null : JSON.stringify(savedAvailability)}::jsonb WHERE "organizationId" = 'org-1002-pattes'`;
 });
 
 /** « Nouveau rendez-vous » depuis la fiche, les deux chevaux cochés, à domicile. */

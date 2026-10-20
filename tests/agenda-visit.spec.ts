@@ -23,7 +23,8 @@ function wednesdayAhead(): string {
   return day.toISOString().slice(0, 10);
 }
 const DAY = wednesdayAhead();
-let savedAvailability: unknown = null;
+// undefined = pas encore relevé ; null = horaires jamais enregistrés (valeurs par défaut).
+let savedAvailability: unknown = undefined;
 
 async function insertVisit(group: string) {
   await sql`DELETE FROM "Appointment" WHERE "clientName" = ${MARKER}`;
@@ -47,7 +48,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await sql`DELETE FROM "Appointment" WHERE "clientName" = ${MARKER}`;
-  if (savedAvailability) await sql`UPDATE "BusinessProfile" SET availability = ${JSON.stringify(savedAvailability)}::jsonb WHERE "organizationId" = 'org-1002-pattes'`;
+  if (savedAvailability !== undefined) await sql`UPDATE "BusinessProfile" SET availability = ${savedAvailability === null ? null : JSON.stringify(savedAvailability)}::jsonb WHERE "organizationId" = 'org-1002-pattes'`;
 });
 
 async function openWeek(page: Page) {

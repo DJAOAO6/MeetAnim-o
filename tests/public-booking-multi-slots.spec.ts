@@ -16,7 +16,8 @@ const sql = neon(process.env.DATABASE_URL!);
 const SLUG = "pauline-faucillon";
 const SERVICE = "Ostéopathie canine";
 const EMAIL = "multi-horaires-e2e@example.fr";
-let savedAvailability: unknown = null;
+// undefined = pas encore relevé ; null = horaires jamais enregistrés (valeurs par défaut).
+let savedAvailability: unknown = undefined;
 
 async function setMultiple(enabled: boolean) {
   await sql`UPDATE "BusinessProfile" SET availability = ${JSON.stringify({ ...(savedAvailability as object), allowMultipleSlotRequests: enabled })}::jsonb WHERE slug = ${SLUG}`;
@@ -38,7 +39,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await cleanup();
-  if (savedAvailability) await sql`UPDATE "BusinessProfile" SET availability = ${JSON.stringify(savedAvailability)}::jsonb WHERE slug = ${SLUG}`;
+  if (savedAvailability !== undefined) await sql`UPDATE "BusinessProfile" SET availability = ${savedAvailability === null ? null : JSON.stringify(savedAvailability)}::jsonb WHERE slug = ${SLUG}`;
 });
 
 async function openSchedule(page: Page) {

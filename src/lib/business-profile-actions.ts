@@ -235,8 +235,17 @@ export async function getAvailability(scoped?: ScopedPrismaClient): Promise<Avai
   // defaultAppointmentDuration/slotInterval ne les a pas encore en base —
   // à distinguer d'un slotInterval valant explicitement 0 ("Désactivé").
   const stored = row.availability as unknown as AvailabilitySettings;
+  const defaults = initialSettings.availability;
   return {
     ...stored,
+    // Un enregistrement partiel (sans jours, sans fermetures…) ne doit
+    // jamais faire tomber la page publique ni le tableau de bord, qui
+    // parcourent ces listes sans précaution : on complète par les valeurs
+    // d'un profil neuf.
+    days: Array.isArray(stored.days) ? stored.days : defaults.days,
+    closures: stored.closures ?? [],
+    vacations: stored.vacations ?? [],
+    travelBuffer: stored.travelBuffer ?? defaults.travelBuffer,
     defaultAppointmentDuration: stored.defaultAppointmentDuration || initialSettings.availability.defaultAppointmentDuration,
     slotInterval: stored.slotInterval ?? initialSettings.availability.slotInterval,
     breakAfterAppointment: stored.breakAfterAppointment ?? 0,
