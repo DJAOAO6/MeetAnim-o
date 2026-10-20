@@ -11,6 +11,20 @@ function bcryptHash(password: string): Promise<string> {
 
 config({ path: ".env.local" });
 
+// Le peuplement EFFACE clients, animaux, rendez-vous et prestations, et crée
+// des comptes de test au mot de passe public (dépôt public). Il refuse donc
+// toute base qui n'est pas sur ce poste, et la production (audit 2026-10,
+// SEC-23). ALLOW_REMOTE_SEED=1 lève le garde-fou pour une base de test
+// distante, en connaissance de cause.
+{
+  const target = new URL(process.env.DATABASE_URL ?? "postgresql://inconnu");
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname);
+  if (process.env.NODE_ENV === "production" || (!local && process.env.ALLOW_REMOTE_SEED !== "1")) {
+    console.error(`✖ Peuplement refusé : base ${target.hostname}/${target.pathname.slice(1)} (seules les bases locales, hors production).`);
+    process.exit(1);
+  }
+}
+
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 

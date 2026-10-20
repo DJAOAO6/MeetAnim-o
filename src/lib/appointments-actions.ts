@@ -1213,7 +1213,14 @@ async function findOrCreateClientAndAnimal(db: ScopedPrismaClient, input: Public
       return { clientId: null, animalId: null, createdClientId: null, createdAnimalId: null };
     }
 
-    let client = await db.client.findFirst({ where: { email: { equals: owner.email, mode: "insensitive" } } });
+    // L'e-mail ET le nom (RGPD-16) : avec l'e-mail seul, quiconque tapait
+    // l'adresse d'un autre client rangeait sa demande — et son texte libre —
+    // dans la fiche de cet autre, qu'il sortait au passage des archives.
+    // Sans correspondance complète, une nouvelle fiche est créée ; le
+    // professionnel rapproche les doublons s'il y a lieu.
+    let client = await db.client.findFirst({
+      where: { email: { equals: owner.email, mode: "insensitive" }, lastName: { equals: owner.lastName, mode: "insensitive" } },
+    });
     let createdClientId: string | null = null;
     // Un client archivé qui réserve de nouveau revient dans la liste
     // (chantier C5) : il est de nouveau un client.
@@ -1307,6 +1314,8 @@ const bookingIpMaxAttempts = 8;
 const bookingIpWindowMs = 15 * 60 * 1000;
 const bookingEmailMaxAttempts = 5;
 const bookingEmailWindowMs = 60 * 60 * 1000;
+/** Demandes en ligne en attente qu'un cabinet peut recevoir sur 24 h (SEC-17). */
+const bookingDailyRequestCap = 30;
 
 /**
  * Point d'entrée public (appelé depuis /reserver, sans session) : crée une
@@ -1348,6 +1357,16 @@ export async function submitPublicBookingAction(slug: string, input: PublicBooki
   // atterrir que là, quoi qu'elle contienne par ailleurs.
   const db = await dbForSlug(slug);
   if (!db) return { ok: false, error: "Ce lien de réservation n’existe plus." };
+
+  // Plafond par cabinet (SEC-17) : les limites par adresse IP ou e-mail se
+  // contournent en en changeant ; un script pouvait saturer l'agenda de
+  // fausses demandes. On compte les demandes réellement en attente reçues
+  // sur 24 h, pas les tentatives : un robot qui échoue n'empêche pas les
+  // vrais clients de réserver.
+  const recentRequests = await db.appointment.count({ where: { status: "PENDING", createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } });
+  if (recentRequests >= bookingDailyRequestCap) {
+    return { ok: false, error: "Ce cabinet a reçu beaucoup de demandes aujourd’hui. Merci de le contacter directement." };
+  }
 
   const parsedCore = publicBookingCoreSchema.safeParse(input);
   if (!parsedCore.success) {
