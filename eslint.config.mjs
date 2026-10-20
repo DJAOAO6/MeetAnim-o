@@ -33,6 +33,9 @@ const rawPrismaAllowed = [
   // Préférences d'affichage de l'agenda : une donnée du compte, pas de l'espace.
   "src/lib/agenda-preferences-actions.ts",
   "src/lib/scheduler/jobs.ts",
+  // Durées de conservation : journal, sessions et invitations n'appartiennent
+  // à aucun cabinet ; la lecture du journal (origine d'une demande) idem.
+  "src/lib/scheduler/retention.ts",
   // Statut d'un espace (suspension) : lu avant toute session, hors cloisonnement.
   "src/lib/organization-access.ts",
   // Contact Mailjet : compte commun à tous les espaces, la question « cette

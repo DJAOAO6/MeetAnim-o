@@ -9,6 +9,7 @@ import { generateUpcomingTourRuns } from "@/lib/tour-run-generation";
 import { sendDueAppointmentReminders } from "@/lib/scheduler/appointment-reminders";
 import { completePastAppointments } from "@/lib/scheduler/auto-complete";
 import { expireUnansweredRequests } from "@/lib/scheduler/expire-requests";
+import { purgeExpiredRecords, purgeUnacceptedRequestClients } from "@/lib/scheduler/retention";
 
 /**
  * Relances de suivi (« revoir dans 6 mois ») arrivées à échéance : elles
@@ -36,6 +37,8 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   // Traces de sécurité expirées (tentatives de connexion, codes) : purgées à
   // chaque passage, quel que soit l'espace. Une panne ici n'arrête pas le reste.
   const securityPurge = await purgeExpiredSecurityRecords().then(() => true, () => false);
+  // Durées de conservation (RGPD-06) : journal, sessions, invitations.
+  const retention = await purgeExpiredRecords(now).catch(() => null);
 
   // Effacements programmés arrivés à échéance (C9) : avant tout le reste.
   const deletions = await purgeDueOrganizations(now, options.organizationId);
@@ -54,20 +57,24 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   const autoCompleted = { completed: 0, failed: 0 };
   // Demandes à plusieurs horaires expirées sans réponse (chantier C8).
   const requestsExpired = { expired: 0, failed: 0 };
+  // Fiches de demandes en ligne jamais acceptées, effacées après six mois (RGPD-06).
+  let unacceptedRequestClientsErased = 0;
 
   for (const organization of organizations) {
     const db = dbFor(organization.id);
     // Les relances et les journées de tournée n'ont lieu que si l'espace a
     // le module ; le rappel de rendez-vous fait partie du socle.
-    const [followUps, tourRuns, reminders, completions, expirations] = await Promise.allSettled([
+    const [followUps, tourRuns, reminders, completions, expirations, unaccepted] = await Promise.allSettled([
       hasModule(organization.modules, "REMINDERS") ? markDueFollowUps(db, now) : Promise.resolve(0),
       hasModule(organization.modules, "TOURS") ? generateUpcomingTourRuns(db, organization.id) : Promise.resolve({ created: 0 }),
       sendDueAppointmentReminders(db, now),
       completePastAppointments(db, now),
       expireUnansweredRequests(db, now),
+      purgeUnacceptedRequestClients(db, now),
     ]);
+    if (unaccepted.status === "fulfilled") unacceptedRequestClientsErased += unaccepted.value;
 
-    for (const result of [followUps, tourRuns, reminders, completions, expirations]) {
+    for (const result of [followUps, tourRuns, reminders, completions, expirations, unaccepted]) {
       if (result.status === "rejected") errors.push(`${organization.id} : ${redactEmails(String(result.reason))}`);
     }
     if (followUps.status === "fulfilled") followUpsDue += followUps.value;
@@ -94,7 +101,9 @@ export async function runScheduledJobs(now: Date = new Date(), options: { organi
   }
 
   return {
-    ok: errors.length === 0 && securityPurge && deletions.failed === 0,
+    ok: errors.length === 0 && securityPurge && retention !== null && deletions.failed === 0,
+    retention,
+    unacceptedRequestClientsErased,
     organizationsPurged: deletions.purged,
     organizations: organizations.length,
     followUpsDue,

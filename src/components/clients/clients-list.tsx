@@ -27,6 +27,8 @@ import { pluralizeAnimals } from "@/lib/format";
 
 type ClientsListProps = {
   clients: Client[];
+  /** Sans rendez-vous depuis trois ans : à archiver ou supprimer s'ils ne reviendront pas (RGPD-06). */
+  inactiveIds?: string[];
   initialQuery?: string;
   /** Ouvre le formulaire « Nouveau client » à l'arrivée. */
   initialCreating?: boolean;
@@ -35,12 +37,13 @@ type ClientsListProps = {
 type SpeciesFilter = "Tous" | AnimalSpecies;
 // « Archivés » (chantier C5) : les seuls à montrer les fiches archivées,
 // qu'aucun autre filtre ne fait réapparaître.
-type StatusFilter = "Tous les statuts" | "Actif" | "Inactif" | "Archivés";
+type StatusFilter = "Tous les statuts" | "Actif" | "Inactif" | "Archivés" | "Sans rendez-vous depuis 3 ans";
 type SortOption = "name" | "recent";
 
 const sortLabels: Record<SortOption, string> = { name: "Nom (A → Z)", recent: "Ajout récent" };
 
-export function ClientsList({ clients, initialQuery = "", initialCreating = false }: ClientsListProps) {
+export function ClientsList({ clients, inactiveIds = [], initialQuery = "", initialCreating = false }: ClientsListProps) {
+  const inactiveSet = useMemo(() => new Set(inactiveIds), [inactiveIds]);
   const currentUser = useCurrentUser();
   const canDelete = hasPermission(currentUser, "DELETE_CLIENTS");
   const router = useRouter();
@@ -110,7 +113,9 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
       const matchesSpecies = speciesFilter === "Tous" || client.animals.some((animal) => animal.species === speciesFilter);
       const matchesStatus = statusFilter === "Archivés"
         ? client.archivedAt !== null
-        : client.archivedAt === null && (statusFilter === "Tous les statuts" || client.status === statusFilter);
+        : statusFilter === "Sans rendez-vous depuis 3 ans"
+          ? client.archivedAt === null && inactiveSet.has(client.id)
+          : client.archivedAt === null && (statusFilter === "Tous les statuts" || client.status === statusFilter);
       return matchesSpecies && matchesStatus;
     });
 
@@ -125,7 +130,8 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
     if (words.length > 0) sorted.sort((first, second) => (scores.get(second.id) ?? 0) - (scores.get(first.id) ?? 0));
 
     return sorted;
-  }, [localClients, searchIndex, query, speciesFilter, statusFilter, sortBy]);
+  }, [localClients, searchIndex, query, speciesFilter, statusFilter, sortBy, inactiveSet]);
+  const inactiveCount = localClients.filter((client) => client.archivedAt === null && inactiveSet.has(client.id)).length;
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -292,6 +298,17 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
           </div>
         </div>
 
+        {/* Conservation des données (RGPD-06) : on ne garde pas un client
+            indéfiniment. Signalé, jamais supprimé d'office. */}
+        {inactiveCount > 0 && statusFilter !== "Sans rendez-vous depuis 3 ans" ? (
+          <div role="status" className="mt-4 flex flex-col gap-2 rounded-2xl bg-animeo-warning-soft px-4 py-3 text-sm font-bold text-animeo-warning sm:flex-row sm:items-center sm:justify-between">
+            <span>{inactiveCount > 1 ? `${inactiveCount} clients n’ont eu aucun rendez-vous depuis plus de 3 ans.` : "Un client n’a eu aucun rendez-vous depuis plus de 3 ans."} S’ils ne reviendront pas, archivez-les ou supprimez-les.</span>
+            <Button type="button" variant="secondary" size="sm" onClick={() => { setStatusFilter("Sans rendez-vous depuis 3 ans"); setSelectedIds(new Set()); }}>
+              Les afficher
+            </Button>
+          </div>
+        ) : null}
+
         <div className="mt-4 flex flex-col gap-3 border-t border-animeo-border-soft pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <span className="w-14 shrink-0 text-xs font-extrabold text-animeo-muted">Espèce</span>
@@ -312,6 +329,7 @@ export function ClientsList({ clients, initialQuery = "", initialCreating = fals
                 <option>Actif</option>
                 <option>Inactif</option>
                 <option value="Archivés">Archivés ({archivedCount})</option>
+                {inactiveCount > 0 ? <option value="Sans rendez-vous depuis 3 ans">Sans rendez-vous depuis 3 ans ({inactiveCount})</option> : null}
               </select>
             </label>
             <label className="flex items-center gap-2 text-xs font-extrabold text-animeo-muted">

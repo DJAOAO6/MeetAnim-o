@@ -5,6 +5,7 @@ import { currentDb } from "@/lib/organization";
 import { formatEuros, formatFrenchDate, initialsFor } from "@/lib/format";
 import { getCurrentUser } from "@/lib/auth/dal";
 import { logAudit } from "@/lib/audit";
+import { inactiveClientIds } from "@/lib/scheduler/retention";
 import type { Animal, AnimalDocument, Client, ClientPickerOption, Consultation } from "@/data/clients";
 import type { AnimalPlaceKind } from "@/data/places";
 import type {
@@ -153,6 +154,11 @@ export const getClientPickerOptions = cache(async (): Promise<ClientPickerOption
     })),
   }));
 });
+
+/** Clients sans rendez-vous depuis trois ans, à signaler au professionnel (RGPD-06, scheduler/retention.ts). */
+export async function getInactiveClientIds(): Promise<string[]> {
+  return inactiveClientIds(await currentDb());
+}
 
 export async function getClientById(id: string): Promise<Client | undefined> {
   const db = await currentDb();
