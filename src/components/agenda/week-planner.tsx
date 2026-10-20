@@ -15,7 +15,6 @@ import { checkGeographicWarningAction } from "@/lib/appointments-actions";
 import { computeEventColumns } from "@/lib/event-layout";
 import { formatGeoWarningMessage } from "@/lib/tour-estimate";
 import { notify } from "@/lib/notify";
-import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings } from "@/data/settings";
 import { DEFAULT_AGENDA_DISPLAY, eventGeometry, eventsOutsideRange, pixelsPerMinute, rowHeightFor, type AgendaDisplay } from "@/lib/agenda-display";
 
@@ -42,7 +41,6 @@ export type CalendarEvent = {
 
 type WeekPlannerProps = {
   dates: Date[];
-  clients: ClientPickerOption[];
   availability: AvailabilitySettings;
   onPendingAction: (action: string, event: CalendarEvent) => void;
   onSelectTour: (tourId: string, anchorRect: DOMRect) => void;
@@ -205,7 +203,7 @@ type DragState =
   | { kind: "move"; event: CalendarEvent; originDay: number; originStartMinutes: number; grabOffsetMinutes: number; currentDay: number; currentStartMinutes: number }
   | { kind: "resize"; event: CalendarEvent; originDuration: number; currentDuration: number };
 
-export function WeekPlanner({ dates, clients, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [], display = DEFAULT_AGENDA_DISPLAY, onShiftDay }: WeekPlannerProps) {
+export function WeekPlanner({ dates, availability, onPendingAction, onSelectTour, onSelectBlockedSlot, onSelectSlot, onClearSlot, activeSlot = null, appointmentEvents = [], tourEvents = [], blockedEvents = [], display = DEFAULT_AGENDA_DISPLAY, onShiftDay }: WeekPlannerProps) {
   const { appointments, saveAppointment, moveVisit } = useAppointments();
   // Déplacement d'un rendez-vous d'une visite (chantier C6) : en attente du choix « toute la visite » ou « seulement lui ».
   const [pendingVisitMove, setPendingVisitMove] = useState<{ appointmentId: string; day: number; startMinutes: number } | null>(null);
@@ -819,7 +817,6 @@ export function WeekPlanner({ dates, clients, availability, onPendingAction, onS
         <AgendaEventPopover
           key={selectedAppointment.id}
           appointment={selectedAppointment}
-          clients={clients}
           anchorRect={selection.anchorRect}
           onSave={saveAppointment}
           onClose={closeSelection}

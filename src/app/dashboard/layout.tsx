@@ -14,7 +14,6 @@ import { defaultAppointmentRange, getAppointments } from "@/lib/appointments";
 import { requireUser } from "@/lib/auth/dal";
 import { hasPermission } from "@/lib/auth/permissions";
 import { hasModule } from "@/lib/modules";
-import { getClientPickerOptions } from "@/lib/clients";
 import { getReminders } from "@/lib/reminders";
 import { getServices } from "@/lib/services-actions";
 import { getBusinessProfile, getReminderSettings } from "@/lib/business-profile-actions";
@@ -69,9 +68,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // du réglage de rappels. Les charger ici évite qu'ils soient rechargés à
   // chaque ouverture de la fenêtre.
   const appointmentRange = defaultAppointmentRange();
-  const [appointments, clientOptions, reminders, services, businessProfile, reminderSettings, organization] = await Promise.all([
+  // Pas l'annuaire des clients : il ne quitte le serveur qu'à la demande,
+  // quand quelqu'un cherche un client ou ouvre un rendez-vous (RGPD-08,
+  // ClientDirectoryProvider).
+  const [appointments, reminders, services, businessProfile, reminderSettings, organization] = await Promise.all([
     getAppointments(appointmentRange),
-    getClientPickerOptions(),
     // Rappels clients : un module. Sans lui, ni widget ni cloche n'en parlent.
     hasModule(user.modules, "REMINDERS") ? getReminders() : Promise.resolve([]),
     getServices(),
@@ -86,7 +87,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     <CurrentUserProvider user={user}>
       {/* Mêmes clients que le formulaire de rendez-vous : la recherche de
           l'en-tête les classe sur place (chantier C5). */}
-      <ClientDirectoryProvider clients={clientOptions}>
+      <ClientDirectoryProvider>
       <SidebarProvider>
         <DashboardThemeProvider>
         <AppointmentsProvider initialAppointments={appointments} initialRange={appointmentRange}>
@@ -136,7 +137,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
               </main>
               <GlobalAppointmentsManager
                 context={{
-                  clients: clientOptions,
                   services,
                   cabinetAddress,
                   practiceMode: businessProfile.practiceMode,

@@ -32,7 +32,6 @@ import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { hasPermission } from "@/lib/auth/permissions";
 import { notify } from "@/lib/notify";
 import { tourRunsOnDate, weekdayLabelFor } from "@/lib/tour-schedule";
-import type { ClientPickerOption } from "@/data/clients";
 import type { AvailabilitySettings, ExceptionalClosure, ExceptionalOpening } from "@/data/settings";
 import { getDayAvailability } from "@/lib/availability";
 import { singleDayClosuresOver, trimClosure } from "@/lib/availability-editing";
@@ -156,7 +155,6 @@ type PendingRequest = {
 };
 
 type AgendaViewProps = {
-  clients: ClientPickerOption[];
   availability: AvailabilitySettings;
   tours: Tour[];
   tourAppointments: Record<string, TourAppointment[]>;
@@ -168,7 +166,7 @@ type AgendaViewProps = {
   initialDisplay: AgendaDisplay;
 };
 
-export function AgendaView({ clients, availability: savedAvailability, tours, tourAppointments, initialBlockedSlots, practiceMode, serviceArea, initialDisplay }: AgendaViewProps) {
+export function AgendaView({ availability: savedAvailability, tours, tourAppointments, initialBlockedSlots, practiceMode, serviceArea, initialDisplay }: AgendaViewProps) {
   // Horaires affichés : ceux du serveur, remplacés aussitôt par ce que
   // l'agenda vient d'enregistrer (ouverture, fermeture), sans attendre de
   // rechargement. Un nouvel envoi du serveur reprend la main.
@@ -681,7 +679,6 @@ export function AgendaView({ clients, availability: savedAvailability, tours, to
             <WeekPlanner
               display={display}
               dates={activeDates}
-              clients={clients}
               availability={availability}
               appointmentEvents={filteredAppointmentEvents}
               tourEvents={filteredTourEvents}

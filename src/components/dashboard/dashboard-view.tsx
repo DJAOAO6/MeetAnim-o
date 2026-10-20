@@ -81,7 +81,7 @@ export function DashboardView({ clients, tours, zones, tourAppointments, reminde
     availabilityCabinet: <AvailabilityStatusCard mode="cabinet" />,
     availabilityHome: <AvailabilityStatusCard mode="home" />,
     stats: <DashboardStats clients={clients} />,
-    planning: <DashboardPlanning clients={clients} />,
+    planning: <DashboardPlanning />,
     activityChart: <DashboardActivityChart />,
     nextTour: <DashboardNextTour tours={tours} zones={zones} tourAppointments={tourAppointments} />,
     animals: <DashboardAnimals />,

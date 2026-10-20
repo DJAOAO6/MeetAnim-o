@@ -9,11 +9,11 @@ const sql = neon(process.env.DATABASE_URL!);
 const BASE = BASE_URL;
 
 /**
- * Phase 4 — Protection des données. Preuves pour `RGPD-03` (supprimer un
+ * Phase 4 — Protection des données. Preuves, puis tests de non-régression, pour `RGPD-03` (supprimer un
  * client ne l'efface pas) et `RGPD-08` (annuaire complet des clients envoyé
  * à chaque page, ex-`PERF-01`) — docs/audit-2026-10/04-RGPD-CONFORMITE.md.
  *
- * Même règle que les specs de la phase 3 : un test rouge prouve le défaut.
+ * Écrits rouges (défauts prouvés), verts depuis leurs correctifs (chantiers 5 et 6) ; un rouge signale une régression.
  * Les constats sont faits en `expect.soft` : chaque reste est relevé, même
  * quand un précédent a déjà échoué.
  *

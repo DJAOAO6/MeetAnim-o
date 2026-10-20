@@ -3,7 +3,6 @@ import { serviceAreaOf } from "@/lib/service-area";
 import { AgendaView } from "@/components/agenda/agenda-view";
 import { getBlockedSlots } from "@/lib/blocked-slots-actions";
 import { getAvailability, getBusinessProfile } from "@/lib/business-profile-actions";
-import { getClientPickerOptions } from "@/lib/clients";
 import { getTours, getTourStops } from "@/lib/tours";
 import { getAgendaDisplay } from "@/lib/agenda-preferences-actions";
 
@@ -13,8 +12,7 @@ export const metadata: Metadata = { title: "Agenda" };
 // téléphone) qui contient cette date — par exemple depuis « Voir dans
 // l'agenda » après la création d'un rendez-vous. Une date invalide est ignorée.
 export default async function AgendaPage() {
-  const [clients, availability, tours, tourAppointments, blockedSlots, profile, display] = await Promise.all([
-    getClientPickerOptions(),
+  const [availability, tours, tourAppointments, blockedSlots, profile, display] = await Promise.all([
     getAvailability(),
     getTours(),
     getTourStops(),
@@ -25,7 +23,6 @@ export default async function AgendaPage() {
 
   return (
     <AgendaView
-      clients={clients}
       availability={availability}
       tours={tours}
       tourAppointments={tourAppointments}

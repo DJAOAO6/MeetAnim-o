@@ -40,7 +40,9 @@ export function HeaderSearch({ variant = "header", autoFocus = false, onNavigate
   onNavigate?: () => void;
 }) {
   const router = useRouter();
-  const directory = useClientDirectory();
+  // L'annuaire n'est lu qu'au moment où l'on va chercher (RGPD-08) : à
+  // l'entrée dans le champ, puis relu à chaque nouvelle entrée.
+  const { clients: directory, refresh: loadDirectory } = useClientDirectory();
   const [value, setValue] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -178,7 +180,10 @@ export function HeaderSearch({ variant = "header", autoFocus = false, onNavigate
             setOpen(true);
             setActiveIndex(-1);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            loadDirectory().catch(() => {});
+          }}
           onKeyDown={onKeyDown}
           placeholder="Rechercher un client, un animal…"
           className={fullscreen

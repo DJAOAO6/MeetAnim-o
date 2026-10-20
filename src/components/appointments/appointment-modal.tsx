@@ -14,6 +14,7 @@ import {
 import { AppointmentSummaryPanel } from "@/components/appointments/appointment-summary-panel";
 import { QuickCreateAnimal } from "@/components/appointments/quick-create-animal";
 import { QuickCreateClient } from "@/components/appointments/quick-create-client";
+import { useFreshClientDirectory } from "@/components/search/client-directory-context";
 import {
   composeLocation,
   modeOf,
@@ -33,7 +34,6 @@ import type { ServiceSettings } from "@/data/settings";
 import type { PracticeMode } from "@/lib/practice-mode";
 
 export type AppointmentModalContext = {
-  clients: ClientPickerOption[];
   services: ServiceSettings[];
   cabinetAddress: string;
   practiceMode: PracticeMode;
@@ -52,7 +52,7 @@ export type AppointmentModalContext = {
  * Le brouillon vit ici, au-dessus des sous-fenêtres de création rapide :
  * ouvrir « Créer un client » au milieu de la saisie ne perd donc rien.
  */
-export function AppointmentModal({ appointment, template, defaultDate, prefill, context, onSave, onSaveVisit, onClose, onCreated }: {
+type AppointmentModalProps = {
   appointment?: Appointment;
   /** Duplication : les valeurs de départ viennent de ce rendez-vous, mais on en crée un nouveau. */
   template?: Appointment;
@@ -66,9 +66,22 @@ export function AppointmentModal({ appointment, template, defaultDate, prefill, 
   onClose: () => void;
   /** Appelé après une création réussie, pour enchaîner (retour à la liste…). */
   onCreated?: () => void;
-}) {
+};
+
+/**
+ * L'annuaire des clients est relu à chaque ouverture, avant d'afficher le
+ * formulaire (RGPD-08 : il ne part plus avec la page) : le client pré-rempli
+ * et la recherche doivent voir les fiches créées entre-temps.
+ */
+export function AppointmentModal(props: AppointmentModalProps) {
+  const { clients, fresh } = useFreshClientDirectory();
+  if (!fresh) return null;
+  return <AppointmentModalForm {...props} clients={clients} />;
+}
+
+function AppointmentModalForm({ appointment, template, defaultDate, prefill, context, clients, onSave, onSaveVisit, onClose, onCreated }: AppointmentModalProps & { clients: ClientPickerOption[] }) {
   const router = useRouter();
-  const { clients, services, cabinetAddress, practiceMode, reminderSummary } = context;
+  const { services, cabinetAddress, practiceMode, reminderSummary } = context;
   const prefillClient = prefill?.clientId ? clients.find((client) => client.id === prefill.clientId) : undefined;
   const { draft, update, selectClient, clearClient, selectAnimal, selectService, selectPlace, useFreeformClient, setFreeformAnimal, toggleVisitAnimal, updateVisitLine, selectVisitLineService, moveVisitLine } = useAppointmentDraft({ appointment, template, defaultDate, prefill, prefillClient, services, practiceMode });
   // Plusieurs animaux à la suite : seulement à la création, et si la page sait enregistrer une visite.

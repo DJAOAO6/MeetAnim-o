@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useFreshClientDirectory } from "@/components/search/client-directory-context";
 import { createPortal } from "react-dom";
 import { overlayRoot } from "@/components/ui/overlay-portal";
 import { AppointmentForm } from "@/components/appointments/appointment-form";
 import { AppointmentSummary } from "@/components/appointments/appointment-summary";
 import { CancelAppointmentDialog } from "@/components/appointments/visit-dialogs";
 import type { Appointment } from "@/data/appointments";
-import type { ClientPickerOption } from "@/data/clients";
 import type { SaveAppointmentInput } from "@/lib/appointments-actions";
 
 type AgendaEventPopoverProps = {
   appointment: Appointment;
-  clients: ClientPickerOption[];
   anchorRect: DOMRect;
   onSave: (input: SaveAppointmentInput) => Promise<{ ok: boolean; error?: string }>;
   onClose: () => void;
@@ -22,7 +21,14 @@ const POPOVER_WIDTH = 400;
 const POPOVER_MIN_HEIGHT = 600;
 const MARGIN = 14;
 
-export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, onClose }: AgendaEventPopoverProps) {
+/** Le formulaire de modification, une fois l'annuaire des clients relu (RGPD-08 : il ne part plus avec la page). */
+function AppointmentFormWithDirectory(props: Omit<ComponentProps<typeof AppointmentForm>, "clients">) {
+  const { clients, fresh } = useFreshClientDirectory();
+  if (!fresh) return <p role="status" className="p-5 text-sm font-semibold text-animeo-muted">Chargement…</p>;
+  return <AppointmentForm {...props} clients={clients} />;
+}
+
+export function AgendaEventPopover({ appointment, anchorRect, onSave, onClose }: AgendaEventPopoverProps) {
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<"view" | "edit">("view");
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -97,7 +103,7 @@ export function AgendaEventPopover({ appointment, clients, anchorRect, onSave, o
         {mode === "view" ? (
           <AppointmentSummary appointment={appointment} onEdit={() => setMode("edit")} onBack={onClose} onCancel={() => setConfirmingCancel(true)} />
         ) : (
-          <AppointmentForm appointment={appointment} clients={clients} onSave={handleSave} onBack={() => setMode("view")} backLabel="Retour à la fiche" />
+          <AppointmentFormWithDirectory appointment={appointment} onSave={handleSave} onBack={() => setMode("view")} backLabel="Retour à la fiche" />
         )}
       </div>
       {/* Hors de la fiche : elle est transformée (animation), ce qui

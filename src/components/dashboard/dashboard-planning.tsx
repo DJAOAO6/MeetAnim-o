@@ -10,25 +10,13 @@ import { Icon } from "@/components/ui/icon";
 import { resolveSpeciesColor } from "@/data/species";
 import { dateId, referenceDate } from "@/components/dashboard/dashboard-date";
 import type { Appointment } from "@/data/appointments";
-import type { Client, ClientPickerOption } from "@/data/clients";
 import { Button } from "@/components/ui/button";
 import { Ellipsis } from "lucide-react";
 
-export function DashboardPlanning({ clients }: { clients: Client[] }) {
+export function DashboardPlanning() {
   const { appointments, saveAppointment, openNewAppointment } = useAppointments();
   const { theme } = useDashboardTheme();
   const [selection, setSelection] = useState<{ appointment: Appointment; anchorRect: DOMRect } | null>(null);
-
-  const clientOptions = useMemo<ClientPickerOption[]>(() => clients.map((client) => ({
-    id: client.id,
-    firstName: client.firstName,
-    lastName: client.lastName,
-    address: client.address,
-    city: client.city,
-    phone: client.phone,
-    email: client.email,
-    animals: client.animals.map((animal) => ({ id: animal.id, name: animal.name, species: animal.species, breed: animal.breed, age: animal.age })),
-  })), [clients]);
 
   const todayAppointments = useMemo(() => {
     const todayId = dateId(referenceDate());
@@ -80,7 +68,6 @@ export function DashboardPlanning({ clients }: { clients: Client[] }) {
         <AgendaEventPopover
           key={selection.appointment.id}
           appointment={selection.appointment}
-          clients={clientOptions}
           anchorRect={selection.anchorRect}
           onSave={saveAppointment}
           onClose={() => setSelection(null)}
