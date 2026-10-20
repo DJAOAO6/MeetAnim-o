@@ -12,8 +12,8 @@ import { AnimalSideCards } from "@/components/clients/animal-side-cards";
 import { ClientEditModal } from "@/components/clients/client-edit-modal";
 import { ReminderScheduleModal, type ReminderFormValue } from "@/components/reminders/reminder-schedule-modal";
 import { PageHeader } from "@/components/layout/page-header";
-import { Mail, MapPin, Pencil, Phone, Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Download, Mail, MapPin, Pencil, Phone, Plus, Trash2 } from "lucide-react";
+import { Button, buttonBaseClassName, buttonSizeClassName, buttonVariantClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Icon } from "@/components/ui/icon";
@@ -286,6 +286,17 @@ export function ClientProfile({ client, initialAnimalId }: ClientProfileProps) {
                 {archiving ? "Archivage…" : "Archiver"}
               </Button>
             )}
+            {/* Droit d'accès du client (RGPD-07) : sa fiche, ses animaux, ses
+                rendez-vous et ses comptes rendus, en un fichier à lui remettre.
+                Un téléchargement : un lien, pas un bouton. */}
+            <a
+              href={`/api/clients/${clientInfo.id}/export`}
+              download
+              className={`${buttonBaseClassName} ${buttonVariantClassName.secondary} ${buttonSizeClassName.md}`}
+            >
+              <Download aria-hidden="true" className="h-4 w-4" />
+              Exporter ses données
+            </a>
           </div>
         </div>
       </Card>
