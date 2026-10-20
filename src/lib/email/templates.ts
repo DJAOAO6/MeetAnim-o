@@ -122,9 +122,16 @@ function platformFooter(replyReachesSupport = true): string {
   return `1002 Pattes — l'agenda des professionnels du soin animal<br>${help}`;
 }
 
-function professionalFooter(professionalCompany: string, professionalPhone: string): string {
+/**
+ * Le droit de s'opposer (RGPD-17) : rappels et relances partent sans que le
+ * client les demande à chaque fois. Répondre écrit au professionnel (en-tête
+ * Reply-To), qui peut alors archiver la fiche.
+ */
+const OPT_OUT_TEXT = "Vous ne souhaitez plus recevoir ces messages ? Répondez à cet email pour le dire.";
+
+function professionalFooter(professionalCompany: string, professionalPhone: string, optOut = false): string {
   const phone = professionalPhone.trim() ? ` · ${escapeHtml(professionalPhone)}` : "";
-  return `${escapeHtml(professionalCompany)}${phone}<br>Envoyé via 1002 Pattes — répondez à cet email pour écrire directement au professionnel.`;
+  return `${escapeHtml(professionalCompany)}${phone}<br>Envoyé via 1002 Pattes — répondez à cet email pour écrire directement au professionnel.${optOut ? `<br>${OPT_OUT_TEXT}` : ""}`;
 }
 
 function contactLine(professionalFirstName: string, professionalPhone: string): { text: string; html: string } {
@@ -219,6 +226,37 @@ Passé ce délai, l'effacement est définitif.`,
         paragraph(`L’espace professionnel <strong>${escapeHtml(organizationName)}</strong> sur 1002 Pattes sera définitivement supprimé le <strong>${escapeHtml(dateLabel)}</strong>, avec toutes ses données : clients, animaux, rendez-vous, documents et comptes.`),
         paragraph(`D’ici là, l’espace est suspendu. Pour annuler la suppression ou récupérer une copie de vos données, contactez ${escapeHtml(contact)} avant cette date.`),
         mutedParagraph("Passé ce délai, l’effacement est définitif."),
+      ].join(""),
+      footer: platformFooter(),
+    }),
+  };
+}
+
+/**
+ * La plateforme entre dans un espace pour aider (RGPD-11) : ses
+ * administrateurs en sont prévenus à chaque fois, avec le motif. Avant, ils
+ * ne le découvraient qu'en ouvrant leur journal.
+ */
+export function assistanceStartedTemplate(params: { organizationName: string; assistedName: string; reason: string; untilLabel: string }): EmailContent {
+  const { organizationName, assistedName, reason, untilLabel } = params;
+  return {
+    subject: `L’équipe 1002 Pattes intervient dans votre espace`,
+    text: `Bonjour,
+
+L'équipe de 1002 Pattes vient d'ouvrir une assistance dans votre espace « ${organizationName} », au nom de ${assistedName}, jusqu'à ${untilLabel} au plus tard.
+
+Motif indiqué : ${reason}
+
+Chaque action faite pendant l'assistance est inscrite au journal de votre espace (Administration › Journal). Si vous n'êtes pas à l'origine de cette demande, répondez à cet email.`,
+    html: layout({
+      preheader: `Assistance ouverte dans votre espace jusqu’à ${untilLabel}.`,
+      title: "Assistance dans votre espace",
+      body: [
+        paragraph("Bonjour,"),
+        paragraph(`L’équipe de 1002 Pattes vient d’ouvrir une assistance dans votre espace <strong>${escapeHtml(organizationName)}</strong>, au nom de ${escapeHtml(assistedName)}, jusqu’à <strong>${escapeHtml(untilLabel)}</strong> au plus tard.`),
+        detailsTable([["Motif", reason]]),
+        paragraph("Chaque action faite pendant l’assistance est inscrite au journal de votre espace (Administration › Journal)."),
+        mutedParagraph("Si vous n’êtes pas à l’origine de cette demande, répondez à cet email."),
       ].join(""),
       footer: platformFooter(),
     }),
@@ -393,12 +431,12 @@ export function reminderEmailTemplate(params: { professionalCompany: string; mes
     .replace(/\n/g, "<br>");
   return {
     subject: `Un petit rappel de ${professionalCompany}`,
-    text: message,
+    text: `${message}\n\n${OPT_OUT_TEXT}`,
     html: layout({
       preheader: message.replace(/\s+/g, " ").slice(0, 120),
       title: `Un petit rappel de ${professionalCompany}`,
       body: paragraph(messageHtml),
-      footer: professionalFooter(professionalCompany, ""),
+      footer: professionalFooter(professionalCompany, "", true),
     }),
   };
 }
@@ -488,6 +526,8 @@ export function appointmentReminderClientTemplate(params: AppointmentEmailParams
       "",
       "En cas d’empêchement, merci de prévenir au plus tôt pour libérer le créneau.",
       contact.text,
+      "",
+      OPT_OUT_TEXT,
     ].join("\n"),
     html: layout({
       preheader: `Rappel : ${animalName}, le ${dateInSentence} à ${time}.`,
@@ -503,7 +543,7 @@ export function appointmentReminderClientTemplate(params: AppointmentEmailParams
         paragraph("En cas d’empêchement, merci de prévenir au plus tôt pour libérer le créneau."),
         paragraph(contact.html),
       ].join(""),
-      footer: professionalFooter(professionalCompany, professionalPhone),
+      footer: professionalFooter(professionalCompany, professionalPhone, true),
     }),
   };
 }

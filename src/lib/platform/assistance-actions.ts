@@ -2,6 +2,9 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { getEmailProvider } from "@/lib/email/provider";
+import { assistanceStartedTemplate } from "@/lib/email/templates";
 import { prisma } from "@/lib/db";
 import { createSession, deleteSession, getSessionPayload } from "@/lib/auth/session";
 import { getCurrentUser } from "@/lib/auth/dal";
@@ -68,6 +71,19 @@ export async function startAssistanceAction(targetUserId: string, rawReason: str
     entityType: "Session",
     entityId: session.id,
     metadata: { reason, expiresAt: session.expiresAt.toISOString() },
+  });
+
+  // Les administrateurs de l'espace en sont prévenus, à chaque fois (RGPD-11).
+  const organizationId = target.organizationId;
+  const assistedName = `${target.firstName} ${target.lastName}`.trim() || target.email;
+  const untilLabel = session.expiresAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+  after(async () => {
+    const [organization, admins] = await Promise.all([
+      prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }),
+      prisma.user.findMany({ where: { organizationId, role: "ADMIN", active: true }, select: { email: true } }),
+    ]);
+    const message = assistanceStartedTemplate({ organizationName: organization?.name ?? "votre espace", assistedName, reason, untilLabel });
+    await Promise.allSettled(admins.map((admin) => getEmailProvider().send({ to: admin.email, ...message })));
   });
 
   await createSession(target.id, session.id);
