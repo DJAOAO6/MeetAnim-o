@@ -8,7 +8,7 @@ import { useCurrentUser } from "@/components/auth/current-user-provider";
 import { NotificationsBell } from "@/components/dashboard/notifications-bell";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { OPEN_MENU_EVENT } from "@/components/layout/mobile-bottom-nav";
-import { ChevronRight, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Shield, ShieldCheck, X } from "lucide-react";
+import { ChevronRight, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Settings, Shield, ShieldCheck, X } from "lucide-react";
 import { SidebarLinkRow, SidebarNavigation } from "@/components/layout/sidebar-navigation";
 import { IconButton } from "@/components/ui/icon-button";
 import { useSidebar } from "@/components/layout/sidebar-provider";
@@ -140,6 +140,7 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
           // reste (branche suivante).
           <div className="mt-3 shrink-0 space-y-0.5 border-t border-[var(--theme-sidebar-border)] pt-3 short:mt-2 short:pt-2">
             <SidebarLinkRow label="Paramètres" href="/dashboard/parametres" icon={Settings} active={isActive(pathname, "/dashboard/parametres")} showLabel onNavigate={() => setMobileOpen(false)} />
+            <SidebarLinkRow label="Mon compte" href="/dashboard/compte" icon={KeyRound} active={isActive(pathname, "/dashboard/compte")} showLabel onNavigate={() => setMobileOpen(false)} />
             {showAdmin ? (
               <SidebarLinkRow label="Administration" href="/dashboard/admin" icon={Shield} active={isActive(pathname, "/dashboard/admin")} showLabel onNavigate={() => setMobileOpen(false)} />
             ) : null}
@@ -196,6 +197,15 @@ export function DashboardSidebar({ showAdmin = false, showStatistics = true, sho
                 >
                   <Settings aria-hidden="true" className="h-4 w-4" />
                   Paramètres
+                </Link>
+                <Link
+                  href="/dashboard/compte"
+                  onClick={() => { setProfileOpen(false); setMobileOpen(false); }}
+                  aria-current={isActive(pathname, "/dashboard/compte") ? "page" : undefined}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold text-animeo-dark transition hover:bg-animeo-bg"
+                >
+                  <KeyRound aria-hidden="true" className="h-4 w-4" />
+                  Mon compte
                 </Link>
                 {showAdmin ? (
                   <Link
