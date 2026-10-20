@@ -1,7 +1,8 @@
 "use client";
 
 import "maplibre-gl/dist/maplibre-gl.css";
-import maplibregl from "maplibre-gl";
+// maplibre-gl 6 ne fournit plus d'export par défaut : espace de noms.
+import * as maplibregl from "maplibre-gl";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { formatDurationSeconds, getMapStyleUrl } from "@/lib/maps/map-utils";
@@ -340,7 +341,8 @@ export function TourRunMap({ points, routeGeometry, selectedId, onSelect, height
       if (!source) return;
       if (routeGeometry) {
         source.setData({ type: "Feature", properties: {}, geometry: routeGeometry });
-        map!.setPaintProperty(ROUTE_LAYER_ID, "line-dasharray", null);
+        // undefined rend la valeur par défaut (trait plein) ; maplibre 6 refuse null.
+        map!.setPaintProperty(ROUTE_LAYER_ID, "line-dasharray", undefined);
       } else if (points.length >= 2) {
         source.setData({ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: points.map((point) => [point.lng, point.lat]) } });
         map!.setPaintProperty(ROUTE_LAYER_ID, "line-dasharray", [2, 2]);
