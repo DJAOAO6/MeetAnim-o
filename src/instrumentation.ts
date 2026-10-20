@@ -44,6 +44,16 @@ export async function register() {
     if (!emailConfigured()) {
       console.warn("[email] ATTENTION : Mailjet n'est pas configuré (MAILJET_API_KEY, MAILJET_API_SECRET, MAIL_FROM_ADDRESS). Aucun email n'est envoyé ; seul le destinataire masqué est journalisé.");
     }
+    // Tous les réglages indispensables, d'un coup (EXP-05) : ce qui manque
+    // est listé au démarrage, et reste visible dans /plateforme et /api/health.
+    try {
+      const { systemHealth } = await import("@/lib/health");
+      for (const check of (await systemHealth()).checks) {
+        if (!check.ok) console.warn(`[réglages] ${check.severity === "critique" ? "CRITIQUE" : "attention"} : ${check.label} — non${check.detail ? ` (${check.detail})` : ""}.`);
+      }
+    } catch (error) {
+      console.warn("[réglages] contrôle impossible :", error instanceof Error ? error.message : error);
+    }
   }
 
   const override = process.env.SCHEDULER_ENABLED;

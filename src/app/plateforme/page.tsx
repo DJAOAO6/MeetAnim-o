@@ -6,6 +6,7 @@ import { InvitationsPanel } from "@/components/platform/invitations-panel";
 import { getRecentInvitations } from "@/lib/platform/invitations";
 import { platformAccess } from "@/lib/platform/access";
 import { getPlatformOverview, getRecentAssistances } from "@/lib/platform/overview";
+import { systemHealth } from "@/lib/health";
 import { logout } from "@/lib/auth/actions";
 import { Button, buttonBaseClassName, buttonSizeClassName, buttonVariantClassName } from "@/components/ui/button";
 
@@ -29,7 +30,12 @@ export default async function PlatformPage() {
     return <AccessRefused reason={access.reason} />;
   }
 
-  const [organizations, assistances, invitations] = await Promise.all([getPlatformOverview(), getRecentAssistances(), getRecentInvitations()]);
+  const [organizations, assistances, invitations, health] = await Promise.all([getPlatformOverview(), getRecentAssistances(), getRecentInvitations(), systemHealth()]);
+  // Ce qui demande une action, en tête de page (FONC-08, EXP-02) : une
+  // vérification qui attend bloque l'ouverture d'un cabinet ; un réglage en
+  // défaut se découvrait jusqu'ici par un client mécontent.
+  const pendingVerifications = organizations.filter((organization) => organization.verification.status === "PENDING");
+  const failing = health.checks.filter((check) => !check.ok);
 
   return (
     <main className="mx-auto min-h-screen max-w-5xl bg-animeo-bg p-4 sm:p-8">
@@ -52,6 +58,21 @@ export default async function PlatformPage() {
           </form>
         </div>
       </header>
+
+      {pendingVerifications.length > 0 || failing.length > 0 ? (
+        <section role="status" aria-label="À traiter" className="mb-6 space-y-2 rounded-2xl border border-animeo-border bg-white p-4 text-sm">
+          {pendingVerifications.length > 0 ? (
+            <p className="font-extrabold text-animeo-dark">
+              {pendingVerifications.length} vérification{pendingVerifications.length > 1 ? "s" : ""} de numéro en attente : {pendingVerifications.map((organization) => organization.name).join(", ")}.
+            </p>
+          ) : null}
+          {failing.map((check) => (
+            <p key={check.key} className={check.severity === "critique" ? "font-extrabold text-animeo-danger" : "font-bold text-animeo-warning"}>
+              {check.severity === "critique" ? "Critique" : "À corriger"} : {check.label} — non{check.detail ? ` (${check.detail})` : ""}.
+            </p>
+          ))}
+        </section>
+      ) : null}
 
       <div className="mb-6">
         <InvitationsPanel

@@ -96,11 +96,28 @@ class MailjetEmailProvider implements EmailProvider {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      deliveryStats.failures += 1;
+      deliveryStats.lastFailureAt = new Date();
       // La réponse de Mailjet recopie parfois le destinataire : masqué avant
       // de remonter dans les journaux.
-      throw new Error(`Échec de l'envoi Mailjet (${response.status}) : ${redactEmails(body).slice(0, 500)}`);
+      const error = new Error(`Échec de l'envoi Mailjet (${response.status}) : ${redactEmails(body).slice(0, 500)}`);
+      console.error(`[email] ${error.message}`);
+      throw error;
     }
+    deliveryStats.lastSuccessAt = new Date();
   }
+}
+
+/**
+ * Relevé des envois depuis le démarrage du serveur (FONC-04) : un échec
+ * Mailjet n'était visible que de l'action qui l'attrapait, souvent en
+ * silence. La santé du système (src/lib/health.ts) le signale désormais.
+ * En mémoire : remis à zéro à chaque redémarrage.
+ */
+const deliveryStats: { failures: number; lastFailureAt: Date | null; lastSuccessAt: Date | null } = { failures: 0, lastFailureAt: null, lastSuccessAt: null };
+
+export function emailDeliveryStats(): Readonly<typeof deliveryStats> {
+  return deliveryStats;
 }
 
 let cachedProvider: EmailProvider | null = null;
