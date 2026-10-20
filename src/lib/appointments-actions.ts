@@ -1598,7 +1598,22 @@ export async function getOccupiedSlotsAction(slug: string | null, fromDateId: st
   // Deux appelants : la page publique, qui désigne son cabinet par le lien
   // suivi, et la fenêtre de rendez-vous du praticien, qui est connecté.
   const db = slug === null ? await currentDb() : await dbForSlug(slug);
-  if (!db) return { buffers: { travelBuffer: 0, breakAfterAppointment: 0 }, byDate: {} };
+  const empty: OccupiedSlots = { buffers: { travelBuffer: 0, breakAfterAppointment: 0 }, byDate: {} };
+  if (!db) return empty;
+  if (!dateIdFormat.test(fromDateId) || !dateIdFormat.test(toDateId)) return empty;
+
+  // Un visiteur ne voit que la fenêtre de réservation (SEC-16) : sans
+  // borne, n'importe qui reconstituait l'emploi du temps du professionnel,
+  // passé et futur, sur des années.
+  if (slug !== null) {
+    const startId = await getBookingWindowStartId();
+    const limit = parseDateIdToLocalNoon(startId);
+    limit.setDate(limit.getDate() + BOOKING_WINDOW_DAYS - 1);
+    const limitId = toLocalDateId(limit);
+    if (fromDateId < startId) fromDateId = startId;
+    if (toDateId > limitId) toDateId = limitId;
+    if (fromDateId > toDateId) return empty;
+  }
 
   const range = { gte: toDate(fromDateId), lte: new Date(`${toDateId}T23:59:59.999Z`) };
 

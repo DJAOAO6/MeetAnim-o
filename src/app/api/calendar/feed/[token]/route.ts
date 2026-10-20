@@ -31,8 +31,13 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   // le flux reflète le même agenda partagé que le tableau de bord interne,
   // pas seulement les rendez-vous "de" cet utilisateur. Jamais les rendez-
   // vous annulés (étape 18 : "ne pas montrer les RDV supprimés").
+  // Récents et à venir seulement (SEC-18) : le lien vaut accès, et tout
+  // l'historique du cabinet n'a rien à faire dans un agenda abonné.
+  const now = Date.now();
+  const from = new Date(now - 92 * 24 * 60 * 60 * 1000);
+  const to = new Date(now + 548 * 24 * 60 * 60 * 1000);
   const appointments = await db.appointment.findMany({
-    where: { status: { not: "CANCELLED" } },
+    where: { status: { not: "CANCELLED" }, date: { gte: from, lte: to } },
     orderBy: { date: "asc" },
     select: { id: true, date: true, start: true, duration: true, animalName: true, clientName: true, serviceName: true, location: true, mode: true, status: true },
   });

@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { normalizeGeocodedFeatures } from "@/lib/maps/geocoding-provider";
+import { consumeAttempt } from "@/lib/rate-limit";
+import { rateLimitKey } from "@/lib/privacy";
+import { requestIp } from "@/lib/request-ip";
 
 // Service de géocodage de la Géoplateforme IGN (successeur de l'ancienne
 // api-adresse.data.gouv.fr, dépréciée). Pas de clé nécessaire, limité à
@@ -24,10 +27,19 @@ const rawResponseSchema = z.object({
   features: z.array(z.unknown()),
 });
 
+// Route publique (page de réservation) : sans limite, elle servait de relais
+// ouvert vers le service de l'IGN (SEC-19). Large pour une autocomplétion :
+// une frappe sur deux environ part au serveur.
+const MAX_REQUESTS_PER_IP = 120;
+const RATE_WINDOW_MS = 5 * 60 * 1000;
+
 export async function GET(request: NextRequest) {
   const parsedQuery = querySchema.safeParse(request.nextUrl.searchParams.get("q"));
   if (!parsedQuery.success) {
     return NextResponse.json({ results: [] });
+  }
+  if (!(await consumeAttempt(rateLimitKey("address-search:ip", (await requestIp()) ?? ""), MAX_REQUESTS_PER_IP, RATE_WINDOW_MS))) {
+    return NextResponse.json({ results: [], error: "rate" }, { status: 429 });
   }
 
   const upstreamUrl = new URL(IGN_SEARCH_URL);

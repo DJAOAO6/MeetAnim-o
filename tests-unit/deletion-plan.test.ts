@@ -54,5 +54,10 @@ test("les empreintes d'un DeletionRecord ne contiennent ni l'identifiant ni le l
 test("CSV de l'export : séparateur « ; », guillemets, BOM pour le tableur", () => {
   assert.equal(csvCell('Dupont; "Jean"'), '"Dupont; ""Jean"""');
   assert.equal(csvCell(null), "");
+  // Injection de formule (SEC-21) : gardée en texte ; les nombres restent des nombres.
+  assert.equal(csvCell("=HYPERLINK(\"http://x\")"), "\"'=HYPERLINK(\"\"http://x\"\")\"");
+  assert.equal(csvCell("@SOMME(A1)"), "'@SOMME(A1)");
+  assert.equal(csvCell("-2+3"), "'-2+3");
+  assert.equal(csvCell(-12.5), "-12.5");
   assert.equal(toCsv(["Nom", "Ville"], [["Rex", "Rouen"]]), "﻿Nom;Ville\r\nRex;Rouen\r\n");
 });
